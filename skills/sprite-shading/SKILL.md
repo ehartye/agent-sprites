@@ -1,9 +1,12 @@
 ---
 name: sprite-shading
-description: Use when shading pixel art to add depth, lighting, or volume — triggers on "shade", "light", "add depth", "make it look round/3D/volumetric", "highlight", "shadow", "specular", "rim light", "form shadow", or when the user comments that a sprite looks flat/disc-like. Covers the five-tier tone ramp, direction/span/radius placement, pillow-shading anti-pattern, and the `draw highlight` / `draw shadow` CLI flags.
+description: Shade pixel-art sprites with highlights, shadows, and tone ramps. Use when a sprite looks flat, needs volume or rim/specular light, or sphere-shade/highlight/shadow placement needs adjustment; not general CSS shadows or 3D rendering.
 ---
 
 # Sprite Shading
+
+CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
+load that setup before running commands and stop on command failure.
 
 Give flat shapes visible form. Works with the `draw highlight` and `draw shadow` commands from `sprite-editing`.
 
@@ -95,8 +98,8 @@ Don't use `--direction top-left` on a big ellipse — corner directions on curve
 
 Ramp-aware palettes: `pico8`, `db-16`, `db-32`. The tool errors if the target's color isn't in a ramp. When building a new sprite, pick a base color with **headroom in both directions** — at minimum 2 darker steps and 2 lighter steps available for a 32px+ sprite.
 
-See `sprite-palette` (when it exists) for ramp selection.
+See [sprite palette](../sprite-palette/SKILL.md) for ramp selection.
 
 ## Reference
 
-Full flag listing in `sprite-editing/references/tool-reference.md`. Key flags: `--direction`, `--strength`, `--count`, `--span-deg`, `--radius-factor`, `--name`.
+Full flag listing in [tool reference](../sprite-editing/references/tool-reference.md). Key flags: `--direction`, `--strength`, `--count`, `--span-deg`, `--radius-factor`, `--name`.

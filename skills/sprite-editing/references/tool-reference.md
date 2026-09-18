@@ -1,8 +1,11 @@
 # Sprite Editing CLI Reference
 
-All commands: `node "$CLAUDE_PLUGIN_ROOT/scripts/sprite.js" <command> [positional] [--flags]`
+`sprite.js` below means the installed `agent-sprites` executable or Node plus
+the absolute `scripts/sprite.js` path resolved from the loaded skill. See
+[CLI setup](cli-setup.md) for PowerShell failure checks and the Claude plugin option.
 
-The server auto-starts on first invocation. Port defaults to 3377 (override with `SPRITE_PORT` env var).
+After dependency installation, the server starts on first invocation. Port defaults
+to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite data.
 
 ## Session Commands
 
@@ -14,7 +17,7 @@ The server auto-starts on first invocation. Port defaults to 3377 (override with
 | `sessions` | | List recent projects (id, name, last updated) — the way back after `new` switches projects |
 | `cast start` | `--file <casting.json> [--out <verdict.json>]` | Open a collaborative frame-casting session in the web UI (`/casting.html?id=…`): slots + candidate frame paths + predicted assignments; the user confirms/overrides/marks gaps. See the `sprite-verification` skill |
 | `cast status` | `--id <id>` | Poll a casting verdict: agreement score + per-slot prediction-vs-selection disagreements (detector-refinement signal) |
-| `save` | | Persist project to SQLite |
+| `save` | | Write project JSON to the opened file, or `<session destination>/<name>.json` for a new project. SQLite drafts are automatic and need no `save`; omit it when assets must contain only PNG + atlas. |
 | `export` | `[--dest <folder>]` | Export gapless sheet PNG + **Aseprite JSON atlas** (`<name>.atlas.json`) to the project's asset folder (or exactly `--dest` for this export only). The atlas carries `meta.frameTags` (one per cell group, as a contiguous appended frame run), per-frame `duration` from each group's fps, and the pivot as a slice — consumable directly by Unity/Godot/Phaser importers |
 | `pivot` | `--x N --y N` \| `--anchor center\|top-center\|bottom-center\|bottom-left\|bottom-right` | Set the sprite origin exported in the atlas (characters usually want `bottom-center`). Unity/Godot importers read the exported pivot slice; **Phaser ignores slices** — set `sprite.setOrigin(...)` in game code |
 | `status` | | Show current project info |
@@ -226,16 +229,25 @@ The `--updates` flag takes a JSON object with keys matching the shape's paramete
 Run a JSON array of operations in one CLI call. Collapses per-frame bash loops into a single deterministic call.
 
 ```
-sprite.js batch ops.json [--vars-file frames.json | --vars k=v,k=v] [--continue-on-error]
+sprite.js batch ops.json [--vars-file frames.json | --vars k=v,k=v] [--continue-on-error] [--quiet | --json]
 ```
 
-- `ops.json` — array of `{ command, args }` objects. String values may contain `{{var}}` placeholders.
+- `ops.json` — array of objects with top-level command parameters, e.g.
+  `{"command":"draw","type":"rect","cell":"0,0","x":3,"y":3,"w":10,"h":10,"color":"#c2c3c7","name":"body"}`.
+  Do not nest parameters under `args`. String values may contain `{{var}}` placeholders.
 - **A complete asset build fits in one file**: `new` (incl. `"WxH"` size and `dest`), `clear`, all `draw` types, shape edits, `clone-cell`, `copy`, `mirror`/`rotate-cell`/`flip`/`rotate`, `tween` (`to` as `"X,Y"` or `{x,y}`), `group` (incl. `create` with `fps` and the `fps` sub-command), `shape-group` create/add/remove/delete, `move-group`/`recolor-group`, `pivot`, `ref` set/clear, `save`, `export` (with optional `dest`). Not batchable: `view`/`view-anim` (interactive output).
 - **Lead scene builds with `{"command": "clear", "cell": ...}`** — the ops file becomes idempotent: iterate by editing the generator and re-running the same batch.
 - `--vars-file frames.json` — JSON array of per-iteration variable dicts. The whole op list replays once per dict.
 - `--vars k=v,k=v` — single-iteration inline shortcut.
 - **Type preservation:** a string exactly equal to `"{{foo}}"` becomes the raw value (number stays number). Embedded placeholders (`"0,{{i}}"`) stay strings.
-- **Fail-fast by default:** stops on first error with structured stderr (`ERROR at op 4/12: ...`). Use `--continue-on-error` for legacy best-effort behavior.
+- **Fail-fast by default:** stops on the first error and exits 1. `--continue-on-error`
+  attempts remaining operations but still exits 1 if any fail. Do not publish
+  partial outputs from a failed batch.
+- `--quiet` suppresses successful-op chatter, keeping the final summary and artifact paths.
+- `--json` emits one summary object: `ok`, `total`, `attempted`, `succeeded`, `failed`,
+  `errors` (`index`, `command`, `error`), `session`, `artifacts` (`type`, `path`), and
+  `exports` (export metadata). `total` counts planned ops; `attempted` may be smaller
+  after fail-fast. Check the process exit status before using artifacts.
 - No arithmetic, no conditionals, no nested interpolation. Pre-compute numeric values in the vars file.
 - **Large builds (150+ ops): generate the batch file from a small JS script** instead of hand-writing JSON — helper functions (`draw()`, a per-archetype recipe that clones rows and recolor-groups variants) keep it maintainable, and the emitted `build.json` stays the reviewable, replayable artifact. Proven shape: horde-peril's `asset-src/gen-build.mjs` (9 sheets / 12 enemy variants / 234 ops from ~200 lines of generator).
 
@@ -244,3 +256,6 @@ sprite.js batch ops.json [--vars-file frames.json | --vars k=v,k=v] [--continue-
 | Command | Notes |
 |---------|-------|
 | `restart` | Clean server restart via `POST /api/control/shutdown`. Flushes pending writes, closes DB, respawns. Prefer over `Stop-Process -Force`. |
+
+Only control a server whose identity the CLI has verified. If another application
+owns the port, choose an unused `SPRITE_PORT`; do not shut the other app down.

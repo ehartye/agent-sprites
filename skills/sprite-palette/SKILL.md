@@ -1,9 +1,12 @@
 ---
 name: sprite-palette
-description: Use when choosing colors, a palette, or ramp-aware base colors for pixel art — triggers on "palette", "ramp", "choose color", "which palette", "what color", "theme", "mood", "color scheme", or when shading fails because a color isn't in a ramp. Covers ramp-aware palettes, base-color selection with headroom, and palette tradeoffs.
+description: Choose pixel-art palettes and ramp-aware base colors. Use for sprite color schemes, ramp headroom, palette tradeoffs, or shading errors such as a color missing from palette ramps; not general website theming.
 ---
 
 # Sprite Palette
+
+CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
+load that setup before running commands and stop on command failure.
 
 Pick the palette and base colors before drawing. Wrong palette → `draw highlight` / `draw shadow` errors or produces mud.
 
@@ -78,4 +81,4 @@ If you need a custom color shaded, add it to the palette file (`server/engine/pa
 
 ## Reference
 
-Palette definitions: `server/engine/palette.js`. Ramp map there shows every lighter/darker neighbor.
+Palette definitions: [palette.js](../../server/engine/palette.js). The ramp map shows every lighter/darker neighbor.

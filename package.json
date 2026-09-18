@@ -1,9 +1,12 @@
 {
   "name": "agent-sprites",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Pixel-art sprite authoring toolset for coding agents and 2D game projects",
   "type": "module",
   "main": "server/index.js",
+  "bin": {
+    "agent-sprites": "scripts/sprite.js"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",

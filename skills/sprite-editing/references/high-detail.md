@@ -2,7 +2,7 @@
 
 Field guide for pushing past small game sprites into showcase-quality characters
 (32×48+) and full environment cells (96×96+). Everything here was proven on the
-Fallow Valley showcase (`recipes/fallow-valley/`) — a 32×48 character (88 ops)
+Fallow Valley showcase ([recipes](../../../recipes/fallow-valley/)) — a 32×48 character (88 ops)
 and a 128×96 environment (764 ops), both rebuilt idempotently from generator
 scripts.
 

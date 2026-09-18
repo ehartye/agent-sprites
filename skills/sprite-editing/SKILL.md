@@ -1,18 +1,24 @@
 ---
 name: sprite-editing
-description: This skill should be used when the user asks to draw, create, edit, or animate pixel art sprites, or asks Claude to use sprite sheet tools. Covers project setup, drawing primitives, shape management, animation workflows, and export.
+description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
 
-CLI tools for pixel art creation in a cell-based sprite sheet. The web UI at `http://localhost:3377` (or `$SPRITE_PORT` if set) shows real-time updates — tell the user they can open it alongside you.
+CLI tools for pixel art creation in a cell-based sprite sheet. Use the installed
+`agent-sprites` executable, or resolve `../../scripts/sprite.js` from this skill's
+actual location and invoke its absolute path with Node. Never assume a checkout
+name, current directory, or Claude environment variable in Codex.
 
-All commands use:
-```
-node "$CLAUDE_PLUGIN_ROOT/scripts/sprite.js" <command> [args] [--flags]
-```
+For checkout setup (`npm ci`, then `npm link`), PowerShell invocation with failure
+checks, and the optional Claude plugin path, read [CLI setup](references/cli-setup.md).
+Below, `sprite.js` is shorthand for that resolved invocation; it is not a bare
+executable to assume on PATH. Stop after a failed command before exporting.
 
-The server auto-starts on first command — no manual setup needed.
+With dependencies installed, the CLI starts the server when needed. The web UI
+at `http://localhost:3377` shows updates; `SPRITE_PORT` changes the port. An
+unrelated service is an identity error: choose an unused port, do not stop that
+service. Ports do not isolate the shared session database.
 
 ## Project Setup
 
@@ -25,6 +31,19 @@ sprite.js new myproject --size 16 --rows 4 --cols 4 --palette pico8
 - Built-in palettes: `pico8`, `gameboy`, `nes`, `cga`
 - Name cells immediately: `sprite.js name --cell 0,0 --as idle_1`
 - Check project state: `sprite.js status`
+- `new --dest <parent>` stores the destination as `<parent>/<name>`;
+  `export --dest <folder>` writes directly into that folder for one export.
+- Changes are drafted automatically in SQLite. `save` explicitly writes project
+  JSON (by default into the session's asset folder); omit it when assets should
+  contain only the PNG and atlas. Inspect supplied ops for `save` and destinations.
+
+## Replaying an ops file
+
+Use `sprite.js batch ops.json --json` for a machine-readable summary, or `--quiet`
+for a concise summary and artifact paths. Both stop on the first failed op by
+default. `--continue-on-error` attempts the remaining ops but still exits 1 if
+anything failed. Never publish partial exports from a failed batch. See
+[batch flags and summary fields](references/tool-reference.md#batch-mode).
 
 ## Core Drawing Workflow
 
@@ -137,7 +156,7 @@ Match effort to on-screen size before drawing anything:
   paint in depth bands back-to-front; single-phase dither rows for gradients;
   lead the batch with `clear` so rebuilds are idempotent.
 
-Full recipes and the reasoning: **`references/high-detail.md`** — read it before
+Full recipes and the reasoning: [high-detail guide](references/high-detail.md) — read it before
 attempting either of the higher tiers.
 
 ## Export
@@ -146,20 +165,24 @@ attempting either of the higher tiers.
 sprite.js pivot --anchor bottom-center   # set sprite origin (do this before export for characters)
 sprite.js group fps walk 10              # animation speed -> atlas frame durations
 sprite.js export                         # gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
-sprite.js save                           # persist project to SQLite
 ```
 
-The atlas is Aseprite-format JSON: cell groups become `meta.frameTags`, group fps becomes per-frame `duration`, and the pivot ships as a slice — Unity, Godot, and Phaser importers read it directly.
+For explicit paths, use `sprite.js export --dest public/art` and
+`sprite.js view --sheet --scale 4 --out review/contact-sheet.png`; then inspect
+the PNG. Run previews separately from the batch. The atlas is Aseprite-format
+JSON: cell groups become `meta.frameTags`, group fps becomes per-frame `duration`,
+and the pivot ships as a slice. Phaser needs an explicit origin in game code;
+see [game integration](../game-integration/SKILL.md).
 
 ## Additional Resources
 
-- **`references/tool-reference.md`** — complete flag reference for all CLI commands, anchor points per shape type, group details
-- **`sprite-shading` skill** — multi-tier lighting technique (form shadow, core shadow, rim, spec), pillow-shading anti-pattern
-- **`sprite-motion` skill** — animation principles (squash/stretch, shadow-as-elevation, timing, key poses)
-- **`sprite-palette` skill** — palette selection, ramp-aware base colors, headroom, tradeoffs
-- **`sprite-composition` skill** — draw order / z-index discipline, naming conventions, groups, sheet layout
-- **`game-integration` skill** — wiring exports into Phaser/Unity/Godot, full-game asset builds, app icons from sprites
-- **`references/generated-sprites.md`** — working with image-generation models:
+- [Tool reference](references/tool-reference.md) — complete flags, anchor points per shape type, group details
+- [Sprite shading](../sprite-shading/SKILL.md) — multi-tier lighting technique, pillow-shading anti-pattern
+- [Sprite motion](../sprite-motion/SKILL.md) — squash/stretch, shadow-as-elevation, timing, key poses
+- [Sprite palette](../sprite-palette/SKILL.md) — palette selection, ramp-aware base colors, headroom, tradeoffs
+- [Sprite composition](../sprite-composition/SKILL.md) — draw order, naming conventions, groups, sheet layout
+- [Game integration](../game-integration/SKILL.md) — Phaser/Unity/Godot, full-game asset builds, app icons
+- [Generated sprites](references/generated-sprites.md) — working with image-generation models:
   height calibration across runs, chroma instead of transparency, prompt
   construction, and the canonical walk/run pose vocabulary
-- **`sprite-verification` skill** — per-frame contact-sheet inspection, baseline alignment, in-engine loader checks before wiring any sheet into a game
+- [Sprite verification](../sprite-verification/SKILL.md) — per-frame inspection, baseline alignment, in-engine loader checks before game integration
