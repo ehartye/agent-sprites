@@ -5,6 +5,11 @@ description: Plan and refine pixel-art sprite animation including bounce, idle, 
 
 # Sprite Motion
 
+Before running sprite operations, use [sprite setup](../sprite-setup/SKILL.md) for
+first-time installation and version sync after plugin updates. Always invoke this
+plugin's absolute scripts/run-managed.js with Node; never use a PATH executable,
+checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
+
 CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
 load that setup before running commands and stop on command failure.
 

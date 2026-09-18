@@ -3,6 +3,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync, realpathSync } from 'fs';
 import { handleDraw } from '../handlers/draw.js';
 import { handleNameShape, handleMoveShape, handleRecolorShape, handleDeleteShape, handleSetZ, handleShapeZDirection, handleCloneShape, handleResizeShape, handleMoveShapeTo } from '../handlers/shape.js';
 import { handleShiftCell, handleMirrorCell, handleCopyCell, handleClearCell, handleNameCell } from '../handlers/cell.js';
@@ -16,6 +17,8 @@ import { controlRoutes } from './api/control-routes.js';
 import { castingRoutes } from './api/casting-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
+const version = JSON.parse(readFileSync(path.join(runtimeRoot, 'package.json'), 'utf8')).version;
 
 const DISPATCH = {
   draw:               (state, msg) => handleDraw(state, msg.type, msg.params),
@@ -52,7 +55,7 @@ export function dispatchWebMessage(state, msg) {
 export async function startWebServer(state, port) {
   const app = express();
   app.use(express.json());
-  app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1 }));
+  app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1, version, runtimeRoot }));
   app.use('/api/session', sessionRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));

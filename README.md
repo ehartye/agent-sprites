@@ -19,22 +19,41 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 
 ## Install
 
-### CLI for Codex, Claude Code, other agents, and people
+### Managed CLI for coding agents and people
 
-Clone this repository, then run the following in its directory. This installs
-from source and links the local `agent-sprites` executable; no npm registry
-package is required.
+Install Node.js with npm, then use the `sprite-setup` skill from your installed
+plugin. A checkout can run the same bootstrap:
 
 ```powershell
-npm ci
-if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
-npm link
-if ($LASTEXITCODE -ne 0) { throw 'Local CLI linking failed' }
+node ./scripts/setup.js
+if ($LASTEXITCODE -ne 0) { throw 'CLI setup or version sync failed' }
+node ./scripts/setup.js --check --json
+if ($LASTEXITCODE -ne 0) { throw 'Version sync check failed' }
 ```
 
-The server depends on native `canvas` and `better-sqlite3` modules. Resolve any
-installation errors before starting a build. Without linking, invoke
-`node /absolute/path/to/agent-sprites/scripts/sprite.js` from your project directory.
+Setup copies this release's runtime into `~/.agent-sprites/releases/`, installs
+lockfile dependencies there with `npm ci --omit=dev`, verifies the native `canvas`
+and `better-sqlite3` bindings, and runs `npm link` from that managed copy. It does
+not install dependencies in the plugin cache or link your checkout. No published
+npm package is required. The global link uses your configured npm prefix; setup
+reports its PATH directory if it is missing from the current environment.
+
+Run setup again after a plugin update. Releases are identified by version, content,
+platform and Node ABI; matching installs are reused, and old releases are retained.
+An optional `AGENT_SPRITES_HOME` overrides the managed home and must be consistent
+between setup and use. Existing sessions remain in `~/.claude-sprites/session.db`.
+
+**Every sprite skill uses the checked launcher** from its loaded plugin:
+`node "<plugin-root>/scripts/run-managed.js" <command> ...`. It requires the
+matching external install and never falls back to PATH, a checkout, or the plugin's
+bundled CLI. The linked `agent-sprites` command is also available for shell users.
+Run commands from your game/project directory to preserve relative asset paths.
+
+The version sync check compares plugin/package/lockfile metadata, runtime contents,
+native dependencies, npm link target, and a running server's version and install
+root. A stopped server is valid. A mismatched server blocks operations; stop the
+known old server when safe or choose an unused `SPRITE_PORT`, then rerun the check.
+Setup never stops an existing server automatically.
 
 ### Optional Claude Code plugin
 
@@ -43,13 +62,9 @@ installation errors before starting a build. Without linking, invoke
 /plugin install agent-sprites@agent-sprites
 ```
 
-Then install the server's dependencies (native modules: canvas, better-sqlite3) inside the installed plugin directory:
-
-```
-npm install --prefix <plugin-install-dir>
-```
-
-The CLI tells you the exact path if you skip this step.
+Then invoke `/agent-sprites:sprite-setup`, or run
+`node "<plugin-install-dir>/scripts/setup.js"`. The setup skill installs and links
+the external runtime and performs the version sync check.
 
 ### Upgrading from claude-sprites
 
@@ -127,6 +142,7 @@ project. These shortcuts call the same CLI:
 
 | Skill | Craft it carries |
 |---|---|
+| `sprite-setup` | External CLI installation, npm linking, dependency checks and plugin/CLI/server version sync |
 | `sprite-editing` | Full tool workflow: drawing, shape editing, groups, animation, export |
 | `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |

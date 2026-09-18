@@ -1,7 +1,7 @@
 # Sprite Editing CLI Reference
 
-`sprite.js` below means the installed `agent-sprites` executable or Node plus
-the absolute `scripts/sprite.js` path resolved from the loaded skill. See
+`sprite.js` below means Node plus
+the absolute `scripts/run-managed.js` launcher resolved from the loaded skill. See
 [CLI setup](cli-setup.md) for PowerShell failure checks and the Claude plugin option.
 
 After dependency installation, the server starts on first invocation. Port defaults

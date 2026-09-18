@@ -5,6 +5,11 @@ description: Integrate agent-sprites exports into a 2D game, build a game's pixe
 
 # Game Integration
 
+Before running sprite operations, use [sprite setup](../sprite-setup/SKILL.md) for
+first-time installation and version sync after plugin updates. Always invoke this
+plugin's absolute scripts/run-managed.js with Node; never use a PATH executable,
+checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
+
 Patterns for taking agent-sprites exports into a real game project. Everything here shipped in production games (horde-peril, thrill-peril) — prefer these shapes over inventing new ones.
 
 `sprite.js` means the invocation resolved by [sprite editing](../sprite-editing/SKILL.md).

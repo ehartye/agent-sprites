@@ -5,15 +5,14 @@ description: Create, edit, animate, and export pixel-art sprites with agent-spri
 
 # Sprite Sheet Editing
 
-CLI tools for pixel art creation in a cell-based sprite sheet. Use the installed
-`agent-sprites` executable, or resolve `../../scripts/sprite.js` from this skill's
-actual location and invoke its absolute path with Node. Never assume a checkout
-name, current directory, or Claude environment variable in Codex.
+CLI tools for pixel art creation in a cell-based sprite sheet. First use or plugin
+update: run [sprite setup](../sprite-setup/SKILL.md), including its version sync check.
+Always invoke `node "<this-plugin-root>/scripts/run-managed.js"` using the root
+resolved from this loaded skill. Never use a PATH executable, checkout CLI, or
+plugin-cache CLI. The launcher requires the matching external managed install.
 
-For checkout setup (`npm ci`, then `npm link`), PowerShell invocation with failure
-checks, and the optional Claude plugin path, read [CLI setup](references/cli-setup.md).
-Below, `sprite.js` is shorthand for that resolved invocation; it is not a bare
-executable to assume on PATH. Stop after a failed command before exporting.
+Read [CLI setup](references/cli-setup.md) for path resolution and checked shell
+examples. Below, `sprite.js` means that managed launcher. Stop after a failed command.
 
 With dependencies installed, the CLI starts the server when needed. The web UI
 at `http://localhost:3377` shows updates; `SPRITE_PORT` changes the port. An
