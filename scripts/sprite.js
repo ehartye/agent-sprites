@@ -396,6 +396,11 @@ SESSION
   status                 show active project info
   restart                graceful shutdown + respawn of sprite server
 
+OFFLINE VERIFICATION (does not start or contact a server)
+  verify <atlas.json> [--expect-tags idle,walk] [--contact-sheet review.png]
+                      [--report report.json] [--scale 4] [--json]
+                         inspect actual PNG + metadata; nonzero exit on structural failure
+
 DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw point     --x --y
   draw line      --x1 --y1 --x2 --y2
@@ -489,6 +494,22 @@ async function run() {
   }
 
   const { args, positional } = parseArgs(process.argv.slice(3));
+  if (cmd === 'verify') {
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--contact-sheet review.png] [--report report.json] [--json]');
+    const { verifyAtlasFile } = await import('../server/engine/atlas-verifier.js');
+    const report = await verifyAtlasFile(positional[0], {
+      expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
+      contactPath: args['contact-sheet'], reportPath: args.report, scale: num(args.scale) ?? 4,
+    });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (structural checks only)`);
+      for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
+      for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+    }
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
   try {
     await ensureServer();
   } catch (error) {

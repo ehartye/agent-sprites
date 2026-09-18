@@ -35,6 +35,17 @@ entry per source cell, followed by contiguous group runs and named aliases;
 repeated rectangles are intentional. Its atlas entry count can exceed source
 cell count. Verify tag ranges, durations, and aliases separately.
 
+Run the executable check against the exported files (no server is needed):
+
+```sh
+node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --expect-tags idle,walk --contact-sheet review.png --report review.json --json
+```
+
+Resolve `<plugin-root>` from this loaded skill's directory, two parents up.
+Use the animations actually required for this asset in `--expect-tags`.
+Exit zero certifies structural checks only. Empty-frame warnings require a
+deliberate decision; inspect the generated contact sheet and play each animation.
+
 **2. Per-frame contact sheet.** Render EVERY frame individually at 2–4×
 nearest-neighbor zoom and inspect each one for:
 
@@ -44,8 +55,9 @@ nearest-neighbor zoom and inspect each one for:
 - partial figures (amputated heads/feet from bad slicing)
 - character consistency (same costume, same proportions, every cell)
 
-For agent-sprites projects, `sprite.js view --sheet --scale 4 --out qa.png` is
-the contact sheet. For external or converted sheets, build one in-engine (below).
+Use `verify --contact-sheet review.png` to inspect every exported atlas entry,
+including named aliases and repeated animation frames. `sprite.js view --sheet`
+shows the current project grid; it does not verify the exported bytes.
 
 **3. Baseline alignment (grounded characters).** For walk cycles, verify contact
 poses share the intended ground line; allow deliberate lift/bob between them.
