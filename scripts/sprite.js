@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/sprite.js — CLI entry point for claude-sprites
+// scripts/sprite.js — CLI entry point for agent-sprites
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
@@ -328,7 +328,7 @@ function describeBatchCommand(cmd) {
   }
 }
 
-const HELP_TEXT = `sprite — CLI for claude-sprites (server at ${BASE_URL})
+const HELP_TEXT = `sprite — CLI for agent-sprites (server at ${BASE_URL})
 
 SESSION
   new <name> [--size N | --size WxH] [--rows N --cols N --palette pico8|gameboy|nes|cga|db-16|db-32]

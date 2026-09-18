@@ -1,14 +1,14 @@
 {
-  "name": "claude-sprites",
-  "description": "Local marketplace for claude-sprites plugin",
+  "name": "agent-sprites",
+  "description": "Local marketplace for agent-sprites plugin",
   "owner": {
     "name": "ehartye"
   },
   "plugins": [
     {
-      "name": "claude-sprites",
+      "name": "agent-sprites",
       "description": "Pixel-art sprite authoring toolset for 2D game projects — parametric shapes, ramp-aware lighting, animation groups, Aseprite JSON atlas export, and a live collaborative web UI",
-      "version": "0.10.0",
+      "version": "0.10.1",
       "source": "./",
       "license": "MIT"
     }

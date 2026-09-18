@@ -151,7 +151,7 @@ export class Project {
     return {
       frames,
       meta: {
-        app: 'https://github.com/ehartye/claude-sprites',
+        app: 'https://github.com/ehartye/agent-sprites',
         version: '1.0',
         image: imageName,
         format: 'RGBA8888',
