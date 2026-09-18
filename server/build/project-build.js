@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rename
 import { resolve, dirname, join, basename, relative, isAbsolute, sep } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 import express from 'express';
 import { SessionDB } from '../db/session.js';
 import { CanvasRenderer } from '../engine/canvas-renderer.js';
@@ -20,6 +21,19 @@ const marker = '.agent-sprites-build.json';
 const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
+
+// Windows readers/watchers can briefly deny a directory rename after files close.
+// Keep the output intact: retry the rename itself, never remove its destination.
+async function renameForPublication(from, to) {
+  const waits = [50, 100, 200, 400, 800];
+  for (let attempt = 0; ; attempt++) {
+    try { renameSync(from, to); return; }
+    catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt === waits.length) throw error;
+      await delay(waits[attempt]);
+    }
+  }
+}
 
 function outputOwner(output, configPath) {
   const config = relative(output, configPath);
@@ -109,9 +123,17 @@ export async function buildProject(configPath) {
     assertOwnedOutput(output, configPath);
     const backup = stage + '.previous';
     const replacing = existsSync(output);
-    if (replacing) renameSync(output, backup);
-    try { renameSync(stage, output); }
-    catch (error) { if (replacing) renameSync(backup, output); throw error; }
+    if (replacing) await renameForPublication(output, backup);
+    try { await renameForPublication(stage, output); }
+    catch (error) {
+      if (replacing) {
+        try { await renameForPublication(backup, output); }
+        catch (restoreError) {
+          throw new Error(`${error.message}; previous output retained at ${backup}; restoring it failed: ${restoreError.message}`, { cause: error });
+        }
+      }
+      throw error;
+    }
     stage = undefined;
     if (replacing) {
       try { rmSync(backup, { recursive: true }); }
