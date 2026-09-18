@@ -1,6 +1,6 @@
 ---
-description: Export sprite sheet PNG + Aseprite JSON atlas
-argument-hint: "[dest folder]"
+name: sprite-export
+description: Export the active sprite project as a PNG sheet and Aseprite JSON atlas. Use when sprite artwork is ready for game integration or an explicit export destination is requested.
 ---
 
 Export the current sprite project. Usage: /sprite-export [dest folder]
@@ -15,7 +15,9 @@ Before exporting, make sure the atlas metadata is set:
 Then run:
 
 ```
-node "$CLAUDE_PLUGIN_ROOT/scripts/run-managed.js" export [--dest <folder>]
+node "<plugin-root>/scripts/run-managed.js" export [--dest <folder>]
 ```
 
 This writes a gapless sheet PNG plus `<name>.atlas.json` (Aseprite JSON: frames, `meta.frameTags` from cell groups, durations, pivot slice) to the project's asset folder under the current directory, or exactly `--dest`. Unity, Godot, and Phaser importers consume it directly — see the `game-integration` skill for wiring exports into a game project.
+
+Resolve <plugin-root> from this loaded skill's directory (two parents up), not from PATH or the current project. Follow [sprite setup](../sprite-setup/SKILL.md) and use the absolute managed launcher. For PowerShell invocation, read [CLI setup](../sprite-editing/references/cli-setup.md).

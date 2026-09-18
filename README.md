@@ -127,12 +127,12 @@ For host-specific paths and setup, see [CLI setup](skills/sprite-editing/referen
 
 Do not publish outputs from a failed batch, even if some export operations ran.
 
-### Claude Code shortcuts
+### Invocable skills
 
 With the optional plugin installed, `/sprite-new bouncer 32 1x8 db-32` starts a
-project. These shortcuts call the same CLI:
+project. These native skills call the same managed CLI:
 
-| Command | What it does |
+| Skill | What it does |
 |---|---|
 | `/sprite-new` | Create a project (cell size, grid, palette) |
 | `/sprite-open` | Reopen a stored project (SQLite-persisted) |
@@ -163,7 +163,7 @@ the art skills complement it. CSS/SVG logo animation does not need these tools.
 - `server/db/` — better-sqlite3 persistence
 - `scripts/sprite.js` — CLI entry; thin mapper to the HTTP API; auto-starts the server
 - `skills/`, `recipes/` — reusable agent guidance and build inputs
-- `commands/` — optional Claude Code shortcuts
+- `skills/sprite-new`, `skills/sprite-open`, `skills/sprite-export` — optional Claude Code shortcuts
 
 ## Development
 
