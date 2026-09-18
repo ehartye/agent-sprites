@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": ["character.json"],
+  "output": "dist",
+  "expectedTags": ["walk"],
+  "scale": 6
+}

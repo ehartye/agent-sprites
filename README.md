@@ -177,6 +177,12 @@ builds; after a crashed process, confirm it has stopped before removing that loc
 The config plus ops/generator is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
+For a reusable character animation, copy [`examples/character-walk`](examples/character-walk/README.md).
+Its four-beat 24×32 courier walk has coordinated anatomical limbs, contact/pass
+poses, a planted baseline and restrained bob. Adjust stride, fps and colors in
+`character.json`, then run one build to inspect the atlas, contact sheet and
+playable preview. All generated parts remain editable named shapes.
+
 ### Invocable skills
 
 With the optional plugin installed, `/sprite-new bouncer 32 1x8 db-32` starts a

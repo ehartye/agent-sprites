@@ -1,0 +1,12 @@
+{
+  "name": "courier",
+  "stride": 4,
+  "bob": 1,
+  "fps": 8,
+  "colors": {
+    "jacket": "#008e91",
+    "jacketLight": "#35c4bc",
+    "jacketShade": "#00646c",
+    "scarf": "#ffcc55"
+  }
+}
