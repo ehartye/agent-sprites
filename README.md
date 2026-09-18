@@ -127,6 +127,18 @@ For host-specific paths and setup, see [CLI setup](skills/sprite-editing/referen
 
 Do not publish outputs from a failed batch, even if some export operations ran.
 
+### Verify exported files
+
+`Invoke-Sprite verify .\public\art\robot.atlas.json --expect-tags blink --contact-sheet review.png --report review.json --json`
+
+This offline command reads the actual PNG and atlas without contacting a sprite
+server. It checks image dimensions, frame and trim bounds, unique names, positive
+durations, animation ranges/directions, and required tags. It accepts repeated
+rectangles and labels every atlas entry in the nearest-neighbor contact sheet.
+Empty frames produce warnings. Structural failures return a nonzero exit code;
+passing does not certify artwork, facing, or animation quality. Inspect the
+contact sheet and play the animations before integrating them.
+
 ### Invocable skills
 
 With the optional plugin installed, `/sprite-new bouncer 32 1x8 db-32` starts a
