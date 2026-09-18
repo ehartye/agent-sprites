@@ -1,9 +1,12 @@
 ---
 name: sprite-motion
-description: Use when animating pixel art — triggers on "animate", "bounce", "walk", "idle", "squash", "stretch", "ease", "loop", "frames", "keyframe", "breakdown", or when planning multi-frame motion. Covers squash/stretch, shadow-as-elevation, frame timing, key-pose planning, and how to lay frames out across cells.
+description: Plan and refine pixel-art sprite animation including bounce, idle, walk cycles, squash/stretch, timing, and key poses. Use when sprite frames need convincing motion; not for CSS/SVG animation, video editing, or general UI transitions.
 ---
 
 # Sprite Motion
+
+CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
+load that setup before running commands and stop on command failure.
 
 Principles for multi-frame pixel-art animation on top of the cell-based sprite sheet.
 
@@ -68,7 +71,7 @@ Inspect a group in the terminal with `view-anim`:
 sprite.js view-anim bounce --fps 8 --loops 3
 ```
 
-Lower fps (6–10) for weighty/deliberate motion, higher (12–16) for zippy motion. The web UI at `localhost:3377` also previews the sprite sheet.
+Lower fps (6–10) for weighty/deliberate motion, higher (12–16) for zippy motion. The web UI at `localhost:3377` (or the selected `SPRITE_PORT`) also previews the sprite sheet.
 
 ## Common Cycles
 

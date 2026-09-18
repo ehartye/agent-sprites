@@ -1,11 +1,14 @@
 ---
 name: game-integration
-description: This skill should be used when wiring agent-sprites exports into a 2D game project (Phaser, Unity, Godot), building a full game's asset set, or generating app icons from sprites. Covers atlas loading, animation tags, variant recoloring, the generator-script build pattern, and icon export.
+description: Integrate agent-sprites exports into a 2D game, build a game's pixel-art asset set, or export sprite-based app icons. Use for Phaser, Unity, or Godot atlas loading, animation tags, and repeatable asset builds; not for CSS/SVG animation.
 ---
 
 # Game Integration
 
 Patterns for taking agent-sprites exports into a real game project. Everything here shipped in production games (horde-peril, thrill-peril) — prefer these shapes over inventing new ones.
+
+`sprite.js` means the invocation resolved by [sprite editing](../sprite-editing/SKILL.md).
+Stop on failed CLI commands; see its PowerShell helper before running a build sequence.
 
 ## Export layout convention
 
@@ -21,19 +24,23 @@ One sheet per character family / tileset / UI set, exported into the game repo:
 ```
 
 Export each sheet with `sprite.js export --dest <game-repo>/assets/claude-sprites/<name>`.
+This writes directly into the supplied directory; `new --dest` instead takes a
+parent and appends the project name. The legacy `assets/claude-sprites` default
+is compatible with existing games; `public/art` is equally valid when requested.
+Omit `save` when no project JSON should enter assets; drafts persist automatically.
 
 ## Full-game asset builds: generate, don't hand-write
 
 A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Hand-writing that JSON doesn't scale. The blessed pattern:
 
 1. Write `asset-src/gen-build.mjs` — a small JS script with helper functions (`draw()`, per-archetype recipes) that emits `build.json`
-2. Run `node asset-src/gen-build.mjs > asset-src/build.json`
-3. Replay with `sprite.js batch asset-src/build.json`
+2. Run `node asset-src/gen-build.mjs > asset-src/build.json` and check its exit status
+3. Replay with `sprite.js batch asset-src/build.json --json`; continue only on exit 0
 4. Export each sheet
 
 The generator is the maintainable artifact; the emitted `build.json` is the reviewable one. Rebuilding a sheet after a tweak is a re-run, not an archaeology dig.
 
-**Variant tiers via recolor, not redraw.** For enemy tiers / palette swaps (5 zombie tiers from one drawn set): draw the base variant, `clone-cell` its frames, put the recolorable shapes in a pattern shape-group, then `recolor-group` per tier. One drawn set, N variants — see the palette-swap recipe in `recipes/`.
+**Variant tiers via recolor, not redraw.** For enemy tiers / palette swaps (5 zombie tiers from one drawn set): draw the base variant, `clone-cell` its frames, put the recolorable shapes in a pattern shape-group, then `recolor-group` per tier. One drawn set, N variants — see the [palette-swap example](../sprite-editing/references/tool-reference.md#shape-groups).
 
 ## Phaser (proven wiring)
 
@@ -79,7 +86,7 @@ Reference the PNGs from the web manifest (192 + 512, `"purpose": "any maskable"`
 ## Sourcing art from image models
 
 If assets come from an image-generation model rather than the parametric
-toolset, read `sprite-editing/references/generated-sprites.md` first. The
+toolset, read [generated sprite guidance](../sprite-editing/references/generated-sprites.md) first. The
 short version: the model will not hold character height across runs, so
 calibrate every run to one canonical standing height before the frames reach
 an atlas; never request a transparent background, request a flat key colour;
@@ -103,4 +110,7 @@ Review the rendered PNG after every few draw operations, not just at the end —
 
 ## Port hygiene
 
-The sprite server defaults to port 3377. When a game dev server (or a second sprite project) is running, set `SPRITE_PORT` to keep sessions isolated — every CLI call and the web UI follow it.
+The sprite server defaults to port 3377. If occupied, set `SPRITE_PORT` to an
+unused port (PowerShell: `$env:SPRITE_PORT = '3378'`) and use the matching UI URL.
+This separates HTTP endpoints, not session storage: the SQLite database remains
+shared. A service identity mismatch is a clear error; leave the unrelated app running.

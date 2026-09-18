@@ -1,6 +1,6 @@
 ---
 name: sprite-verification
-description: Use when verifying sprite sheets or atlases, or when frames look wrong — triggers on "verify", "QA", "check the sheet", "bleed", "wrong frame", "misaligned", "facing is wrong", "animation bounces", "broken frames", after export/conversion/generation, and before wiring frames into a game. Covers structural checks, per-frame contact-sheet inspection, baseline alignment, facing semantics, animation coherence, and in-engine loader verification.
+description: Verify pixel-art sprite sheets and atlases after export or conversion and before game integration. Use for sprite QA, bleed, wrong frames, misalignment, facing errors, or broken animation. Not for CSS/SVG animation or unrelated verification.
 ---
 
 # Sprite Sheet Verification
@@ -11,16 +11,24 @@ something — not that the pixels are right. Run this before wiring any sheet
 into a game, and again after any pipeline change (export settings, converter
 edits, regeneration).
 
+Scope checks to the asset: every sheet needs structural and visual inspection;
+game integration adds loader checks; directional characters add facing checks;
+humanoid walks add feet/hand gait measurements. A blinking robot, icon, or effect
+does not need skin-tone detection or a walking gait. For CLI invocation use
+[sprite editing](../sprite-editing/SKILL.md).
+
 ## Verification ladder
 
 Run in order; each level catches what the previous one can't.
 
-**1. Structural.** Atlas dimensions must divide exactly by the declared frame
-size (`width % frameWidth === 0`, same for height), and detected frame count
-must equal `rows × cols`. A remainder means every frame after the first drifts
-by an accumulating offset — the bug looks like "bleed on later frames only."
-Check declared metadata (atlas JSON, meta files) against the actual PNG, not
-against what the generator intended to emit.
+**1. Structural.** For a regular gapless grid, PNG dimensions must divide by
+the declared cell size (`width % frameWidth === 0`, same for height), and source
+cell count must equal `rows × cols`. Check metadata against the actual PNG.
+For rectangle-based atlases, validate each `frame: {x,y,w,h}` against PNG bounds
+instead of assuming an evenly divided grid. agent-sprites has one base atlas
+entry per source cell, followed by contiguous group runs and named aliases;
+repeated rectangles are intentional. Its atlas entry count can exceed source
+cell count. Verify tag ranges, durations, and aliases separately.
 
 **2. Per-frame contact sheet.** Render EVERY frame individually at 2–4×
 nearest-neighbor zoom and inspect each one for:
@@ -31,15 +39,16 @@ nearest-neighbor zoom and inspect each one for:
 - partial figures (amputated heads/feet from bad slicing)
 - character consistency (same costume, same proportions, every cell)
 
-For agent-sprites projects, `sprite.js view --sheet --scale 8 --out qa.png` is
+For agent-sprites projects, `sprite.js view --sheet --scale 4 --out qa.png` is
 the contact sheet. For external or converted sheets, build one in-engine (below).
 
-**3. Baseline alignment.** Within each animation row, the feet must sit on the
-same line. Misaligned baselines read as vertical bounce during walks — visible
+**3. Baseline alignment (grounded characters).** For walk cycles, verify contact
+poses share the intended ground line; allow deliberate lift/bob between them.
+Accidental baseline changes read as vertical bounce during walks — visible
 in motion, invisible in single-frame checks unless you look for it. Bottom-
 anchored slicing prevents this; verify it survived.
 
-**4. In-engine contact sheet.** Loading the PNG in an image viewer verifies
+**4. In-engine contact sheet (when integrating).** Loading the PNG in an image viewer verifies
 the file; only the engine verifies the *loader config*. Spawn one static
 sprite per frame index from the actual loaded texture, one grid row per
 animation row, and screenshot it (Phaser shown; same idea in any engine —
@@ -60,15 +69,15 @@ for (let f = 0; f < FRAMES; f++)
 ground produce false alarms — two overlapping dark figures read as one broken
 split sprite. Diagnose frames on grey, never on the map.
 
-**5. Facing semantics.** A frame being *clean* says nothing about which way it
+**5. Facing semantics (directional characters).** A frame being *clean* says nothing about which way it
 *faces*. Classify **every frame individually** — never a row at a glance, and
 **never from generation-prompt row labels; image models mirror rows routinely,
 including single frames inside an otherwise-consistent row**. One mirrored
 frame inside a walk cycle makes the character visibly oscillate left-right
 mid-stride, and it survives batch inspection because the row "mostly" faces
 one way. When eyeballing is ambiguous (impressionistic pixels, hats over
-faces), **measure instead of squinting**: compute the horizontal centroid of
-skin-tone pixels in the head region relative to sprite center — a profile
+faces), **measure instead of squinting**: for humanoids with visible skin, compute
+the horizontal centroid of skin-tone pixels in the head region relative to sprite center — a profile
 face pushes it hard to one side, and the sign is the facing. Build each walk
 from same-sign frames only; a 2-frame cycle of verified frames beats a 4-beat
 cycle with one traitor. Then verify movement mapping by driving the character
@@ -76,9 +85,12 @@ with real input in each direction and sampling the live texture-frame + flip
 state over a full second: every sample must come from the verified set with a
 constant flip.
 
-**6. Animation coherence and gait.** For each animation, confirm its frame
-list uses only verified frames of a single facing, and that the sequence reads
-as a gait (step, pass, step, pass — repeated cells/frames are the normal
+For robots, helmets, and effects, use relevant visible features rather than
+assuming skin pixels exist. Skip facing checks for nondirectional animations.
+
+**6. Animation coherence.** Confirm the frame list uses verified frames and
+depicts the requested motion. For humanoid walks, check consistent facing and
+a readable gait (step, pass, step, pass — repeated cells/frames are the normal
 4-beat trick). "Reads as a gait" is measurable, and should be when a walk
 looks stilted or arms look frozen: per frame, cluster the opaque pixels in the
 bottom rows (feet: baseline y, cluster count, spread) and the skin pixels in
@@ -162,15 +174,15 @@ frames in.
 
 ## Sign-off checklist
 
-- [ ] Dimensions divide exactly; frame count matches expectation
+- [ ] Source grid/atlas rectangles, tag ranges, aliases, and durations match expectations
 - [ ] Every frame individually inspected on a neutral backdrop (not the map)
-- [ ] Baselines level within each row
-- [ ] In-engine sheet matches file-level sheet (loader config verified)
-- [ ] Facing classified per frame (measured when ambiguous), walks built from
+- [ ] Grounded characters: intended contact baselines verified
+- [ ] When integrating: in-engine sheet matches file-level sheet (loader config verified)
+- [ ] Directional characters: facing classified per frame, walks built from
       same-sign frames only, confirmed by driving each direction with live
       frame/flip sampling
 - [ ] Every animation plays one clean loop from verified frames only
-- [ ] Walks measured for gait: feet alternate apart/together, hands move
+- [ ] Humanoid walks: feet alternate apart/together, hands move
       between stride frames (or a bob compensates for a swing-less sheet)
 - [ ] Frame-usage map recorded, deliberately-unused frames listed
 

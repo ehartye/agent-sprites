@@ -1,9 +1,12 @@
 ---
 name: sprite-composition
-description: Use when organizing sprites — triggers on "z-order", "layer", "organize", "naming", "groups", "sheet layout", "how should I lay out", "batch edit", or when the user's sprite has draw-order bugs (highlights behind the ball, shadows on top of everything). Covers draw order, shape naming conventions, shape-groups for batch ops, and sprite sheet grid planning.
+description: Organize pixel-art sprites with draw order, named shapes, groups, and sheet layouts. Use for sprite layering bugs, missing highlights, naming, clone patterns, or batch edits within cells; not general page layout or document organization.
 ---
 
 # Sprite Composition
+
+CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
+load that setup before running commands and stop on command failure.
 
 Discipline around draw order, naming, and grouping. Prevents the "my highlight disappeared behind the ball" and "I can't find the shape to edit" problems at scale.
 
@@ -25,9 +28,9 @@ The tool assigns z-index in the order shapes are created. Later shapes render **
 
 If you discover something drawn too low in z, you have two options:
 - **Redo the cell** — `clear --cell` then rebuild. Cleanest for fresh work.
-- **Delete + redraw the over-covering shape** — deletes the top shape and re-adds it; new z puts it on top.
+- **Delete + redraw the obscured shape** — re-add it after the covering shape so its new z puts it on top.
 
-`set-z` exists but is brittle — prefer draw-order discipline.
+The CLI has no `set-z` command; use draw-order discipline.
 
 ## Naming Convention
 
@@ -139,7 +142,7 @@ For per-frame parameterized work (8 animation frames with different ball positio
 sprite.js batch frame-ops.json --vars-file frames.json
 ```
 
-`frame-ops.json` contains placeholders like `"cx": "{{cx}}"`, and `frames.json` is an array of dicts — one per frame — that get substituted in. Fail-fast by default; pass `--continue-on-error` only when best-effort is what you want. See `sprite-editing/references/tool-reference.md` for DSL details.
+`frame-ops.json` contains placeholders like `"cx": "{{cx}}"`, and `frames.json` is an array of dicts — one per frame — that get substituted in. Fail-fast by default; `--continue-on-error` attempts remaining operations but still exits 1 on any failure. See [tool reference](../sprite-editing/references/tool-reference.md) for DSL details.
 
 ## Common Mistakes
 
