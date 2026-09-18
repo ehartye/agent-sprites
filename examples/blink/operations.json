@@ -1,0 +1,12 @@
+[
+  { "command": "new", "name": "blink", "size": 16, "rows": 1, "cols": 2, "palette": "pico8" },
+  { "command": "draw", "type": "rect", "cell": "0,0", "name": "body", "x": 4, "y": 3, "w": 8, "h": 10, "color": "#29adff", "filled": true },
+  { "command": "draw", "type": "rect", "cell": "0,0", "name": "eye", "x": 9, "y": 5, "w": 2, "h": 2, "color": "#fff1e8", "filled": true },
+  { "command": "clone-cell", "from": "0,0", "to": ["0,1"] },
+  { "command": "resize", "cell": "0,1", "shape": "eye", "updates": { "y": 6, "h": 1 } },
+  { "command": "name", "cell": "0,0", "as": "open" },
+  { "command": "name", "cell": "0,1", "as": "closed" },
+  { "command": "group", "sub": "create", "name": "blink", "cells": ["0,0","0,0","0,0","0,1"], "fps": 4 },
+  { "command": "shape-group", "sub": "create", "all_cells": true, "name": "robot", "pattern": "^(body|eye)$" },
+  { "command": "pivot", "anchor": "bottom-center" }
+]

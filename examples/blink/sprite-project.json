@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "ops": "operations.json",
+  "output": "dist",
+  "expectedTags": ["blink"],
+  "scale": 4
+}

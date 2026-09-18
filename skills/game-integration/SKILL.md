@@ -36,7 +36,25 @@ Omit `save` when no project JSON should enter assets; drafts persist automatical
 
 ## Full-game asset builds: generate, don't hand-write
 
-A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Hand-writing that JSON doesn't scale. The blessed pattern:
+A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Keep one
+build config per sheet and use the managed `sprite.js build <config> --json`.
+
+1. Write a project-local `generate.mjs` that prints an operations array to stdout,
+   beginning with one `new` and omitting `save`/`export`/`ref`.
+2. Create `sprite-project.json` with `version: 1`, `generator: "generate.mjs"`,
+   explicit `output`, and `expectedTags` for the game animations.
+3. Run the managed build; stop on nonzero exit. It isolates the session, stages and
+   verifies artifacts, and preserves previous output on failure.
+4. Inspect the emitted contact sheet and play `preview.html`. Load its PNG and
+   atlas in the engine. Keep the generated directory dedicated to build outputs.
+
+Copy `<plugin-root>/examples/blink` into the game source tree for an ops-file
+example. See the [build config and ownership rules](../../README.md#build-a-repeatable-asset-project).
+Generator/config files are canonical; manually editing the generated project does
+not update the generator. Save a separate variant if those edits must survive.
+
+For an existing multi-sheet generator that intentionally edits a live session,
+the lower-level workflow remains:
 
 1. Write `asset-src/gen-build.mjs` — a small JS script with helper functions (`draw()`, per-archetype recipes) that emits `build.json`
 2. Run `node asset-src/gen-build.mjs > asset-src/build.json` and check its exit status
