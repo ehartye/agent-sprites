@@ -179,6 +179,12 @@ and its output together preserves rebuilds when their layout stays the same.
 Outputs created before 0.15.2 must be rebuilt once at their original location to
 upgrade ownership before copying; otherwise choose a new output directory.
 Configs and outputs on different Windows drives retain absolute ownership.
+On Windows, transient `EPERM`, `EACCES`, and `EBUSY` errors during publication
+renames receive up to five asynchronous retries (50, 100, 200, 400, and 800 ms).
+The same bounded retry covers moving the previous output aside and restoring it
+if publication fails. Other errors fail immediately. No destination is deleted
+to force a rename; if restoration also fails, the error identifies the retained
+backup directory so the previous build remains recoverable.
 The config plus ops/generator is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
