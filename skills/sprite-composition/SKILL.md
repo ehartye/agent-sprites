@@ -5,6 +5,11 @@ description: Organize pixel-art sprites with draw order, named shapes, groups, a
 
 # Sprite Composition
 
+Before running sprite operations, use [sprite setup](../sprite-setup/SKILL.md) for
+first-time installation and version sync after plugin updates. Always invoke this
+plugin's absolute scripts/run-managed.js with Node; never use a PATH executable,
+checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
+
 CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
 load that setup before running commands and stop on command failure.
 

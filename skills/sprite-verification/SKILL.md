@@ -5,6 +5,11 @@ description: Verify pixel-art sprite sheets and atlases after export or conversi
 
 # Sprite Sheet Verification
 
+Before running sprite operations, use [sprite setup](../sprite-setup/SKILL.md) for
+first-time installation and version sync after plugin updates. Always invoke this
+plugin's absolute scripts/run-managed.js with Node; never use a PATH executable,
+checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
+
 A sheet is not verified until every frame has been *seen*. Frame counts,
 "animations registered", and clean console output prove the loader parsed
 something — not that the pixels are right. Run this before wiring any sheet
