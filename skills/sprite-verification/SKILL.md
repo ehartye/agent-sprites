@@ -31,7 +31,7 @@ nearest-neighbor zoom and inspect each one for:
 - partial figures (amputated heads/feet from bad slicing)
 - character consistency (same costume, same proportions, every cell)
 
-For claude-sprites projects, `sprite.js view --sheet --scale 8 --out qa.png` is
+For agent-sprites projects, `sprite.js view --sheet --scale 8 --out qa.png` is
 the contact sheet. For external or converted sheets, build one in-engine (below).
 
 **3. Baseline alignment.** Within each animation row, the feet must sit on the
@@ -90,7 +90,7 @@ body motion with a 1px display-origin bob on alternate frames. Pick walk
 frames by these numbers, not by which row the generator put them in — the best
 gait pair may span rows.
 Play each animation and watch at least one full loop — `sprite.js view-anim
-<group> --fps N --loops 3` for claude-sprites projects, in-engine otherwise.
+<group> --fps N --loops 3` for agent-sprites projects, in-engine otherwise.
 When testing in a live game, reset game state first — a timer-spawned
 encounter can freeze your test subject mid-verification and hand you stale
 animation state that looks like a bug.

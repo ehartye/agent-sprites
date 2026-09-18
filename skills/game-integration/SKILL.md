@@ -1,11 +1,11 @@
 ---
 name: game-integration
-description: This skill should be used when wiring claude-sprites exports into a 2D game project (Phaser, Unity, Godot), building a full game's asset set, or generating app icons from sprites. Covers atlas loading, animation tags, variant recoloring, the generator-script build pattern, and icon export.
+description: This skill should be used when wiring agent-sprites exports into a 2D game project (Phaser, Unity, Godot), building a full game's asset set, or generating app icons from sprites. Covers atlas loading, animation tags, variant recoloring, the generator-script build pattern, and icon export.
 ---
 
 # Game Integration
 
-Patterns for taking claude-sprites exports into a real game project. Everything here shipped in production games (horde-peril, thrill-peril) — prefer these shapes over inventing new ones.
+Patterns for taking agent-sprites exports into a real game project. Everything here shipped in production games (horde-peril, thrill-peril) — prefer these shapes over inventing new ones.
 
 ## Export layout convention
 
