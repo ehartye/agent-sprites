@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, openSync, closeSync, realpathSync, lstatSync, readdirSync } from 'node:fs';
-import { resolve, dirname, join, basename, relative, isAbsolute } from 'node:path';
+import { resolve, dirname, join, basename, relative, isAbsolute, sep } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import express from 'express';
@@ -21,12 +21,26 @@ const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
 
+function outputOwner(output, configPath) {
+  const config = relative(output, configPath);
+  // Different Windows drives have no relative path; keep the existing absolute guard there.
+  return isAbsolute(config)
+    ? { version: 1, config: configPath }
+    : { version: 2, config: config.split(sep).join('/') };
+}
+
 function assertOwnedOutput(output, configPath) {
   if (!existsSync(output)) return;
   if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) throw new Error('Output must be a regular build directory, not a file or link.');
   let prior;
   try { prior = JSON.parse(readFileSync(join(output, marker), 'utf8')); } catch { /* explicit error below */ }
-  if (typeof prior?.config !== 'string' || pathKey(prior.config) !== pathKey(configPath) || prior?.version !== 1 || !Array.isArray(prior?.files)) throw new Error('Output directory is not owned by this build config. Choose a new output directory.');
+  const expected = outputOwner(output, configPath);
+  // Legacy markers prove ownership only at their original location, then migrate on publication.
+  const owned = typeof prior?.config === 'string' && (
+    (prior.version === 1 && pathKey(prior.config) === pathKey(configPath)) ||
+    (prior.version === 2 && expected.version === 2 && pathKey(prior.config) === pathKey(expected.config))
+  );
+  if (!owned || !Array.isArray(prior?.files)) throw new Error('Output directory is not owned by this build config. Choose a new output directory.');
   const allowed = new Set([...prior.files, marker]);
   if (readdirSync(output).some(file => !allowed.has(file) || !lstatSync(join(output, file)).isFile())) throw new Error('Output contains files outside the previous build; move them before rebuilding.');
 }
@@ -91,7 +105,7 @@ export async function buildProject(configPath) {
     writeFileSync(join(stage, artifacts.project), json(project.toJSON()));
     writeFileSync(join(stage, artifacts.operations), json(operations));
     writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
-    writeFileSync(join(stage, marker), json({ version: 1, config: configPath, files: Object.values(artifacts) }));
+    writeFileSync(join(stage, marker), json({ ...outputOwner(output, configPath), files: Object.values(artifacts) }));
     assertOwnedOutput(output, configPath);
     const backup = stage + '.previous';
     const replacing = existsSync(output);

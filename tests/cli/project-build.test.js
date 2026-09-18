@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildProject } from '../../server/build/project-build.js';
@@ -77,6 +77,53 @@ test('runs an explicit Node generator relative to config and captures its operat
 test.skipIf(process.platform !== 'win32')('Windows config path casing does not change output ownership', async () => {
   expect((await buildProject(config)).ok).toBe(true);
   expect((await buildProject(config.toLowerCase())).ok).toBe(true);
+});
+
+test('a copied project rebuilds its dedicated output without changing relative layout', async () => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const destination = join(dir, 'relocated');
+  mkdirSync(destination);
+  cpSync(config, join(destination, 'sprite-project.json'));
+  cpSync(join(dir, 'ops.json'), join(destination, 'ops.json'));
+  cpSync(join(dir, 'dist'), join(destination, 'dist'), { recursive: true });
+  const png = readFileSync(join(destination, 'dist', 'robot.png'));
+  const result = await buildProject(join(destination, 'sprite-project.json'));
+  expect(result.errors).toEqual([]);
+  expect(result.ok).toBe(true);
+  expect(readFileSync(join(destination, 'dist', 'robot.png')).equals(png)).toBe(true);
+  const marker = JSON.parse(readFileSync(join(destination, 'dist', '.agent-sprites-build.json'), 'utf8'));
+  expect(marker.version).toBe(2);
+  expect(marker.config).toBe('../sprite-project.json');
+});
+
+test('legacy absolute ownership is upgraded only at its original location', async () => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const markerPath = join(dir, 'dist', '.agent-sprites-build.json');
+  const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+  writeFileSync(markerPath, JSON.stringify({ ...marker, version: 1, config }));
+  expect((await buildProject(config)).ok).toBe(true);
+  const upgraded = JSON.parse(readFileSync(markerPath, 'utf8'));
+  expect(upgraded.version).toBe(2);
+  expect(upgraded.config).toBe('../sprite-project.json');
+
+  const foreignOwner = join(dir, 'previous-location', 'sprite-project.json');
+  writeFileSync(markerPath, JSON.stringify({ ...marker, version: 1, config: foreignOwner }));
+  const oldMarker = readFileSync(markerPath, 'utf8');
+  expect((await buildProject(config)).ok).toBe(false);
+  expect(readFileSync(markerPath, 'utf8')).toBe(oldMarker);
+});
+
+test('portable ownership rejects another config and preserves unexpected files', async () => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const alternate = join(dir, 'different-project.json');
+  cpSync(config, alternate);
+  const png = readFileSync(join(dir, 'dist', 'robot.png'));
+  expect((await buildProject(alternate)).ok).toBe(false);
+  expect(readFileSync(join(dir, 'dist', 'robot.png')).equals(png)).toBe(true);
+  writeFileSync(join(dir, 'dist', 'notes.txt'), 'keep my notes');
+  expect((await buildProject(config)).ok).toBe(false);
+  expect(readFileSync(join(dir, 'dist', 'notes.txt'), 'utf8')).toBe('keep my notes');
+  expect(readFileSync(join(dir, 'dist', 'robot.png')).equals(png)).toBe(true);
 });
 
 test('CLI build ignores the live server; portable files reopen with timing and shape groups', async () => {

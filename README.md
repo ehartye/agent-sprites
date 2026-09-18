@@ -174,6 +174,11 @@ Output must be a dedicated generated directory. Rebuilds replace only a director
 marked as owned by the same config, refuse extra files, and preserve the last
 successful build on failure. A `.build-lock` beside the output prevents concurrent
 builds; after a crashed process, confirm it has stopped before removing that lock.
+Ownership follows the config's relative path from the output, so copying a project
+and its output together preserves rebuilds when their layout stays the same.
+Outputs created before 0.15.2 must be rebuilt once at their original location to
+upgrade ownership before copying; otherwise choose a new output directory.
+Configs and outputs on different Windows drives retain absolute ownership.
 The config plus ops/generator is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
