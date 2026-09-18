@@ -3,11 +3,14 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync } from 'fs';
+import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_URL = `http://localhost:${process.env.SPRITE_PORT ?? 3377}`;
+const runtimeRoot = realpathSync(join(__dirname, '..'));
+const managed = existsSync(join(runtimeRoot, 'managed-install.json'));
+const packageVersion = () => JSON.parse(readFileSync(join(runtimeRoot, 'package.json'), 'utf8')).version;
 
 async function health() {
   let response;
@@ -16,13 +19,23 @@ async function health() {
   } catch { return 'offline'; }
   try {
     const body = await response.json();
-    if (response.ok && body.ok === true && body.service === 'agent-sprites' && body.protocol === 1) return 'ready';
+    if (response.ok && body.ok === true && body.service === 'agent-sprites' && body.protocol === 1) {
+      const sameRoot = typeof body.runtimeRoot === 'string' && (process.platform === 'win32'
+        ? body.runtimeRoot.toLowerCase() === runtimeRoot.toLowerCase()
+        : body.runtimeRoot === runtimeRoot);
+      if (managed && (body.version !== packageVersion() || !sameRoot)) return 'mismatch';
+      return 'ready';
+    }
   } catch { /* A response without the identity is an occupied, incompatible port. */ }
   return 'occupied';
 }
 
 function occupiedPortError() {
   return new Error(`${BASE_URL} is occupied by an unrelated or older unidentifiable service. Set SPRITE_PORT to a free port, or stop the old server manually before retrying. No commands were sent to that service.`);
+}
+
+function versionMismatchError() {
+  return new Error(`${BASE_URL} has a sprite server version or installation mismatch. Run sprite-setup's version sync check. Stop the known old server when safe, or set SPRITE_PORT to an unused port. No commands were sent to that server.`);
 }
 
 function startupFailure(reason, logPath) {
@@ -42,6 +55,7 @@ function startupFailure(reason, logPath) {
 async function ensureServer() {
   const current = await health();
   if (current === 'ready') return;
+  if (current === 'mismatch') throw versionMismatchError();
   if (current === 'occupied') throw occupiedPortError();
   const root = join(__dirname, '..');
   if (!existsSync(join(root, 'node_modules'))) {
@@ -69,6 +83,7 @@ async function ensureServer() {
     const status = await health();
     if (failure) throw startupFailure(failure, logPath);
     if (status === 'ready') return;
+    if (status === 'mismatch') throw versionMismatchError();
     if (status === 'occupied') throw occupiedPortError();
   }
   throw startupFailure('timed out waiting for verified service health', logPath);
@@ -464,6 +479,10 @@ function emptyBatchReport() {
 
 async function run() {
   const cmd = process.argv[2];
+  if (cmd === '--version' || cmd === '-v') {
+    console.log(packageVersion());
+    return;
+  }
   if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(HELP_TEXT);
     return;

@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { startWebServer } from '../../server/web/http.js';
+import { readFileSync, realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('Web Server Bootstrap', () => {
   const servers = [];
@@ -46,7 +48,9 @@ describe('Web Server Bootstrap', () => {
     const res = await fetch(`http://localhost:${info.port}/health`);
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body).toEqual({ ok: true, service: 'agent-sprites', protocol: 1 });
+    expect(body).toEqual({ ok: true, service: 'agent-sprites', protocol: 1,
+      version: JSON.parse(readFileSync(resolve('package.json'), 'utf8')).version,
+      runtimeRoot: realpathSync(resolve('.')) });
   });
 
   it('rejects an occupied requested port rather than choosing another', async () => {
