@@ -98,6 +98,29 @@ Subtle bob — ball moves up 1–2px mid-cycle, shadow shrinks 1px, easing slow-
 ### Walk (8 frames)
 Contact / down / passing / high-point for each leg (×2 legs = 8 frames). Same squash/stretch principles apply to the body — it should rise/fall 1–2px with each step.
 
+### Small side-view walk (four keyed poses)
+
+Use the bundled `<plugin-root>/examples/character-walk` as a starting point for a
+small humanoid. Resolve the root two parents above this loaded skill and copy the
+example's source files (`generate.mjs`, `character.json`, `sprite-project.json`)
+into the user's asset source directory. Exclude any existing `dist` directory:
+its build ownership belongs to the original config path. Keep generated output
+out of the plugin cache. Read its [parameters and anatomy](../../examples/character-walk/README.md).
+
+1. Adjust `character.json`: stride 2–5 pixels, bob 0–1, fps 4–12, and color ramps.
+2. Run the absolute managed launcher: `build <copied-folder>/sprite-project.json --json`.
+3. Inspect the emitted contact sheet and play `preview.html` through a full loop.
+   Confirm consistent facing, alternating contact/pass poses, a planted foot at
+   y=29 in every frame, and arm swing opposing the same-side leg.
+4. Keep `right_*` (near) and `left_*` (far) anatomical names across the cycle.
+   Accessories follow a fixed named hand; screen-left/right changes during swing.
+
+The generator emits ordinary named rectangles/polygons and shape groups. It is
+24×32 source art, not a rig or arbitrary-size template. For different proportions,
+author new keyed poses; use nearest-neighbor scaling for display. Do not rotate
+thin limbs to synthesize a walk. Edit the generator/parameters for repeatable builds;
+copy the generated editable project outside `dist` before manual-only refinements.
+
 ## Naming Conventions for Animation
 
 Use `name` to label each frame semantically:
