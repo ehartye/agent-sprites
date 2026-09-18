@@ -3,38 +3,75 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync } from 'fs';
+import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_URL = `http://localhost:${process.env.SPRITE_PORT ?? 3377}`;
 
 async function health() {
+  let response;
   try {
-    const r = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(500) });
-    return r.ok;
-  } catch { return false; }
+    response = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(500), redirect: 'manual' });
+  } catch { return 'offline'; }
+  try {
+    const body = await response.json();
+    if (response.ok && body.ok === true && body.service === 'agent-sprites' && body.protocol === 1) return 'ready';
+  } catch { /* A response without the identity is an occupied, incompatible port. */ }
+  return 'occupied';
+}
+
+function occupiedPortError() {
+  return new Error(`${BASE_URL} is occupied by an unrelated or older unidentifiable service. Set SPRITE_PORT to a free port, or stop the old server manually before retrying. No commands were sent to that service.`);
+}
+
+function startupFailure(reason, logPath) {
+  let tail = '';
+  let fd;
+  try {
+    fd = openSync(logPath, 'r');
+    const size = fstatSync(fd).size;
+    const bytes = Buffer.alloc(Math.min(size, 4096));
+    const length = readSync(fd, bytes, 0, bytes.length, Math.max(0, size - bytes.length));
+    tail = bytes.subarray(0, length).toString('utf8').trim();
+  } catch { /* The log location still helps if a startup race prevents reading it. */ }
+  finally { if (fd !== undefined) closeSync(fd); }
+  return new Error(`Server failed to start: ${reason}.\nStartup log: ${logPath}${tail ? `\n${tail}` : ''}\nIf the port is occupied, set SPRITE_PORT to a free port or stop the old server manually.`);
 }
 
 async function ensureServer() {
-  if (await health()) return;
+  const current = await health();
+  if (current === 'ready') return;
+  if (current === 'occupied') throw occupiedPortError();
   const root = join(__dirname, '..');
   if (!existsSync(join(root, 'node_modules'))) {
     // Fresh marketplace install: the CLI runs on builtins but the server can't.
-    console.error(`Server dependencies are not installed.\nRun: npm install --prefix "${root}"`);
-    process.exit(1);
+    throw new Error(`Server dependencies are not installed.\nRun: npm install --prefix "${root}"`);
   }
   const serverPath = join(root, 'server', 'index.js');
-  const child = spawn(process.execPath, [serverPath], {
-    detached: true, stdio: 'ignore',
-    env: { ...process.env },
-  });
+  const logPath = join(mkdtempSync(join(tmpdir(), 'agent-sprites-startup-')), 'server.log');
+  const logFd = openSync(logPath, 'a');
+  let child;
+  try {
+    child = spawn(process.execPath, [serverPath], {
+      detached: true, windowsHide: true, stdio: ['ignore', logFd, logFd],
+      env: { ...process.env },
+    });
+  } finally { closeSync(logFd); }
+  let failure;
+  child.once('error', error => { failure = error.message; });
+  child.once('exit', (code, signal) => { failure = signal ? `process exited on ${signal}` : `process exited with code ${code}`; });
   child.unref();
-  for (let i = 0; i < 20; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    if (await health()) return;
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 100));
+    if (failure) throw startupFailure(failure, logPath);
+    const status = await health();
+    if (failure) throw startupFailure(failure, logPath);
+    if (status === 'ready') return;
+    if (status === 'occupied') throw occupiedPortError();
   }
-  console.error('Server failed to start');
-  (process.exitCode = 1);
+  throw startupFailure('timed out waiting for verified service health', logPath);
 }
 
 async function api(method, path, body) {
@@ -336,7 +373,7 @@ SESSION
   open <path>            open saved project file
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
-  save                   persist project to SQLite
+  save                   write editable project JSON (drafts already persist automatically)
   export [--dest <folder>]  export gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
@@ -411,12 +448,19 @@ BATCH
   batch <path.json>           execute an array of commands; fails fast on first error
                               (stderr: "ERROR at op N/M: <label> — <message>", exit 1)
                               add --continue-on-error true to run all ops and summarize
+                              any failed operation exits 1, even when continuing
+                              --quiet  summary and artifact paths only
+                              --json   one JSON report with counts, failures, session and exports
                               --vars k=v,k2=v2  substitute {{k}} placeholders in ops
                                                 (numeric when value parses as a number)
                               --vars-file <json>  array of var dicts; ops replay once per dict
 
 Full reference: skills/sprite-editing/references/tool-reference.md
 `;
+
+function emptyBatchReport() {
+  return { ok: true, total: 0, attempted: 0, succeeded: 0, failed: 0, errors: [], session: null, artifacts: [], exports: [] };
+}
 
 async function run() {
   const cmd = process.argv[2];
@@ -425,9 +469,19 @@ async function run() {
     return;
   }
 
-  await ensureServer();
-
   const { args, positional } = parseArgs(process.argv.slice(3));
+  try {
+    await ensureServer();
+  } catch (error) {
+    if (cmd === 'batch' && bool(args.json)) {
+      const report = emptyBatchReport();
+      report.ok = false;
+      report.failed = 1;
+      report.errors.push({ index: null, command: 'startup', error: error.message });
+      console.log(JSON.stringify(report));
+    }
+    throw error;
+  }
   const sub = positional[0];
   const name = positional[1];
   let result;
@@ -439,10 +493,14 @@ async function run() {
     case 'restart': {
       try { await api('POST', '/api/control/shutdown'); } catch {}
       const deadline = Date.now() + 3000;
+      let stopped = false;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 200));
-        if (!(await health())) break;
+        const status = await health();
+        if (status === 'occupied') throw occupiedPortError();
+        if (status === 'offline') { stopped = true; break; }
       }
+      if (!stopped) throw new Error('Server did not stop after the shutdown request; stop it manually before restarting.');
       await ensureServer();
       console.log('restarted');
       return;
@@ -770,85 +828,86 @@ async function run() {
 
     case 'batch': {
       const continueOnError = bool(args['continue-on-error']);
-      const inlineVars = args.vars ? parseVarsFlag(args.vars) : null;
-      let frames = null;
-      if (args['vars-file']) {
-        const framesJson = JSON.parse(readFileSync(args['vars-file'], 'utf-8'));
-        if (!Array.isArray(framesJson)) {
-          console.error('--vars-file must contain a JSON array of variable dicts');
-          process.exitCode = 1;
-          return;
-        }
-        frames = framesJson;
-      }
-      let commands;
-
-      if (args.stdin) {
-        const data = await new Promise((resolve, reject) => {
-          const chunks = [];
-          process.stdin.on('data', chunk => chunks.push(chunk));
-          process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-          process.stdin.on('error', reject);
-        });
-        commands = JSON.parse(data);
-      } else {
-        const filePath = sub;
-        if (!filePath) { console.error('Usage: sprite batch <file.json> or sprite batch --stdin'); process.exitCode = 1; return; }
-        commands = JSON.parse(readFileSync(filePath, 'utf-8'));
-      }
-
-      if (!Array.isArray(commands)) { console.error('Batch input must be a JSON array'); process.exitCode = 1; return; }
-
-      const runs = frames ?? [inlineVars];
-      const total = commands.length * runs.length;
-      let succeeded = 0;
-      let failed = 0;
-      let opIndex = 0;
-
-      for (const frameVars of runs) {
-        for (let i = 0; i < commands.length; i++) {
-          opIndex++;
-          let cmd = commands[i];
-          if (frameVars) {
-            try { cmd = substituteVars(cmd, frameVars); }
-            catch (e) {
-              const label = describeBatchCommand(commands[i]);
-              process.stdout.write(`[${opIndex}/${total}] ${label}`);
-              console.log(` -> ERROR: ${e.message}`);
-              failed++;
-              if (!continueOnError) {
-                console.error(`ERROR at op ${opIndex}/${total}: ${label} \u2014 ${e.message}`);
-                process.exitCode = 1;
-                return;
-              }
-              continue;
-            }
+      const json = bool(args.json);
+      const quiet = json || bool(args.quiet);
+      const report = emptyBatchReport();
+      const fail = (index, command, error) => {
+        report.ok = false;
+        report.failed++;
+        report.errors.push({ index, command, error: error.message });
+        process.exitCode = 1;
+        console.error(`ERROR at op ${index ?? 0}/${report.total}: ${command} — ${error.message}`);
+      };
+      try {
+        const inlineVars = args.vars ? parseVarsFlag(args.vars) : null;
+        let frames = null;
+        if (args['vars-file']) {
+          const framesJson = JSON.parse(readFileSync(args['vars-file'], 'utf-8'));
+          if (!Array.isArray(framesJson)) {
+            throw new Error('--vars-file must contain a JSON array of variable dicts');
           }
-          const label = describeBatchCommand(cmd);
-          process.stdout.write(`[${opIndex}/${total}] ${label}`);
+          frames = framesJson;
+        }
+        let commands;
 
-          try {
-            const { method, path, body } = mapCommandToApi(cmd);
-            const res = await api(method, path, body);
-            if (!res.ok) throw new Error(res.error);
-            console.log(` -> ok`);
-            succeeded++;
-          } catch (e) {
-            console.log(` -> ERROR: ${e.message}`);
-            failed++;
-            if (!continueOnError) {
-              console.error(`ERROR at op ${opIndex}/${total}: ${label} \u2014 ${e.message}`);
-              process.exitCode = 1;
-              return;
+        if (args.stdin) {
+          const data = await new Promise((resolve, reject) => {
+            const chunks = [];
+            process.stdin.on('data', chunk => chunks.push(chunk));
+            process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+            process.stdin.on('error', reject);
+          });
+          commands = JSON.parse(data);
+        } else {
+          const filePath = sub;
+          if (!filePath) throw new Error('Usage: agent-sprites batch <file.json> or agent-sprites batch --stdin');
+          commands = JSON.parse(readFileSync(filePath, 'utf-8'));
+        }
+
+        if (!Array.isArray(commands)) throw new Error('Batch input must be a JSON array');
+
+        const runs = frames ?? [inlineVars];
+        const total = commands.length * runs.length;
+        report.total = total;
+
+        runsLoop:
+        for (const frameVars of runs) {
+          for (let i = 0; i < commands.length; i++) {
+            const opIndex = ++report.attempted;
+            let cmd = commands[i];
+            let label = cmd && typeof cmd === 'object' ? describeBatchCommand(cmd) : 'invalid operation';
+            try {
+              if (frameVars) cmd = substituteVars(cmd, frameVars);
+              if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) throw new Error('Batch operation must be an object');
+              label = describeBatchCommand(cmd);
+              const { method, path, body } = mapCommandToApi(cmd);
+              const res = await api(method, path, body);
+              if (!res.ok) throw new Error(res.error);
+              if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
+              report.succeeded++;
+              if (res.artifacts) report.artifacts.push(...res.artifacts);
+              if (res.export) report.exports.push(res.export);
+            } catch (e) {
+              if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ERROR: ${e.message}`);
+              fail(opIndex, label, e);
+              if (!continueOnError) break runsLoop;
             }
           }
         }
+      } catch (e) {
+        fail(null, 'batch input', e);
       }
-
-      if (failed > 0) {
-        console.log(`Done: ${succeeded}/${total} succeeded, ${failed} failed`);
-      } else {
-        console.log(`Done: ${succeeded}/${total} succeeded`);
+      // A report describes this server's active project, never another server's
+      // most recently updated SQLite session. Preserve the batch failure if the
+      // server became unavailable before we could retrieve this extra context.
+      try {
+        const status = await api('GET', '/api/session/status');
+        if (status.ok) report.session = status.data;
+      } catch { /* operation errors above remain authoritative */ }
+      if (json) console.log(JSON.stringify(report));
+      else {
+        console.log(`Done: ${report.succeeded}/${report.total} succeeded${report.failed ? `, ${report.failed} failed` : ''}`);
+        for (const artifact of report.artifacts) console.log(`${artifact.type}: ${artifact.path}`);
       }
       return;
     }

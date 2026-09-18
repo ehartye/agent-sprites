@@ -84,6 +84,15 @@ describe('Session API Routes', () => {
     expect(res.error).toContain('No active project');
   });
 
+  test('status reports this server active session even if another session was modified last', async () => {
+    await api('POST', '/api/session/new', { name: 'active' });
+    const activeId = state.sessionId;
+    const other = state.db.createSession({ project_name: 'another-server' });
+    other.updated_at = Date.now() + 1000;
+    const res = await api('GET', '/api/session/status');
+    expect(res.data).toMatchObject({ session_id: activeId, project_name: 'active' });
+  });
+
   test('GET /health returns ok', async () => {
     const res = await api('GET', '/health');
     expect(res.ok).toBe(true);

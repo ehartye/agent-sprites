@@ -38,7 +38,7 @@ describe('Web Server Bootstrap', () => {
     expect(info.wss).toBeDefined();
   });
 
-  it('GET /health returns { ok: true }', async () => {
+  it('identifies the sprite service and protocol in health responses', async () => {
     const state = { project: null };
     const info = await startWebServer(state, 0);
     servers.push(info);
@@ -46,6 +46,16 @@ describe('Web Server Bootstrap', () => {
     const res = await fetch(`http://localhost:${info.port}/health`);
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body).toEqual({ ok: true });
+    expect(body).toEqual({ ok: true, service: 'agent-sprites', protocol: 1 });
+  });
+
+  it('rejects an occupied requested port rather than choosing another', async () => {
+    const info = await startWebServer({ project: null }, 0);
+    servers.push(info);
+    const attempt = startWebServer({ project: null }, info.port).then(unexpected => {
+      servers.push(unexpected);
+      return unexpected;
+    });
+    await expect(attempt).rejects.toMatchObject({ code: 'EADDRINUSE' });
   });
 });

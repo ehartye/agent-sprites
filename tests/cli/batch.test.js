@@ -132,7 +132,9 @@ describe('CLI batch mode', () => {
     const batchFile = join(tmpDir, 'continue.json');
     fs.writeFileSync(batchFile, JSON.stringify(commands));
 
-    const { stdout } = await cli('batch', batchFile, '--continue-on-error', 'true');
+    const error = await cli('batch', batchFile, '--continue-on-error', 'true').catch(e => e);
+    expect(error.code).toBe(1);
+    const { stdout } = error;
     expect(stdout).toContain('[1/3]');
     expect(stdout).toContain('[2/3]');
     expect(stdout).toContain('[3/3]');

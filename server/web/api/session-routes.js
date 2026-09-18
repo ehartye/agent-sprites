@@ -3,14 +3,14 @@ import { Project } from '../../engine/project.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
 
 export function sessionRoutes(state) {
   const r = Router();
 
   r.get('/status', (_req, res) => {
-    const session = state.db.getLastSession();
+    const session = state.sessionId && state.project ? state.db.getSession(state.sessionId) : null;
     if (!session) return res.json({ ok: true, data: { active: false } });
     res.json({ ok: true, data: {
       active: true,
@@ -70,7 +70,7 @@ export function sessionRoutes(state) {
         state.db.updateSession(state.sessionId, { json_file: target });
       }
       writeFileSync(target, JSON.stringify(state.project.toJSON(), null, 2));
-      res.json({ ok: true, data: `Saved to ${target}` });
+      res.json({ ok: true, data: `Saved to ${target}`, artifacts: [{ type: 'project', path: resolve(target) }] });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
@@ -140,7 +140,12 @@ export function sessionRoutes(state) {
       });
       writeFileSync(pngPath, png);
       writeFileSync(atlasPath, JSON.stringify(atlas, null, 2));
-      res.json({ ok: true, data: `Exported sheet ${pngPath} + atlas ${atlasPath}` });
+      res.json({
+        ok: true,
+        data: `Exported sheet ${pngPath} + atlas ${atlasPath}`,
+        artifacts: [{ type: 'sheet', path: resolve(pngPath) }, { type: 'atlas', path: resolve(atlasPath) }],
+        export: { session_id: state.sessionId, size: atlas.meta.size, frameTags: atlas.meta.frameTags },
+      });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 

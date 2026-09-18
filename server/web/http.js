@@ -52,7 +52,7 @@ export function dispatchWebMessage(state, msg) {
 export async function startWebServer(state, port) {
   const app = express();
   app.use(express.json());
-  app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1 }));
   app.use('/api/session', sessionRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));
@@ -64,14 +64,7 @@ export async function startWebServer(state, port) {
 
   const httpServer = http.createServer(app);
   await new Promise((resolve, reject) => {
-    httpServer.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${port} in use, trying ${port + 1}`);
-        httpServer.listen(port + 1, '0.0.0.0', resolve);
-      } else {
-        reject(err);
-      }
-    });
+    httpServer.once('error', reject);
     httpServer.listen(port, '0.0.0.0', resolve);
   });
 
