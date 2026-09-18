@@ -4,7 +4,7 @@ import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, shapeGroups }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -13,6 +13,8 @@ export class Project {
     this.groups = groups;
     this.background = background ?? { mode: 'transparent' };
     this.pivot = pivot ?? null;
+    this.animationFps = animationFps ?? {};
+    this.shapeGroups = shapeGroups ?? {};
     this.path = null;
   }
 
@@ -42,6 +44,8 @@ export class Project {
       palette: this.palette.toJSON(),
       cells: this.cells.toJSON().cells,
       groups: this.groups.toJSON(),
+      animationFps: this.animationFps,
+      shapeGroups: this.shapeGroups,
     };
   }
 
@@ -64,6 +68,8 @@ export class Project {
       groups: GroupManager.fromJSON(data.groups),
       background: data.background,
       pivot: data.pivot,
+      animationFps: data.animationFps,
+      shapeGroups: data.shapeGroups,
     });
   }
 
@@ -94,7 +100,7 @@ export class Project {
    * reference a contiguous range regardless of where the group's cells sit
    * in the grid.
    */
-  exportAseprite({ imageName, groups = {}, fpsMap = {}, defaultFps = 8 } = {}) {
+  exportAseprite({ imageName, groups = this.groups.toJSON(), fpsMap = this.animationFps, defaultFps = 8 } = {}) {
     const frames = [];
     const baseIndex = new Map();
     const namedCells = [];

@@ -71,6 +71,14 @@ describe('CLI batch parity (full pipeline in one ops file)', () => {
         return out;
       },
       setShapeGroup(sessionId, cell, name, shapes) { shapeGroups.set(`${sessionId}/${cell}/${name}`, shapes); },
+      getAllShapeGroups(sessionId) {
+        const out = {};
+        for (const [k, shapes] of shapeGroups) {
+          const [sid, cell, name] = k.split('/');
+          if (sid === sessionId) { out[cell] ??= {}; out[cell][name] = shapes; }
+        }
+        return out;
+      },
       deleteShapeGroup(sessionId, cell, name) { shapeGroups.delete(`${sessionId}/${cell}/${name}`); },
       getShapeGroups(sessionId, cell) {
         const out = {};

@@ -139,6 +139,44 @@ Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
 
+### Build a repeatable asset project
+
+Copy `examples/blink` into your game project's source tree, then run
+`Invoke-Sprite build .\asset-src\blink\sprite-project.json --json`.
+Paths in the config resolve relative to that file, regardless of your shell's directory:
+
+```json
+{
+  "version": 1,
+  "ops": "operations.json",
+  "output": "dist",
+  "expectedTags": ["blink"],
+  "scale": 4
+}
+```
+
+Use `"generator": "generate.mjs"` instead of `ops` for a Node script that writes
+an operations array to stdout. Optional `args` is an array of string arguments;
+the generator runs in the config directory, with a 60-second timeout. Run only
+generators you trust: they execute as ordinary local code. Generator diagnostics
+belong on stderr. Both inputs use existing batch operations, beginning with one
+`new`; omit `save`, `export`, `ref`, and further `new` operations.
+
+Build uses a fresh in-memory session and a temporary loopback API, independent of
+your editing server and its database. It stages and structurally verifies all
+outputs before publishing: PNG, Aseprite atlas, editable `.project.json`, labeled
+contact sheet, verification report, captured operations, and `preview.html`.
+Open the self-contained preview directly in a browser to play tags at their
+exported durations, pause, step, and zoom. Saved projects retain cell groups,
+animation speeds, shape groups, names and pivots when reopened.
+
+Output must be a dedicated generated directory. Rebuilds replace only a directory
+marked as owned by the same config, refuse extra files, and preserve the last
+successful build on failure. A `.build-lock` beside the output prevents concurrent
+builds; after a crashed process, confirm it has stopped before removing that lock.
+The config plus ops/generator is canonical: edits to the generated project are
+overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
+
 ### Invocable skills
 
 With the optional plugin installed, `/sprite-new bouncer 32 1x8 db-32` starts a

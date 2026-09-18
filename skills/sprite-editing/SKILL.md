@@ -38,6 +38,18 @@ sprite.js new myproject --size 16 --rows 4 --cols 4 --palette pico8
 
 ## Replaying an ops file
 
+For a repeatable asset build, use `sprite.js build sprite-project.json --json`.
+Copy `<plugin-root>/examples/blink` into the user's project as a starting point;
+never generate build outputs in the plugin cache. The config selects an `ops` file
+or Node `generator`, an explicit `output`, and `expectedTags`. Build isolates state
+from live editing, verifies before publishing, and emits PNG, atlas, editable
+project, contact sheet and self-contained preview. Inspect both contact sheet and
+animation before integration. See the [build config](../../README.md#build-a-repeatable-asset-project).
+
+The config/ops/generator is canonical. Rebuild replaces its generated directory;
+copy the editable project elsewhere before making a separate manual variant.
+For operations on the existing live session, use `batch` below.
+
 Use `sprite.js batch ops.json --json` for a machine-readable summary, or `--quiet`
 for a concise summary and artifact paths. Both stop on the first failed op by
 default. `--continue-on-error` attempts the remaining ops but still exits 1 if

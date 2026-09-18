@@ -5,6 +5,7 @@ import { CanvasRenderer } from '../../engine/canvas-renderer.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
+import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
 
 export function sessionRoutes(state) {
   const r = Router();
@@ -54,6 +55,7 @@ export function sessionRoutes(state) {
       const draft_json = JSON.stringify(project.toJSON());
       const session = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: filePath, draft_json });
       state.sessionId = session.id;
+      restoreProjectMetadata(state);
       state.broadcast?.({ type: 'project', data: project.toJSON() });
       res.json({ ok: true, data: `Opened "${name}" from ${filePath}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -69,6 +71,7 @@ export function sessionRoutes(state) {
         target = join(session.destination_folder, `${session.project_name}.json`);
         state.db.updateSession(state.sessionId, { json_file: target });
       }
+      captureProjectMetadata(state);
       writeFileSync(target, JSON.stringify(state.project.toJSON(), null, 2));
       res.json({ ok: true, data: `Saved to ${target}`, artifacts: [{ type: 'project', path: resolve(target) }] });
     } catch (e) { res.json({ ok: false, error: e.message }); }

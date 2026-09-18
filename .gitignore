@@ -4,3 +4,4 @@ node_modules/
 .worktrees/
 .playwright-mcp/
 /*.png
+examples/*/dist/
