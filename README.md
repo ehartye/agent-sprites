@@ -71,15 +71,15 @@ function Invoke-Sprite {
     if ($LASTEXITCODE -ne 0) { throw 'agent-sprites command failed' }
 }
 Invoke-Sprite new robot --size 16 --rows 1 --cols 2 --palette pico8
-Invoke-Sprite draw rect --cell 0,0 --x 3 --y 3 --w 10 --h 10 --color '#c2c3c7' --name body
-Invoke-Sprite draw rect --cell 0,0 --x 5 --y 6 --w 2 --h 2 --color '#1d2b53' --name eye_l
-Invoke-Sprite draw rect --cell 0,0 --x 9 --y 6 --w 2 --h 2 --color '#1d2b53' --name eye_r
-Invoke-Sprite clone-cell --from 0,0 --to 0,1
-Invoke-Sprite resize eye_l --cell 0,1 --updates '{"h":1}'
-Invoke-Sprite resize eye_r --cell 0,1 --updates '{"h":1}'
-Invoke-Sprite name --cell 0,0 --as robot_open
-Invoke-Sprite name --cell 0,1 --as robot_blink
-Invoke-Sprite group create blink 0,0 0,1 --fps 2
+Invoke-Sprite draw rect --cell '0,0' --x 3 --y 3 --w 10 --h 10 --color '#c2c3c7' --name body
+Invoke-Sprite draw rect --cell '0,0' --x 5 --y 6 --w 2 --h 2 --color '#1d2b53' --name eye_l
+Invoke-Sprite draw rect --cell '0,0' --x 9 --y 6 --w 2 --h 2 --color '#1d2b53' --name eye_r
+Invoke-Sprite clone-cell --from '0,0' --to '0,1'
+Invoke-Sprite resize eye_l --cell '0,1' --updates '{"h":1}'
+Invoke-Sprite resize eye_r --cell '0,1' --updates '{"h":1}'
+Invoke-Sprite name --cell '0,0' --as robot_open
+Invoke-Sprite name --cell '0,1' --as robot_blink
+Invoke-Sprite group create blink '0,0' '0,1' --fps 2
 Invoke-Sprite export --dest .\public\art
 Invoke-Sprite view --sheet --scale 4 --out .\review\robot-contact-sheet.png
 ```

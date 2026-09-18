@@ -46,6 +46,11 @@ call `save`. Avoid duplicate lifecycle steps. `save` writes project JSON;
 automatic SQLite drafts do not require it. If project JSON must stay out of
 assets, omit `save` from both commands and ops.
 
+Quote comma-separated coordinates when calling a PowerShell function:
+`Invoke-Sprite name --cell '0,0' --as idle` and
+`Invoke-Sprite group create idle '0,0' '0,1' --fps 8`.
+An unquoted `0,0` becomes a PowerShell array before the wrapper splats arguments.
+
 POSIX shells can use `set -e` before a sequence, then
 `node "/absolute/path/to/agent-sprites/scripts/sprite.js" <command> ...`.
 In Claude Code, its supplied plugin path remains supported:
