@@ -195,7 +195,7 @@ Cell groups organize frames into animation sequences (stored in SQLite).
 
 ## Shape Groups
 
-Shape groups let you move or recolor multiple shapes within a cell at once (stored in SQLite).
+Shape groups let you move or recolor multiple shapes within a cell at once (stored in SQLite). `copy` and `clone-cell` carry a cell's shape groups to the destination, so a group created before cloning is ready to `recolor-group` in every clone. A single-cell `move-group` or `recolor-group` on a cell that lacks the group is an error; with `--all-cells true`, cells without the group are skipped.
 
 | Command | Positional | Flags | Notes |
 |---------|-----------|-------|-------|

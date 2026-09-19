@@ -9,6 +9,12 @@ function syncCellGroups(state) {
   state.broadcast?.({ type: 'group_created' }); // triggers get_project resync in UI
 }
 
+/** A single-cell group operation must name a group that exists in that cell; silently touching nothing hid real mistakes. */
+function requireGroupInCell(state, name, cell) {
+  if (!(name in state.db.getShapeGroups(state.sessionId, cell))) throw new Error(`Shape group "${name}" not found in cell ${cell}`);
+  return cell;
+}
+
 export function groupRoutes(state) {
   const r = Router();
 
@@ -148,7 +154,7 @@ export function groupRoutes(state) {
             const groups = state.db.getShapeGroups(state.sessionId, c);
             return name in groups;
           })
-        : [cell];
+        : [requireGroupInCell(state, name, cell)];
       for (const c of cellsToUpdate) {
         const groups = state.db.getShapeGroups(state.sessionId, c);
         const shapes = groups[name] ?? [];
@@ -170,7 +176,7 @@ export function groupRoutes(state) {
         ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
             return name in state.db.getShapeGroups(state.sessionId, c);
           })
-        : [cell];
+        : [requireGroupInCell(state, name, cell)];
       for (const c of cellsToUpdate) {
         const groups = state.db.getShapeGroups(state.sessionId, c);
         const shapes = groups[name] ?? [];

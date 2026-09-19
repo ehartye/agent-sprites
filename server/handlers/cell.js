@@ -32,9 +32,21 @@ export function handleRotateCell(state, params) {
   state.broadcast?.({ type: 'cell_rotated', cell: params.cell, deg: params.deg });
 }
 
+/**
+ * Shape groups are stored per cell in SQLite, not on the cell object, so a
+ * copied cell would otherwise arrive without them and a later recolor-group
+ * on the copy would quietly touch nothing.
+ */
+function copyShapeGroups(state, from, to) {
+  if (state.sessionId == null || typeof state.db?.getShapeGroups !== 'function' || typeof state.db?.setShapeGroup !== 'function') return;
+  const groups = state.db.getShapeGroups(state.sessionId, from);
+  for (const [name, shapes] of Object.entries(groups)) state.db.setShapeGroup(state.sessionId, to, name, shapes);
+}
+
 export function handleCopyCell(state, params) {
   if (!state.project) throw new Error('No project open');
   state.project.cells.copyCell(params.from, params.to);
+  copyShapeGroups(state, params.from, params.to);
   state.broadcast?.({ type: 'cell_copied', from: params.from, to: params.to });
 }
 
@@ -55,6 +67,7 @@ export function handleCloneFanout(state, params) {
   }
   for (const dest of to) {
     state.project.cells.copyCell(from, dest);
+    copyShapeGroups(state, from, dest);
   }
   state.broadcast?.({ type: 'cell_cloned_fanout', from, to });
   return { cloned: [...to] };
