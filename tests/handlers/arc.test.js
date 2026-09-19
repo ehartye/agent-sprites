@@ -67,6 +67,24 @@ describe('draw arc', () => {
     expect(res.shapeNames.length).toBeGreaterThan(0);
   });
 
+  it('leaves no gaps at large radii: consecutive pixels stay 8-connected', () => {
+    for (const geometry of [{ r: 13 }, { r: 30 }, { rx: 26, ry: 10 }, { rx: 6, ry: 22 }]) {
+      const state = mkState();
+      const res = handleDraw(state, 'arc', {
+        cell: '0,0', cx: 32, cy: 32, ...geometry,
+        from_deg: 200, to_deg: 340, color: '#ffffff', shape_name: 'big',
+      });
+      const cell = state.project.cells.getCell('0,0');
+      const pixels = res.shapeNames.map(name => cell.shapes.get(name).params);
+      const gaps = pixels.slice(1).filter((p, i) => Math.max(Math.abs(p.x - pixels[i].x), Math.abs(p.y - pixels[i].y)) > 1);
+      expect(gaps, `geometry ${JSON.stringify(geometry)} has ${gaps.length} gaps in ${pixels.length} pixels`).toEqual([]);
+      // and the arc actually covers its span: roughly span/360 of the perimeter
+      const rx = geometry.rx ?? geometry.r, ry = geometry.ry ?? geometry.r;
+      const perimeter = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+      expect(pixels.length).toBeGreaterThan(perimeter * (140 / 360) * 0.8);
+    }
+  });
+
   it('names shapes <base>_<i>', () => {
     const state = mkState();
     const res = handleDraw(state, 'arc', {

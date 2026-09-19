@@ -411,14 +411,16 @@ function rasterizeEllipseOutline(cx, cy, rx, ry) {
  * if span is zero or negative, wraps a full 360° in the positive direction.
  */
 function rasterizeEllipseArc(cx, cy, rx, ry, fromDeg, toDeg) {
-  const steps = Math.max(rx, ry) * 4;
   const drawn = new Set();
   const pixels = [];
   const fromRad = (fromDeg * Math.PI) / 180;
   const toRad = (toDeg * Math.PI) / 180;
   let span = toRad - fromRad;
   if (span <= 0) span += 2 * Math.PI;
-  const n = Math.max(8, Math.round((span / (2 * Math.PI)) * steps));
+  // A point on the ellipse moves at most max(rx, ry) pixels per radian, so
+  // stepping at most half a pixel per sample keeps consecutive rounded pixels
+  // 8-connected at any radius; the Set collapses the duplicates that produces.
+  const n = Math.max(8, Math.ceil(span * Math.max(rx, ry) * 2));
   for (let i = 0; i <= n; i++) {
     const a = fromRad + (span * i) / n;
     const px = Math.round(cx + rx * Math.cos(a));
