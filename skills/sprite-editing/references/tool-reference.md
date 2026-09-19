@@ -59,6 +59,8 @@ Supported mask shape types: `circle`, `ellipse`, `rect`. Currently applies only 
 
 Colors: hex string like `"#ff0000"` or palette color name.
 
+Coordinates and sizes are rounded to the pixel grid when a shape is drawn (`4.5` becomes `5`), so generators may compute positions with fractions. A missing or non-numeric coordinate is an error that names the flag.
+
 ### Pattern fills (two-color dither in one op)
 
 Filled `rect`, `circle`, `ellipse` and `polygon` accept `--pattern <name> --color2 <hex|name>`. The pattern decides, pixel by pixel, whether `--color2` paints instead of `--color`; outlines are never patterned. The shape stays one named shape, so `move`, `resize`, `clone` and `recolor` all still work, and `recolor <name> --color2 <hex>` (or `recolor-group ... --color2`) swaps the second color later.
