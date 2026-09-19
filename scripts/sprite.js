@@ -239,6 +239,8 @@ DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw ellipse   --cx --cy --rx --ry [--filled true]
   draw fill      --x --y                                       flood-fill
   draw polygon   --points "x,y x,y x,y ..." [--filled true]    closed; scanline fill
+    filled rect/circle/ellipse/polygon accept --pattern checker|stripes|sparse|scatter --color2 <hex>
+    (two-color dither fill: color2 paints the pattern pixels; outlines stay --color)
   draw polyline  --points "x,y x,y ..."                        open stroke
   draw highlight --shape <target> [--direction top-left|top|top-right|left|right|bottom-left|bottom|bottom-right] [--strength N] [--name <base>]
   draw shadow    --shape <target> [--direction ...] [--strength N] [--name <base>]
@@ -258,7 +260,7 @@ SHAPES
   move    <name> --cell --dx --dy                   relative offset
   move-to <name> --cell --x --y                     absolute (anchor-dependent)
   resize  <name> --cell --updates '{"rx":5,"ry":3}' or --rx --ry --r --w --h
-  recolor <name> --cell --color
+  recolor <name> --cell --color [--color2 <hex>]   color2 updates a pattern fill's second color
   clone   <name> --from R,C --to R,C [--as new]
   delete  <name> --cell
   duplicate <name> --cell [--as new] [--mirror horizontal|vertical]   copy in place, e.g. wing_l -> wing_r
@@ -292,7 +294,7 @@ SHAPE GROUPS (within a cell)
                               bulk-group matching shape names across every cell
   shape-group add/remove/delete <name> [--cell]      shape-group list --cell
   move-group    <name> --cell --dx --dy [--all-cells true]
-  recolor-group <name> --cell --color [--all-cells true]
+  recolor-group <name> --cell --color [--color2 <hex>] [--all-cells true]
 
 BATCH
   batch <path.json>           execute an array of commands; fails fast on first error
@@ -466,6 +468,7 @@ async function run() {
         w: num(args.w), h: num(args.h),
         points: args.points,
         filled: args.filled !== undefined ? bool(args.filled) : undefined,
+        pattern: args.pattern, color2: args.color2,
         // highlight/shadow params
         shape: args.shape, direction: args.direction,
         strength: num(args.strength),
@@ -523,7 +526,7 @@ async function run() {
       break;
     }
     case 'recolor':
-      result = await api('POST', '/api/shape/recolor', { cell: args.cell, name: sub, color: args.color });
+      result = await api('POST', '/api/shape/recolor', { cell: args.cell, name: sub, color: args.color, color2: args.color2 });
       break;
     case 'delete':
       result = await api('POST', '/api/shape/delete', { cell: args.cell, name: sub });
@@ -633,7 +636,7 @@ async function run() {
 
     case 'recolor-group':
       result = await api('POST', '/api/group/shape/recolor', {
-        name: sub, cell: args.cell, all_cells: bool(args['all-cells']), color: args.color,
+        name: sub, cell: args.cell, all_cells: bool(args['all-cells']), color: args.color, color2: args.color2,
       });
       break;
 

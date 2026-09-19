@@ -71,7 +71,7 @@ export function mapCommandToApi(cmd) {
       }};
     case 'recolor-group':
       return { method: 'POST', path: '/api/group/shape/recolor', body: {
-        name: params.name, cell: params.cell, all_cells: params.all_cells, color: params.color,
+        name: params.name, cell: params.cell, all_cells: params.all_cells, color: params.color, color2: params.color2,
       }};
     case 'draw':
       return { method: 'POST', path: '/api/draw', body: {
@@ -84,6 +84,8 @@ export function mapCommandToApi(cmd) {
         w: params.w, h: params.h,
         points: params.points,
         filled: params.filled,
+        pattern: params.pattern,
+        color2: params.color2,
         shape: params.shape, direction: params.direction, strength: params.strength,
         count: params.count,
         dither: params.dither,
@@ -116,7 +118,7 @@ export function mapCommandToApi(cmd) {
       }};
     case 'recolor':
       return { method: 'POST', path: '/api/shape/recolor', body: {
-        cell: params.cell, name: params.shape, color: params.color,
+        cell: params.cell, name: params.shape, color: params.color, color2: params.color2,
       }};
     case 'delete':
       return { method: 'POST', path: '/api/shape/delete', body: {

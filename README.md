@@ -11,6 +11,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 ## Highlights
 
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
+- **Pattern fills** — any filled rect/circle/ellipse/polygon takes `--pattern checker|stripes|sparse|scatter --color2 <hex>` for two-color dither fills in one op (pointillism, texture, gradients by band); `recolor --color2` swaps the second color later
 - **Feedback loop** — `view` renders any cell/group/sheet to PNG (`--scale` for nearest-neighbor upscales, `--out` to a chosen path) that the agent reads back; the web UI mirrors every operation in real time over WebSocket
 - **Game-ready export** — gapless sheet PNG + Aseprite JSON atlas (`meta.frameTags` from cell groups, per-frame durations from group fps, pivot slice). Phaser, Unity, and Godot importers consume it directly
 - **Batch mode + recipes** — JSON op arrays with `{{var}}` substitution and per-frame vars files; generate large builds from a small JS script (see `recipes/` and the `game-integration` skill)

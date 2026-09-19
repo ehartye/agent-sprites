@@ -1,3 +1,5 @@
+import { patternTest } from '../engine/patterns.js';
+
 /**
  * Compute bounding box from shape type + params.
  * Returns { minX, minY, maxX, maxY, sizeMetric } or null for point/line.
@@ -569,6 +571,22 @@ export function handleDraw(state, type, params) {
   return result;
 }
 
+/**
+ * Two-color pattern fill options for filled rect/circle/ellipse/polygon.
+ * Returns {} when no pattern is requested so params stay free of the keys.
+ */
+function patternParams(type, params) {
+  if (params.pattern == null) {
+    if (params.color2 != null) throw new Error('color2 requires a pattern (checker, stripes, sparse or scatter)');
+    return {};
+  }
+  if (!['rect', 'circle', 'ellipse', 'polygon'].includes(type)) throw new Error(`pattern applies only to filled rect, circle, ellipse and polygon, not ${type}`);
+  if (params.filled === false) throw new Error('pattern requires a filled shape');
+  patternTest(params.pattern);
+  if (params.color2 == null) throw new Error(`pattern "${params.pattern}" requires color2`);
+  return { pattern: params.pattern, color2: params.color2 };
+}
+
 /** Accepts [{x,y},...], [[x,y],...], or the CLI string form "x,y x,y ...". */
 function parsePoints(input) {
   if (Array.isArray(input)) {
@@ -630,6 +648,7 @@ function _handleDrawInner(state, type, params) {
     return handleClippedEllipse(state, { ...params, rx, ry }, cell);
   }
 
+  const pattern = patternParams(type, params);
   let drawParams;
   switch (type) {
     case 'point':
@@ -639,13 +658,13 @@ function _handleDrawInner(state, type, params) {
       drawParams = { x1: params.x1, y1: params.y1, x2: params.x2, y2: params.y2 };
       break;
     case 'rect':
-      drawParams = { x: params.x, y: params.y, w: params.w, h: params.h, filled: params.filled ?? true };
+      drawParams = { x: params.x, y: params.y, w: params.w, h: params.h, filled: params.filled ?? true, ...pattern };
       break;
     case 'circle':
-      drawParams = { cx: params.cx, cy: params.cy, r: params.r, filled: params.filled ?? true };
+      drawParams = { cx: params.cx, cy: params.cy, r: params.r, filled: params.filled ?? true, ...pattern };
       break;
     case 'ellipse':
-      drawParams = { cx: params.cx, cy: params.cy, rx: params.rx, ry: params.ry, filled: params.filled ?? true };
+      drawParams = { cx: params.cx, cy: params.cy, rx: params.rx, ry: params.ry, filled: params.filled ?? true, ...pattern };
       break;
     case 'fill':
       drawParams = { x: params.x, y: params.y };
@@ -653,7 +672,7 @@ function _handleDrawInner(state, type, params) {
     case 'polygon': {
       const points = parsePoints(params.points);
       if (points.length < 3) throw new Error('polygon needs at least 3 points');
-      drawParams = { points, filled: params.filled ?? true };
+      drawParams = { points, filled: params.filled ?? true, ...pattern };
       break;
     }
     case 'polyline': {
