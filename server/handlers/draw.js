@@ -245,6 +245,11 @@ const SPHERE_TIERS_BY_INTENSITY = {
          ['spec', 'highlight', 3, 'top-left',     20, 0.45]],
 };
 
+const OPPOSITE_DIRECTION = {
+  'top-left': 'bottom-right', 'top': 'bottom', 'top-right': 'bottom-left', 'right': 'left',
+  'bottom-right': 'top-left', 'bottom': 'top', 'bottom-left': 'top-right', 'left': 'right',
+};
+
 function pickSphereIntensity(target) {
   const p = target.params;
   const sz = target.type === 'circle' ? p.r : Math.max(p.rx, p.ry);
@@ -265,12 +270,17 @@ function handleSphereShade(state, params) {
   const tiers = SPHERE_TIERS_BY_INTENSITY[intensity];
   if (!tiers) throw new Error(`intensity must be low|med|high|auto`);
   const base = params.shape_name ?? `${params.shape}_shade`;
+  // The tier table is written for light from the upper left: lit tiers point
+  // 'top-left', shadow-side tiers 'bottom-right'. Rotate both to the requested light.
+  const light = params.direction ?? 'top-left';
+  if (!(light in OPPOSITE_DIRECTION)) throw new Error(`direction must be one of ${Object.keys(OPPOSITE_DIRECTION).join('|')}`);
   const allNames = [];
   for (const [label, type, strength, dir, span, rf] of tiers) {
     const extra = label === 'spec' ? { count: 2 } : {};
+    const direction = dir === 'top-left' ? light : dir === 'bottom-right' ? OPPOSITE_DIRECTION[light] : dir;
     const r = handleHighlightShadow(state, type, {
       cell: params.cell, shape: params.shape,
-      direction: dir, strength, span_deg: span, radius_factor: rf,
+      direction, strength, span_deg: span, radius_factor: rf,
       shape_name: `${base}_${label}`, ...extra,
     });
     allNames.push(...r.shapeNames);
