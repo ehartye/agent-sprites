@@ -26,7 +26,10 @@ export class CanvasRenderer {
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
 
-    const p = shape.params;
+    // Snap to the pixel grid: fractional radii would produce invalid array
+    // lengths and fractional endpoints would never terminate Bresenham.
+    const p = {};
+    for (const [k, v] of Object.entries(shape.params)) p[k] = typeof v === 'number' ? Math.round(v) : k === 'points' && Array.isArray(v) ? v.map(pt => ({ x: Math.round(pt.x), y: Math.round(pt.y) })) : v;
     // Two-color pattern fills: only the fill is patterned, never an outline.
     this._fill = p.pattern && p.filled !== false && p.color2 != null
       ? { test: patternTest(p.pattern), color, color2: this._resolveColor(p.color2) }
@@ -112,8 +115,10 @@ export class CanvasRenderer {
     }
   }
 
-  // Bresenham's line for pixel-perfect lines
+  // Bresenham's line for pixel-perfect lines. Endpoints are rounded first:
+  // with a fractional endpoint the exact-equality stop test never fires.
   _drawLine(ctx, x1, y1, x2, y2) {
+    x1 = Math.round(x1); y1 = Math.round(y1); x2 = Math.round(x2); y2 = Math.round(y2);
     const dx = Math.abs(x2 - x1);
     const dy = Math.abs(y2 - y1);
     const sx = x1 < x2 ? 1 : -1;

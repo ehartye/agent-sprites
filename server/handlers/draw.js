@@ -649,34 +649,43 @@ function _handleDrawInner(state, type, params) {
   }
 
   const pattern = patternParams(type, params);
+  // Every coordinate lands on the pixel grid. Generators routinely produce
+  // fractions (y = 58 - k * 4.5); a fractional line endpoint used to hang the
+  // renderer forever, so round here, once, for every primitive.
+  const int = key => {
+    const v = Number(params[key]);
+    if (params[key] === undefined || params[key] === null || Number.isNaN(v)) throw new Error(`draw ${type}: ${key} must be a number`);
+    return Math.round(v);
+  };
+  const roundPoints = points => points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }));
   let drawParams;
   switch (type) {
     case 'point':
-      drawParams = { x: params.x, y: params.y };
+      drawParams = { x: int('x'), y: int('y') };
       break;
     case 'line':
-      drawParams = { x1: params.x1, y1: params.y1, x2: params.x2, y2: params.y2 };
+      drawParams = { x1: int('x1'), y1: int('y1'), x2: int('x2'), y2: int('y2') };
       break;
     case 'rect':
-      drawParams = { x: params.x, y: params.y, w: params.w, h: params.h, filled: params.filled ?? true, ...pattern };
+      drawParams = { x: int('x'), y: int('y'), w: int('w'), h: int('h'), filled: params.filled ?? true, ...pattern };
       break;
     case 'circle':
-      drawParams = { cx: params.cx, cy: params.cy, r: params.r, filled: params.filled ?? true, ...pattern };
+      drawParams = { cx: int('cx'), cy: int('cy'), r: int('r'), filled: params.filled ?? true, ...pattern };
       break;
     case 'ellipse':
-      drawParams = { cx: params.cx, cy: params.cy, rx: params.rx, ry: params.ry, filled: params.filled ?? true, ...pattern };
+      drawParams = { cx: int('cx'), cy: int('cy'), rx: int('rx'), ry: int('ry'), filled: params.filled ?? true, ...pattern };
       break;
     case 'fill':
-      drawParams = { x: params.x, y: params.y };
+      drawParams = { x: int('x'), y: int('y') };
       break;
     case 'polygon': {
-      const points = parsePoints(params.points);
+      const points = roundPoints(parsePoints(params.points));
       if (points.length < 3) throw new Error('polygon needs at least 3 points');
       drawParams = { points, filled: params.filled ?? true, ...pattern };
       break;
     }
     case 'polyline': {
-      const points = parsePoints(params.points);
+      const points = roundPoints(parsePoints(params.points));
       if (points.length < 2) throw new Error('polyline needs at least 2 points');
       drawParams = { points };
       break;

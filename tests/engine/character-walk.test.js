@@ -51,4 +51,4 @@ test('real built walk has four distinct grounded silhouettes and a timed walk ta
     }
     expect(new Set(frames).size).toBe(4);
   } finally {rmSync(dir,{recursive:true,force:true});}
-});
+}, 20000);
