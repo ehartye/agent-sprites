@@ -1,5 +1,6 @@
 import { createCanvas, Image } from 'canvas';
 import fs from 'fs';
+import { patternTest } from './patterns.js';
 
 export class CanvasRenderer {
   constructor(palette, opts = {}) {
@@ -26,6 +27,10 @@ export class CanvasRenderer {
     ctx.strokeStyle = color;
 
     const p = shape.params;
+    // Two-color pattern fills: only the fill is patterned, never an outline.
+    this._fill = p.pattern && p.filled !== false && p.color2 != null
+      ? { test: patternTest(p.pattern), color, color2: this._resolveColor(p.color2) }
+      : null;
     switch (shape.type) {
       case 'point':
         ctx.fillRect(p.x, p.y, 1, 1);
@@ -34,7 +39,9 @@ export class CanvasRenderer {
         this._drawLine(ctx, p.x1, p.y1, p.x2, p.y2);
         break;
       case 'rect':
-        if (p.filled) {
+        if (p.filled && this._fill) {
+          for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) this._px(ctx, x, y);
+        } else if (p.filled) {
           ctx.fillRect(p.x, p.y, p.w, p.h);
         } else {
           // 1px outline
@@ -62,6 +69,18 @@ export class CanvasRenderer {
     }
   }
 
+  /** One fill pixel, honoring the active two-color pattern if any. */
+  _px(ctx, x, y) {
+    const f = this._fill;
+    if (f && f.test(x, y)) {
+      ctx.fillStyle = f.color2;
+      ctx.fillRect(x, y, 1, 1);
+      ctx.fillStyle = f.color;
+    } else {
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
   // Scanline even-odd fill + Bresenham outline. close=true joins last->first.
   _drawPolygon(ctx, points, filled, close) {
     if (!Array.isArray(points) || points.length < 2) return;
@@ -80,7 +99,7 @@ export class CanvasRenderer {
         xs.sort((m, n) => m - n);
         for (let i = 0; i + 1 < xs.length; i += 2) {
           const x0 = Math.ceil(xs[i]), x1 = Math.floor(xs[i + 1]);
-          for (let x = x0; x <= x1; x++) ctx.fillRect(x, y, 1, 1);
+          for (let x = x0; x <= x1; x++) this._px(ctx, x, y);
         }
       }
     }
@@ -116,7 +135,7 @@ export class CanvasRenderer {
       for (let y = -r; y <= r; y++) {
         for (let x = -r; x <= r; x++) {
           if (x * x + y * y <= r * r) {
-            ctx.fillRect(cx + x, cy + y, 1, 1);
+            this._px(ctx, cx + x, cy + y);
           }
         }
       }
@@ -162,7 +181,7 @@ export class CanvasRenderer {
           if (!inEllipse(x, y)) continue;
           if (trimRow && (y === -ry || y === ry) && rowWidth[y + ry] === 1) continue;
           if (trimCol && (x === -rx || x === rx) && colHeight[x + rx] === 1) continue;
-          ctx.fillRect(cx + x, cy + y, 1, 1);
+          this._px(ctx, cx + x, cy + y);
         }
       }
     } else {

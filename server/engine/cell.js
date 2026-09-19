@@ -56,13 +56,17 @@ export class Cell {
     });
   }
 
-  recolorShape(ref, color) {
+  recolorShape(ref, color, color2) {
     const shape = this.shapes.get(ref);
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldColor = shape.color;
+    const oldColor2 = shape.params.color2;
     this._exec({
-      execute: () => { shape.color = color; },
-      undo: () => { shape.color = oldColor; },
+      execute: () => { shape.color = color; if (color2 != null) shape.params.color2 = color2; },
+      undo: () => {
+        shape.color = oldColor;
+        if (color2 != null) { if (oldColor2 === undefined) delete shape.params.color2; else shape.params.color2 = oldColor2; }
+      },
     });
   }
 

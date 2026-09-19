@@ -91,6 +91,10 @@ sprite.js draw highlight --cell 0,0 --shape ball --direction top-left     --stre
 - **Outline-only darkening of the lit side** — the lit-side silhouette should stay at *base* tone or even pick up a mid-light tone; never darken it.
 - **Harsh single-step jumps on big sprites** — at 64px+ skipping the form-shadow tier creates a visible seam between highlight and core-shadow. Use the mid tier.
 
+## Dither Fills for Large Flats
+
+A big flat fill at 64px+ reads as plastic. Give it texture without hand-placing pixels: `draw rect ... --pattern scatter --color2 <one ramp step lighter>` for grass or fabric, `--pattern checker` between two adjacent ramp steps for a soft gradient band, `--pattern stripes` for water. Keep both colors within one or two ramp steps of each other; a high-contrast pattern reads as a texture map, not shading. See the [pattern fill flags](../sprite-editing/references/tool-reference.md#pattern-fills-two-color-dither-in-one-op).
+
 ## Flat vs Curved Surfaces
 
 The tool branches internally:

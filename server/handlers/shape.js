@@ -15,8 +15,8 @@ export function handleMoveShape(state, params) {
 export function handleRecolorShape(state, params) {
   if (!state.project) throw new Error('No project open');
   const cell = state.project.cells.getCell(params.cell);
-  cell.recolorShape(params.name, params.color);
-  state.broadcast?.({ type: 'shape_recolored', cell: params.cell, name: params.name, color: params.color });
+  cell.recolorShape(params.name, params.color, params.color2);
+  state.broadcast?.({ type: 'shape_recolored', cell: params.cell, name: params.name, color: params.color, color2: params.color2 });
 }
 
 export function handleDeleteShape(state, params) {

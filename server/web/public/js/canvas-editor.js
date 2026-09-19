@@ -1,3 +1,11 @@
+// Mirrors server/engine/patterns.js so the live view matches the export.
+const PATTERNS = {
+  checker: (x, y) => (x + y) % 2 === 0,
+  stripes: (x, y) => y % 2 === 0,
+  sparse: (x, y) => x % 2 === 0 && y % 2 === 0,
+  scatter: (x, y) => ((x * 3 + y * 5) % 7) === 0,
+};
+
 /**
  * Canvas editor — pixel grid with zoom, pan, and shape rendering.
  * Mirrors server-side CanvasRenderer drawing logic for client-side preview.
@@ -232,6 +240,7 @@ export class CanvasEditor {
   /** Render a single shape without setting fillStyle (caller sets it). */
   _renderOneShape(ctx, ox, oy, z, shape) {
     const p = shape.params;
+    this._setFill(ctx, p);
     switch (shape.type) {
       case 'point':
         ctx.fillRect(ox + p.x * z, oy + p.y * z, z, z);
@@ -240,7 +249,9 @@ export class CanvasEditor {
         this._drawLine(ctx, ox, oy, z, p.x1, p.y1, p.x2, p.y2);
         break;
       case 'rect':
-        if (p.filled) {
+        if (p.filled && this._fill) {
+          for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) this._fillPx(ctx, ox, oy, z, x, y);
+        } else if (p.filled) {
           ctx.fillRect(ox + p.x * z, oy + p.y * z, p.w * z, p.h * z);
         } else {
           ctx.fillRect(ox + p.x * z, oy + p.y * z, p.w * z, z);
@@ -254,7 +265,7 @@ export class CanvasEditor {
           for (let y = -p.r; y <= p.r; y++) {
             for (let x = -p.r; x <= p.r; x++) {
               if (x * x + y * y <= p.r * p.r) {
-                ctx.fillRect(ox + (p.cx + x) * z, oy + (p.cy + y) * z, z, z);
+                this._fillPx(ctx, ox, oy, z, p.cx + x, p.cy + y);
               }
             }
           }
@@ -278,6 +289,7 @@ export class CanvasEditor {
       ctx.fillStyle = color;
 
       const p = shape.params;
+      this._setFill(ctx, p);
       switch (shape.type) {
         case 'point':
           ctx.fillRect(ox + p.x * z, oy + p.y * z, z, z);
@@ -286,7 +298,9 @@ export class CanvasEditor {
           this._drawLine(ctx, ox, oy, z, p.x1, p.y1, p.x2, p.y2);
           break;
         case 'rect':
-          if (p.filled) {
+          if (p.filled && this._fill) {
+            for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) this._fillPx(ctx, ox, oy, z, x, y);
+          } else if (p.filled) {
             ctx.fillRect(ox + p.x * z, oy + p.y * z, p.w * z, p.h * z);
           } else {
             ctx.fillRect(ox + p.x * z, oy + p.y * z, p.w * z, z);
@@ -318,6 +332,25 @@ export class CanvasEditor {
     }
   }
 
+  /** Arm a two-color pattern fill for the shape about to be drawn (fill only, never outlines). */
+  _setFill(ctx, p) {
+    this._fill = p && p.pattern && p.filled !== false && p.color2 != null && PATTERNS[p.pattern]
+      ? { test: PATTERNS[p.pattern], base: ctx.fillStyle, color2: this._resolveColor(p.color2) }
+      : null;
+  }
+
+  /** One logical fill pixel at (px, py), honoring the armed pattern. */
+  _fillPx(ctx, ox, oy, z, px, py) {
+    const f = this._fill;
+    if (f && f.test(px, py)) {
+      ctx.fillStyle = f.color2;
+      ctx.fillRect(ox + px * z, oy + py * z, z, z);
+      ctx.fillStyle = f.base;
+    } else {
+      ctx.fillRect(ox + px * z, oy + py * z, z, z);
+    }
+  }
+
   // Scanline even-odd fill + Bresenham outline; mirrors the server renderer.
   _drawPolygon(ctx, ox, oy, z, points, filled, close) {
     if (!Array.isArray(points) || points.length < 2) return;
@@ -336,7 +369,7 @@ export class CanvasEditor {
         xs.sort((m, n) => m - n);
         for (let i = 0; i + 1 < xs.length; i += 2) {
           for (let x = Math.ceil(xs[i]); x <= Math.floor(xs[i + 1]); x++) {
-            ctx.fillRect(ox + x * z, oy + y * z, z, z);
+            this._fillPx(ctx, ox, oy, z, x, y);
           }
         }
       }
@@ -371,7 +404,7 @@ export class CanvasEditor {
       for (let y = -r; y <= r; y++) {
         for (let x = -r; x <= r; x++) {
           if (x * x + y * y <= r * r) {
-            ctx.fillRect(ox + (cx + x) * z, oy + (cy + y) * z, z, z);
+            this._fillPx(ctx, ox, oy, z, cx + x, cy + y);
           }
         }
       }
@@ -416,7 +449,7 @@ export class CanvasEditor {
           if (!inEllipse(x, y)) continue;
           if (trimRow && (y === -ry || y === ry) && rowWidth[y + ry] === 1) continue;
           if (trimCol && (x === -rx || x === rx) && colHeight[x + rx] === 1) continue;
-          ctx.fillRect(ox + (cx + x) * z, oy + (cy + y) * z, z, z);
+          this._fillPx(ctx, ox, oy, z, cx + x, cy + y);
         }
       }
     } else {
@@ -479,6 +512,7 @@ export class CanvasEditor {
     ctx.save();
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = this._resolveColor(shape.color);
+    this._setFill(ctx, shape.params);
     switch (shape.type) {
       case 'point':
         ctx.fillRect(ox + (p.x + dx) * z, oy + (p.y + dy) * z, z, z);

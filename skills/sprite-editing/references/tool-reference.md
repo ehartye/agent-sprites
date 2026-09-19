@@ -59,6 +59,24 @@ Supported mask shape types: `circle`, `ellipse`, `rect`. Currently applies only 
 
 Colors: hex string like `"#ff0000"` or palette color name.
 
+### Pattern fills (two-color dither in one op)
+
+Filled `rect`, `circle`, `ellipse` and `polygon` accept `--pattern <name> --color2 <hex|name>`. The pattern decides, pixel by pixel, whether `--color2` paints instead of `--color`; outlines are never patterned. The shape stays one named shape, so `move`, `resize`, `clone` and `recolor` all still work, and `recolor <name> --color2 <hex>` (or `recolor-group ... --color2`) swaps the second color later.
+
+| Pattern | Coverage | Use it for |
+|---|---|---|
+| `checker` | 50%, `(x+y)` even | classic dither between two ramp steps, gradients by band |
+| `stripes` | every other row | scanlines, water, fabric |
+| `sparse` | 25%, even columns of even rows | sparkle, texture on large flats |
+| `scatter` | ~14%, deterministic non-grid | pointillism, grass, noise that reads as organic |
+
+```
+sprite.js draw rect --cell 0,0 --x 0 --y 20 --w 96 --h 44 --color "#6abe30" --pattern scatter --color2 "#99e550" --name lawn
+sprite.js recolor lawn --cell 0,0 --color "#4b692f" --color2 "#37946e"   # same lawn, in shadow
+```
+
+Batch ops take the same keys: `"pattern": "checker", "color2": "#..."`. A pattern on an unfilled shape or a non-fill type is an error; `color2` without `pattern` is an error too.
+
 ### Highlight / Shadow details
 
 Prefer these over hand-placed points for lighting. They:

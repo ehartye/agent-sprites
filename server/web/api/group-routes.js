@@ -165,7 +165,7 @@ export function groupRoutes(state) {
 
   r.post('/group/shape/recolor', (req, res) => {
     try {
-      const { name, cell, all_cells, color } = req.body;
+      const { name, cell, all_cells, color, color2 } = req.body;
       const cellsToUpdate = all_cells
         ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
             return name in state.db.getShapeGroups(state.sessionId, c);
@@ -176,7 +176,7 @@ export function groupRoutes(state) {
         const shapes = groups[name] ?? [];
         const cellObj = state.project.cells.getCell(c);
         for (const shapeName of shapes) {
-          cellObj.recolorShape(shapeName, color);
+          cellObj.recolorShape(shapeName, color, color2);
         }
         state.broadcast?.({ type: 'shape_recolored', cell: c });
       }

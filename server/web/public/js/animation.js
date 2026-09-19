@@ -1,3 +1,11 @@
+// Mirrors server/engine/patterns.js so the live view matches the export.
+const PATTERNS = {
+  checker: (x, y) => (x + y) % 2 === 0,
+  stripes: (x, y) => y % 2 === 0,
+  sparse: (x, y) => x % 2 === 0 && y % 2 === 0,
+  scatter: (x, y) => ((x * 3 + y * 5) % 7) === 0,
+};
+
 /**
  * Animation preview — cycles through group cells at configurable FPS,
  * with onion skin overlay for editing context.
@@ -269,6 +277,9 @@ export class AnimationPreview {
     for (const shape of shapes) {
       ctx.fillStyle = this._resolveColor(shape.color);
       const p = shape.params;
+      this._fill = p.pattern && p.filled !== false && p.color2 != null && PATTERNS[p.pattern]
+        ? { test: PATTERNS[p.pattern], base: ctx.fillStyle, color2: this._resolveColor(p.color2) }
+        : null;
 
       switch (shape.type) {
         case 'point':
@@ -278,7 +289,9 @@ export class AnimationPreview {
           this._drawLine(ctx, scale, p.x1, p.y1, p.x2, p.y2);
           break;
         case 'rect':
-          if (p.filled) {
+          if (p.filled && this._fill) {
+            for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) this._fillPx(ctx, scale, x, y);
+          } else if (p.filled) {
             ctx.fillRect(p.x * scale, p.y * scale, p.w * scale, p.h * scale);
           } else {
             ctx.fillRect(p.x * scale, p.y * scale, p.w * scale, scale);
@@ -312,7 +325,7 @@ export class AnimationPreview {
               xs.sort((m, n) => m - n);
               for (let i = 0; i + 1 < xs.length; i += 2) {
                 for (let x = Math.ceil(xs[i]); x <= Math.floor(xs[i + 1]); x++) {
-                  ctx.fillRect(x * scale, y * scale, scale, scale);
+                  this._fillPx(ctx, scale, x, y);
                 }
               }
             }
@@ -326,6 +339,18 @@ export class AnimationPreview {
           break;
         }
       }
+    }
+  }
+
+  /** One logical fill pixel, honoring the armed two-color pattern. */
+  _fillPx(ctx, scale, px, py) {
+    const f = this._fill;
+    if (f && f.test(px, py)) {
+      ctx.fillStyle = f.color2;
+      ctx.fillRect(px * scale, py * scale, scale, scale);
+      ctx.fillStyle = f.base;
+    } else {
+      ctx.fillRect(px * scale, py * scale, scale, scale);
     }
   }
 
@@ -350,7 +375,7 @@ export class AnimationPreview {
         if (!inEllipse(x, y)) continue;
         if (trimRow && (y === -ry || y === ry) && rowWidth[y + ry] === 1) continue;
         if (trimCol && (x === -rx || x === rx) && colHeight[x + rx] === 1) continue;
-        ctx.fillRect((cx + x) * scale, (cy + y) * scale, scale, scale);
+        this._fillPx(ctx, scale, cx + x, cy + y);
       }
     }
   }
