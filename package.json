@@ -1,6 +1,6 @@
 {
   "name": "agent-sprites",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "description": "Pixel-art sprite authoring toolset for coding agents and 2D game projects",
   "type": "module",
   "main": "server/index.js",
