@@ -9,8 +9,6 @@ to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite d
 
 ## Session Commands
 
- accepts up to 10 rows by 10 columns (100 cells per sheet). Plan layered sheets within that cap or split them; the error at build time is "Grid max is 10x10".
-
 | Command | Flags | Notes |
 |---------|-------|-------|
 | `new <name>` | `--size 16 --rows 4 --cols 4 --palette pico8 [--dest <folder>]` | Create project. `--size` takes `16` (square) or `16x32` (width x height — tall character cells). Grids are capped at 10 rows by 10 columns (100 cells); a layered sheet with more layers needs bigger cells or a second sheet. Exports land under the **CLI's** working directory (`assets/claude-sprites/<name>/`) or under `--dest <parent>` if given. Palettes: `pico8`, `gameboy`, `nes`, `cga` |
