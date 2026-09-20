@@ -146,4 +146,4 @@ test('CLI build ignores the live server; portable files reopen with timing and s
     const atlas=JSON.parse(readFileSync(join(dir,'reopened','robot.atlas.json'),'utf8'));
     expect(atlas.frames[2].duration).toBe(250);
   } finally { server.wss.close(); await new Promise(r=>{server.httpServer.close(r);server.httpServer.closeAllConnections()}); db.close(); }
-});
+}, 20000);

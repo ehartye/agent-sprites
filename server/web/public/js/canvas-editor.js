@@ -261,15 +261,7 @@ export class CanvasEditor {
         }
         break;
       case 'circle':
-        if (p.filled) {
-          for (let y = -p.r; y <= p.r; y++) {
-            for (let x = -p.r; x <= p.r; x++) {
-              if (x * x + y * y <= p.r * p.r) {
-                this._fillPx(ctx, ox, oy, z, p.cx + x, p.cy + y);
-              }
-            }
-          }
-        }
+        if (p.filled) this._fillCircle(ctx, ox, oy, z, p.cx, p.cy, p.r);
         break;
       case 'ellipse':
         this._drawEllipse(ctx, ox, oy, z, p.cx, p.cy, p.rx, p.ry, p.filled);
@@ -401,15 +393,19 @@ export class CanvasEditor {
     }
   }
 
+  /** Filled circle with the export's half-pixel threshold: rows 3,5,7,7,7,5,3 at r=3, no nubs. */
+  _fillCircle(ctx, ox, oy, z, cx, cy, r) {
+    const limit = r >= 2 ? (r + 0.5) * (r + 0.5) : r * r;
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y <= limit) this._fillPx(ctx, ox, oy, z, cx + x, cy + y);
+      }
+    }
+  }
+
   _drawCircle(ctx, ox, oy, z, cx, cy, r, filled) {
     if (filled) {
-      for (let y = -r; y <= r; y++) {
-        for (let x = -r; x <= r; x++) {
-          if (x * x + y * y <= r * r) {
-            this._fillPx(ctx, ox, oy, z, cx + x, cy + y);
-          }
-        }
-      }
+      this._fillCircle(ctx, ox, oy, z, cx, cy, r);
     } else {
       let x = r, y = 0, err = 1 - r;
       while (x >= y) {
