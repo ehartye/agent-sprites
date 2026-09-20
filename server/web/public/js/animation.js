@@ -301,7 +301,7 @@ export class AnimationPreview {
           }
           break;
         case 'circle':
-          if (p.filled) this._fillEllipse(ctx, scale, p.cx, p.cy, p.r, p.r);
+          if (p.filled) this._fillCircle(ctx, scale, p.cx, p.cy, p.r);
           break;
         case 'ellipse':
           if (p.filled) this._fillEllipse(ctx, scale, p.cx, p.cy, p.rx, p.ry);
@@ -338,6 +338,16 @@ export class AnimationPreview {
           }
           break;
         }
+      }
+    }
+  }
+
+  /** Filled circle with the export's half-pixel threshold (rows 3,5,7,7,7,5,3 at r=3). */
+  _fillCircle(ctx, scale, cx, cy, r) {
+    const limit = r >= 2 ? (r + 0.5) * (r + 0.5) : r * r;
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y <= limit) this._fillPx(ctx, scale, cx + x, cy + y);
       }
     }
   }

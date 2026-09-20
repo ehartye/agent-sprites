@@ -137,11 +137,13 @@ export class CanvasRenderer {
   // Midpoint circle algorithm
   _drawCircle(ctx, cx, cy, r, filled) {
     if (filled) {
+      // Half-pixel threshold for r >= 2: rows 3,5,7,7,7,5,3 at r=3 instead of a
+      // plus-tipped blob. r=1 keeps its classic five-pixel plus. The browser
+      // renderers use the same rule so the live view matches the export.
+      const limit = r >= 2 ? (r + 0.5) * (r + 0.5) : r * r;
       for (let y = -r; y <= r; y++) {
         for (let x = -r; x <= r; x++) {
-          if (x * x + y * y <= r * r) {
-            this._px(ctx, cx + x, cy + y);
-          }
+          if (x * x + y * y <= limit) this._px(ctx, cx + x, cy + y);
         }
       }
     } else {
