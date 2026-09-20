@@ -156,4 +156,21 @@ describe('CLI batch parity (full pipeline in one ops file)', () => {
     // save wrote the project file
     expect(fs.existsSync(join(tmp, 'batchproj', 'batchproj.json'))).toBe(true);
   });
+
+  test('vertex morphs work in the batch pipeline', async () => {
+    const end = [{ x: 4, y: 4 }, { x: 13, y: 7 }, { x: 6, y: 13 }];
+    const ops = [
+      { command: 'new', name: 'morphproj', size: 16, rows: 1, cols: 4, palette: 'pico8', dest: tmp },
+      { command: 'draw', type: 'polyline', cell: '0,0', points: '1,1 10,1 6,10', color: '#ffffff', name: 'fin' },
+      { command: 'clone-cell', from: '0,0', to: ['0,1', '0,2', '0,3'] },
+      { command: 'group', sub: 'create', name: 'morph', cells: ['0,0', '0,1', '0,2', '0,3'] },
+      { command: 'tween', shape: 'fin', group: 'morph', to_updates: { points: end } },
+    ];
+    const opsPath = join(tmp, 'morph.json');
+    fs.writeFileSync(opsPath, JSON.stringify(ops));
+    const { stdout } = await cli('batch', opsPath);
+    expect(stdout).toMatch(/5\/5 succeeded/);
+    const frame = await (await fetch(`http://localhost:${port}/api/shapes?cell=0,2`)).json();
+    expect(frame.data.find(s => s.name === 'fin').params.points).toEqual([{ x: 3, y: 3 }, { x: 12, y: 5 }, { x: 6, y: 12 }]);
+  });
 });

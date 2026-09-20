@@ -174,11 +174,21 @@ sprite.js resize ball --cell 0,1 --updates '{"rx":4,"ry":5}'   # stretch mid-air
 |------|---------|
 | `--to X,Y` | End position (anchor coords). Start defaults to the shape's position in the group's first frame |
 | `--from X,Y` | Override the start position |
-| `--to-updates '{"r":1}'` | End values for numeric shape params (r, rx/ry, w/h). Start values read from the first frame |
+| `--to-updates '{"r":1}'` | End values for numeric shape params (r, rx/ry, w/h) or polygon/polyline `points`. Start values read from the first frame |
 | `--from-updates '{"r":4}'` | Override start param values |
 | `--ease linear\|in\|out\|in-out` | Easing curve (default linear). `out` decelerates (landing), `in` accelerates (falling) |
 
 Position and param tweens combine in one call — e.g. a ball that moves down while squashing: `tween ball --group drop --to 8,14 --to-updates '{"ry":2}' --ease in`.
+
+For polygon and polyline morphs, pass an array of `{x,y}` objects:
+`tween fish --group morph --to-updates '{"points":[{"x":4,"y":4},{"x":13,"y":7},{"x":6,"y":13}]}'`.
+Vertices pair by index, use the selected easing curve, and round to whole pixels.
+The start, end, and every destination shape must have the same vertex count and
+finite numeric coordinates. `--from-updates` can override the starting points.
+Points are absolute cell coordinates: include any translation in the vertices;
+combining a points morph with `--to` or `--from` is rejected. All destination
+shapes are validated before the first frame changes, and edits remain undoable
+per frame. Batch operations use the identical `to_updates` / `from_updates` objects.
 
 ## Cell Groups
 

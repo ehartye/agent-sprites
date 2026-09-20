@@ -112,8 +112,19 @@ const TWEEN_EASE = {
   'in-out': t => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)),
 };
 
+function validateTweenPoints(points, label, count) {
+  if (!Array.isArray(points)) throw new Error(`${label} must be an array of {x,y} points`);
+  if (points.length !== count) throw new Error(`Vertex count mismatch for ${label}: expected ${count}, got ${points.length}`);
+  for (const [i, point] of points.entries()) {
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      throw new Error(`${label}[${i}] must have finite numeric x and y coordinates`);
+    }
+  }
+}
+
 /**
- * Interpolate a shape's position and/or numeric params across every frame of
+ * Interpolate a shape's position, numeric params, or matching polygon/polyline
+ * vertices across every frame of
  * a cell group in one call. Start values default to the shape's state in the
  * group's first frame. Composes move-to/resize per frame, so each frame's
  * edit stays individually undoable.
@@ -138,12 +149,33 @@ export function handleTweenShape(state, params) {
 
   let startUpdates = null;
   if (to_updates) {
+    if (typeof to_updates !== 'object' || Array.isArray(to_updates)) throw new Error('to_updates must be an object');
+    if (from_updates != null && (typeof from_updates !== 'object' || Array.isArray(from_updates))) throw new Error('from_updates must be an object');
     startUpdates = { ...(from_updates ?? {}) };
     for (const k of Object.keys(to_updates)) {
-      if (!(k in startUpdates)) {
-        if (typeof p[k] !== 'number') throw new Error(`Cannot tween "${k}": not a numeric param of "${shapeName}"`);
-        startUpdates[k] = p[k];
+      if (k === 'points') {
+        if (!['polygon', 'polyline'].includes(src.type)) throw new Error('Cannot tween points: shape must be a polygon or polyline');
+        if (to || from) throw new Error('Cannot combine absolute points with a position tween; include translation in the points');
+        const count = p.points.length;
+        if (!(k in startUpdates)) startUpdates.points = structuredClone(p.points);
+        validateTweenPoints(startUpdates.points, 'from_updates.points', count);
+        validateTweenPoints(to_updates.points, 'to_updates.points', count);
+      } else {
+        if (!Number.isFinite(p[k])) throw new Error(`Cannot tween "${k}": not a numeric param of "${shapeName}"`);
+        if (!(k in startUpdates)) startUpdates[k] = p[k];
+        if (!Number.isFinite(startUpdates[k]) || !Number.isFinite(to_updates[k])) throw new Error(`Cannot tween "${k}": start and end must be finite numbers`);
       }
+    }
+  }
+
+  // Validate all destinations before editing the first frame. A later missing
+  // or incompatible outline must not leave a partially morphed animation.
+  for (const cell of cells) {
+    const target = state.project.cells.getCell(cell).shapes.get(shapeName);
+    if (!target) throw new Error(`Shape "${shapeName}" not found in ${cell}`);
+    if (to_updates && Object.hasOwn(to_updates, 'points')) {
+      if (target.type !== src.type) throw new Error(`Shape "${shapeName}" in ${cell} must be a ${src.type}`);
+      validateTweenPoints(target.params.points, `shape "${shapeName}" in ${cell}`, p.points.length);
     }
   }
 
@@ -162,7 +194,12 @@ export function handleTweenShape(state, params) {
     if (to_updates) {
       const updates = {};
       for (const k of Object.keys(to_updates)) {
-        updates[k] = Math.round(startUpdates[k] + (to_updates[k] - startUpdates[k]) * t);
+        updates[k] = k === 'points'
+          ? startUpdates.points.map((point, j) => ({
+            x: Math.round(point.x + (to_updates.points[j].x - point.x) * t),
+            y: Math.round(point.y + (to_updates.points[j].y - point.y) * t),
+          }))
+          : Math.round(startUpdates[k] + (to_updates[k] - startUpdates[k]) * t);
       }
       handleResizeShape(state, { cell, shape: shapeName, updates });
     }

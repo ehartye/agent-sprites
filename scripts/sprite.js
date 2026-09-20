@@ -281,6 +281,8 @@ CELLS
 TWEEN
   tween <shape> --group <cellgroup> [--to X,Y] [--from X,Y] [--ease linear|in|out|in-out]
                 [--to-updates '{"r":1}'] [--from-updates '{"r":4}']
+                Polygon/polyline points: --to-updates '{"points":[{"x":0,"y":0},...]}'
+                (equal vertex counts; absolute coordinates; no --to/--from)
                 interpolate a shape's position and/or numeric params across every
                 frame of a cell group (draw frame 1, clone-cell fan-out, then tween)
 
