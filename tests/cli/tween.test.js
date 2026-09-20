@@ -111,4 +111,13 @@ describe('CLI tween', () => {
     expect(err).toBeDefined();
     expect(String(err.stderr || err.message)).toMatch(/ghost/);
   });
+
+  test('morphs polygon vertices through JSON flags', async () => {
+    await cli('draw', 'polygon', '--cell', '0,0', '--points', '1,1 10,1 6,10', '--color', '#ffffff', '--name', 'fish');
+    await cli('clone-cell', '--from', '0,0', '--to', '0,1 0,2 0,3');
+    const end = [{ x: 4, y: 4 }, { x: 13, y: 7 }, { x: 6, y: 13 }];
+    await cli('tween', 'fish', '--group', 'fly', '--to-updates', JSON.stringify({ points: end }));
+    expect((await shapeParams('0,1', 'fish')).points).toEqual([{ x: 2, y: 2 }, { x: 11, y: 3 }, { x: 6, y: 11 }]);
+    expect((await shapeParams('0,3', 'fish')).points).toEqual(end);
+  });
 });
