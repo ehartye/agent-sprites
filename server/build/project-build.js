@@ -70,6 +70,7 @@ export async function buildProject(configPath) {
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
     if (Boolean(config.ops) === Boolean(config.generator)) throw new Error('Specify exactly one ops JSON file or Node generator script.');
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
+    if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const source = realpathSync(resolve(base, config.ops ?? config.generator));
     let output = resolve(base, config.output);
     if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
@@ -110,7 +111,7 @@ export async function buildProject(configPath) {
     const atlas = project.exportAseprite({ imageName: `${name}.png` });
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
-    const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
+    const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
     result.warnings = verified.warnings;
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };

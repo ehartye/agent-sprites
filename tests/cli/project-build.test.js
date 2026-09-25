@@ -56,6 +56,26 @@ test('failed operations and missing tags preserve last successful output', async
   expect(readFileSync(join(dir,'dist','robot.png')).equals(old)).toBe(true);
 });
 
+test('required static frames reject a renamed alias and preserve the last successful output', async () => {
+  writeFileSync(config,JSON.stringify({version:1,ops:'ops.json',output:'dist',expectedFrames:['idle']}));
+  expect((await buildProject(config)).ok).toBe(true);
+  const old = readFileSync(join(dir,'dist','robot.atlas.json'));
+  ops.find(op=>op.command==='name').as='renamed';
+  writeFileSync(join(dir,'ops.json'),JSON.stringify(ops));
+  const result = await buildProject(config);
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result.errors)).toContain('Required frame is missing: idle');
+  expect(readFileSync(join(dir,'dist','robot.atlas.json')).equals(old)).toBe(true);
+});
+
+test.each(['idle', [42], ['']])('rejects invalid expectedFrames %j before publishing', async expectedFrames => {
+  writeFileSync(config,JSON.stringify({version:1,ops:'ops.json',output:'dist',expectedFrames}));
+  const result=await buildProject(config);
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result.errors)).toContain('expectedFrames must be an array of frame names');
+  expect(existsSync(join(dir,'dist'))).toBe(false);
+});
+
 test('refuses lifecycle writes and non-build-owned output directories', async () => {
   ops.push({command:'export',dest:join(dir,'escaped')});
   writeFileSync(join(dir,'ops.json'),JSON.stringify(ops));

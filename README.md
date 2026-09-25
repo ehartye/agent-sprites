@@ -132,6 +132,11 @@ Do not publish outputs from a failed batch, even if some export operations ran.
 
 `Invoke-Sprite verify .\public\art\robot.atlas.json --expect-tags blink --contact-sheet review.png --report review.json --json`
 
+Static art can declare its required frame aliases too:
+`Invoke-Sprite verify .\public\art\garden.atlas.json --expect-frames seed,wingnut,planter --json`.
+Frame names match exactly, including case. Missing names fail verification with
+`missing-frame`; both array and JSON-hash Aseprite atlases are supported.
+
 This offline command reads the actual PNG and atlas without contacting a sprite
 server. It checks image dimensions, frame and trim bounds, unique names, positive
 durations, animation ranges/directions, and required tags. It accepts repeated
@@ -152,6 +157,7 @@ Paths in the config resolve relative to that file, regardless of your shell's di
   "ops": "operations.json",
   "output": "dist",
   "expectedTags": ["blink"],
+  "expectedFrames": ["open", "closed"],
   "scale": 4
 }
 ```
@@ -170,6 +176,11 @@ contact sheet, verification report, captured operations, and `preview.html`.
 Open the self-contained preview directly in a browser to play tags at their
 exported durations, pause, step, and zoom. Saved projects retain cell groups,
 animation speeds, shape groups, names and pivots when reopened.
+
+Optional `expectedFrames` lists the exact static aliases your game consumes;
+`expectedTags` lists its animations. Both default to no required names. Use these
+contracts to catch a renamed or omitted crop, prop, or animation before integration.
+A missing frame fails the staged build and leaves the previous export untouched.
 
 Output must be a dedicated generated directory. Rebuilds replace only a directory
 marked as owned by the same config, refuse extra files, and preserve the last

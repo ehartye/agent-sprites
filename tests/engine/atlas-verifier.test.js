@@ -42,6 +42,27 @@ test('requires declared animation names and supports JSON-hash atlases', () => {
   atlas.frames=Object.fromEntries(atlas.frames.map(f=>[f.filename, f]));
   expect(validateAtlas(atlas,{width:16,height:8}).errors).toEqual([]);
 });
+
+test('requires exact static frame aliases in array and JSON-hash atlases', () => {
+  expect(validateAtlas(atlas, {width:16,height:8,expectedFrames:['idle']}).ok).toBe(true);
+  const report = validateAtlas(atlas, {width:16,height:8,expectedFrames:['idle', 'wingnut']});
+  expect(report.errors).toContainEqual({code:'missing-frame',path:'frames',message:'Required frame is missing: wingnut'});
+  atlas.frames=Object.fromEntries(atlas.frames.map(f=>[f.filename, f]));
+  expect(validateAtlas(atlas, {width:16,height:8,expectedFrames:['idle']}).ok).toBe(true);
+  expect(validateAtlas(atlas, {width:16,height:8,expectedFrames:['Idle']}).ok).toBe(false);
+});
+
+test('offline CLI checks static names and emits a failed report before review output', async () => {
+  const cli=join(process.cwd(),'scripts/sprite.js');
+  const options={env:{...process.env,SPRITE_PORT:'1'},timeout:10000};
+  const good=await exec(process.execPath,[cli,'verify',file,'--expect-frames','idle,0','--json'],options);
+  expect(JSON.parse(good.stdout).ok).toBe(true);
+  const contact=join(dir,'missing-contact.png');
+  const bad=await exec(process.execPath,[cli,'verify',file,'--expect-frames','idle,wingnut','--contact-sheet',contact,'--json'],options).then(r=>({...r,code:0}),e=>e);
+  expect(bad.code).toBe(1);
+  expect(JSON.parse(bad.stdout).errors.some(x=>x.code==='missing-frame')).toBe(true);
+  expect(existsSync(contact)).toBe(false);
+});
 test('reads exported bytes, warns about empty frames and writes readable review artifacts', async () => {
   const contact = join(dir,'review.png'), reportPath=join(dir,'report.json');
   const report=await verifyAtlasFile(file,{contactPath:contact,reportPath,expectedTags:['blink']});

@@ -228,7 +228,7 @@ SESSION
 OFFLINE VERIFICATION (does not start or contact a server)
   build <sprite-project.json> [--json]
                          isolated build of PNG, atlas, editable project and playable preview
-  verify <atlas.json> [--expect-tags idle,walk] [--contact-sheet review.png]
+  verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png]
                       [--report report.json] [--scale 4] [--json]
                          inspect actual PNG + metadata; nonzero exit on structural failure
 
@@ -343,10 +343,11 @@ async function run() {
     return;
   }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png] [--report report.json] [--json]');
     const { verifyAtlasFile } = await import('../server/engine/atlas-verifier.js');
     const report = await verifyAtlasFile(positional[0], {
       expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
+      expectedFrames: args['expect-frames'] ? String(args['expect-frames']).split(',') : [],
       contactPath: args['contact-sheet'], reportPath: args.report, scale: num(args.scale) ?? 4,
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
