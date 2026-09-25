@@ -10,7 +10,7 @@ export function atlasFrames(atlas) {
 }
 
 /** Validate metadata against decoded image dimensions; aliases may reuse rectangles. */
-export function validateAtlas(atlas, { width, height, expectedTags = [] } = {}) {
+export function validateAtlas(atlas, { width, height, expectedTags = [], expectedFrames = [] } = {}) {
   const errors = [], warnings = [];
   const error = (code, path, message) => errors.push({ code, path, message });
   const frames = atlasFrames(atlas);
@@ -51,6 +51,9 @@ export function validateAtlas(atlas, { width, height, expectedTags = [] } = {}) 
     if (!['forward', 'reverse', 'pingpong', 'pingpong_reverse'].includes(tag.direction ?? 'forward')) error('tag-direction', path, 'Unsupported tag direction.');
   });
   for (const tag of expectedTags) if (!tagNames.has(tag)) error('missing-tag', 'meta.frameTags', `Required animation is missing: ${tag}`);
+  if (!Array.isArray(expectedFrames) || expectedFrames.some(name => typeof name !== 'string' || !name.length))
+    error('expected-frames', 'expectedFrames', 'expectedFrames must be an array of frame names.');
+  else for (const name of expectedFrames) if (!names.has(name)) error('missing-frame', 'frames', `Required frame is missing: ${name}`);
   return { ok: errors.length === 0, frameCount: frames.length, dimensions: { width, height }, tags: [...tagNames], errors, warnings };
 }
 
@@ -85,7 +88,7 @@ function contactSheet(image, frames, scale) {
 }
 
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], contactPath, reportPath, scale = 4 } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], contactPath, reportPath, scale = 4 } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -109,7 +112,7 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], contactPat
       if (!bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw new Error('Expected PNG file bytes.');
       image = await loadImage(bytes);
     } catch (e) { fail('image-read', `Cannot decode PNG: ${e.message}`); return report; }
-    report = { ...validateAtlas(atlas, { width: image.width, height: image.height, expectedTags }), artifacts: report.artifacts };
+    report = { ...validateAtlas(atlas, { width: image.width, height: image.height, expectedTags, expectedFrames }), artifacts: report.artifacts };
     if (!report.ok) return report;
     const frames = atlasFrames(atlas);
     const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
