@@ -47,9 +47,10 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect(`${l.name}_ankle_seal`,x-1,y-3,3,2,sealed?c.accent:c.metal);
   };
   const arm=(l,isNear,pen)=>{
-    // The primary yellow-guide arm mirrors around its shoulder in the same
-    // front view, for rest and walking alike; extra arm pairs keep their pose.
-    const p=direction==='down'&&l.name==='right'?reflectedLimbPen(pen,l.shoulder[0]):pen;
+    // Mirror the primary screen-left arm: yellow in front, blue from behind.
+    // Rest and every walk phase share this rule; extra arm pairs keep their pose.
+    const reflect=direction==='down'&&l.name==='right'||direction==='up'&&l.name==='left';
+    const p=reflect?reflectedLimbPen(pen,l.shoulder[0]):pen;
     const armWidth=person.arms===4?3:limbWidth;
     segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline);
     segment(p,`${l.name}_forearm_outline`,l.elbow,l.wrist,armWidth,c.outline);

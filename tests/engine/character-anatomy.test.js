@@ -30,6 +30,22 @@ test('front rest and every walk phase retain the same blue leg and yellow arm or
  }
 });
 
+test('rear blue arm stays flipped around its shoulder in rest and every walk phase',()=>{
+ for(const body of bodies)for(const arms of [2,4])for(const outfit of ['casual','service','retro','phase-suit'])for(const mode of ['idle','walk']){
+  const recipe=generateCharacterRecipe({people:[{id:'person',body,arms}],outfits:[outfit],directions:['up'],mode});
+  for(const frame of recipe.report.frames){
+   const arm=frame.arms.find(a=>a.name==='left'),axis=arm.shoulder[0];
+   expect(arm.elbow[0]).toBe(axis);expect(arm.wrist[0]).toBe(axis);
+   const forearm=recipe.operations.find(o=>o.cell===frame.cell&&o.name==='left_forearm_outline');
+   const width=arms===4||body==='child'?3:4;
+   expect(Math.min(...forearm.points.map(p=>p.x))).toBe(axis-Math.ceil(width/2));
+   expect(Math.max(...forearm.points.map(p=>p.x))).toBe(axis+Math.floor(width/2));
+   const thumb=recipe.operations.find(o=>o.cell===frame.cell&&o.name==='left_glove_thumb');
+   if(frame.sealed)expect(thumb.x).toBe(axis-1);
+  }
+ }
+});
+
 test('paired arms have equal shoulder-relative anatomy at matching phases and fixed bone lengths',()=>{
  for(const body of bodies)for(const direction of ['right','left'])for(const count of [2,4])for(let f=0;f<8;f++){
   const pose=humanoidPose(body,direction,f,true,count),opposite=humanoidPose(body,direction,(f+4)%8,true,count);
