@@ -229,8 +229,8 @@ OFFLINE VERIFICATION (does not start or contact a server)
   build <sprite-project.json> [--json]
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png]
-                      [--report report.json] [--scale 4] [--json]
-                         inspect actual PNG + metadata; nonzero exit on structural failure
+                      [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
+                         inspect actual PNG + metadata; optional continuous-outline check
 
 DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw point     --x --y
@@ -343,16 +343,17 @@ async function run() {
     return;
   }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--outline-colors "#39283f"] [--contact-sheet review.png] [--report report.json] [--json]');
     const { verifyAtlasFile } = await import('../server/engine/atlas-verifier.js');
     const report = await verifyAtlasFile(positional[0], {
       expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
       expectedFrames: args['expect-frames'] ? String(args['expect-frames']).split(',') : [],
+      outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
       contactPath: args['contact-sheet'], reportPath: args.report, scale: num(args.scale) ?? 4,
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (structural checks only)`);
+      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors ? 'structural and outline checks' : 'structural checks only'})`);
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
     }

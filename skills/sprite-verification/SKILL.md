@@ -24,6 +24,18 @@ does not need skin-tone detection or a walking gait. For CLI invocation use
 
 ## Verification ladder
 
+For a deliberately continuous outline (0.22.0+), add
+`--outline-colors "#39283f,#573858"` to `verify`, or set
+`"outlineColors": ["#39283f", "#573858"]` in the build config. Every visible
+pixel touching transparency along a horizontal/vertical edge, including frame
+edges and transparent holes, must be fully opaque and use a declared outline
+color. The check reports `outline-gap`, a total count and up to 16 sample pixels
+per distinct packed rectangle; aliases do not duplicate findings. Coordinates
+are local to the packed frame, before rotation/trim restoration. A failed build
+keeps the prior successful output. This is opt-in: outline-free effects and
+selective-outline styles should omit it. It cannot judge whether a silhouette
+is appealing, correctly proportioned or disconnected into unintended pieces.
+
 Run in order; each level catches what the previous one can't.
 
 **1. Structural.** For a regular gapless grid, PNG dimensions must divide by
