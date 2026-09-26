@@ -8,7 +8,19 @@ function segment(p,name,a,b,width,color){
   const [x,y]=a,[u,v]=b,length=Math.hypot(u-x,v-y)||1,nx=(v-y)/length*width/2,ny=(x-u)/length*width/2;
   p.poly(name,[[x+nx,y+ny],[u+nx,v+ny],[u-nx,v-ny],[x-nx,y-ny]].map(q=>q.map(Math.round)),color);
 }
-export function drawHumanoid(p,person,outfit,direction,pose,expression){
+function translatedPen(p,dx){
+  if(!dx)return p;
+  return {
+    rect:(name,x,y,w,h,color)=>p.rect(name,x+dx,y,w,h,color),
+    poly:(name,points,color)=>p.poly(name,points.map(([x,y])=>[x+dx,y]),color),
+    line:(name,x1,y1,x2,y2,color)=>p.line(name,x1+dx,y1,x2+dx,y2,color),
+    ellipse:(name,cx,cy,rx,ry,color)=>p.ellipse(name,cx+dx,cy,rx,ry,color),
+  };
+}
+export function drawHumanoid(fixedPen,person,outfit,direction,pose,expression){
+  // Garments and carried equipment follow the projected torso. Head and leg
+  // coordinates stay fixed; arm coordinates already include this projection.
+  const p=translatedPen(fixedPen,pose.torso.midlineX-pose.torso.pelvis[0]);
   const b=BODY_PROFILES[person.body],c=person.colors,dy=pose.bob,sealed=isSealed(outfit),side=direction==='right',back=direction==='up';
   const bulky=outfit==='service',ribbed=outfit==='retro',bodyColor=sealed?(ribbed?c.jacket:c.suit):c.jacket;
   const light=sealed?(ribbed?c.jacketLight:c.suitLight):c.jacketLight,shade=sealed?(ribbed?c.jacketShade:c.suitShade):c.jacketShade;
@@ -17,6 +29,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   const near=side?pose.legs.find(l=>l.name==='right'):pose.legs.reduce((a,l)=>a.ankle[1]>l.ankle[1]?a:l);
   const far=pose.legs.find(l=>l!==near);
   const leg=(l,isNear)=>{
+    const p=fixedPen;
     segment(p,`${l.name}_thigh_outline`,l.hip,l.knee,limbWidth+2,c.outline);
     segment(p,`${l.name}_shin_outline`,l.knee,l.ankle,limbWidth+1,c.outline);
     segment(p,`${l.name}_thigh`,l.hip,l.knee,limbWidth,isNear?trouser:trouserShade);
@@ -37,6 +50,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect(`${l.name}_ankle_seal`,x-1,y-3,3,2,sealed?c.accent:c.metal);
   };
   const arm=(l,isNear)=>{
+    const p=fixedPen;
     const armWidth=person.arms===4?3:limbWidth;
     segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline);
     segment(p,`${l.name}_forearm_outline`,l.elbow,l.wrist,armWidth,c.outline);
@@ -88,6 +102,8 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   drawTorsoDetails(p,person,outfit,{...b,hip:pose.torso.pelvis[1]-dy},pose,direction);
   for(const a of lowerArms)if(a.name.startsWith(near.name))arm(a,true);
   arm(near,true);
+  {
+  const p=fixedPen;
   const headTop=pose.head.top,hs=pose.head.size;
   if(sealed){
     if(side){drawProfileHelmet(p,person,outfit,pose,expression);return;}
@@ -102,6 +118,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('neck_seal',16,bot-1,9,3,c.outline);p.rect('neck_seal_latch',18,bot,5,1,c.metal);
     if(!back){p.line('visor_glint',l+5,t+4,l+3,t+7,c.glass);p.rect('visor_glint_point',r-4,t+5,1,2,c.glass);}
   }else drawHead(p,person,{cx:20,top:headTop,headSize:hs,direction,hair:person.hair,expression,colors:c,hood:false});
+  }
 }
 
 // Side elevation: the opaque shell covers the rear cranium; only the forward

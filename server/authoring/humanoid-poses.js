@@ -7,6 +7,7 @@ export const BODY_PROFILES = Object.freeze({
   rangy: {headTop:9,headSize:16,torsoTop:25,hip:35,profileHip:34,width:10,gap:7,stride:8,segment:10.5},
 });
 export const GROUND = 54;
+const PROFILE_TORSO_ADVANCE = 4;
 const center=20, ankleY=52, bobs=[0,1,0,-1,0,1,0,-1];
 
 /** Two-link construction; quantize candidates without reversing the knee hinge. */
@@ -62,15 +63,21 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
     const elbow=[side?28+(leg.name==='right'?1:-1):wrist[0]+sign,shoulder[1]+3];
     arms.push({name:`${leg.name}_lower`,shoulder,elbow,wrist});
   }
+  if(side)for(const limb of [...legs,...arms])for(const joint of ['shoulder','elbow','wrist']){
+    const [x,y]=limb[joint];
+    // Shift arm attachments with the torso. Only the most extended lower hands
+    // need a one-pixel reach adjustment to leave room for the glove at x39.
+    limb[joint]=[joint==='wrist'?Math.min(37,x+PROFILE_TORSO_ADVANCE):x+PROFILE_TORSO_ADVANCE,y];
+  }
   if(direction==='left'){
     for(const leg of legs){leg.name=leg.name==='left'?'right':'left';for(const key of ['hip','knee','ankle','shoulder','elbow','wrist'])leg[key]=[40-leg[key][0],leg[key][1]];}
     for(const arm of arms){arm.name=arm.name.replace(/^(left|right)/,n=>n==='left'?'right':'left');for(const key of ['shoulder','elbow','wrist'])arm[key]=[40-arm[key][0],arm[key][1]];}
   }
   // Clothing terminates at the actual projected hip, not the front-view hip.
-  // Otherwise a profile shirt hides the thigh roots and makes the pelvis look
-  // displaced forward even though the skeleton shares one anatomical midline.
+  // The profile torso projects forward while the pelvis and leg cycle stay put.
   const hipY=(side?profile.profileHip:profile.hip)+bob;
-  const torso={midlineX:center,neck:[center,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
+  const torsoX=center+(side?(direction==='left'?-PROFILE_TORSO_ADVANCE:PROFILE_TORSO_ADVANCE):0);
+  const torso={midlineX:torsoX,neck:[torsoX,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
   return {direction,frame,bob,legs,arms,torso,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
 }
 
