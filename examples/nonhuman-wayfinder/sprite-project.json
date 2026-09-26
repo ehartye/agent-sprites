@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "character": {
+    "name": "wayfinder",
+    "people": [
+      {
+        "id": "vey",
+        "head": "insectoid",
+        "arms": 4,
+        "body": "rangy",
+        "equipment": "survey-rig",
+        "colors": {
+          "outline": "#202a43",
+          "skin": "#48aaa7",
+          "skinLight": "#8bd7c3",
+          "skinShade": "#365875",
+          "iris": "#f3bb55",
+          "jacket": "#575785",
+          "jacketLight": "#9291b6",
+          "jacketShade": "#363954",
+          "suit": "#a1bcb8",
+          "suitLight": "#d0e0cc",
+          "suitShade": "#617e89",
+          "accent": "#d7aa67",
+          "metal": "#9ebeb8",
+          "signal": "#f3bb55",
+          "boots": "#34435e",
+          "pants": "#444565",
+          "pantsLight": "#69789a",
+          "pantsShade": "#2d344e",
+          "visor": "#24415c",
+          "glass": "#a5e4cf"
+        }
+      }
+    ],
+    "outfits": [
+      "wayfarer",
+      "phase-suit"
+    ],
+    "directions": [
+      "down",
+      "right",
+      "up",
+      "left"
+    ],
+    "mode": "idle",
+    "fps": 10
+  },
+  "output": "dist",
+  "expectedTags": [],
+  "expectedFrames": [
+    "vey_wayfarer_down_idle",
+    "vey_wayfarer_right_idle",
+    "vey_wayfarer_up_idle",
+    "vey_wayfarer_left_idle",
+    "vey_phase-suit_down_idle",
+    "vey_phase-suit_right_idle",
+    "vey_phase-suit_up_idle",
+    "vey_phase-suit_left_idle"
+  ],
+  "scale": 4
+}
