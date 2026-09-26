@@ -94,6 +94,18 @@ test('runs an explicit Node generator relative to config and captures its operat
   expect(JSON.parse(readFileSync(join(dir,'dist','operations.json'),'utf8'))).toEqual(ops);
 });
 
+test.each([
+  {ops:'ops.json',generator:null},
+  {ops:'ops.json',generator:''},
+  {ops:null,generator:'generate.mjs'},
+])('preserves legacy configs with an empty unused file source: %j', async sources => {
+  writeFileSync(join(dir,'generate.mjs'), `console.log(JSON.stringify(${JSON.stringify(ops)}));`);
+  writeFileSync(config, JSON.stringify({version:1,...sources,output:'dist'}));
+  const result=await buildProject(config);
+  expect(result.errors).toEqual([]);
+  expect(result.ok).toBe(true);
+});
+
 test.skipIf(process.platform !== 'win32')('Windows config path casing does not change output ownership', async () => {
   expect((await buildProject(config)).ok).toBe(true);
   expect((await buildProject(config.toLowerCase())).ok).toBe(true);

@@ -16,6 +16,7 @@ import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { createPreview } from './preview.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
+import { generateEnvironmentRecipe } from '../authoring/environment.js';
 
 const exec = promisify(execFile);
 const marker = '.agent-sprites-build.json';
@@ -69,14 +70,20 @@ export async function buildProject(configPath) {
     const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath);
     if (config.version !== 1) throw new Error('Build config requires version: 1.');
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
-    const hasCharacter = Object.hasOwn(config, 'character');
-    if (hasCharacter) {
-      if (Object.hasOwn(config, 'ops') || Object.hasOwn(config, 'generator')) throw new Error('Specify exactly one ops JSON file, Node generator script, or character recipe.');
-      if (!config.character || typeof config.character !== 'object' || Array.isArray(config.character)) throw new Error('Character source must be an inline object.');
-    } else if (Boolean(config.ops) === Boolean(config.generator)) throw new Error('Specify exactly one ops JSON file or Node generator script.');
+    const hasInline = Object.hasOwn(config, 'character') || Object.hasOwn(config, 'environment');
+    // Legacy file recipes permit an empty unused source. Inline recipes remain
+    // strict so a malformed or mixed declaration cannot silently select another.
+    const sources = hasInline
+      ? ['ops', 'generator', 'character', 'environment'].filter(key => Object.hasOwn(config, key))
+      : ['ops', 'generator'].filter(key => Boolean(config[key]));
+    if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, or environment recipe.');
+    const sourceKind = sources[0], inline = sourceKind === 'character' || sourceKind === 'environment';
+    if (inline) {
+      if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
+    } else if (typeof config[sourceKind] !== 'string' || !config[sourceKind]) throw new Error(`${sourceKind} source must be a nonempty file path.`);
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
-    const source = hasCharacter ? configPath : realpathSync(resolve(base, config.ops ?? config.generator));
+    const source = inline ? configPath : realpathSync(resolve(base, config[sourceKind]));
     let output = resolve(base, config.output);
     if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
     mkdirSync(dirname(output), { recursive: true });
@@ -84,9 +91,10 @@ export async function buildProject(configPath) {
     if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files through a linked directory.');
     lockPath = output + '.build-lock'; lock = openSync(lockPath, 'wx');
     assertOwnedOutput(output, configPath);
-    let operations, characterReport;
-    if (hasCharacter) {
-      ({ operations, report: characterReport } = generateCharacterRecipe(config.character));
+    let operations, recipeReport;
+    if (inline) {
+      const generate = sourceKind === 'character' ? generateCharacterRecipe : generateEnvironmentRecipe;
+      ({ operations, report: recipeReport } = generate(config[sourceKind]));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
       const generated = await exec(process.execPath, [source, ...(config.args ?? [])], { cwd: base, timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true });
@@ -122,9 +130,9 @@ export async function buildProject(configPath) {
     result.warnings = verified.warnings;
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
-    if (hasCharacter) {
-      artifacts.characterReport = 'character-report.json';
-      writeFileSync(join(stage, artifacts.characterReport), json(characterReport));
+    if (inline) {
+      artifacts[`${sourceKind}Report`] = `${sourceKind}-report.json`;
+      writeFileSync(join(stage, artifacts[`${sourceKind}Report`]), json(recipeReport));
     }
     verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, contactSheet: artifacts.contactSheet };
     writeFileSync(join(stage, artifacts.verification), json(verified));

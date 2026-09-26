@@ -199,12 +199,19 @@ The same bounded retry covers moving the previous output aside and restoring it
 if publication fails. Other errors fail immediately. No destination is deleted
 to force a rename; if restoration also fails, the error identifies the retained
 backup directory so the previous build remains recoverable.
-The config plus ops/generator/character source is canonical: edits to the generated project are
+The config plus ops/generator/character/environment source is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
 For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). Choose exactly one source:
-`ops`, `generator`, or `character`. No game-local generator is required.
+`ops`, `generator`, `character`, or `environment`. No game-local generator is required.
+
+For repeatable terrain, aligned pressure-habitat layers and furniture, use the
+[`environment` source](examples/environment/README.md). It exports editable named
+shapes plus `environment-report.json` with floor, door, wall and furniture collision
+geometry. Games can consume that geometry alongside the atlas to keep walkable
+space aligned with the art. Terrain recipes provide deterministic variants; the
+habitat kit is an authored preset rather than an arbitrary architecture generator.
 
 For the older four-beat courier example, copy [`examples/character-walk`](examples/character-walk/README.md).
 Its four-beat 24×32 courier walk has coordinated anatomical limbs, contact/pass
