@@ -6,6 +6,16 @@ describe('AnimationPreview (browser)', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="anim-panel"></div>';
   });
+  it('refreshes a paused frame after an edit and applies saved group timing', () => {
+    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 64 }); ap.init();
+    ap.setCellSize(16, 16); ap.setPalette({}); ap.setFrames(['0,0']);
+    ap.setCells({ '0,0': { shapes: [{ type: 'point', params: { x: 0, y: 0 }, color: '#ff0000', zIndex: 0 }] } });
+    expect(document.querySelector('.anim-canvas').getContext('2d').getImageData(0, 0, 1, 1).data[0]).toBe(255);
+    ap.setFps(6);
+    expect(document.querySelector('.anim-fps-label').textContent).toBe('6 FPS');
+    ap.play(); ap.setFrames([]);
+    expect(ap._intervalId).toBeNull();
+  });
 
   it('snaps the canvas to an integer pixel scale of the cell dims', () => {
     const ap = new AnimationPreview({ mountId: 'anim-panel', size: 128 });

@@ -7,6 +7,8 @@ export class ShapePanel {
     this._shapes = [];
     this._selectedId = null;
     this._palette = {};
+    this._page = 0;
+    this._query = '';
 
     this._selectCb = null;
     this._actionCb = null;
@@ -21,6 +23,9 @@ export class ShapePanel {
     this._selectCb = onSelect;
     this._actionCb = onAction;
     this._bindContextMenu();
+    document.getElementById('shape-search')?.addEventListener('input', event => {
+      this._query = event.target.value.toLowerCase(); this._page = 0; this.render();
+    });
   }
 
   setPalette(paletteMap) {
@@ -41,9 +46,21 @@ export class ShapePanel {
     const ul = document.getElementById('shape-items');
     ul.innerHTML = '';
 
-    const sorted = [...this._shapes].sort((a, b) => b.zIndex - a.zIndex);
+    const sorted = this._shapes.filter(shape => `${shape.name ?? ''} ${shape.id} ${shape.type}`.toLowerCase().includes(this._query)).sort((a, b) => b.zIndex - a.zIndex);
+    const pages = Math.max(1, Math.ceil(sorted.length / 100));
+    this._page = Math.min(this._page, pages - 1);
+    const pagination = document.getElementById('shape-pagination');
+    if (pagination) {
+      pagination.replaceChildren();
+      const prev = document.createElement('button'); prev.textContent = '‹'; prev.title = 'Previous shapes'; prev.disabled = this._page === 0;
+      prev.onclick = () => { this._page--; this.render(); };
+      const label = document.createElement('span'); label.textContent = `${sorted.length} shapes · ${this._page + 1}/${pages}`;
+      const next = document.createElement('button'); next.textContent = '›'; next.title = 'Next shapes'; next.disabled = this._page >= pages - 1;
+      next.onclick = () => { this._page++; this.render(); };
+      pagination.append(prev, label, next);
+    }
 
-    for (const shape of sorted) {
+    for (const shape of sorted.slice(this._page * 100, (this._page + 1) * 100)) {
       const li = document.createElement('li');
       li.dataset.shapeId = shape.id;
       if (shape.id === this._selectedId) li.classList.add('selected');
@@ -170,6 +187,7 @@ export class GroupPanel {
 
   setGroups(groups) {
     this._groups = groups || {};
+    if (!this._groups[this._activeGroup]) this._activeGroup = null;
     this.render();
   }
 

@@ -29,7 +29,7 @@ export class WebSocketClient {
   /** Send an operation message to the server. */
   send(msg) {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-      this._ws.send(JSON.stringify(msg));
+      this._ws.send(JSON.stringify({ ...msg, ...(this.sessionId ? { sessionId: this.sessionId } : {}) }));
     }
   }
 
@@ -71,6 +71,10 @@ export class WebSocketClient {
     this._ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        if (msg.sessionId) {
+          this.sessionId = msg.sessionId;
+          this._emit('_session', msg.sessionId);
+        }
         if (msg.type) {
           this._emit(msg.type, msg.data ?? msg);
         }

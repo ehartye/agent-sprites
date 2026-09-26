@@ -8,6 +8,7 @@ import { ToolManager } from './tools.js';
 import { ShapePanel, GroupPanel, ShapeGroupPanel } from './panels.js';
 import { CellNavigator } from './cell-nav.js';
 import { AnimationPreview } from './animation.js';
+import { Workbench } from './workbench.js';
 
 /** Application state */
 const state = {
@@ -16,6 +17,8 @@ const state = {
   activeTool: 'point',
   activeColor: null,
   palette: {},
+  sessionId: null,
+  selectedShape: null,
 };
 
 const editor = new CanvasEditor();
@@ -33,12 +36,36 @@ const fullPreview = new AnimationPreview({
   responsive: true,
   title: 'Full Preview',
 });
+const workbench = new Workbench({
+  request: requestApi,
+  getCell: () => state.activeCell,
+  getColor: () => state.palette[state.activeColor] ?? state.activeColor,
+  setColor: setActiveColor,
+  getShape: () => state.selectedShape,
+  refresh: () => ws.send({ action: 'get_project' }),
+  preview: () => document.querySelector('[data-tab="preview"]').click(),
+});
+
+async function requestApi(path, body, { sessionId = state.sessionId } = {}) {
+  const response = await fetch(`/api${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'Content-Type': 'application/json', ...(sessionId ? { 'X-Sprite-Session': sessionId } : {}) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.error ?? `Request failed (${response.status})`);
+  return result;
+}
 
 /* -- Initialization -- */
 
 function init() {
   const container = document.getElementById('canvas-container');
   editor.init(container, 16);
+  workbench.init();
+  document.getElementById('save-project-btn').addEventListener('click', () => workbench.run(async () => {
+    const result = await requestApi('/session/save', {}); workbench.notify(result.data);
+  }));
 
   ws.connect();
   ws.on('project', onProjectData);
@@ -46,6 +73,7 @@ function init() {
   ws.on('shape_update', onShapeUpdate);
   ws.on('cell_update', onCellUpdate);
   ws.on('error', onError);
+  ws.on('_session', id => { state.sessionId = id; });
 
   // MCP tool broadcasts use specific event types — request full state refresh
   const refreshEvents = [
@@ -70,11 +98,13 @@ function init() {
     getShapes: () => findCell(state.activeCell)?.shapes || [],
   });
   tools.onToolChange((toolId) => { state.activeTool = toolId; });
-  tools.onSelectionChange((shape) => { editor.setSelectedShape(shape); });
+  tools.onSelectionChange((shape) => { state.selectedShape = shape; editor.setSelectedShape(shape); shapePanel.setSelected(shape?.id); });
   tools.onDragPreview((shape, dx, dy) => { editor.setDragPreview(shape, dx, dy); });
 
   shapePanel.init({
     onSelect: (shapeId) => {
+      state.selectedShape = findCell(state.activeCell)?.shapes?.find(shape => shape.id === shapeId) ?? null;
+      editor.setSelectedShape(state.selectedShape);
       shapePanel.setSelected(shapeId);
     },
     onAction: (action, shapeId) => {
@@ -97,20 +127,22 @@ function init() {
         cellNav.setFilter(frames);
         animPreview.setFrames(frames);
         fullPreview.setFrames(frames);
+        animPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
+        fullPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
       } else {
         cellNav.setFilter(null);
-        animPreview.setFrames([]);
-        fullPreview.setFrames([]);
+        animPreview.setFrames([state.activeCell]);
+        fullPreview.setFrames([state.activeCell]);
       }
     },
     onCreate: () => {
       const name = prompt('Group name:');
       if (name) {
-        ws.send({ action: 'create_group', params: { name, cells: [] } });
+        workbench.run(() => requestApi('/group/cell/create', { name, cells: [] }));
       }
     },
     onDelete: (name) => {
-      ws.send({ action: 'delete_group', params: { name } });
+      workbench.run(() => requestApi('/group/cell/delete', { name }));
     },
     onAddCell: (name, cell) => {
       apiPost('/api/group/cell/add', { name, cells: [cell] });
@@ -171,7 +203,16 @@ function init() {
 /* -- WebSocket handlers -- */
 
 function onProjectData(data) {
+  const changed = workbench.sessionId !== state.sessionId;
   state.project = data;
+  if (changed) {
+    state.activeCell = '0,0'; state.activeColor = null; state.selectedShape = null;
+    tools.setTool(state.activeTool);
+    cellNav.setFilter(null);
+    animPreview.setFrames([]); fullPreview.setFrames([]);
+    groupPanel.setGroups({});
+  }
+  workbench.setProject(data, state.sessionId);
   document.getElementById('project-name').textContent = data.name || 'Untitled';
 
   // Set up palette lookup
@@ -197,9 +238,12 @@ function onProjectData(data) {
 
   // Auto-zoom to fit nicely
   const container = document.getElementById('canvas-container');
-  const maxDim = Math.min(container.clientWidth, container.clientHeight) * 0.75;
-  const idealZoom = Math.floor(maxDim / Math.max(cellW, cellH));
-  editor.setZoom(Math.max(4, Math.min(24, idealZoom)));
+  if (changed) {
+    const fit = Math.min(container.clientWidth / cellW, container.clientHeight / cellH) * 0.85;
+    const idealZoom = fit >= 1 ? Math.floor(fit) : fit;
+    editor.panX = 0; editor.panY = 0;
+    editor.setZoom(Math.max(0.125, Math.min(24, idealZoom)));
+  }
 
   renderPalette();
   cellNav.setGrid(data.grid.rows, data.grid.cols, cellW, cellH);
@@ -230,6 +274,7 @@ function onDrawUpdate(data) {
   cellNav.setCells(state.project.cells);
   cellNav.render();
   animPreview.setCells(state.project.cells);
+  fullPreview.setCells(state.project.cells);
 }
 
 function onShapeUpdate(data) {
@@ -248,6 +293,7 @@ function onShapeUpdate(data) {
   cellNav.setCells(state.project.cells);
   cellNav.render();
   animPreview.setCells(state.project.cells);
+  fullPreview.setCells(state.project.cells);
 }
 
 function onCellUpdate(data) {
@@ -262,10 +308,12 @@ function onCellUpdate(data) {
   cellNav.setCells(state.project.cells || {});
   cellNav.render();
   animPreview.setCells(state.project.cells || {});
+  fullPreview.setCells(state.project.cells || {});
 }
 
 function onError(data) {
   console.error('Server error:', data.message || data);
+  workbench.notify(data.message || 'Editing request failed', true);
 }
 
 /* -- Shape actions -- */
@@ -276,14 +324,14 @@ function handleShapeAction(action, shapeId) {
     case 'rename': {
       const name = prompt('New shape name:');
       if (name !== null) {
-        ws.send({ action: 'rename_shape', params: { cell, shape: shapeId, name } });
+        ws.send({ action: 'name_shape', params: { cell, shape_id: shapeId, name } });
       }
       break;
     }
     case 'recolor': {
       const color = prompt('New color (name or #hex):');
       if (color !== null) {
-        ws.send({ action: 'recolor_shape', params: { cell, shape: shapeId, color } });
+        ws.send({ action: 'recolor_shape', params: { cell, name: shapeId, color } });
       }
       break;
     }
@@ -312,6 +360,7 @@ function setCellData(ref, data) {
 }
 
 function selectCell(ref) {
+  if (state.activeCell !== ref) { state.selectedShape = null; tools.setTool(state.activeTool); }
   state.activeCell = ref;
   const cell = findCell(ref);
   editor.setCell(cell);
@@ -320,6 +369,7 @@ function selectCell(ref) {
   refreshShapePanel();
   cellNav.setActive(ref);
   animPreview.setActiveCell(ref);
+  if (!groupPanel.activeGroup) { animPreview.setFrames([ref]); fullPreview.setFrames([ref]); }
   editor.setOnionSkin(animPreview.getOnionSkinData());
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
@@ -329,11 +379,10 @@ function selectCell(ref) {
 /* -- Shape groups -- */
 
 function apiPost(path, body) {
-  return fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).then(r => r.json());
+  return requestApi(path.replace(/^\/api/, ''), body).catch(error => {
+    workbench.notify(error.message, true);
+    return { ok: false, error: error.message };
+  });
 }
 
 async function refreshShapeGroups() {
@@ -366,7 +415,10 @@ function renderPalette() {
   container.innerHTML = '';
 
   const entries = Object.entries(state.palette);
-  if (entries.length === 0) return;
+  if (entries.length === 0) {
+    if (!state.activeColor) setActiveColor('#000000', '#000000');
+    return;
+  }
 
   if (!state.activeColor && entries.length > 0) {
     setActiveColor(entries[0][0], entries[0][1]);
@@ -427,6 +479,7 @@ function initUndoRedo() {
   if (redoBtn) redoBtn.addEventListener('click', () => doRedo());
 
   document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input,textarea,select,[contenteditable="true"]')) return;
     const meta = e.ctrlKey || e.metaKey;
     if (!meta) return;
     if (e.key === 'z' || e.key === 'Z') {

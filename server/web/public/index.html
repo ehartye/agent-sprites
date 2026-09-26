@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/workbench.css">
 </head>
 <body>
   <header id="top-bar">
@@ -20,6 +21,16 @@
       <button id="theme-toggle" title="Toggle light/dark mode">☀</button>
     </div>
   </header>
+
+  <nav id="design-bar" aria-label="Design workspace">
+    <button data-workbench="sessions">Sessions</button>
+    <button data-workbench="palettes">All palettes</button>
+    <button data-workbench="tools">All tools</button>
+    <button data-workbench="handoff">Pass design</button>
+    <span id="session-indicator">No active session</span>
+    <button id="save-project-btn">Save project</button>
+  </nav>
+  <aside id="workbench-mount"></aside>
 
   <div id="workspace">
     <aside id="left-panel">
@@ -60,6 +71,8 @@
     <aside id="right-panel">
       <section id="shape-list">
         <h2>Shapes</h2>
+        <input id="shape-search" type="search" placeholder="Find a shape" aria-label="Find a shape">
+        <div id="shape-pagination"></div>
         <ul id="shape-items"></ul>
       </section>
       <section id="group-panel">
@@ -82,6 +95,7 @@
 
   <footer id="bottom-bar">
     <div id="cell-strip"></div>
+    <div id="workbench-status" role="status" aria-live="polite">Choose a session, create a design, or import an editable project.</div>
   </footer>
 
   <script type="module" src="js/app.js"></script>
