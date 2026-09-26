@@ -4,9 +4,11 @@ import {drawInsectoidHead} from './insectoid-face.js';
 import {isSealed,drawTravelLayers,drawTorsoDetails} from './character-wardrobe.js';
 const drawHead=(p,person,options)=>(person.head==='insectoid'?drawInsectoidHead:drawHumanoidHead)(p,options);
 
-function segment(p,name,a,b,width,color){
+function segment(p,name,a,b,width,color,shoulder=false){
   const [x,y]=a,[u,v]=b,length=Math.hypot(u-x,v-y)||1,nx=(v-y)/length*width/2,ny=(x-u)/length*width/2;
-  p.poly(name,[[x+nx,y+ny],[u+nx,v+ny],[u-nx,v-ny],[x-nx,y-ny]].map(q=>q.map(Math.round)),color);
+  const inset=Math.max(0,(width-2)/width),cap=Math.min(2,length/2),tx=(u-x)/length*cap,ty=(v-y)/length*cap;
+  const points=shoulder?[[x+nx*inset,y+ny*inset],[x+nx+tx,y+ny+ty],[u+nx,v+ny],[u-nx,v-ny],[x-nx+tx,y-ny+ty],[x-nx*inset,y-ny*inset]]:[[x+nx,y+ny],[u+nx,v+ny],[u-nx,v-ny],[x-nx,y-ny]];
+  p.poly(name,points.map(q=>q.map(Math.round)),color);
 }
 function reflectedLimbPen(p,axis){
   return {
@@ -53,9 +55,9 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     const reflect=direction==='down'&&l.name==='right'||direction==='up'&&l.name==='left';
     const p=reflect?reflectedLimbPen(pen,l.shoulder[0]):pen;
     const armWidth=person.arms===4?3:limbWidth;
-    segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline);
+    segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline,!l.name.endsWith('_lower'));
     segment(p,`${l.name}_forearm_outline`,l.elbow,l.wrist,armWidth,c.outline);
-    segment(p,`${l.name}_sleeve`,l.shoulder,l.elbow,armWidth-1,isNear?bodyColor:shade);
+    segment(p,`${l.name}_sleeve`,l.shoulder,l.elbow,armWidth-1,isNear?bodyColor:shade,!l.name.endsWith('_lower'));
     segment(p,`${l.name}_forearm`,l.elbow,l.wrist,armWidth-2,isNear?light:bodyColor);
     if(ribbed)p.rect(`${l.name}_elbow_rib`,l.elbow[0]-1,l.elbow[1],3,1,c.suit);
     if(outfit==='wayfarer'){
@@ -81,13 +83,13 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   }
   leg(near,true,p);
   const {top:pelvisTop,crotchY,seatY,depth}=pose.pelvis;
-  const seatLeft=20-Math.ceil(depth/2),seatRight=20+Math.floor(depth/2);
+  const seatLeft=20-Math.ceil(depth/2)-pose.pelvis.rearFullness,seatRight=20+Math.floor(depth/2);
   // A single trouser volume wraps the sockets and merges into the upper thighs.
   // Its rear contour belongs behind the hip axis, unlike a displaced torso.
   p.poly('pelvis_outline',[[seatLeft+1,pelvisTop],[seatRight-1,pelvisTop],[seatRight,seatY],[seatRight-2,crotchY],[20,crotchY-1],[seatLeft+2,crotchY],[seatLeft,seatY]],c.outline);
   p.poly('pelvis',[[seatLeft+2,pelvisTop],[seatRight-2,pelvisTop],[seatRight-1,seatY],[seatRight-2,crotchY-1],[20,crotchY-1],[seatLeft+2,crotchY-1],[seatLeft+1,seatY]],trouser);
   p.line('pelvis_seat_shade',seatLeft+1,seatY-1,seatLeft+2,crotchY-1,trouserShade);
-  const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
+  const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0)+(direction==='down'?1:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
   const waistLeft=left+(side?2:1),waistRight=right-1;
   // Neck -> deltoid -> ribcage -> waist. A rectangular shoulder stripe and
   // square hem concealed both the shoulder slope and the true hip attachment.
@@ -102,7 +104,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('chest_indicator',side?left+width-3:18,top+4,1,2,c.signal);
     if(back){p.rect('pack_back_panel',left+1,top+3,width-2,waistY-top-1,c.suitShade);p.rect('pack_service_latch',19,top+4,2,2,c.accent);}
   }else{
-    p.rect('shirt',side?waistRight-1:19,top+3,2,Math.max(2,waistY-top-3),c.suit);
+    p.rect('shirt',side?waistRight-1:19,top+3,direction==='down'?3:2,Math.max(2,waistY-top-3),c.suit);
     p.rect('pocket',left+1,top+4,3,2,c.accent);
     p.rect('neck',18,b.headTop+b.headSize-1+dy,4,3,c.skinShade);
     p.poly('pressure_collar',[[18,top],[21,top],[22,top+1],[20,top+2],[18,top+1]],c.metal);
