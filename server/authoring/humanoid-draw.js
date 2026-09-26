@@ -54,8 +54,9 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   };
   drawTravelLayers(p,person,outfit,b,pose,direction);
   const lowerArms=pose.arms.filter(a=>a.name.endsWith('_lower'));
-  leg(far,false);arm(far,false);
+  leg(far,false);
   for(const a of lowerArms)if(a.name.startsWith(far.name))arm(a,false);
+  arm(far,false);
   if(sealed){
     const packX=side?20-Math.ceil(b.width/2)-5:20-Math.ceil(b.width/2)-2,packW=side?(bulky?6:4):b.width+4;
     p.rect('life_support_pack_outline',packX-1,b.torsoTop+1+dy,packW+2,b.hip-b.torsoTop+1,c.outline);
@@ -81,8 +82,8 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('pressure_collar',17,top,7,2,c.metal);
   }
   drawTorsoDetails(p,person,outfit,b,pose,direction);
-  arm(near,true);
   for(const a of lowerArms)if(a.name.startsWith(near.name))arm(a,true);
+  arm(near,true);
   const headTop=pose.head.top,hs=pose.head.size;
   if(sealed){
     if(side){drawProfileHelmet(p,person,outfit,pose,expression);return;}

@@ -56,7 +56,9 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
   if(armCount===4)for(const leg of legs){
     const sign=leg.shoulder[0]<center?-1:1,phase=leg.phase;
     const shoulder=[side?center: center+sign*Math.ceil(profile.width/2),profile.torsoTop+5+bob];
-    const wrist=side?[25+Math.round([0,1,2,1,0,-1,-2,-1][phase]),Math.min(49,profile.hip+5+bob)]:[center+sign*(Math.ceil(profile.width/2)+5),Math.min(49,profile.hip+5+bob+(walking?[0,1,0,-1,0,1,0,-1][phase]:0))];
+    // Carry the lower hands ahead of the normal swing, rather than curling back
+    // into its forward contact pose. The near upper arm passes in front.
+    const wrist=side?[32+Math.round([0,1,2,1,0,-1,-2,-1][phase]),Math.min(49,profile.hip+5+bob)]:[center+sign*(Math.ceil(profile.width/2)+5),Math.min(49,profile.hip+5+bob+(walking?[0,1,0,-1,0,1,0,-1][phase]:0))];
     const elbow=[side?28+(leg.name==='right'?1:-1):wrist[0]+sign,shoulder[1]+3];
     arms.push({name:`${leg.name}_lower`,shoulder,elbow,wrist});
   }

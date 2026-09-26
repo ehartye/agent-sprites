@@ -23,6 +23,20 @@ test('new human options are opt-in and safe combinations remain bounded',()=>{
   for(const f of result.report.frames){expect(f.bounds.left).toBeGreaterThanOrEqual(0);expect(f.bounds.right).toBeLessThan(40);expect(f.bounds.top).toBeGreaterThanOrEqual(0);expect(f.bounds.bottom).toBeLessThan(56);}
  }
 });
+test('four-arm profile strides separate the hands and keep the near swinging arm in front',()=>{
+ for(const body of ['adult','adult-sturdy','adult-slim','child','older-child','rangy']){
+  const result=generateCharacterRecipe(recipe({people:[{...person,body}],directions:['right','left']}));
+  for(const frame of result.report.frames){
+   for(const upper of frame.arms.filter(a=>!a.name.endsWith('_lower'))){
+    const lower=frame.arms.find(a=>a.name===`${upper.name}_lower`);
+    expect(Math.hypot(upper.wrist[0]-lower.wrist[0],upper.wrist[1]-lower.wrist[1])).toBeGreaterThanOrEqual(6);
+   }
+   const near=frame.direction==='right'?'right':'left';
+   const names=result.operations.filter(o=>o.command==='draw'&&o.cell===frame.cell).map(o=>o.name);
+   expect(names.indexOf(`${near}_upper_arm_outline`)).toBeGreaterThan(names.indexOf(`${near}_lower_${frame.sealed?'glove':'hand'}`));
+  }
+ }
+});
 test.each([{head:'unknown'},{arms:3},{arms:null},{equipment:'unknown'},{head:'insectoid',hair:'bun'}])('invalid anatomy fails instead of being silently ignored: %j',extra=>{
  expect(()=>generateCharacterRecipe({people:[{id:'a',...extra}]})).toThrow();
 });
