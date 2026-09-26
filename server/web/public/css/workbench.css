@@ -1,4 +1,10 @@
 /* The design bench: a quiet instrument rack around the pixel canvas. */
+#center-tabs { flex-wrap: wrap; }
+#source-visibility { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; padding: .3rem .7rem; font-size: .65rem; color: var(--text-secondary); }
+#source-visibility label { display: flex; align-items: center; gap: .25rem; }
+#source-visibility input { accent-color: var(--accent); }
+#source-visibility label:has(input:disabled) { opacity: .45; }
+#source-visibility > span { font-size: .58rem; }
 #design-bar { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; padding: .45rem .8rem; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 #design-bar button, .workbench-drawer button, #shape-pagination button { font: inherit; font-size: .74rem; color: var(--text-primary); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px; padding: .45rem .65rem; cursor: pointer; }
 #design-bar button:hover, .workbench-drawer button:hover { border-color: var(--accent); }

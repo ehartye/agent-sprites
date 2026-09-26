@@ -16,6 +16,12 @@ Open the server's preview URL to work on the same live draft as your agent.
 
 Draft changes persist automatically. **Save project** writes the editable file on disk. Copies preserve animation timing and shape groups. Session guards stop stale tabs or in-flight batches from editing a different design after a switch. Large traces fit the canvas and have searchable, paged shape lists.
 
+**Show traced baseline** hides/shows the generated `trace-000001` rectangle shapes
+throughout your local view, leaving newly drawn shapes visible. **Show reference
+image** controls an attached tracing underlay. These are view-only switches: saved
+artwork and exports retain all shapes. Renamed traced shapes no longer belong to
+that automatically recognized baseline. A new session starts with both visible.
+
 ## The core idea
 
 Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixel buffers. Shapes carry z-order, live in grid cells, support per-cell undo/redo, and are addressable by name for later edits (`move-to`, `recolor`, `resize`, `clone`, `flip`, `rotate`, `tween`). This gives an LLM semantic handles instead of pixel coordinates — the affordance that makes agent-driven pixel art tractable.
