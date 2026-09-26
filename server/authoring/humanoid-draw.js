@@ -8,7 +8,14 @@ function segment(p,name,a,b,width,color){
   const [x,y]=a,[u,v]=b,length=Math.hypot(u-x,v-y)||1,nx=(v-y)/length*width/2,ny=(x-u)/length*width/2;
   p.poly(name,[[x+nx,y+ny],[u+nx,v+ny],[u-nx,v-ny],[x-nx,y-ny]].map(q=>q.map(Math.round)),color);
 }
-export function drawHumanoid(p,person,outfit,direction,pose,expression){
+function reflectedLegPen(p,axis){
+  return {
+    poly:(name,points,color)=>p.poly(name,points.map(([x,y])=>[2*axis-x,y]),color),
+    rect:(name,x,y,w,h,color)=>p.rect(name,2*axis-x-w+1,y,w,h,color),
+    line:(name,x1,y1,x2,y2,color)=>p.line(name,2*axis-x1,y1,2*axis-x2,y2,color),
+  };
+}
+export function drawHumanoid(p,person,outfit,direction,pose,expression,resting=false){
   const b=BODY_PROFILES[person.body],c=person.colors,dy=pose.bob,sealed=isSealed(outfit),side=direction==='right',back=direction==='up';
   const bulky=outfit==='service',ribbed=outfit==='retro',bodyColor=sealed?(ribbed?c.jacket:c.suit):c.jacket;
   const light=sealed?(ribbed?c.jacketLight:c.suitLight):c.jacketLight,shade=sealed?(ribbed?c.jacketShade:c.suitShade):c.jacketShade;
@@ -16,7 +23,10 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   const limbWidth=b.headSize===14?3:4;
   const near=side?pose.legs.find(l=>l.name==='right'):pose.legs.reduce((a,l)=>a.ankle[1]>l.ankle[1]?a:l);
   const far=pose.legs.find(l=>l!==near);
-  const leg=(l,isNear)=>{
+  // Reflect the complete blue-guide leg around its own hip in camera-facing
+  // rest poses. Joint positions stay fixed; walking and other views keep their art.
+  const leg=(l,isNear,pen)=>{
+    const p=resting&&direction==='down'&&l.name==='left'?reflectedLegPen(pen,l.hip[0]):pen;
     segment(p,`${l.name}_thigh_outline`,l.hip,l.knee,limbWidth+2,c.outline);
     segment(p,`${l.name}_shin_outline`,l.knee,l.ankle,limbWidth+1,c.outline);
     segment(p,`${l.name}_thigh`,l.hip,l.knee,limbWidth,isNear?trouser:trouserShade);
@@ -54,7 +64,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   };
   drawTravelLayers(p,person,outfit,b,pose,direction);
   const lowerArms=pose.arms.filter(a=>a.name.endsWith('_lower'));
-  leg(far,false);
+  leg(far,false,p);
   for(const a of lowerArms)if(a.name.startsWith(far.name))arm(a,false);
   arm(far,false);
   if(sealed){
@@ -64,7 +74,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('life_support_pack',packX,b.torsoTop+2+dy,packW,packHeight-1,bulky?c.suitShade:c.accent);
     p.rect('pack_status',packX+1,b.torsoTop+3+dy,1,2,c.signal);
   }
-  leg(near,true);
+  leg(near,true,p);
   const {top:pelvisTop,crotchY,seatY,depth}=pose.pelvis;
   const seatLeft=20-Math.ceil(depth/2),seatRight=20+Math.floor(depth/2);
   // A single trouser volume wraps the sockets and merges into the upper thighs.
