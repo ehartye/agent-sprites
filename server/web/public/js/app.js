@@ -9,6 +9,11 @@ import { ShapePanel, GroupPanel, ShapeGroupPanel } from './panels.js';
 import { CellNavigator } from './cell-nav.js';
 import { AnimationPreview } from './animation.js';
 import { Workbench } from './workbench.js';
+import { cellsForView, isTracedShape } from './view-visibility.js';
+
+const visibility = { trace: true, reference: true };
+const viewCells = () => cellsForView(state.project?.cells ?? {}, visibility);
+const viewCell = ref => viewCells()[ref] ?? null;
 
 /** Application state */
 const state = {
@@ -63,6 +68,19 @@ function init() {
   const container = document.getElementById('canvas-container');
   editor.init(container, 16);
   workbench.init();
+  for (const [id, key] of [['show-traced-baseline', 'trace'], ['show-reference-image', 'reference']]) {
+    document.getElementById(id).addEventListener('change', event => {
+      visibility[key] = event.target.checked;
+      state.selectedShape = null;
+      tools.setTool(state.activeTool);
+      editor.setSelectedShape(null);
+      shapePanel.setSelected(null);
+      const cells = viewCells();
+      cellNav.setCells(cells); cellNav.render();
+      animPreview.setCells(cells); fullPreview.setCells(cells);
+      selectCell(state.activeCell);
+    });
+  }
   document.getElementById('save-project-btn').addEventListener('click', () => workbench.run(async () => {
     const result = await requestApi('/session/save', {}); workbench.notify(result.data);
   }));
@@ -95,7 +113,7 @@ function init() {
     send: (msg) => ws.send(msg),
     getCellRef: () => state.activeCell,
     getColor: () => state.activeColor,
-    getShapes: () => findCell(state.activeCell)?.shapes || [],
+    getShapes: () => viewCell(state.activeCell)?.shapes || [],
   });
   tools.onToolChange((toolId) => { state.activeTool = toolId; });
   tools.onSelectionChange((shape) => { state.selectedShape = shape; editor.setSelectedShape(shape); shapePanel.setSelected(shape?.id); });
@@ -206,6 +224,7 @@ function onProjectData(data) {
   const changed = workbench.sessionId !== state.sessionId;
   state.project = data;
   if (changed) {
+    visibility.trace = true; visibility.reference = true;
     state.activeCell = '0,0'; state.activeColor = null; state.selectedShape = null;
     tools.setTool(state.activeTool);
     cellNav.setFilter(null);
@@ -231,10 +250,10 @@ function onProjectData(data) {
   cellNav.setPalette(state.palette);
   animPreview.setPalette(state.palette);
   animPreview.setCellSize(cellW, cellH);
-  animPreview.setCells(data.cells || {});
+  animPreview.setCells(viewCells());
   fullPreview.setPalette(state.palette);
   fullPreview.setCellSize(cellW, cellH);
-  fullPreview.setCells(data.cells || {});
+  fullPreview.setCells(viewCells());
 
   // Auto-zoom to fit nicely
   const container = document.getElementById('canvas-container');
@@ -247,7 +266,7 @@ function onProjectData(data) {
 
   renderPalette();
   cellNav.setGrid(data.grid.rows, data.grid.cols, cellW, cellH);
-  cellNav.setCells(data.cells || {});
+  cellNav.setCells(viewCells());
   cellNav.render();
   groupPanel.setGroups(data.groups || {});
   selectCell(state.activeCell);
@@ -268,13 +287,13 @@ function onDrawUpdate(data) {
     cell.shapes.sort((a, b) => a.zIndex - b.zIndex);
   }
   if (data.cell === state.activeCell) {
-    editor.setCell(cell);
+    editor.setCell(viewCell(data.cell));
     refreshShapePanel();
   }
-  cellNav.setCells(state.project.cells);
+  cellNav.setCells(viewCells());
   cellNav.render();
-  animPreview.setCells(state.project.cells);
-  fullPreview.setCells(state.project.cells);
+  animPreview.setCells(viewCells());
+  fullPreview.setCells(viewCells());
 }
 
 function onShapeUpdate(data) {
@@ -287,13 +306,13 @@ function onShapeUpdate(data) {
     state.project.cells[data.cell].shapes = data.shapes;
   }
   if (data.cell === state.activeCell) {
-    editor.setCell(state.project.cells[data.cell]);
+    editor.setCell(viewCell(data.cell));
     refreshShapePanel();
   }
-  cellNav.setCells(state.project.cells);
+  cellNav.setCells(viewCells());
   cellNav.render();
-  animPreview.setCells(state.project.cells);
-  fullPreview.setCells(state.project.cells);
+  animPreview.setCells(viewCells());
+  fullPreview.setCells(viewCells());
 }
 
 function onCellUpdate(data) {
@@ -302,13 +321,13 @@ function onCellUpdate(data) {
     setCellData(data.cell, data.cellData);
   }
   if (data.cell === state.activeCell) {
-    editor.setCell(findCell(state.activeCell));
+    editor.setCell(viewCell(state.activeCell));
     refreshShapePanel();
   }
-  cellNav.setCells(state.project.cells || {});
+  cellNav.setCells(viewCells());
   cellNav.render();
-  animPreview.setCells(state.project.cells || {});
-  fullPreview.setCells(state.project.cells || {});
+  animPreview.setCells(viewCells());
+  fullPreview.setCells(viewCells());
 }
 
 function onError(data) {
@@ -362,7 +381,13 @@ function setCellData(ref, data) {
 function selectCell(ref) {
   if (state.activeCell !== ref) { state.selectedShape = null; tools.setTool(state.activeTool); }
   state.activeCell = ref;
-  const cell = findCell(ref);
+  const cell = viewCell(ref);
+  const traceToggle = document.getElementById('show-traced-baseline');
+  const referenceToggle = document.getElementById('show-reference-image');
+  traceToggle.checked = visibility.trace;
+  referenceToggle.checked = visibility.reference;
+  traceToggle.disabled = !Object.values(state.project?.cells ?? {}).some(c => c.shapes?.some(isTracedShape));
+  referenceToggle.disabled = !findCell(ref)?.reference;
   editor.setCell(cell);
   editor.setReference(cell?.reference ?? null, ref);
   updateCellRef();
@@ -404,7 +429,7 @@ function updateCellRef() {
 }
 
 function refreshShapePanel() {
-  const cell = findCell(state.activeCell);
+  const cell = viewCell(state.activeCell);
   shapePanel.setShapes(cell?.shapes || []);
 }
 

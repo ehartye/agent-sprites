@@ -20,6 +20,18 @@ function pixelAt(ed, x, y) {
 }
 
 describe('CanvasEditor (browser)', () => {
+  it('does not restore a hidden reference when its earlier image request finishes', () => {
+    const ed = makeEditor();
+    const ImageClass = window.Image;
+    const images = [];
+    window.Image = class { constructor() { images.push(this); } };
+    try {
+      ed.setReference({ opacity: 0.35 }, '0,0');
+      ed.setReference(null, '0,0');
+      images[0].onload();
+      expect(ed._refImage).toBeNull();
+    } finally { window.Image = ImageClass; ed.destroy(); }
+  });
   // NOTE: probes target the CENTER of each zoomed grid cell (+2 at zoom 4) —
   // under jsdom the theme CSS vars are empty, so grid lines paint black over
   // the 1px boundaries between cells.

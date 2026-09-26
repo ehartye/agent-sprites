@@ -84,6 +84,9 @@ export class CanvasEditor {
 
   /** Tracing reference underlay: refInfo = { opacity } from cell data, or null. */
   setReference(refInfo, cellRef) {
+    const request = this._refRequest = (this._refRequest ?? 0) + 1;
+    this._refImage = null;
+    this.render();
     if (!refInfo) {
       this._refImage = null;
       this.render();
@@ -91,8 +94,8 @@ export class CanvasEditor {
     }
     this._refOpacity = refInfo.opacity ?? 0.35;
     const img = new window.Image();
-    img.onload = () => { this._refImage = img; this.render(); };
-    img.onerror = () => { this._refImage = null; this.render(); };
+    img.onload = () => { if (request !== this._refRequest) return; this._refImage = img; this.render(); };
+    img.onerror = () => { if (request !== this._refRequest) return; this._refImage = null; this.render(); };
     img.src = `/api/cell/reference-image?cell=${encodeURIComponent(cellRef)}&t=${Date.now()}`;
   }
 
