@@ -95,6 +95,9 @@ front edge. Front and rear torsos are one pixel wider; the front shirt opening s
 three pixels. Arm anchors remain fixed. Primary upper-arm caps join the front/rear garment at the neck-side shoulder slope,
 without a notch between separately rounded torso and sleeve shapes. Outer caps
 remain beveled; arm anchors, swing paths, and profile geometry stay unchanged.
+Rear jackets use the closed torso fabric and a back collar. Shirt openings, chest
+pockets, belt buckles, and front suit controls are omitted from the rear; rear
+packs and garment panels retain their own details.
 
 Each report frame includes `locomotion`: `cycleDistance`, `frameDistance`,
 `phaseDistance`, `frameCount` (8), configured `fps`, a cardinal `direction` vector,
