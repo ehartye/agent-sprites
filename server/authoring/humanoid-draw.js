@@ -108,16 +108,22 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   p.poly('torso_shadow',[[right-2,top+3],[right,top+4],[waistRight,waistY],[waistRight-1,waistY]],shade);
   p.poly('shoulder_yoke',[[18,top+1],[21,top+1],[right-1,top+3],[right-1,top+4],[21,top+2],[18,top+2],[left+1,top+4],[left+1,top+3]],light);
   p.rect('belt',waistLeft,waistY,waistRight-waistLeft+1,2,c.boots);
-  p.rect('belt_latch',side?waistRight-1:19,waistY,2,2,c.metal);
+  if(!back)p.rect('belt_latch',side?waistRight-1:19,waistY,2,2,c.metal);
   if(sealed){
-    p.rect('chest_panel',side?left+width-3:17,top+4,side?2:6,3,c.outline);
-    p.rect('chest_indicator',side?left+width-3:18,top+4,1,2,c.signal);
+    if(!back){
+      p.rect('chest_panel',side?left+width-3:17,top+4,side?2:6,3,c.outline);
+      p.rect('chest_indicator',side?left+width-3:18,top+4,1,2,c.signal);
+    }
     if(back){p.rect('pack_back_panel',left+1,top+3,width-2,waistY-top-1,c.suitShade);p.rect('pack_service_latch',19,top+4,2,2,c.accent);}
   }else{
-    p.rect('shirt',side?waistRight-1:19,top+3,direction==='down'?3:2,Math.max(2,waistY-top-3),c.suit);
-    p.rect('pocket',left+1,top+4,3,2,c.accent);
+    // The base torso is the closed jacket back, not a second shirt opening.
+    if(!back){
+      p.rect('shirt',side?waistRight-1:19,top+3,direction==='down'?3:2,Math.max(2,waistY-top-3),c.suit);
+      p.rect('pocket',left+1,top+4,3,2,c.accent);
+    }
     p.rect('neck',18,b.headTop+b.headSize-1+dy,4,3,c.skinShade);
-    p.poly('pressure_collar',[[18,top],[21,top],[22,top+1],[20,top+2],[18,top+1]],c.metal);
+    if(back)p.poly('back_collar',[[18,top],[21,top],[22,top+1],[17,top+1]],c.metal);
+    else p.poly('pressure_collar',[[18,top],[21,top],[22,top+1],[20,top+2],[18,top+1]],c.metal);
   }
   drawTorsoDetails(p,person,outfit,{...b,hip:pose.torso.pelvis[1]-dy},pose,direction);
   for(const a of lowerArms)if(a.name.startsWith(near.name))arm(a,true,p);
