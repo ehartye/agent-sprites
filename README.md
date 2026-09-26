@@ -155,6 +155,31 @@ Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
 
+### Trace a reference into editable shapes
+
+`Invoke-Sprite trace .\reference.webp --out .\reference-baseline --name reference --json`
+
+Trace accepts a local static PNG or WebP and writes a **new** directory containing
+an editable project, rendered PNG, Aseprite atlas, replayable `operations.json`,
+pixel-comparison report and standalone preview. Open `reference.project.json`
+with `Invoke-Sprite open` to edit it in the live browser UI. Tracing itself is
+offline and leaves the active session untouched.
+
+Every horizontal color run becomes a named filled rectangle; identical runs on
+adjacent rows merge vertically. The tool retains the delivered image's resolution,
+background and decoded 8-bit sRGB colors. It does not infer the original pixel
+grid, remove backgrounds, quantize colors, or identify anatomical parts. A large
+resampled reference can therefore produce thousands of shapes. Its portable
+project loads directly; replaying that many operations through `batch` or `build`
+is substantially slower.
+
+Before publishing, trace decodes the actual rendered PNG and compares every pixel
+with the decoded source. Invisible RGB at alpha zero is ignored. Canvas rounding
+can change semitransparent RGB; such inputs fail without publishing a purported
+exact baseline. Limits are 32 MiB input, 4 million pixels, 8192 pixels per side and
+100,000 shapes. Animated inputs and existing output paths are rejected. Use a new
+output directory for each variant; the source is never changed.
+
 ### Build a repeatable asset project
 
 Copy `examples/blink` into your game project's source tree, then run

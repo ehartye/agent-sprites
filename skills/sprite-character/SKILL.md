@@ -15,8 +15,11 @@ interchangeable style.
 
 Inspect the supplied reference. Separate observations from choices: head/body
 ratio, eye placement, outline color, material clusters, camera, ground contact
-and signature silhouette. Do not interpret a zoomed WebP's dimensions as its
-native pixel grid, or turn its compressed edge colors into a huge palette.
+and signature silhouette. For an exact replication baseline, first use the
+[image trace workflow](../sprite-editing/SKILL.md#trace-a-supplied-reference),
+preserving supplied pixels; distinguish that measured match from original art.
+For constructing new characters, do not interpret a zoomed WebP's dimensions as
+its native pixel grid, or turn its compressed edge colors into a huge palette.
 State the chosen cell size, visible character height, ground row, directions,
 and two identity cues such as a side fringe and short cape. Use the user's
 constraints; otherwise begin with 32×48 cells and a front/right idle study.
