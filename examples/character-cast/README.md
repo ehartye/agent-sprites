@@ -87,8 +87,9 @@ upper thighs; the seat contour is separate from the hip joint and alignment axis
 Adult, sturdy, slim, and rangy profiles lower the seat and crotch contours two
 pixels through their authored `seatDrop`; child profiles keep their original
 contours. Hip joints, waist anchors, and limb motion stay fixed.
-The profile seat outline clips its single outer corner pixel on both facings;
-neighboring edge pixels, rear fullness, and contour height are preserved.
+Profile seats share a rounded outline/fill boundary: an inset upper edge, one
+fullest row, and a diagonal taper toward the thigh. Verify the composited sprite,
+not just the outline polygon; rear fullness and contour height remain fixed.
 `pelvis.rearFullness` adds one pixel behind the profile seat without extending its
 front edge. Front and rear torsos are one pixel wider; the front shirt opening spans
 three pixels. Arm anchors remain fixed. Primary upper-arm caps join the front/rear garment at the neck-side shoulder slope,
