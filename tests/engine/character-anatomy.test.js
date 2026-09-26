@@ -1,9 +1,44 @@
 import {test,expect} from 'vitest';
 import {BODY_PROFILES,humanoidPose,validatePose} from '../../server/authoring/humanoid-poses.js';
 import {generateCharacterRecipe} from '../../server/authoring/character.js';
+import {drawHumanoid} from '../../server/authoring/humanoid-draw.js';
 const bodies=Object.keys(BODY_PROFILES);
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 const relative=(a,b)=>a.map((v,i)=>v-b[i]);
+
+test('front rest flips only the blue-guide leg around its fixed hip, across body and clothing presets',()=>{
+ for(const body of bodies)for(const outfit of ['casual','service','retro'])for(const direction of ['down','right','up']){
+  const pose=humanoidPose(body,direction,0,false),axis=pose.legs.find(l=>l.name==='left').hip[0];
+  const person={body,head:'human',hair:'short',arms:2,colors:new Proxy({},{get:(_,key)=>key})};
+  const capture=resting=>{
+   const calls=[];
+   const pen=Object.fromEntries(['poly','rect','line','ellipse'].map(type=>[type,(...args)=>calls.push({type,args})]));
+   drawHumanoid(pen,person,outfit,direction,pose,'neutral',resting);
+   return calls;
+  };
+  const before=capture(false),after=capture(true);
+  expect(after).toHaveLength(before.length);
+  for(let i=0;i<before.length;i++){
+   const a=before[i],b=after[i];
+   if(direction!=='down'||!/^left_(thigh|shin|knee|boot|ankle)/.test(a.args[0])){expect(b).toEqual(a);continue;}
+   expect(b.type).toBe(a.type);expect(b.args[0]).toBe(a.args[0]);expect(b.args.at(-1)).toBe(a.args.at(-1));
+   if(a.type==='poly')for(let j=0;j<a.args[1].length;j++){
+    expect(a.args[1][j][0]+b.args[1][j][0]).toBe(2*axis);
+    expect(b.args[1][j][1]).toBe(a.args[1][j][1]);
+   }
+   if(a.type==='rect'){
+    expect(a.args[1]+b.args[1]+a.args[3]-1).toBe(2*axis);
+    expect(b.args.slice(2)).toEqual(a.args.slice(2));
+   }
+   if(a.type==='line'){
+    expect(a.args[1]+b.args[1]).toBe(2*axis);expect(a.args[3]+b.args[3]).toBe(2*axis);
+    expect(b.args[2]).toBe(a.args[2]);expect(b.args[4]).toBe(a.args[4]);
+   }
+  }
+ }
+ const recipe=generateCharacterRecipe({people:[{id:'farmer'}],mode:'idle'});
+ expect(recipe.operations.find(o=>o.name==='left_boot_outline').points).toContainEqual({x:21,y:54});
+});
 
 test('paired arms have equal shoulder-relative anatomy at matching phases and fixed bone lengths',()=>{
  for(const body of bodies)for(const direction of ['right','left'])for(const count of [2,4])for(let f=0;f<8;f++){
