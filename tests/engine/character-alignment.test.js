@@ -35,15 +35,16 @@ test('shoulder highlights descend from a narrow neck instead of drawing a horizo
   }
 });
 
-test('front torso gains one pixel and its centered shirt opening spans three pixels',()=>{
+test('front and rear torsos share the wider body without moving arm anchors',()=>{
   for(const body of Object.keys(BODY_PROFILES))for(const mode of ['idle','walk']){
     const built=generateCharacterRecipe({people:[{id:'person',body}],directions:['down','up'],mode});
     for(const frame of built.report.frames.filter(f=>f.direction==='down')){
       const front=shapesFor(built,frame),back=shapesFor(built,built.report.frames.find(f=>f.direction==='up'&&f.frame===frame.frame));
       const a=bounds(front.find(o=>o.name==='torso_outline')),b=bounds(back.find(o=>o.name==='torso_outline'));
-      expect(a.right-a.left).toBe(b.right-b.left+1);
+      expect(a.right-a.left).toBe(BODY_PROFILES[body].width+2);
+      expect(b.right-b.left).toBe(a.right-a.left);
       expect(front.find(o=>o.name==='shirt')).toMatchObject({x:19,w:3});
-      if(body==='adult')expect(frame.arms.map(a=>a.shoulder[0]).sort((a,b)=>a-b)).toEqual([12,28]);
+      if(body==='adult')for(const pose of built.report.frames.filter(f=>f.frame===frame.frame))expect(pose.arms.map(a=>a.shoulder[0]).sort((a,b)=>a-b)).toEqual([12,28]);
     }
   }
 });

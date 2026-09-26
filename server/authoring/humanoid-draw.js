@@ -89,7 +89,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   p.poly('pelvis_outline',[[seatLeft+1,pelvisTop],[seatRight-1,pelvisTop],[seatRight,seatY],[seatRight-2,crotchY],[20,crotchY-1],[seatLeft+2,crotchY],[seatLeft,seatY]],c.outline);
   p.poly('pelvis',[[seatLeft+2,pelvisTop],[seatRight-2,pelvisTop],[seatRight-1,seatY],[seatRight-2,crotchY-1],[20,crotchY-1],[seatLeft+2,crotchY-1],[seatLeft+1,seatY]],trouser);
   p.line('pelvis_seat_shade',seatLeft+1,seatY-1,seatLeft+2,crotchY-1,trouserShade);
-  const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0)+(direction==='down'?1:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
+  const width=(side?Math.max(8,b.width-2):b.width+1)+(bulky?2:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
   const waistLeft=left+(side?2:1),waistRight=right-1;
   // Neck -> deltoid -> ribcage -> waist. A rectangular shoulder stripe and
   // square hem concealed both the shoulder slope and the true hip attachment.

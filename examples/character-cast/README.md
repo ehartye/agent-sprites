@@ -85,8 +85,8 @@ for projection and pixel rounding. Their simultaneous poses differ by design.
 The `pelvis` report and `pelvis_outline`/`pelvis` shapes connect the waist and
 upper thighs; the seat contour is separate from the hip joint and alignment axis.
 `pelvis.rearFullness` adds one pixel behind the profile seat without extending its
-front edge. Front torsos are one pixel wider and their shirt opening spans three
-pixels; front arm anchors remain fixed. Primary upper-arm caps are beveled so the
+front edge. Front and rear torsos are one pixel wider; the front shirt opening spans
+three pixels. Arm anchors remain fixed. Primary upper-arm caps are beveled so the
 shoulder silhouette descends toward the sleeve instead of ending in square corners.
 
 Each report frame includes `locomotion`: `cycleDistance`, `frameDistance`,
