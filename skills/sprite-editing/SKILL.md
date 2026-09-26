@@ -36,6 +36,18 @@ sprite.js new myproject --size 16 --rows 4 --cols 4 --palette pico8
   JSON (by default into the session's asset folder); omit it when assets should
   contain only the PNG and atlas. Inspect supplied ops for `save` and destinations.
 
+## Trace a supplied reference
+
+For an exact baseline, use `sprite.js trace reference.webp --out new-folder --name baseline --json`.
+It accepts static PNG/WebP, verifies decoded pixels against the rendered PNG, and
+emits editable named rectangles, operations, atlas and a standalone preview. Use
+`sprite.js open new-folder/baseline.project.json` for live browser editing;
+replaying a large trace is slower. Preserve the
+source and use a new output directory. Trace preserves supplied resolution and
+background; it does not reconstruct the native grid or identify body parts.
+For a dim non-exporting underlay instead, use `ref set` under Cell Operations.
+See [trace limits and alpha behavior](../../README.md#trace-a-reference-into-editable-shapes).
+
 ## Replaying an ops file
 
 For a repeatable asset build, use `sprite.js build sprite-project.json --json`.

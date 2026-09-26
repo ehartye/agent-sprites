@@ -227,6 +227,8 @@ SESSION
 
 OFFLINE VERIFICATION (does not start or contact a server)
   build <sprite-project.json> [--json]
+  trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
+    Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
@@ -329,6 +331,22 @@ async function run() {
   }
 
   const { args, positional } = parseArgs(process.argv.slice(3));
+  if (cmd === 'trace') {
+    for (const key of Object.keys(args)) {
+      if (!['out', 'name', 'json'].includes(key)) throw new Error(`Unknown trace option: --${key}`);
+    }
+    if (positional.length !== 1 || typeof args.out !== 'string' || (args.name !== undefined && typeof args.name !== 'string')) {
+      throw new Error('Usage: agent-sprites trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]');
+    }
+    const { traceImageFile } = await import('../server/engine/image-trace.js');
+    const report = await traceImageFile(positional[0], { output: args.out, name: args.name });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Exact trace: ${report.width}×${report.height}, ${report.shapeCount} editable shapes, ${report.differingPixels} differing pixels.`);
+      for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+    }
+    return;
+  }
   if (cmd === 'build') {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
     const { buildProject } = await import('../server/build/project-build.js');
