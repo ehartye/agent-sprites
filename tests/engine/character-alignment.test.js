@@ -2,6 +2,7 @@ import {test,expect} from 'vitest';
 import {generateCharacterRecipe} from '../../server/authoring/character.js';
 import {BODY_PROFILES,humanoidPose} from '../../server/authoring/humanoid-poses.js';
 import {OUTFIT_NAMES} from '../../server/authoring/character-wardrobe.js';
+import {createHash} from 'node:crypto';
 
 const shapesFor=(built,frame)=>built.operations.filter(op=>op.command==='draw'&&op.cell===frame.cell);
 const bounds=shape=>shape.type==='rect'
@@ -49,8 +50,33 @@ test('all supported bodies and outfits retain aligned bounded torsos and articul
       const shapes=shapesFor(built,frame),torso=bounds(shapes.find(op=>op.name==='torso'));
       expect(Math.abs((torso.left+torso.right)/2-frame.torso.midlineX)).toBeLessThanOrEqual(.5);
       expect(frame.torso.neck[0]).toBe(frame.torso.midlineX);
-      expect(frame.torso.pelvis[0]).toBe(frame.torso.midlineX);
+      expect(frame.torso.pelvis[0]).toBe(20);
+      expect(frame.torso.midlineX-frame.torso.pelvis[0]).toBe(frame.direction==='right'?4:frame.direction==='left'?-4:0);
       expect(frame.legs.some(leg=>leg.support&&leg.ankle[1]===52)).toBe(true);
     }
   }
+});
+
+test('profile torso and shoulders advance four pixels while the hips remain on their original axis',()=>{
+  const built=generateCharacterRecipe({people:[{id:'person'}],directions:['right','left'],mode:'walk'});
+  for(const frame of built.report.frames){
+    const sign=frame.direction==='right'?1:-1;
+    expect(frame.torso.midlineX).toBe(20+4*sign);
+    expect(frame.torso.neck[0]).toBe(20+4*sign);
+    expect(frame.legs.map(leg=>leg.hip[0])).toEqual([20,20]);
+    const torso=bounds(shapesFor(built,frame).find(op=>op.name==='torso'));
+    expect(torso.left).toBe(frame.direction==='right'?19:12);
+    expect(torso.right).toBe(frame.direction==='right'?28:21);
+    const near=frame.arms.find(arm=>arm.name===(sign===1?'right':'left'));
+    expect(near.shoulder[0]).toBe(20+5*sign);
+  }
+});
+
+test('front/back art and profile heads, helmets and lower limbs are unchanged from the pre-shift recipe',()=>{
+  const built=generateCharacterRecipe({people:[{id:'person'}],outfits:['casual','field','service'],directions:['down','right','up','left'],mode:'walk'});
+  const fixed=/^(head|hair|face|nose|mouth|helmet|visor|neck_seal|antenna|mandible|chitin)|^(left|right)_(eye|ear|thigh|shin|knee|boot|ankle)/;
+  const ops=built.report.frames.flatMap(frame=>shapesFor(built,frame).filter(op=>['down','up'].includes(frame.direction)||fixed.test(op.name)));
+  // Fingerprint captured before the torso translation; changing these layers
+  // would violate this adjustment's explicit head/leg/front/back boundary.
+  expect(createHash('sha256').update(JSON.stringify(ops)).digest('hex')).toBe('2127766035e0aeb1517f957296630876ae55a29ae5a4f6ce6ac7f6c079018a2d');
 });
