@@ -93,7 +93,11 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   const seatLeft=20-Math.ceil(depth/2)-pose.pelvis.rearFullness,seatRight=20+Math.floor(depth/2);
   // A single trouser volume wraps the sockets and merges into the upper thighs.
   // Its rear contour belongs behind the hip axis, unlike a displaced torso.
-  p.poly('pelvis_outline',[[seatLeft+1,pelvisTop],[seatRight-1,pelvisTop],[seatRight,seatY],[seatRight-2,crotchY],[20,crotchY-1],[seatLeft+2,crotchY],[seatLeft,seatY]],c.outline);
+  // Preserve the rasterized rear edge above/below the corner while clipping
+  // its single outer pixel. A simple diagonal also moves Bresenham tie pixels.
+  const rearStepY=pelvisTop+Math.ceil((seatY-pelvisTop)/2);
+  const rearEdge=side?[[seatLeft+1,crotchY],[seatLeft+1,seatY],[seatLeft,seatY-1],[seatLeft,rearStepY],[seatLeft+1,rearStepY-1]]:[[seatLeft,seatY]];
+  p.poly('pelvis_outline',[[seatLeft+1,pelvisTop],[seatRight-1,pelvisTop],[seatRight,seatY],[seatRight-2,crotchY],[20,crotchY-1],[seatLeft+2,crotchY],...rearEdge],c.outline);
   p.poly('pelvis',[[seatLeft+2,pelvisTop],[seatRight-2,pelvisTop],[seatRight-1,seatY],[seatRight-2,crotchY-1],[20,crotchY-1],[seatLeft+2,crotchY-1],[seatLeft+1,seatY]],trouser);
   p.line('pelvis_seat_shade',seatLeft+1,seatY-1,seatLeft+2,crotchY-1,trouserShade);
   const width=(side?Math.max(8,b.width-2):b.width+1)+(bulky?2:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;

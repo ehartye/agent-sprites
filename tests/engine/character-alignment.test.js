@@ -178,7 +178,7 @@ test('adult seat and crotch sit two pixels lower without moving hip or waist anc
       const shape=shapesFor(built,frame).find(o=>o.name==='pelvis_outline');
       expect(bounds(shape).bottom).toBe(frame.pelvis.crotchY);
       expect(shape.points[2].y).toBe(frame.pelvis.seatY);
-      expect(shape.points[6].y).toBe(frame.pelvis.seatY);
+      if(['down','up'].includes(frame.direction))expect(shape.points[6].y).toBe(frame.pelvis.seatY);
     }
   }
 });
