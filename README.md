@@ -10,7 +10,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 
 ## Highlights
 
-- **Reusable characters** — a built-in JSON character source fits adult/child bodies, multipart expressive faces, eight-pose walks and three pressure-suit families; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
+- **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
 
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
 - **Pattern fills** — any filled rect/circle/ellipse/polygon takes `--pattern checker|stripes|sparse|scatter --color2 <hex>` for two-color dither fills in one op (pointillism, texture, gradients by band); `recolor --color2` swaps the second color later

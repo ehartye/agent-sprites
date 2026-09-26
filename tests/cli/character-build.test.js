@@ -66,6 +66,19 @@ test('walk recipes export eight-frame animation tags and preserve timing', async
   expect(readJson(result.artifacts.characterReport).frames).toHaveLength(8);
 }, 20000);
 
+test('nonhuman recipe publishes four-arm joints and distinct clothing states through the managed build pipeline', async () => {
+  config.character.people=[{id:'vey',head:'insectoid',arms:4,body:'rangy',equipment:'survey-rig'}];
+  config.character.outfits=['wayfarer','phase-suit'];
+  config.character.directions=['down','right'];
+  config.expectedFrames=['vey_wayfarer_down_idle','vey_wayfarer_right_idle','vey_phase-suit_down_idle','vey_phase-suit_right_idle'];
+  writeConfig();
+  const result=await buildProject(configPath);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const report=readJson(result.artifacts.characterReport);
+  expect(report.frames.map(f=>f.sealed)).toEqual([false,false,true,true]);
+  expect(report.frames.every(f=>f.headKind==='insectoid'&&f.arms.length===4)).toBe(true);
+  expect(readJson(result.artifacts.operations).some(op=>op.command==='shape-group'&&op.name==='left_lower_arm')).toBe(true);
+},20000);
+
 test('required aliases are verified before replacing character output', async () => {
   const first = await buildProject(configPath);
   expect(first.ok).toBe(true);

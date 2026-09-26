@@ -17,10 +17,10 @@ Principles for multi-frame pixel-art animation on top of the cell-based sprite s
 
 ## Repeatable humanoid characters
 
-For adult/child casts, multipart faces or pressure-suit variants, start with the
+For adult/child or nonhuman humanoid casts, multipart faces or pressure-suit variants, start with the
 built-in `character` build source before writing a game-local drawing generator.
 Read the [recipe contract](../../examples/character-cast/README.md), copy its JSON
-config, and run the managed `build` command. Body profiles, paired boots, forward
+config, and run the managed `build` command. Head kind, two/four arms, body profiles, paired boots, forward
 knee hinges and shared eye layers live in the tool; a correction should improve
 the shared recipe instead of being copied between games. Inspect the exported
 contact sheet at 1× and 4×, scrub contact/passing poses, and compare

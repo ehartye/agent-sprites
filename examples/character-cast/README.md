@@ -13,16 +13,17 @@ fictional pressure suits without a drawing script.
 | `name` | Sheet identifier, default `characters` |
 | `people` | Nonempty array of distinct people |
 | `mode` | `idle` (default), `walk`, `expressions` |
-| `outfits` | Unique array: `casual` (default), `field`, `service`, `retro` |
+| `outfits` | Unique array: `casual` (default), `field`, `service`, `retro`, `wayfarer`, `phase-suit` |
 | `directions` | Unique array: `down` (default), `right`, `up`, `left` |
 | `fps` | Finite number 1–60; default 10 |
 
-Each person has a required `id`, and optional `body`, `hair`, `skin`, `colors`.
+Each person has a required `id`, and optional `body`, `hair`, `skin`, `colors`,
+`head`, `arms`, and `equipment`. Nonhuman options require 0.20.0.
 Names and IDs begin with a lowercase letter, contain lowercase letters, digits,
 hyphens or underscores, and are at most 48 characters. Unknown fields, nulls,
 duplicate entries and unsupported values fail before publication.
 
-- Bodies: `adult` (default), `adult-sturdy`, `adult-slim`, `child`, `older-child`.
+- Bodies: `adult` (default), `adult-sturdy`, `adult-slim`, `child`, `older-child`, `rangy`.
 - Hair: `short` (default), `bun`, `bob`, `waves`, `puffs`, `tousled`.
 - Skin: `peach` (default), `tan`, `umber`.
 - Colors: `#RRGGBB` overrides for `outline`, `skin`, `skinLight`, `skinShade`,
@@ -70,3 +71,27 @@ Keep recurring corrections in `server/authoring/` with focused regressions.
 Keep character identities, palettes and outfit choices in the consuming game's
 JSON. Rebuild all affected study sheets after a tool correction. Generated project
 edits are overwritten on rebuild; copy intentional hand-edited variants separately.
+
+## Nonhuman humanoids (0.20.0)
+
+Head kind, body proportions and arm count are independent recipe choices:
+`head: "human" | "insectoid"`, `arms: 2 | 4`, and
+`equipment: "none" | "survey-rig"`. Defaults preserve existing human recipes.
+Insectoid heads have compound eyes, articulated expressions, antennae that fold
+inside helmets, and mandibles. Omit `hair` for insectoid heads; a supplied human
+hairstyle is rejected rather than ignored. Colors use the existing palette roles.
+
+`rangy` gives the biped longer legs. `wayfarer` supplies an unsealed split mantle;
+`phase-suit` supplies a sealed suit fitted to every arm. Equipment and clothing
+have direction-specific visible surfaces. Four-arm rigs include separate shoulder,
+elbow and wrist positions for each arm in `report.frames[].arms`, with anatomical
+names `left`, `right`, `left_lower`, `right_lower`. Reports also expose `headKind`,
+`armCount`, `equipment`, and accurate `sealed` state. Extra arms keep separate
+editable groups; directional mirroring swaps anatomical name tokens.
+
+Copy [the nonhuman example](../nonhuman-wayfinder/sprite-project.json), build it
+through the managed launcher, inspect every view, then try walk/expressions modes.
+The Room2Grow stress test exercises 8 turnarounds, 64 walking and 16 expression
+cells using only JSON inputs. Check arm overlap and clothing occlusion at native
+size; more limbs do not automatically remain readable on a small cell. This is a
+set of composable authored presets, not an arbitrary creature skeleton system.

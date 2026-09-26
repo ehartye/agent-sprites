@@ -4,6 +4,7 @@ export const BODY_PROFILES = Object.freeze({
   'adult-slim': {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:11,gap:7,stride:8,segment:8.5},
   child: {headTop:24,headSize:14,torsoTop:38,hip:45,profileHip:44,width:10,gap:6,stride:4,segment:4.6},
   'older-child': {headTop:18,headSize:15,torsoTop:33,hip:41,profileHip:40,width:11,gap:6,stride:5,segment:6.7},
+  rangy: {headTop:9,headSize:16,torsoTop:25,hip:35,profileHip:34,width:10,gap:7,stride:8,segment:10.5},
 });
 export const GROUND = 54;
 const center=20, ankleY=52, bobs=[0,1,0,-1,0,1,0,-1];
@@ -23,7 +24,7 @@ export function forwardKnee(hip,ankle,length){
   return choices.sort((a,b)=>a.error-b.error)[0].point;
 }
 
-export function humanoidPose(body,direction='down',frame=0,walking=true){
+export function humanoidPose(body,direction='down',frame=0,walking=true,armCount=2){
   const profile=BODY_PROFILES[body], side=['right','left'].includes(direction);
   const bob=walking?(body==='child'?Math.max(0,bobs[frame]):bobs[frame]):0;
   const canonical=direction==='left'?'right':direction;
@@ -51,8 +52,19 @@ export function humanoidPose(body,direction='down',frame=0,walking=true){
     const wrist=[handX,profile.hip+1+bob+(walking?Math.round([-2,-1,0,2,2,1,0,-1][phase]*ratio):0)];
     return {name,phase,hip,knee,ankle,support:!walking||phase<4,shoulder:[handX,profile.torsoTop+2+bob],elbow:[handX,Math.round((profile.torsoTop+2+bob+wrist[1])/2)],wrist};
   });
-  if(direction==='left')for(const leg of legs){leg.name=leg.name==='left'?'right':'left';for(const key of ['hip','knee','ankle','shoulder','elbow','wrist'])leg[key]=[40-leg[key][0],leg[key][1]];}
-  return {direction,frame,bob,legs,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
+  const arms=legs.map(({name,shoulder,elbow,wrist})=>({name,shoulder,elbow,wrist}));
+  if(armCount===4)for(const leg of legs){
+    const sign=leg.shoulder[0]<center?-1:1,phase=leg.phase;
+    const shoulder=[side?center: center+sign*Math.ceil(profile.width/2),profile.torsoTop+5+bob];
+    const wrist=side?[25+Math.round([0,1,2,1,0,-1,-2,-1][phase]),Math.min(49,profile.hip+5+bob)]:[center+sign*(Math.ceil(profile.width/2)+5),Math.min(49,profile.hip+5+bob+(walking?[0,1,0,-1,0,1,0,-1][phase]:0))];
+    const elbow=[side?28+(leg.name==='right'?1:-1):wrist[0]+sign,shoulder[1]+3];
+    arms.push({name:`${leg.name}_lower`,shoulder,elbow,wrist});
+  }
+  if(direction==='left'){
+    for(const leg of legs){leg.name=leg.name==='left'?'right':'left';for(const key of ['hip','knee','ankle','shoulder','elbow','wrist'])leg[key]=[40-leg[key][0],leg[key][1]];}
+    for(const arm of arms){arm.name=arm.name.replace(/^(left|right)/,n=>n==='left'?'right':'left');for(const key of ['shoulder','elbow','wrist'])arm[key]=[40-arm[key][0],arm[key][1]];}
+  }
+  return {direction,frame,bob,legs,arms,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
 }
 
 export function validatePose(pose,walking){
