@@ -54,7 +54,7 @@ export function generateCharacterRecipe(config){
         line(part,x1,y1,x2,y2,color){x1=mx(x1);x2=mx(x2);add('line',part,color,{x1,y1,x2,y2},[[x1,y1],[x2,y2]]);},
         ellipse(part,cx,cy,rx,ry,color){cx=mx(cx);add('ellipse',part,color,{cx,cy,rx,ry},[[cx-rx,cy-ry],[cx+rx,cy+ry]]);},
       };
-      drawHumanoid(pen,person,outfit,canonical,humanoidPose(person.body,canonical,index,mode==='walk',person.arms),expression,mode!=='walk');
+      drawHumanoid(pen,person,outfit,canonical,humanoidPose(person.body,canonical,index,mode==='walk',person.arms),expression);
       for(const [group,pattern] of Object.entries({face:/^(?:face|head|hair|nose|mouth|cheek|antenna|mandible|chitin)(?:_|$)|(?:^|_)(?:eye|brow|ear)(?:_|$)/,helmet:/helmet|visor|neck_seal/,equipment:/^equipment_|^phase_/,garment:/^mantle_/,left_lower_arm:/^left_lower_/,right_lower_arm:/^right_lower_/,left_arm:/^left_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,right_arm:/^right_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,left_leg:/^left_(thigh|shin|knee|boot|ankle)/,right_leg:/^right_(thigh|shin|knee|boot|ankle)/})){const shapes=names.filter(n=>pattern.test(n));if(shapes.length)operations.push({command:'shape-group',sub:'create',cell,name:group,shapes});}
       const pose=humanoidPose(person.body,direction,index,mode==='walk',person.arms),checks=validatePose(pose,mode==='walk');
       pose.locomotion.fps=fps;
