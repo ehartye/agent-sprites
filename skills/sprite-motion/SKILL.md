@@ -15,6 +15,19 @@ load that setup before running commands and stop on command failure.
 
 Principles for multi-frame pixel-art animation on top of the cell-based sprite sheet.
 
+## Repeatable humanoid characters
+
+For adult/child casts, multipart faces or pressure-suit variants, start with the
+built-in `character` build source before writing a game-local drawing generator.
+Read the [recipe contract](../../examples/character-cast/README.md), copy its JSON
+config, and run the managed `build` command. Body profiles, paired boots, forward
+knee hinges and shared eye layers live in the tool; a correction should improve
+the shared recipe instead of being copied between games. Inspect the exported
+contact sheet at 1× and 4×, scrub contact/passing poses, and compare
+`character-report.json` joint guides. Passing geometry checks does not establish
+that motion looks natural. Use ordinary named-shape operations for bespoke art;
+preserve intentional overrides in source, because rebuilding replaces exports.
+
 ## Frame Planning
 
 Lay frames linearly across a row. Name cells or use a cell group so playback order is explicit:

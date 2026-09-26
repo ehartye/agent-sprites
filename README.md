@@ -10,6 +10,8 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 
 ## Highlights
 
+- **Reusable characters** — a built-in JSON character source fits adult/child bodies, multipart expressive faces, eight-pose walks and three pressure-suit families; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
+
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
 - **Pattern fills** — any filled rect/circle/ellipse/polygon takes `--pattern checker|stripes|sparse|scatter --color2 <hex>` for two-color dither fills in one op (pointillism, texture, gradients by band); `recolor --color2` swaps the second color later
 - **Feedback loop** — `view` renders any cell/group/sheet to PNG (`--scale` for nearest-neighbor upscales, `--out` to a chosen path) that the agent reads back; the web UI mirrors every operation in real time over WebSocket
@@ -197,10 +199,14 @@ The same bounded retry covers moving the previous output aside and restoring it
 if publication fails. Other errors fail immediately. No destination is deleted
 to force a rename; if restoration also fails, the error identifies the retained
 backup directory so the previous build remains recoverable.
-The config plus ops/generator is canonical: edits to the generated project are
+The config plus ops/generator/character source is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
-For a reusable character animation, copy [`examples/character-walk`](examples/character-walk/README.md).
+For shared adult/child body profiles, expressions and suits, use the built-in
+[`character` source](examples/character-cast/README.md). Choose exactly one source:
+`ops`, `generator`, or `character`. No game-local generator is required.
+
+For the older four-beat courier example, copy [`examples/character-walk`](examples/character-walk/README.md).
 Its four-beat 24×32 courier walk has coordinated anatomical limbs, contact/pass
 poses, a planted baseline and restrained bob. Adjust stride, fps and colors in
 `character.json`, then run one build to inspect the atlas, contact sheet and
