@@ -39,6 +39,11 @@ Omit `save` when no project JSON should enter assets; drafts persist automatical
 A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Keep one
 build config per sheet and use the managed `sprite.js build <config> --json`.
 
+For human casts, expression sheets and fitted pressure suits, prefer the built-in
+[`character` recipe](../../examples/character-cast/README.md). It needs only JSON,
+exports ordinary editable shapes plus a joint report, and shares fixes across
+projects. The custom generator workflow below remains useful for other assets.
+
 1. Write a project-local `generate.mjs` that prints an operations array to stdout,
    beginning with one `new` and omitting `save`/`export`/`ref`.
 2. Create `sprite-project.json` with `version: 1`, `generator: "generate.mjs"`,

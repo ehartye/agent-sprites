@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "character": {
+    "name": "community",
+    "mode": "idle",
+    "people": [
+      { "id": "mara", "body": "adult-sturdy", "hair": "bun", "skin": "umber" },
+      { "id": "child", "body": "child", "hair": "puffs", "skin": "umber" }
+    ],
+    "outfits": ["casual", "field", "service", "retro"],
+    "directions": ["down"],
+    "fps": 10
+  },
+  "output": "dist",
+  "expectedFrames": [
+    "mara_casual_down_idle",
+    "mara_field_down_idle",
+    "mara_service_down_idle",
+    "mara_retro_down_idle",
+    "child_casual_down_idle",
+    "child_field_down_idle",
+    "child_service_down_idle",
+    "child_retro_down_idle"
+  ],
+  "scale": 4
+}
