@@ -35,9 +35,12 @@ test('shoulder highlights descend from a narrow neck instead of drawing a horizo
   }
 });
 
-test('the established eight-pose profile leg cycle is unchanged',()=>{
-  const knees=[[[17,45],[25,44]],[[21,46],[26,44]],[[26,43],[24,44]],[[27,41],[20,44]],[[25,44],[17,45]],[[26,44],[21,46]],[[24,44],[26,43]],[[20,44],[27,41]]];
-  for(let frame=0;frame<8;frame++)expect(humanoidPose('adult','right',frame).legs.map(leg=>leg.knee)).toEqual(knees[frame]);
+test('grounded profile passing pose extends the support knee beneath the hip',()=>{
+  // The previous frozen cycle encoded the rejected high-lift, bent-knee gait.
+  const pose=humanoidPose('adult','right',2),support=pose.legs.find(l=>l.support);
+  expect(support.knee[0]).toBe(support.hip[0]);
+  expect(support.ankle[0]).toBe(support.hip[0]);
+  expect(support.heel[1]).toBe(pose.ground);
 });
 
 test('all supported bodies and outfits retain aligned bounded torsos and articulated limbs',()=>{
@@ -52,7 +55,8 @@ test('all supported bodies and outfits retain aligned bounded torsos and articul
       expect(frame.torso.neck[0]).toBe(frame.torso.midlineX);
       expect(frame.torso.pelvis[0]).toBe(20);
       expect(frame.torso.midlineX).toBe(frame.torso.pelvis[0]);
-      expect(frame.legs.some(leg=>leg.support&&leg.ankle[1]===52)).toBe(true);
+      expect(frame.legs.some(leg=>leg.support&&leg.foot.contact)).toBe(true);
+      if(['right','left'].includes(frame.direction))expect(frame.legs.some(leg=>leg.support&&leg.foot.anchor[1]===frame.ground)).toBe(true);
     }
   }
 });
@@ -98,11 +102,16 @@ test('walking heels follow the stride rather than the neutral plumb-line constra
   expect(humanoidPose('adult','right',0,true).legs.some(leg=>Math.abs(leg.heel[0]-leg.hip[0])>1)).toBe(true);
 });
 
-test('front/back art and profile heads, helmets and lower limbs are unchanged from the pre-shift recipe',()=>{
+test('head, face and helmet geometry is unchanged after normalizing the new gait bob',()=>{
   const built=generateCharacterRecipe({people:[{id:'person'}],outfits:['casual','field','service'],directions:['down','right','up','left'],mode:'walk'});
-  const fixed=/^(head|hair|face|nose|mouth|helmet|visor|neck_seal|antenna|mandible|chitin)|^(left|right)_(eye|ear|thigh|shin|knee|boot|ankle)/;
-  const ops=built.report.frames.flatMap(frame=>shapesFor(built,frame).filter(op=>['down','up'].includes(frame.direction)||fixed.test(op.name)));
-  // Fingerprint captured before the torso translation; changing these layers
-  // would violate this adjustment's explicit head/leg/front/back boundary.
-  expect(createHash('sha256').update(JSON.stringify(ops)).digest('hex')).toBe('2127766035e0aeb1517f957296630876ae55a29ae5a4f6ce6ac7f6c079018a2d');
+  const fixed=/^(head|hair|face|nose|mouth|helmet|visor|neck_seal|antenna|mandible|chitin)|^(left|right)_(eye|ear)/;
+  const ops=built.report.frames.flatMap(frame=>shapesFor(built,frame).filter(op=>fixed.test(op.name)).map(shape=>{
+    const op=structuredClone(shape);
+    for(const key of ['y','y1','y2','cy'])if(key in op)op[key]-=frame.bob;
+    if(op.points)for(const point of op.points)point.y-=frame.bob;
+    return op;
+  }));
+  // Captured from 0.21.3 before this anatomy correction, with only vertical bob
+  // normalized. Legs/arms/pelvis intentionally change and have geometry tests.
+  expect(createHash('sha256').update(JSON.stringify(ops)).digest('hex')).toBe('3a53c9452019f69905543b02df6207b35af7585e9d25da3c5ea6260cd785cd67');
 });

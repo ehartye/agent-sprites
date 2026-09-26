@@ -57,6 +57,7 @@ export function generateCharacterRecipe(config){
       drawHumanoid(pen,person,outfit,canonical,humanoidPose(person.body,canonical,index,mode==='walk',person.arms),expression);
       for(const [group,pattern] of Object.entries({face:/^(?:face|head|hair|nose|mouth|cheek|antenna|mandible|chitin)(?:_|$)|(?:^|_)(?:eye|brow|ear)(?:_|$)/,helmet:/helmet|visor|neck_seal/,equipment:/^equipment_|^phase_/,garment:/^mantle_/,left_lower_arm:/^left_lower_/,right_lower_arm:/^right_lower_/,left_arm:/^left_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,right_arm:/^right_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,left_leg:/^left_(thigh|shin|knee|boot|ankle)/,right_leg:/^right_(thigh|shin|knee|boot|ankle)/})){const shapes=names.filter(n=>pattern.test(n));if(shapes.length)operations.push({command:'shape-group',sub:'create',cell,name:group,shapes});}
       const pose=humanoidPose(person.body,direction,index,mode==='walk',person.arms),checks=validatePose(pose,mode==='walk');
+      pose.locomotion.fps=fps;
       if(bounds.left<0||bounds.top<0||bounds.right>=40||bounds.bottom>=56)checks.push('out-of-cell');
       if(checks.length)throw Error(`Invalid character ${alias}: ${checks.join(', ')}`);
       frames.push({cell,alias,person:person.id,body:person.body,outfit,expression,...pose,headKind:person.head,armCount:person.arms,equipment:person.equipment,sealed:isSealed(outfit),bounds,checks});
