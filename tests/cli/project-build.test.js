@@ -68,6 +68,19 @@ test('required static frames reject a renamed alias and preserve the last succes
   expect(readFileSync(join(dir,'dist','robot.atlas.json')).equals(old)).toBe(true);
 });
 
+test('opt-in outline verification rejects exposed fills and preserves the previous build', async () => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const old = readFileSync(join(dir,'dist','robot.png'));
+  writeFileSync(config,JSON.stringify({version:1,ops:'ops.json',output:'dist',outlineColors:['#39283f']}));
+  const bad = await buildProject(config);
+  expect(bad.ok).toBe(false);
+  expect(bad.errors.some(e=>e.code==='outline-gap')).toBe(true);
+  expect(readFileSync(join(dir,'dist','robot.png')).equals(old)).toBe(true);
+  for(const cell of ['0,0','0,1']) ops.push({command:'draw',type:'rect',cell,name:'contour',x:4,y:3,w:8,h:10,color:'#39283f',filled:false});
+  writeFileSync(join(dir,'ops.json'),JSON.stringify(ops));
+  expect((await buildProject(config)).ok).toBe(true);
+});
+
 test.each(['idle', [42], ['']])('rejects invalid expectedFrames %j before publishing', async expectedFrames => {
   writeFileSync(config,JSON.stringify({version:1,ops:'ops.json',output:'dist',expectedFrames}));
   const result=await buildProject(config);

@@ -134,6 +134,14 @@ Do not publish outputs from a failed batch, even if some export operations ran.
 
 `Invoke-Sprite verify .\public\art\robot.atlas.json --expect-tags blink --contact-sheet review.png --report review.json --json`
 
+For continuous-outline character art, add `--outline-colors "#39283f"` (0.22.0+).
+The optional pixel check rejects exposed fill colors or translucent pixels along
+the four-neighbor boundary of each distinct packed frame. It reports counts and
+up to 16 packed-frame-local coordinates per failing rectangle. Multiple outline
+tones may be comma-separated. Omit it for intentionally broken/no-outline styles.
+Build configs can enforce the same check with `"outlineColors": ["#39283f"]`;
+a contour failure preserves the last successful build.
+
 Static art can declare its required frame aliases too:
 `Invoke-Sprite verify .\public\art\garden.atlas.json --expect-frames seed,wingnut,planter --json`.
 Frame names match exactly, including case. Missing names fail verification with
@@ -244,6 +252,7 @@ project. These native skills call the same managed CLI:
 |---|---|
 | `sprite-setup` | External CLI installation, npm linking, dependency checks and plugin/CLI/server version sync |
 | `sprite-editing` | Full tool workflow: drawing, shape editing, groups, animation, export |
+| `sprite-character` | Anime/16-bit RPG characters: adult/child proportions, faces, hair, outfits and consistent front/profile studies |
 | `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |

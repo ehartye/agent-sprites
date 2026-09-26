@@ -58,6 +58,11 @@ anything failed. Never publish partial exports from a failed batch. See
 
 ## Core Drawing Workflow
 
+For anime/16-bit RPG heroes, NPC casts, modular hair or outfit studies, load
+[sprite character](../sprite-character/SKILL.md) before constructing the character.
+It covers reference interpretation, proportions and front/profile consistency;
+this skill supplies the drawing commands.
+
 **Name every shape as you draw** — use the `--name` flag. Names enable later lookup by `move`, `recolor`, etc.
 
 Draw order: background/large shapes first (lower z), details on top. Shapes outside the cell boundary render dimmed in the UI and are masked at export.

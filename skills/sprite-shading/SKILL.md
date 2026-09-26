@@ -15,6 +15,16 @@ load that setup before running commands and stop on command failure.
 
 Give flat shapes visible form. Works with the `draw highlight` and `draw shadow` commands from `sprite-editing`.
 
+## Small RPG characters
+
+For anime/RPG faces, hair and clothing, use [sprite character](../sprite-character/SKILL.md)
+for construction. Judge the size of each **material region**, not the whole cell:
+a 40px-tall character can still have a 4px-wide sleeve. Start with base, shadow
+and an optional highlight per material; add a tone only if it describes a readable
+plane at native size. Hand-place broad connected clusters for cheek, fringe and
+cloth folds. Sphere ramps, automatic rim light and scatter dithering are not
+defaults for skin or hair. Keep eye/face contrast strongest and garment detail quieter.
+
 ## Prefer `draw sphere-shade` for circles/ellipses
 
 For spheres (circle/ellipse targets), `draw sphere-shade` composes all the tiers below in one call. It's the default path — reach for explicit per-tier `draw highlight` / `draw shadow` only when you need non-standard spans, per-tier clipping, or surfaces that aren't spheres (rects, composite shapes).
@@ -31,7 +41,7 @@ The tier table below documents what `sphere-shade` emits and why — read it bef
 Before placing any lighting pixel, answer:
 1. **Where is the light coming from?** Pick a direction and stick to it across every shape in the sprite.
 2. **What surface am I on — flat or curved?** Flat sides get straight edge runs; curves get arc-following clusters.
-3. **What tone tiers does this sprite deserve?** Small sprites (≤16px) get 2 tiers (highlight + core-shadow). Larger sprites (32px+) deserve 4–6 tiers for real volume.
+3. **What tone tiers does this surface need?** Use the size of the shaded region and its material. The tier budgets below suit isolated round forms; they are not minimum color counts for characters.
 
 ## The Five-Tier Ramp
 
