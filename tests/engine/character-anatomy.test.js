@@ -30,7 +30,7 @@ test('front rest and every walk phase retain the same blue leg and yellow arm or
  }
 });
 
-test('rear blue arm stays flipped around its shoulder in rest and every walk phase',()=>{
+test('rear blue arm and yellow leg stay flipped in rest and every walk phase',()=>{
  for(const body of bodies)for(const arms of [2,4])for(const outfit of ['casual','service','retro','phase-suit'])for(const mode of ['idle','walk']){
   const recipe=generateCharacterRecipe({people:[{id:'person',body,arms}],outfits:[outfit],directions:['up'],mode});
   for(const frame of recipe.report.frames){
@@ -42,6 +42,14 @@ test('rear blue arm stays flipped around its shoulder in rest and every walk pha
    expect(Math.max(...forearm.points.map(p=>p.x))).toBe(axis+Math.floor(width/2));
    const thumb=recipe.operations.find(o=>o.cell===frame.cell&&o.name==='left_glove_thumb');
    if(frame.sealed)expect(thumb.x).toBe(axis-1);
+   const leg=frame.legs.find(l=>l.name==='right'),[x,y]=leg.ankle;
+   expect(leg.hip[0]).toBe(x);expect(leg.knee[0]).toBe(x);
+   const boot=recipe.operations.find(o=>o.cell===frame.cell&&o.name==='right_boot_outline');
+   expect(boot.points).toEqual([{x:x+2,y:y-2},{x:x-1,y:y-2},{x:x-1,y:y-1},{x:x-3,y},{x:x-3,y:y+2},{x:x+2,y:y+2}]);
+   const shin=recipe.operations.find(o=>o.cell===frame.cell&&o.name==='right_shin_outline');
+   const shinWidth=body==='child'?4:5;
+   expect(Math.min(...shin.points.map(p=>p.x))).toBe(x-Math.ceil(shinWidth/2));
+   expect(Math.max(...shin.points.map(p=>p.x))).toBe(x+Math.floor(shinWidth/2));
   }
  }
 });
