@@ -84,6 +84,9 @@ Compare an anatomical side at frame `f` with its opposite at `(f + 4) % 8`, allo
 for projection and pixel rounding. Their simultaneous poses differ by design.
 The `pelvis` report and `pelvis_outline`/`pelvis` shapes connect the waist and
 upper thighs; the seat contour is separate from the hip joint and alignment axis.
+Adult, sturdy, slim, and rangy profiles lower the seat and crotch contours two
+pixels through their authored `seatDrop`; child profiles keep their original
+contours. Hip joints, waist anchors, and limb motion stay fixed.
 `pelvis.rearFullness` adds one pixel behind the profile seat without extending its
 front edge. Front and rear torsos are one pixel wider; the front shirt opening spans
 three pixels. Arm anchors remain fixed. Primary upper-arm caps join the front/rear garment at the neck-side shoulder slope,

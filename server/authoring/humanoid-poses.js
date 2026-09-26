@@ -1,12 +1,12 @@
 import {profileFoot} from './humanoid-feet.js';
 
 export const BODY_PROFILES = Object.freeze({
-  adult: {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:12,gap:7,stride:8,segment:8},
-  'adult-sturdy': {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:14,gap:8,stride:8,segment:8},
-  'adult-slim': {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:11,gap:7,stride:8,segment:8},
+  adult: {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:12,gap:7,stride:8,segment:8,seatDrop:2},
+  'adult-sturdy': {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:14,gap:8,stride:8,segment:8,seatDrop:2},
+  'adult-slim': {headTop:12,headSize:16,torsoTop:28,hip:38,profileHip:37,width:11,gap:7,stride:8,segment:8,seatDrop:2},
   child: {headTop:24,headSize:14,torsoTop:38,hip:45,profileHip:44,width:10,gap:6,stride:4,segment:4.5},
   'older-child': {headTop:18,headSize:15,torsoTop:33,hip:41,profileHip:40,width:11,gap:6,stride:5,segment:6.5},
-  rangy: {headTop:9,headSize:16,torsoTop:25,hip:35,profileHip:34,width:10,gap:7,stride:8,segment:9.5},
+  rangy: {headTop:9,headSize:16,torsoTop:25,hip:35,profileHip:34,width:10,gap:7,stride:8,segment:9.5,seatDrop:2},
 });
 export const GROUND = 54;
 const center=20, ankleY=52, bobs=[1,0,-1,0,1,0,-1,0];
@@ -85,7 +85,10 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
   if(side)for(const leg of legs)for(const key of ['heel','ball','toe'])leg[key]=[...leg.foot[key]];
   const hipY=(side?profile.profileHip:profile.hip)+bob;
   const torso={midlineX:center,neck:[center,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
-  const pelvis={hips:legs.map(l=>[...l.hip]),top:hipY-1,crotchY:hipY+3,seatY:hipY+2,width:profile.width,depth:side?Math.max(8,profile.width-2):profile.width,rearFullness:side?1:0};
+  // Adult seat/crotch contours hang below fixed hip joints; child profiles retain
+  // their shorter pelvis. This adjusts the silhouette without changing the rig.
+  const seatDrop=profile.seatDrop??0;
+  const pelvis={hips:legs.map(l=>[...l.hip]),top:hipY-1,crotchY:hipY+3+seatDrop,seatY:hipY+2+seatDrop,width:profile.width,depth:side?Math.max(8,profile.width-2):profile.width,rearFullness:side?1:0};
   const alignment=side?{preset:'upright',neutral:!walking,
     shoulders:arms.filter(a=>!a.name.endsWith('_lower')).map(a=>{const {hip}=legs.find(l=>l.name===a.name);return {name:a.name,shoulder:[...a.shoulder],hip:[...hip],offsetX:a.shoulder[0]-hip[0]};}),
     feet:legs.map(({name,heel,toe,hip,support})=>({name,heel:[...heel],toe:[...toe],hip:[...hip],offsetX:heel[0]-hip[0],support})),

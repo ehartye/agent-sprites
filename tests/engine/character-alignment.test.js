@@ -163,3 +163,22 @@ test('head, face and helmet geometry is unchanged after normalizing the new gait
   // normalized. Legs/arms/pelvis intentionally change and have geometry tests.
   expect(createHash('sha256').update(JSON.stringify(ops)).digest('hex')).toBe('3a53c9452019f69905543b02df6207b35af7585e9d25da3c5ea6260cd785cd67');
 });
+
+test('adult seat and crotch sit two pixels lower without moving hip or waist anchors',()=>{
+  for(const body of Object.keys(BODY_PROFILES))for(const mode of ['idle','walk']){
+    const child=['child','older-child'].includes(body);
+    const built=generateCharacterRecipe({people:[{id:'person',body}],directions:['down','right','up','left'],mode});
+    for(const frame of built.report.frames){
+      const hipY=(['right','left'].includes(frame.direction)?BODY_PROFILES[body].profileHip:BODY_PROFILES[body].hip)+frame.bob;
+      expect(frame.legs.every(l=>l.hip[1]===hipY)).toBe(true);
+      expect(frame.torso.waistY).toBe(hipY-1);
+      expect(frame.pelvis.top).toBe(hipY-1);
+      expect(frame.pelvis.seatY).toBe(hipY+(child?2:4));
+      expect(frame.pelvis.crotchY).toBe(hipY+(child?3:5));
+      const shape=shapesFor(built,frame).find(o=>o.name==='pelvis_outline');
+      expect(bounds(shape).bottom).toBe(frame.pelvis.crotchY);
+      expect(shape.points[2].y).toBe(frame.pelvis.seatY);
+      expect(shape.points[6].y).toBe(frame.pelvis.seatY);
+    }
+  }
+});
