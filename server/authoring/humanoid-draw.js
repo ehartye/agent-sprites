@@ -59,29 +59,33 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   arm(far,false);
   if(sealed){
     const packX=side?20-Math.ceil(b.width/2)-5:20-Math.ceil(b.width/2)-2,packW=side?(bulky?6:4):b.width+4;
-    p.rect('life_support_pack_outline',packX-1,b.torsoTop+1+dy,packW+2,b.hip-b.torsoTop+1,c.outline);
-    p.rect('life_support_pack',packX,b.torsoTop+2+dy,packW,b.hip-b.torsoTop-1,bulky?c.suitShade:c.accent);
+    const packHeight=pose.torso.pelvis[1]-pose.torso.top;
+    p.rect('life_support_pack_outline',packX-1,b.torsoTop+1+dy,packW+2,packHeight+1,c.outline);
+    p.rect('life_support_pack',packX,b.torsoTop+2+dy,packW,packHeight-1,bulky?c.suitShade:c.accent);
     p.rect('pack_status',packX+1,b.torsoTop+3+dy,1,2,c.signal);
   }
   leg(near,true);
-  const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0),left=20-Math.ceil(width/2),top=b.torsoTop+dy;
-  p.poly('torso_outline',[[left+2,top],[left+width-2,top],[left+width+1,top+3],[left+width, b.hip+2+dy],[left,b.hip+2+dy],[left-1,top+3]],c.outline);
-  p.rect('torso',left,top+2,width,b.hip-b.torsoTop,bodyColor);
-  p.rect('torso_shadow',left+width-3,top+2,3,b.hip-b.torsoTop,shade);
-  p.rect('shoulder_yoke',left+1,top+1,width-2,2,light);
-  p.rect('belt',left,b.hip+dy,width,2,c.boots);
-  p.rect('belt_latch',side?left+width-2:19,b.hip+dy,2,2,c.metal);
+  const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
+  const waistLeft=left+(side?2:1),waistRight=right-1;
+  // Neck -> deltoid -> ribcage -> waist. A rectangular shoulder stripe and
+  // square hem concealed both the shoulder slope and the true hip attachment.
+  p.poly('torso_outline',[[18,top],[22,top],[right,top+2],[right+1,top+4],[waistRight+1,hemY],[waistLeft-1,hemY],[left-1,top+4],[left,top+2]],c.outline);
+  p.poly('torso',[[18,top+1],[21,top+1],[right-1,top+2],[right,top+4],[waistRight,waistY+1],[waistLeft,waistY+1],[left,top+4],[left+1,top+2]],bodyColor);
+  p.poly('torso_shadow',[[right-2,top+3],[right,top+4],[waistRight,waistY],[waistRight-1,waistY]],shade);
+  p.poly('shoulder_yoke',[[18,top+1],[21,top+1],[right-1,top+3],[right-1,top+4],[21,top+2],[18,top+2],[left+1,top+4],[left+1,top+3]],light);
+  p.rect('belt',waistLeft,waistY,waistRight-waistLeft+1,2,c.boots);
+  p.rect('belt_latch',side?waistRight-1:19,waistY,2,2,c.metal);
   if(sealed){
     p.rect('chest_panel',side?left+width-3:17,top+4,side?2:6,3,c.outline);
     p.rect('chest_indicator',side?left+width-3:18,top+4,1,2,c.signal);
-    if(back){p.rect('pack_back_panel',left+1,top+3,width-2,b.hip-b.torsoTop-2,c.suitShade);p.rect('pack_service_latch',19,top+4,2,2,c.accent);}
+    if(back){p.rect('pack_back_panel',left+1,top+3,width-2,waistY-top-1,c.suitShade);p.rect('pack_service_latch',19,top+4,2,2,c.accent);}
   }else{
-    p.rect('shirt',side?left+width-2:19,top+3,2,Math.max(2,b.hip-b.torsoTop-3),c.suit);
+    p.rect('shirt',side?waistRight-1:19,top+3,2,Math.max(2,waistY-top-3),c.suit);
     p.rect('pocket',left+1,top+4,3,2,c.accent);
     p.rect('neck',18,b.headTop+b.headSize-1+dy,4,3,c.skinShade);
-    p.rect('pressure_collar',17,top,7,2,c.metal);
+    p.poly('pressure_collar',[[18,top],[21,top],[22,top+1],[20,top+2],[18,top+1]],c.metal);
   }
-  drawTorsoDetails(p,person,outfit,b,pose,direction);
+  drawTorsoDetails(p,person,outfit,{...b,hip:pose.torso.pelvis[1]-dy},pose,direction);
   for(const a of lowerArms)if(a.name.startsWith(near.name))arm(a,true);
   arm(near,true);
   const headTop=pose.head.top,hs=pose.head.size;

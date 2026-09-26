@@ -66,7 +66,12 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
     for(const leg of legs){leg.name=leg.name==='left'?'right':'left';for(const key of ['hip','knee','ankle','shoulder','elbow','wrist'])leg[key]=[40-leg[key][0],leg[key][1]];}
     for(const arm of arms){arm.name=arm.name.replace(/^(left|right)/,n=>n==='left'?'right':'left');for(const key of ['shoulder','elbow','wrist'])arm[key]=[40-arm[key][0],arm[key][1]];}
   }
-  return {direction,frame,bob,legs,arms,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
+  // Clothing terminates at the actual projected hip, not the front-view hip.
+  // Otherwise a profile shirt hides the thigh roots and makes the pelvis look
+  // displaced forward even though the skeleton shares one anatomical midline.
+  const hipY=(side?profile.profileHip:profile.hip)+bob;
+  const torso={midlineX:center,neck:[center,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
+  return {direction,frame,bob,legs,arms,torso,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
 }
 
 export function validatePose(pose,walking){
