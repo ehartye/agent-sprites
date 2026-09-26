@@ -50,6 +50,20 @@ test('all suit and body extrema remain inside cells',()=>{
     for(const f of result.report.frames){expect(f.bounds.left).toBeGreaterThanOrEqual(0);expect(f.bounds.top).toBeGreaterThanOrEqual(0);expect(f.bounds.right).toBeLessThan(40);expect(f.bounds.bottom).toBeLessThan(56);}
   }
 });
+test('profile helmets expose only the forward visor and one side hinge across body sizes and suits',()=>{
+  for(const body of ['adult','child','older-child'])for(const outfit of ['field','service','retro']){
+    const result=generateCharacterRecipe(recipe({people:[{id:'person',body}],outfits:[outfit],directions:['right','left']}));
+    for(const frame of result.report.frames){
+      const shapes=result.operations.filter(o=>o.cell===frame.cell&&o.command==='draw');
+      const visor=shapes.find(o=>o.name==='visor_well');
+      expect(visor.points.every(p=>frame.direction==='right'?p.x>=20:p.x<=20)).toBe(true);
+      expect(shapes.filter(o=>o.name==='helmet_side_hinge')).toHaveLength(1);
+      expect(shapes.some(o=>['helmet_left_lock','helmet_right_lock'].includes(o.name))).toBe(false);
+      // The opaque side covers the rear of the head, rather than exposing a front window.
+      expect(shapes.findIndex(o=>o.name==='helmet_side_panel')).toBeGreaterThan(shapes.findIndex(o=>o.name==='face'));
+    }
+  }
+});
 test.each([
   {name:null},{mode:null},{fps:null},{outfits:null},{directions:null},{people:[{id:'a',body:null}]},{people:[{id:'a',hair:null}]},{people:[{id:'a',skin:null}]},
   {people:[]},{people:[{id:'a'},{id:'a'}]},{people:[{id:'../escape'}]},

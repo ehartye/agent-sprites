@@ -72,6 +72,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   arm(near,true);
   const headTop=pose.head.top,hs=pose.head.size;
   if(sealed){
+    if(side){drawProfileHelmet(p,person,outfit,pose,expression);return;}
     const l=20-Math.ceil(hs/2)-4,r=20+Math.floor(hs/2)+3,t=headTop-4,bot=headTop+hs+2;
     const outline=[[l+4,t],[r-4,t],[r,t+4],[r,bot-4],[r-4,bot],[l+4,bot],[l,bot-4],[l,t+4]];
     p.poly('helmet_shell',outline,c.outline);
@@ -83,4 +84,27 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('neck_seal',16,bot-1,9,3,c.outline);p.rect('neck_seal_latch',18,bot,5,1,c.metal);
     if(!back){p.line('visor_glint',l+5,t+4,l+3,t+7,c.glass);p.rect('visor_glint_point',r-4,t+5,1,2,c.glass);}
   }else drawHumanoidHead(p,{cx:20,top:headTop,headSize:hs,direction,hair:person.hair,expression,colors:c,hood:false});
+}
+
+// Side elevation: the opaque shell covers the rear cranium; only the forward
+// visor wraps around the face. Left-facing art mirrors this whole construction.
+function drawProfileHelmet(p,person,outfit,pose,expression){
+  const c=person.colors,{top:headTop,size:hs}=pose.head,ribbed=outfit==='retro';
+  const l=20-Math.ceil(hs/2)-4,f=20+Math.floor(hs/2)+5,t=headTop-4,bot=headTop+hs+2;
+  const shell=ribbed?c.jacketLight:c.suit,shade=ribbed?c.jacketShade:c.suitShade;
+  p.poly('helmet_shell',[[l+4,t],[23,t],[28,t+3],[f,t+8],[f,bot-6],[f-4,bot-1],[22,bot],[l+4,bot-1],[l,bot-6],[l,t+5]],c.outline);
+  p.poly('helmet_rim_base',[[l+4,t+1],[23,t+1],[27,t+4],[f-1,t+8],[f-1,bot-6],[f-4,bot-2],[22,bot-1],[l+4,bot-2],[l+1,bot-6],[l+1,t+5]],shell);
+  p.poly('visor_well',[[23,t+4],[26,t+5],[f-2,t+9],[f-2,bot-7],[f-5,bot-4],[20,bot-3],[20,t+7]],c.visor);
+  drawHumanoidHead(p,{cx:20,top:headTop,headSize:hs,direction:'right',hair:person.hair,expression,colors:c,hood:true});
+  p.poly('helmet_side_panel',[[l+4,t+1],[22,t+1],[25,t+4],[22,t+7],[20,t+10],[20,bot-6],[23,bot-2],[l+4,bot-2],[l+1,bot-6],[l+1,t+5]],shell);
+  p.poly('helmet_rear_shade',[[l+1,t+7],[l+4,t+5],[l+5,bot-4],[l+4,bot-2],[l+1,bot-6]],shade);
+  p.line('helmet_crown_light',l+4,t+2,21,t+2,c.suitLight);
+  p.rect('helmet_side_hinge_outline',17,headTop+6,6,6,c.outline);
+  p.rect('helmet_side_hinge',18,headTop+7,4,4,c.accent);
+  p.rect('helmet_side_hinge_pin',19,headTop+8,2,2,c.metal);
+  p.line('helmet_rear_vent',l+3,bot-7,l+6,bot-7,c.outline);
+  p.line('visor_glint',f-3,t+9,f-2,t+12,c.glass);
+  p.line('visor_lower_rim',f-4,bot-3,25,bot-2,shell);
+  p.rect('neck_seal',16,bot-1,11,3,c.outline);
+  p.rect('neck_seal_latch',22,bot,4,1,c.metal);
 }

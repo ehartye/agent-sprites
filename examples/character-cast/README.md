@@ -1,6 +1,6 @@
 # Reusable character recipes
 
-Requires agent-sprites 0.19.0. Copy `sprite-project.json` into your project and run
+Requires agent-sprites 0.19.0 (0.19.1 for corrected side-view helmets). Copy `sprite-project.json` into your project and run
 `node "<checked-plugin-root>/scripts/run-managed.js" build <config> --json` after
 the setup check. The `character` object replaces `ops`/`generator`; never combine
 sources. This example builds an adult and child in everyday clothing and three
@@ -56,7 +56,7 @@ atomic build publication: invalid recipes preserve previous output.
 Named shapes retain separate eye whites, irises, pupils, catchlights, eyelids and
 brows. Shape groups include face, helmet, and each arm/leg. Suits include helmet,
 neck/wrist/ankle seals, gloves and a life-support pack; hair stays inside the hood.
-These are visual designs, not pressure-suit engineering specifications.
+Profile helmets use an opaque rear shell, one visible side hinge and a forward visor; the entire construction mirrors for left-facing art. These are visual designs, not pressure-suit engineering specifications.
 
 ## Review and iterate
 
