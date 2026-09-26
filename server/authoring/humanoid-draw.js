@@ -23,10 +23,11 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   const limbWidth=b.headSize===14?3:4;
   const near=side?pose.legs.find(l=>l.name==='right'):pose.legs.reduce((a,l)=>a.ankle[1]>l.ankle[1]?a:l);
   const far=pose.legs.find(l=>l!==near);
-  // Reflect the complete blue-guide leg around its own hip in camera-facing
-  // poses, including every walk phase. Joint positions stay fixed.
+  // Mirror the screen-right leg: blue in front, yellow from behind.
+  // Rest and every walk phase share this rule; joint positions stay fixed.
   const leg=(l,isNear,pen)=>{
-    const p=direction==='down'&&l.name==='left'?reflectedLimbPen(pen,l.hip[0]):pen;
+    const reflect=direction==='down'&&l.name==='left'||direction==='up'&&l.name==='right';
+    const p=reflect?reflectedLimbPen(pen,l.hip[0]):pen;
     segment(p,`${l.name}_thigh_outline`,l.hip,l.knee,limbWidth+2,c.outline);
     segment(p,`${l.name}_shin_outline`,l.knee,l.ankle,limbWidth+1,c.outline);
     segment(p,`${l.name}_thigh`,l.hip,l.knee,limbWidth,isNear?trouser:trouserShade);
