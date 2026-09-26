@@ -30,7 +30,7 @@ export function forwardKnee(hip,ankle,length){
 function armChain(shoulder,phase,walking,lengths,side,out,lower=false){
   const swing=walking?[-.52,-.35,0,.25,.42,.25,0,-.35][phase]:0;
   const upperAngle=lower?1.08+(walking ? .06*Math.sin(phase*Math.PI/4) : 0):swing;
-  const lowerAngle=lower ? .91+(walking ? .06*Math.sin((phase-1)*Math.PI/4) : 0) : upperAngle+.22;
+  const lowerAngle=lower ? .91+(walking ? .06*Math.sin((phase-1)*Math.PI/4) : 0) : upperAngle+(walking?.22:0);
   const rawUpper=[Math.sin(upperAngle)*lengths.upper,Math.cos(upperAngle)*lengths.upper];
   const rawLower=[Math.sin(lowerAngle)*lengths.lower,Math.cos(lowerAngle)*lengths.lower];
   // Front/back is a foreshortened view, not a second anatomical model.
@@ -50,14 +50,15 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
     const phase=walking?(frame+(name==='left'?4:0))%8:0;
     const screenLeft=(name==='right')!==(canonical==='up'),out=screenLeft?-1:1;
     const x=center+out*Math.ceil(profile.gap/2);
-    const shoulder=[side?center+(name==='right'?1:-1):center+out*(Math.ceil(profile.width/2)+2),profile.torsoTop+2+bob];
+    const restAxis=center+(name==='right'?0:-1);
+    const shoulder=[side?(walking?center+(name==='right'?1:-1):restAxis):center+out*(Math.ceil(profile.width/2)+2),profile.torsoTop+2+bob];
     const arm=armChain(shoulder,phase,walking,lengths,side,out);
     if(side){
       const offsets=[2,1,0,-1,-2,-1.8,-.3,1.2];
-      const ankle=walking?[center+Math.round(step*offsets[phase]),[52,52,52,51,51,50,50,51][phase]]:[center+(name==='right'?2:1),ankleY];
-      const hip=[center,profile.profileHip+bob];
+      const ankle=walking?[center+Math.round(step*offsets[phase]),[52,52,52,51,51,50,50,51][phase]]:[restAxis,ankleY];
+      const hip=[walking?center:restAxis,profile.profileHip+bob];
       const knee=walking?forwardKnee(hip,ankle,profile.segment):[Math.round((hip[0]+ankle[0])/2),Math.round((hip[1]+ankle[1])/2)];
-      const state=walking?['heel','flat','flat','toe','toe','swing','swing','swing'][phase]:'flat';
+      const state=walking?['heel','flat','flat','toe','toe','swing','swing','swing'][phase]:'rest';
       return {name,phase,hip,knee,ankle,support:!walking||phase<4,...arm,foot:profileFoot(ankle,'right',state)};
     }
     // The vertical projection compresses swing depth. Both sides share the same
@@ -84,7 +85,7 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
   if(side)for(const leg of legs)for(const key of ['heel','ball','toe'])leg[key]=[...leg.foot[key]];
   const hipY=(side?profile.profileHip:profile.hip)+bob;
   const torso={midlineX:center,neck:[center,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
-  const pelvis={hips:legs.map(l=>[...l.hip]),top:hipY-1,crotchY:hipY+3,seatY:hipY+2,width:profile.width,depth:side?Math.max(8,profile.width-2):profile.width};
+  const pelvis={hips:legs.map(l=>[...l.hip]),top:hipY-1,crotchY:hipY+3,seatY:hipY+2,width:profile.width,depth:side?Math.max(8,profile.width-2):profile.width,rearFullness:side?1:0};
   const alignment=side?{preset:'upright',neutral:!walking,
     shoulders:arms.filter(a=>!a.name.endsWith('_lower')).map(a=>{const {hip}=legs.find(l=>l.name===a.name);return {name:a.name,shoulder:[...a.shoulder],hip:[...hip],offsetX:a.shoulder[0]-hip[0]};}),
     feet:legs.map(({name,heel,toe,hip,support})=>({name,heel:[...heel],toe:[...toe],hip:[...hip],offsetX:heel[0]-hip[0],support})),
@@ -99,9 +100,10 @@ export function validatePose(pose,walking){
   if(!pose.legs.some(l=>l.support&&l.foot.contact))findings.push('no-ground-contact');
   if(side)for(const leg of pose.legs){
     const arm=pose.arms.find(a=>a.name===leg.name),foot=profileFoot(leg.ankle,pose.direction,leg.foot.state);
-    if(Math.abs(leg.shoulder[0]-leg.hip[0])>1||Math.abs(arm.shoulder[0]-leg.hip[0])>1)findings.push('shoulder-hip-stack');
+    if(Math.abs(leg.shoulder[0]-leg.hip[0])>(walking?1:0)||Math.abs(arm.shoulder[0]-leg.hip[0])>(walking?1:0))findings.push('shoulder-hip-stack');
     if(Math.abs(pose.torso.midlineX-leg.hip[0])>1)findings.push('torso-hip-stack');
-    if(!walking&&(Math.abs(foot.heel[0]-leg.hip[0])>1||foot.heel[1]!==GROUND||!leg.support))findings.push('neutral-heel-stack');
+    if(!walking&&(foot.heel[0]!==leg.hip[0]||foot.heel[1]!==GROUND||!leg.support))findings.push('neutral-heel-stack');
+    if(!walking&&([leg.knee,leg.ankle].some(p=>p[0]!==leg.hip[0])||[arm.elbow,arm.wrist].some(p=>p[0]!==arm.shoulder[0])))findings.push('neutral-joint-stack');
     if(['heel','ball','toe'].some(key=>!leg[key]||leg[key].some((v,i)=>v!==foot[key][i])))findings.push('foot-landmark-mismatch');
     if(foot.contact&&foot.anchor[1]!==GROUND)findings.push('foot-ground-mismatch');
   }

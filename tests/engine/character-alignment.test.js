@@ -35,6 +35,33 @@ test('shoulder highlights descend from a narrow neck instead of drawing a horizo
   }
 });
 
+test('front torso gains one pixel and its centered shirt opening spans three pixels',()=>{
+  for(const body of Object.keys(BODY_PROFILES))for(const mode of ['idle','walk']){
+    const built=generateCharacterRecipe({people:[{id:'person',body}],directions:['down','up'],mode});
+    for(const frame of built.report.frames.filter(f=>f.direction==='down')){
+      const front=shapesFor(built,frame),back=shapesFor(built,built.report.frames.find(f=>f.direction==='up'&&f.frame===frame.frame));
+      const a=bounds(front.find(o=>o.name==='torso_outline')),b=bounds(back.find(o=>o.name==='torso_outline'));
+      expect(a.right-a.left).toBe(b.right-b.left+1);
+      expect(front.find(o=>o.name==='shirt')).toMatchObject({x:19,w:3});
+      if(body==='adult')expect(frame.arms.map(a=>a.shoulder[0]).sort((a,b)=>a-b)).toEqual([12,28]);
+    }
+  }
+});
+
+test('rest shoulder caps descend toward the outer sleeve instead of square corners',()=>{
+  for(const body of Object.keys(BODY_PROFILES))for(const arms of [2,4]){
+    const built=generateCharacterRecipe({people:[{id:'person',body,arms}],outfits:OUTFIT_NAMES,directions:['down','up'],mode:'idle'});
+    for(const frame of built.report.frames)for(const name of ['left','right']){
+      const shape=shapesFor(built,frame).find(o=>o.name===name+'_upper_arm_outline');
+      const top=Math.min(...shape.points.map(p=>p.y)),span=bounds(shape);
+      const cap=shape.points.filter(p=>p.y===top);
+      expect(Math.max(...cap.map(p=>p.x))-Math.min(...cap.map(p=>p.x))).toBeLessThan(span.right-span.left);
+      expect(shape.points.find(p=>p.x===span.left).y).toBeGreaterThan(top);
+      expect(shape.points.find(p=>p.x===span.right).y).toBeGreaterThan(top);
+    }
+  }
+});
+
 test('grounded profile passing pose extends the support knee beneath the hip',()=>{
   // The previous frozen cycle encoded the rejected high-lift, bent-knee gait.
   const pose=humanoidPose('adult','right',2),support=pose.legs.find(l=>l.support);
@@ -61,18 +88,19 @@ test('all supported bodies and outfits retain aligned bounded torsos and articul
   }
 });
 
-test('true profile idle stacks shoulders, pelvis and actual grounded heels within one pixel',()=>{
+test('true profile idle has vertical limb guides and exact shoulder hip heel alignment',()=>{
   for(const body of Object.keys(BODY_PROFILES))for(const arms of [2,4]){
     const built=generateCharacterRecipe({people:[{id:'person',body,arms}],outfits:OUTFIT_NAMES,directions:['right','left'],mode:'idle'});
     for(const frame of built.report.frames){
       expect(frame.torso.midlineX).toBe(20);
       expect(frame.torso.neck[0]).toBe(20);
       expect(frame.alignment).toMatchObject({preset:'upright',neutral:true});
-      for(const record of frame.alignment.shoulders)expect(Math.abs(record.offsetX)).toBeLessThanOrEqual(1);
-      for(const record of frame.alignment.feet)expect(Math.abs(record.offsetX)).toBeLessThanOrEqual(1);
+      for(const record of frame.alignment.shoulders)expect(record.offsetX).toBe(0);
+      for(const record of frame.alignment.feet)expect(record.offsetX).toBe(0);
       const shapes=shapesFor(built,frame);
       for(const leg of frame.legs){
-        expect(leg.hip[0]).toBe(20);
+        expect(Math.abs(leg.hip[0]-20)).toBeLessThanOrEqual(1);
+        for(const joint of [leg.shoulder,leg.elbow,leg.wrist,leg.knee,leg.ankle,leg.heel])expect(joint[0]).toBe(leg.hip[0]);
         expect(leg.support).toBe(true);
         expect(leg.heel[1]).toBe(frame.ground);
         expect(leg.toe[1]).toBe(frame.ground);
@@ -91,6 +119,24 @@ test('upright validation rejects displaced shoulders and neutral heels without t
   const shiftedHeel=structuredClone(humanoidPose('adult','right',0,false));
   shiftedHeel.legs[0].ankle[0]-=4;
   expect(validatePose(shiftedHeel,false)).toContain('neutral-heel-stack');
+  for(const [group,joint] of [['legs','knee'],['arms','wrist']]){
+    const slanted=structuredClone(humanoidPose('adult','right',0,false));
+    slanted[group][0][joint][0]++;
+    expect(validatePose(slanted,false)).toContain('neutral-joint-stack');
+  }
+});
+
+test('profile pelvis adds one pixel behind the seat while keeping the front extent',()=>{
+  for(const body of Object.keys(BODY_PROFILES))for(const mode of ['idle','walk']){
+    const built=generateCharacterRecipe({people:[{id:'person',body}],directions:['right','left'],mode});
+    for(const frame of built.report.frames){
+      const seat=bounds(shapesFor(built,frame).find(o=>o.name==='pelvis_outline'));
+      const rear=Math.ceil(frame.pelvis.depth/2)+1,front=Math.floor(frame.pelvis.depth/2);
+      expect(frame.pelvis.rearFullness).toBe(1);
+      expect(frame.direction==='right'?20-seat.left:seat.right-20).toBe(rear);
+      expect(frame.direction==='right'?seat.right-20:20-seat.left).toBe(front);
+    }
+  }
 });
 
 test('walking heels follow the stride rather than the neutral plumb-line constraint',()=>{

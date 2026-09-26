@@ -56,7 +56,7 @@ atomic build publication: invalid recipes preserve previous output.
 
 Profile frames also expose `legs[].heel`, `legs[].ball` and `legs[].toe`: actual
 boot-outline sole landmarks in source pixels, rather than a guessed foot center.
-`legs[].foot` describes the authored `heel`, `flat`, `toe`, or `swing` shape and
+`legs[].foot` describes the authored `rest`, `heel`, `flat`, `toe`, or `swing` shape and
 whether it contacts the floor. `support` identifies the loading/supporting leg;
 the trailing foot may still contact the floor during the handoff. A toe-supported
 foot has a raised heel and ankle, so contact checks must not require ankle y=52.
@@ -64,10 +64,13 @@ foot has a raised heel and ankle, so contact checks must not require ankle y=52.
 landmarks in `shoulders`, and heel/toe/hip landmarks in `feet`. Each record has the
 anatomical `name` and signed world-coordinate `offsetX`: shoulder minus hip or heel
 minus hip. Feet include `support`. Front/back frames omit these profile-only
-measurements. The torso/pelvis axis is x=20; projected upper shoulders may sit one
-pixel either side. Neutral heels must remain within one pixel of their hips and
-on the ground. Walking heels follow the stride and are not subject to that idle
-constraint. Validation reads the actual joints independently of the measurements.
+measurements. The torso/pelvis axis is x=20. In profile rest, each primary arm and
+leg chain is vertical, with its shoulder, hip and actual heel sharing an x coordinate.
+The two sides retain one pixel of depth separation. The neutral `rest` boot places
+its shaft above a grounded heel; it is distinct from the walking `flat` sole.
+Walking shoulders may sit one pixel either side of the torso axis, and walking
+heels follow the stride. Validation reads actual joints and sole geometry rather
+than trusting cached measurements.
 
 Named shapes retain separate eye whites, irises, pupils, catchlights, eyelids and
 brows. Shape groups include face, helmet, and each arm/leg. Suits include helmet,
@@ -81,6 +84,10 @@ Compare an anatomical side at frame `f` with its opposite at `(f + 4) % 8`, allo
 for projection and pixel rounding. Their simultaneous poses differ by design.
 The `pelvis` report and `pelvis_outline`/`pelvis` shapes connect the waist and
 upper thighs; the seat contour is separate from the hip joint and alignment axis.
+`pelvis.rearFullness` adds one pixel behind the profile seat without extending its
+front edge. Front torsos are one pixel wider and their shirt opening spans three
+pixels; front arm anchors remain fixed. Primary upper-arm caps are beveled so the
+shoulder silhouette descends toward the sleeve instead of ending in square corners.
 
 Each report frame includes `locomotion`: `cycleDistance`, `frameDistance`,
 `phaseDistance`, `frameCount` (8), configured `fps`, a cardinal `direction` vector,
