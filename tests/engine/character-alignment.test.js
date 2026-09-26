@@ -1,6 +1,6 @@
 import {test,expect} from 'vitest';
 import {generateCharacterRecipe} from '../../server/authoring/character.js';
-import {BODY_PROFILES,humanoidPose} from '../../server/authoring/humanoid-poses.js';
+import {BODY_PROFILES,humanoidPose,validatePose} from '../../server/authoring/humanoid-poses.js';
 import {OUTFIT_NAMES} from '../../server/authoring/character-wardrobe.js';
 import {createHash} from 'node:crypto';
 
@@ -51,25 +51,51 @@ test('all supported bodies and outfits retain aligned bounded torsos and articul
       expect(Math.abs((torso.left+torso.right)/2-frame.torso.midlineX)).toBeLessThanOrEqual(.5);
       expect(frame.torso.neck[0]).toBe(frame.torso.midlineX);
       expect(frame.torso.pelvis[0]).toBe(20);
-      expect(frame.torso.midlineX-frame.torso.pelvis[0]).toBe(frame.direction==='right'?4:frame.direction==='left'?-4:0);
+      expect(frame.torso.midlineX).toBe(frame.torso.pelvis[0]);
       expect(frame.legs.some(leg=>leg.support&&leg.ankle[1]===52)).toBe(true);
     }
   }
 });
 
-test('profile torso and shoulders advance four pixels while the hips remain on their original axis',()=>{
-  const built=generateCharacterRecipe({people:[{id:'person'}],directions:['right','left'],mode:'walk'});
-  for(const frame of built.report.frames){
-    const sign=frame.direction==='right'?1:-1;
-    expect(frame.torso.midlineX).toBe(20+4*sign);
-    expect(frame.torso.neck[0]).toBe(20+4*sign);
-    expect(frame.legs.map(leg=>leg.hip[0])).toEqual([20,20]);
-    const torso=bounds(shapesFor(built,frame).find(op=>op.name==='torso'));
-    expect(torso.left).toBe(frame.direction==='right'?19:12);
-    expect(torso.right).toBe(frame.direction==='right'?28:21);
-    const near=frame.arms.find(arm=>arm.name===(sign===1?'right':'left'));
-    expect(near.shoulder[0]).toBe(20+5*sign);
+test('true profile idle stacks shoulders, pelvis and actual grounded heels within one pixel',()=>{
+  for(const body of Object.keys(BODY_PROFILES))for(const arms of [2,4]){
+    const built=generateCharacterRecipe({people:[{id:'person',body,arms}],outfits:OUTFIT_NAMES,directions:['right','left'],mode:'idle'});
+    for(const frame of built.report.frames){
+      expect(frame.torso.midlineX).toBe(20);
+      expect(frame.torso.neck[0]).toBe(20);
+      expect(frame.alignment).toMatchObject({preset:'upright',neutral:true});
+      for(const record of frame.alignment.shoulders)expect(Math.abs(record.offsetX)).toBeLessThanOrEqual(1);
+      for(const record of frame.alignment.feet)expect(Math.abs(record.offsetX)).toBeLessThanOrEqual(1);
+      const shapes=shapesFor(built,frame);
+      for(const leg of frame.legs){
+        expect(leg.hip[0]).toBe(20);
+        expect(leg.support).toBe(true);
+        expect(leg.heel[1]).toBe(frame.ground);
+        expect(leg.toe[1]).toBe(frame.ground);
+        const boot=shapes.find(op=>op.name===`${leg.name}_boot_outline`);
+        for(const point of [leg.heel,leg.toe])expect(boot.points).toContainEqual({x:point[0],y:point[1]});
+        expect((leg.toe[0]-leg.heel[0])*(frame.direction==='right'?1:-1)).toBe(6);
+      }
+    }
   }
+});
+
+test('upright validation rejects displaced shoulders and neutral heels without trusting cached measurements',()=>{
+  const shiftedShoulder=structuredClone(humanoidPose('adult','right',0,false));
+  shiftedShoulder.arms[1].shoulder[0]+=4;
+  expect(validatePose(shiftedShoulder,false)).toContain('shoulder-hip-stack');
+  const shiftedHeel=structuredClone(humanoidPose('adult','right',0,false));
+  shiftedHeel.legs[0].ankle[0]-=4;
+  expect(validatePose(shiftedHeel,false)).toContain('neutral-heel-stack');
+});
+
+test('walking heels follow the stride rather than the neutral plumb-line constraint',()=>{
+  for(const direction of ['right','left'])for(let frame=0;frame<8;frame++){
+    const pose=humanoidPose('adult',direction,frame,true);
+    expect(pose.alignment.neutral).toBe(false);
+    expect(validatePose(pose,true)).toEqual([]);
+  }
+  expect(humanoidPose('adult','right',0,true).legs.some(leg=>Math.abs(leg.heel[0]-leg.hip[0])>1)).toBe(true);
 });
 
 test('front/back art and profile heads, helmets and lower limbs are unchanged from the pre-shift recipe',()=>{

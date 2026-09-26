@@ -7,8 +7,13 @@ export const BODY_PROFILES = Object.freeze({
   rangy: {headTop:9,headSize:16,torsoTop:25,hip:35,profileHip:34,width:10,gap:7,stride:8,segment:10.5},
 });
 export const GROUND = 54;
-const PROFILE_TORSO_ADVANCE = 4;
 const center=20, ankleY=52, bobs=[0,1,0,-1,0,1,0,-1];
+
+// These are the actual heel/toe corners on the rendered profile boot sole.
+function profileFoot(ankle,direction){
+  const [x,y]=ankle,sign=direction==='left'?-1:1;
+  return {heel:[x-2*sign,y+2],toe:[x+4*sign,y+2]};
+}
 
 /** Two-link construction; quantize candidates without reversing the knee hinge. */
 export function forwardKnee(hip,ankle,length){
@@ -37,7 +42,7 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
     if(side){
       const offsets=[1,.625,.125,-.375,-1,-.875,-.25,.625];
       const lift=[0,0,0,0,0,3,5,3];
-      const ankle=walking?[center+Math.round(profile.stride*offsets[phase]),ankleY-Math.round(lift[phase]*profile.segment/8.5)]:[center+(name==='right'?2:-2),ankleY];
+      const ankle=walking?[center+Math.round(profile.stride*offsets[phase]),ankleY-Math.round(lift[phase]*profile.segment/8.5)]:[center+(name==='right'?2:1),ankleY];
       const hip=[center,profile.profileHip+bob];
       // Idle uses straight relaxed limbs; walking uses fixed-length articulated links.
       const knee=walking?forwardKnee(hip,ankle,profile.segment):[Math.round((hip[0]+ankle[0])/2),Math.round((hip[1]+ankle[1])/2)];
@@ -63,27 +68,41 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
     const elbow=[side?28+(leg.name==='right'?1:-1):wrist[0]+sign,shoulder[1]+3];
     arms.push({name:`${leg.name}_lower`,shoulder,elbow,wrist});
   }
-  if(side)for(const limb of [...legs,...arms])for(const joint of ['shoulder','elbow','wrist']){
-    const [x,y]=limb[joint];
-    // Shift arm attachments with the torso. Only the most extended lower hands
-    // need a one-pixel reach adjustment to leave room for the glove at x39.
-    limb[joint]=[joint==='wrist'?Math.min(37,x+PROFILE_TORSO_ADVANCE):x+PROFILE_TORSO_ADVANCE,y];
-  }
   if(direction==='left'){
     for(const leg of legs){leg.name=leg.name==='left'?'right':'left';for(const key of ['hip','knee','ankle','shoulder','elbow','wrist'])leg[key]=[40-leg[key][0],leg[key][1]];}
     for(const arm of arms){arm.name=arm.name.replace(/^(left|right)/,n=>n==='left'?'right':'left');for(const key of ['shoulder','elbow','wrist'])arm[key]=[40-arm[key][0],arm[key][1]];}
   }
+  if(side)for(const leg of legs)Object.assign(leg,profileFoot(leg.ankle,direction));
   // Clothing terminates at the actual projected hip, not the front-view hip.
-  // The profile torso projects forward while the pelvis and leg cycle stay put.
+  // This upright preset shares one torso/pelvis axis. Its walking feet retain
+  // their phase-specific trajectories rather than a neutral standing plumb line.
   const hipY=(side?profile.profileHip:profile.hip)+bob;
-  const torsoX=center+(side?(direction==='left'?-PROFILE_TORSO_ADVANCE:PROFILE_TORSO_ADVANCE):0);
-  const torso={midlineX:torsoX,neck:[torsoX,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
-  return {direction,frame,bob,legs,arms,torso,segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
+  const torso={midlineX:center,neck:[center,profile.torsoTop+bob],pelvis:[center,hipY],top:profile.torsoTop+bob,waistY:hipY-1,hemY:hipY+1};
+  const alignment=side?{
+    preset:'upright',neutral:!walking,
+    shoulders:arms.filter(arm=>!arm.name.endsWith('_lower')).map(arm=>{
+      const {hip}=legs.find(leg=>leg.name===arm.name);
+      return {name:arm.name,shoulder:[...arm.shoulder],hip:[...hip],offsetX:arm.shoulder[0]-hip[0]};
+    }),
+    feet:legs.map(({name,heel,toe,hip,support})=>({name,heel:[...heel],toe:[...toe],hip:[...hip],offsetX:heel[0]-hip[0],support})),
+  }:undefined;
+  return {direction,frame,bob,legs,arms,torso,...(alignment?{alignment}:{}),segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
 }
 
 export function validatePose(pose,walking){
   const findings=[];
+  const side=['right','left'].includes(pose.direction);
   if(!pose.legs.some(l=>l.support&&l.ankle[1]===ankleY))findings.push('no-ground-contact');
+  if(side){
+    for(const leg of pose.legs){
+      const arm=pose.arms.find(a=>a.name===leg.name),foot=profileFoot(leg.ankle,pose.direction);
+      // Inspect actual joints, not the report's cached alignment measurements.
+      if(Math.abs(leg.shoulder[0]-leg.hip[0])>1||Math.abs(arm.shoulder[0]-leg.hip[0])>1)findings.push('shoulder-hip-stack');
+      if(Math.abs(pose.torso.midlineX-leg.hip[0])>1)findings.push('torso-hip-stack');
+      if(!walking&&(Math.abs(foot.heel[0]-leg.hip[0])>1||foot.heel[1]!==GROUND||!leg.support))findings.push('neutral-heel-stack');
+      if(['heel','toe'].some(key=>!leg[key]||leg[key].some((value,i)=>value!==foot[key][i])))findings.push('foot-landmark-mismatch');
+    }
+  }
   for(const leg of pose.legs){
     if(['down','up'].includes(pose.direction)){
       if(leg.hip[0]!==leg.knee[0]||leg.knee[0]!==leg.ankle[0])findings.push('inward-knee-collapse');
