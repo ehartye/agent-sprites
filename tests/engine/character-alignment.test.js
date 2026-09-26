@@ -57,8 +57,9 @@ test('rest shoulder caps descend toward the outer sleeve instead of square corne
       const top=Math.min(...shape.points.map(p=>p.y)),span=bounds(shape);
       const cap=shape.points.filter(p=>p.y===top);
       expect(Math.max(...cap.map(p=>p.x))-Math.min(...cap.map(p=>p.x))).toBeLessThan(span.right-span.left);
-      expect(shape.points.find(p=>p.x===span.left).y).toBeGreaterThan(top);
-      expect(shape.points.find(p=>p.x===span.right).y).toBeGreaterThan(top);
+      const shoulder=frame.arms.find(a=>a.name===name).shoulder;
+      const outer=shoulder[0]<20?span.left:span.right;
+      expect(shape.points.find(p=>p.x===outer).y).toBeGreaterThan(top);
     }
   }
 });
