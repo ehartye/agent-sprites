@@ -54,6 +54,17 @@ and arm joints, support contact, bounds and checks. Left-facing geometry mirrors
 the right-facing rig and swaps anatomical labels. The report is part of the same
 atomic build publication: invalid recipes preserve previous output.
 
+Profile frames also expose `legs[].heel` and `legs[].toe`: the actual boot-outline
+sole endpoints in source pixels, rather than the ankle joint or guessed foot center.
+`alignment` records the upright preset, `neutral` (true only for idle), shoulder/hip
+landmarks in `shoulders`, and heel/toe/hip landmarks in `feet`. Each record has the
+anatomical `name` and signed world-coordinate `offsetX`: shoulder minus hip or heel
+minus hip. Feet include `support`. Front/back frames omit these profile-only
+measurements. The torso/pelvis axis is x=20; projected upper shoulders may sit one
+pixel either side. Neutral heels must remain within one pixel of their hips and
+on the ground. Walking heels follow the stride and are not subject to that idle
+constraint. Validation reads the actual joints independently of the measurements.
+
 Named shapes retain separate eye whites, irises, pupils, catchlights, eyelids and
 brows. Shape groups include face, helmet, and each arm/leg. Suits include helmet,
 neck/wrist/ankle seals, gloves and a life-support pack; hair stays inside the hood.
@@ -61,11 +72,26 @@ Profile helmets use an opaque rear shell, one visible side hinge and a forward v
 
 ## Review and iterate
 
-Inspect faces and suit seals at native size and 4×. Play and scrub front, profile
-and back walks. Check planted support, outward boot silhouettes, forward profile
-knee bends and restrained head bob. Compare joint guides from the report against
-the rendered pixels. Geometry validation catches clipping and joint regressions;
-it cannot judge appeal, perceived age or convincing motion.
+1. Build a true `mode: "idle"` sheet first, including both profile directions.
+   A paused walk frame is not a neutral standing pose. Inspect the shoulder
+   attachment, pelvis, and heel stack at native size and 4×; distinguish heels
+   from projecting toes and visible arm edges from actual shoulder joints.
+2. Inspect each walking phase and then play the full cycle, including the final
+   frame's transition back to the first. Contact, lowering, passing and raised
+   phases have different support relationships. Preserve separated feet and
+   forward knee bends; do not force moving heels onto the neutral plumb line.
+3. Inspect both color and a flat silhouette in front, profile and back. Check
+   head/neck and torso/pelvis continuity, arm ownership, planted support, boot
+   projection, faces and suit seals. Repeat for the smallest body and extra arms.
+4. Collect independent blind observations from raw art before supplying joint
+   guides, implementation history or a suspected fix. Keep those observations
+   separate from the later guided measurement pass. Compare exported shoulder,
+   hip, heel and toe landmarks against the rendered pixels after that first pass.
+
+Geometry validation catches clipping and defined joint regressions; it cannot
+certify appealing silhouettes, weight transfer or convincing playback. A numeric
+pass with the same unwanted lean is not acceptance. Record what was actually
+visible and which hidden joints remained uncertain before choosing a correction.
 
 Keep recurring corrections in `server/authoring/` with focused regressions.
 Keep character identities, palettes and outfit choices in the consuming game's

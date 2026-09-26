@@ -205,6 +205,11 @@ overwritten on rebuild. Copy it elsewhere before making a separate hand-edited v
 For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). Choose exactly one source:
 `ops`, `generator`, `character`, or `environment`. No game-local generator is required.
+Review a true idle pose before judging a paused walk frame. The character report
+includes profile shoulder/hip measurements and actual heel/toe landmarks; its
+neutral standing checks do not constrain moving feet to the same vertical line.
+Follow the [character review procedure](examples/character-cast/README.md#review-and-iterate)
+for separate raw blind reviews, guided measurement, silhouettes and playback.
 
 For repeatable terrain, aligned pressure-habitat layers and furniture, use the
 [`environment` source](examples/environment/README.md). It exports editable named
