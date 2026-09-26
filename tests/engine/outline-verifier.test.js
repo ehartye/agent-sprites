@@ -48,6 +48,14 @@ test('frame edges are exterior even when an adjacent packed frame is opaque', as
   expect(result.errors.find(e=>e.code==='outline-gap')).toMatchObject({count:1,pixels:[{x:7,y:3}]});
 });
 
+test('bounds diagnostic samples while retaining the full failing pixel count', async () => {
+  ctx.fillStyle = '#efac83'; ctx.fillRect(0,0,8,8); save();
+  const result = await verifyAtlasFile(file,{outlineColors:[outline]});
+  const gap = result.errors.find(e=>e.code==='outline-gap');
+  expect(gap.count).toBe(28);
+  expect(gap.pixels).toHaveLength(16);
+});
+
 test('checks transparent interior holes and rejects translucent contour pixels', async () => {
   ctx.clearRect(3,3,1,1); save();
   expect((await verifyAtlasFile(file,{outlineColors:[outline]})).errors.find(e=>e.code==='outline-gap').count).toBe(4);
