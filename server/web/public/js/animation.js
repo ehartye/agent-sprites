@@ -88,9 +88,16 @@ export class AnimationPreview {
     this._cellH = h;
     if (this._canvas) this._applyCanvasSize();
   }
-  setCells(cells) { this._cells = cells || {}; }
+  setCells(cells) { this._cells = cells || {}; if (this._canvas) this._renderFrame(); }
   setActiveCell(ref) { this._activeCell = ref; }
   onOnionSkin(cb) { this._onionCb = cb; }
+  setFps(fps) {
+    if (!Number.isFinite(fps) || fps <= 0) return;
+    this._fps = fps;
+    if (this._fpsLabel) this._fpsLabel.textContent = `${fps} FPS`;
+    if (this._fpsSlider) this._fpsSlider.value = String(fps);
+    if (this._playing) this._startInterval();
+  }
 
   /**
    * Set the group's cell refs to animate.
@@ -98,6 +105,7 @@ export class AnimationPreview {
    */
   setFrames(frames) {
     this._frames = frames || [];
+    if (!this._frames.length) this.pause();
     this._currentFrame = 0;
     this._updateFrameCounter();
     this._renderFrame();
@@ -213,6 +221,7 @@ export class AnimationPreview {
     fpsSlider.max = '30';
     fpsSlider.value = String(this._fps);
     fpsSlider.className = 'anim-fps-slider';
+    this._fpsSlider = fpsSlider;
     fpsSlider.addEventListener('input', () => {
       this._fps = parseInt(fpsSlider.value, 10);
       this._fpsLabel.textContent = `${this._fps} FPS`;

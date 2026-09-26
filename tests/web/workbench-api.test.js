@@ -2,11 +2,18 @@ import { beforeEach, afterEach, describe, expect, test } from 'vitest';
 import { SessionDB } from '../../server/db/session.js';
 import { startWebServer } from '../../server/web/http.js';
 import { Project } from '../../server/engine/project.js';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createCanvas } from 'canvas';
+import { request as httpRequest } from 'node:http';
+import { localFileRequestAllowed } from '../../server/web/api/workbench-routes.js';
 
 describe('collaborative workbench', () => {
-  let state, server, base;
+  let state, server, base, temp;
   beforeEach(async () => {
     state = { db: new SessionDB(':memory:'), project: null, sessionId: null };
+    temp = mkdtempSync(join(tmpdir(), 'sprite-workbench-'));
     server = await startWebServer(state, 0);
     base = `http://localhost:${server.port}`;
   });
@@ -14,6 +21,7 @@ describe('collaborative workbench', () => {
     server.wss.close();
     await new Promise(resolve => server.httpServer.close(resolve));
     state.db.close();
+    rmSync(temp, { recursive: true, force: true });
   });
   async function api(path, body) {
     const response = await fetch(`${base}/api/${path}`, body === undefined ? {} : {
@@ -68,6 +76,16 @@ describe('collaborative workbench', () => {
     expect(palettes.data.presets.map(p => p.name)).toEqual(expect.arrayContaining(['pico8','nes','gameboy','db-16','db-32']));
     expect(palettes.data.current.find(c => c.name === 'red').color).toBe('#ff004d');
   });
+  test('metadata restore failure does not activate or retain a half-imported session', async () => {
+    const original = await make();
+    const count = state.db.listSessions().length;
+    const project = state.project.toJSON();
+    project.shapeGroups = { '0,0': null };
+    expect((await api('session/import', { project, name: 'Bad metadata' })).ok).toBe(false);
+    expect(state.sessionId).toBe(original);
+    expect(state.project.name).toBe('Original');
+    expect(state.db.listSessions()).toHaveLength(count);
+  });
   test('guarded workbench edits reject a stale active session instead of changing another design', async () => {
     const original = await make();
     await api('session/new', { name: 'Other' });
@@ -76,5 +94,44 @@ describe('collaborative workbench', () => {
     }, body: JSON.stringify({ cell: '0,0', name: 'body', color: 'blue' }) });
     expect(response.status).toBe(409);
     expect((await response.json()).error).toContain('session changed');
+    const download = await fetch(`${base}/api/workbench/sheet.png`, { headers: { 'X-Sprite-Session': original } });
+    expect(download.status).toBe(409);
+  });
+  test('trace and verify run in isolation and expose an editable generated project', async () => {
+    const original = await make();
+    const input = join(temp, 'source.png');
+    const canvas = createCanvas(4, 4); const ctx = canvas.getContext('2d'); ctx.fillStyle = '#112233'; ctx.fillRect(0, 0, 4, 4);
+    writeFileSync(input, canvas.toBuffer('image/png'));
+    const trace = await api('workbench/trace', { path: input, out: join(temp, 'trace'), name: 'traced-design' });
+    expect(trace.ok, JSON.stringify(trace)).toBe(true);
+    expect(trace.data.differingPixels).toBe(0);
+    expect(state.sessionId).toBe(original);
+    expect((await api('workbench/verify', { path: trace.data.artifacts.atlas })).data.ok).toBe(true);
+    expect((await api('workbench/trace', { path: input, out: join(temp, 'trace') })).ok).toBe(false);
+    expect(state.sessionId).toBe(original);
+    expect((await api('session/open', { path: trace.data.artifacts.project })).ok).toBe(true);
+    expect(state.project.name).toBe('traced-design');
+  });
+  test('offline file operations reject foreign origins and hostnames', async () => {
+    for (const headers of [{ Origin: 'https://other.example' }, { Origin: 'null' }]) {
+      const response = await fetch(`${base}/api/workbench/build`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ path: '/missing' }) });
+      expect(response.status, JSON.stringify(headers) + await response.text()).toBe(403);
+    }
+    const badHost = await new Promise((resolve, reject) => {
+      const req = httpRequest(`${base}/api/workbench/build`, { method: 'POST', headers: { Host: 'other.example', 'Content-Type': 'application/json' } }, response => { response.resume(); resolve(response.statusCode); });
+      req.on('error', reject); req.end(JSON.stringify({ path: '/missing' }));
+    });
+    expect(badHost).toBe(403);
+    expect(localFileRequestAllowed({ socket: { remoteAddress: '192.168.1.5' }, get: () => 'localhost' })).toBe(false);
+  });
+  test('build publishes artifacts without replacing the active session', async () => {
+    const original = await make();
+    writeFileSync(join(temp, 'ops.json'), JSON.stringify([{ command: 'new', name: 'built', size: 8, rows: 1, cols: 1 }, { command: 'draw', type: 'point', cell: '0,0', x: 2, y: 2, color: '#000000' }]));
+    const config = join(temp, 'build.json');
+    writeFileSync(config, JSON.stringify({ version: 1, ops: 'ops.json', output: 'dist' }));
+    const result = await api('workbench/build', { path: config });
+    expect(result.data.ok).toBe(true);
+    expect(result.data.artifacts.project).toContain('built.project.json');
+    expect(state.sessionId).toBe(original);
   });
 });

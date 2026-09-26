@@ -219,6 +219,17 @@ export class Workbench {
           const request = commandRequest(command, read());
           const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
           output.textContent = JSON.stringify(result.data ?? result, null, 2).slice(0, 24_000);
+          if (result.data?.ok === false) {
+            this.notify(`${command.label} failed. See the report below.`, true);
+            return;
+          }
+          if (result.data?.artifacts?.project) {
+            const projectPath = result.data.artifacts.project;
+            output.after(button('Open generated project', () => this.run(async () => {
+              await this.request('/session/open', { path: projectPath });
+              this.notify('Generated project opened as a new session.'); this.refresh();
+            })));
+          }
           if (result.data?.url?.startsWith('/casting.html?')) {
             const link = element('a', 'Open casting review'); link.href = result.data.url; link.target = '_blank'; link.rel = 'noopener'; output.after(link);
           }
@@ -233,13 +244,15 @@ export class Workbench {
     input.setAttribute('aria-label', 'Expanded CLI batch operations');
     const output = element('pre', null, 'tool-output');
     const apply = button('Apply operations', () => this.run(async () => {
+      const sessionId = this.sessionId;
       apply.disabled = true;
       try {
-        const mapped = await this.request('/workbench/map-operations', { operations: JSON.parse(input.value) });
+        const mapped = await this.request('/workbench/map-operations', { operations: JSON.parse(input.value) }, { sessionId });
         output.textContent = '';
         for (const [index, request] of mapped.data.entries()) {
           try {
-            await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
+            if (this.sessionId !== sessionId) throw new Error('The active session changed');
+            await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
             output.textContent += `${index + 1}. Applied ${request.path}\n`;
           } catch (error) { throw new Error(`Stopped at operation ${index + 1}: ${error.message}. ${index} earlier operations remain applied.`); }
         }
@@ -255,11 +268,16 @@ export class Workbench {
       const packet = await this.request('/workbench/project'); download(`${packet.data.name}.project.json`, packet.data);
     })));
     actions.append(button('Download PNG', () => this.run(async () => {
-      const response = await fetch('/api/workbench/sheet.png');
+      const sessionId = this.sessionId, name = this.project?.name ?? 'design';
+      const response = await fetch('/api/workbench/sheet.png', { headers: { 'X-Sprite-Session': sessionId ?? '' } });
       if (!response.ok || !response.headers.get('content-type')?.includes('image/png')) throw new Error('Could not render this sheet');
-      download(`${this.project.name}.png`, await response.blob());
+      download(`${name}.png`, await response.blob());
     })));
-    actions.append(button('Download atlas', () => this.run(async () => download(`${this.project.name}.atlas.json`, (await this.request('/workbench/atlas')).data))));
+    actions.append(button('Download atlas', () => this.run(async () => {
+      const sessionId = this.sessionId, name = this.project?.name ?? 'design';
+      const atlas = await this.request('/workbench/atlas', undefined, { sessionId });
+      download(`${name}.atlas.json`, atlas.data);
+    })));
     const upload = element('input'); upload.type = 'file'; upload.accept = '.json,application/json'; upload.setAttribute('aria-label', 'Import editable project JSON');
     upload.addEventListener('change', () => this.run(async () => {
       const file = upload.files[0]; if (!file) return;
@@ -282,7 +300,8 @@ export class Workbench {
     })));
     this.body.append(button('Copy handoff for agent', () => this.run(async () => {
       const packet = await this.request('/workbench/project');
-      const text = `Design: ${packet.data.name}\nSession: ${packet.session_id}\nOpen: agent-sprites open --session ${packet.session_id}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nThe live draft is available in this session. Download the editable project for transfer to another machine.`;
+      const port = location.port || (location.protocol === 'https:' ? '443' : '80');
+      const text = `Design: ${packet.data.name}\nPreview: ${location.origin}\nSession: ${packet.session_id}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nUse the matching managed agent-sprites runtime, bound to this preview port (do not use another server). In PowerShell:\n$env:SPRITE_PORT='${port}'\nagent-sprites open --session ${packet.session_id}\n\nRead the current editable project and its saved review note at ${location.origin}/api/workbench/project with X-Sprite-Session: ${packet.session_id}. Download the editable project for transfer to another machine.`;
       await navigator.clipboard.writeText(text); this.notify('Design handoff copied.');
     })));
     this.body.append(element('p', 'Drafts save automatically. Save project on disk writes a portable file; downloads include the last saved review note.', 'workbench-hint'));

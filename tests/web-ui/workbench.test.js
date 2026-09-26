@@ -2,6 +2,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { Workbench } from '../../server/web/public/js/workbench.js';
 import { COMMANDS, commandRequest } from '../../server/web/public/js/command-catalog.js';
+import { ShapePanel } from '../../server/web/public/js/panels.js';
 
 let bench, request, color;
 beforeEach(() => {
@@ -41,4 +42,29 @@ test('catalog includes every top-level CLI command and nested editing operation'
   for (const id of ['new','open','sessions','save','export','pivot','status','restart','build','verify','trace','draw','shapes','rename','move','move-to','resize','recolor','clone','delete','duplicate','flip','rotate','copy','clone-cell','clear','name','mirror','rotate-cell','ref','view','view-anim','undo','redo','tween','group','shape-group','move-group','recolor-group','batch','cast']) expect(ids.has(id), id).toBe(true);
   expect(new Set(COMMANDS.map(c => c.id)).size).toBe(COMMANDS.length);
   expect(commandRequest(COMMANDS.find(c => c.id === 'shapes'), { cell: 'front & side' }).path).toBe('/api/shapes?cell=front+%26+side');
+});
+test('a batch pins its starting session and stops when another client switches designs', async () => {
+  bench.sessionId = 'original';
+  request.mockImplementation(async path => {
+    if (path === '/workbench/map-operations') return { data: [
+      { path: '/api/draw', method: 'POST', body: { type: 'point' } },
+      { path: '/api/draw', method: 'POST', body: { type: 'point' } },
+    ] };
+    bench.sessionId = 'other';
+    return { data: 'ok' };
+  });
+  await bench.show('tools'); bench.selectCommand('batch');
+  [...document.querySelectorAll('button')].find(button => button.textContent === 'Apply operations').click();
+  await vi.waitFor(() => expect(document.getElementById('workbench-status').textContent).toContain('Stopped at operation 2'));
+  expect(request.mock.calls.filter(([path]) => path === '/draw')).toHaveLength(1);
+  expect(request).toHaveBeenCalledWith('/draw', { type: 'point' }, { sessionId: 'original' });
+});
+test('large traces render bounded shape pages with a searchable full list', () => {
+  document.body.innerHTML = '<input id="shape-search"><div id="shape-pagination"></div><ul id="shape-items"></ul>';
+  const panel = new ShapePanel(); panel.init({});
+  panel.setShapes(Array.from({ length: 10001 }, (_, index) => ({ id: `s${index}`, name: `run-${index}`, color: '#000000', zIndex: index, type: 'rect' })));
+  expect(document.querySelectorAll('#shape-items li')).toHaveLength(100);
+  const search = document.getElementById('shape-search'); search.value = 'run-5555'; search.dispatchEvent(new Event('input'));
+  expect(document.querySelectorAll('#shape-items li')).toHaveLength(1);
+  expect(document.getElementById('shape-items').textContent).toContain('run-5555');
 });

@@ -46,10 +46,10 @@ const workbench = new Workbench({
   preview: () => document.querySelector('[data-tab="preview"]').click(),
 });
 
-async function requestApi(path, body) {
+async function requestApi(path, body, { sessionId = state.sessionId } = {}) {
   const response = await fetch(`/api${path}`, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json', ...(state.sessionId ? { 'X-Sprite-Session': state.sessionId } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(sessionId ? { 'X-Sprite-Session': sessionId } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const result = await response.json();
@@ -127,10 +127,12 @@ function init() {
         cellNav.setFilter(frames);
         animPreview.setFrames(frames);
         fullPreview.setFrames(frames);
+        animPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
+        fullPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
       } else {
         cellNav.setFilter(null);
-        animPreview.setFrames([]);
-        fullPreview.setFrames([]);
+        animPreview.setFrames([state.activeCell]);
+        fullPreview.setFrames([state.activeCell]);
       }
     },
     onCreate: () => {
@@ -208,6 +210,7 @@ function onProjectData(data) {
     tools.setTool(state.activeTool);
     cellNav.setFilter(null);
     animPreview.setFrames([]); fullPreview.setFrames([]);
+    groupPanel.setGroups({});
   }
   workbench.setProject(data, state.sessionId);
   document.getElementById('project-name').textContent = data.name || 'Untitled';
@@ -366,6 +369,7 @@ function selectCell(ref) {
   refreshShapePanel();
   cellNav.setActive(ref);
   animPreview.setActiveCell(ref);
+  if (!groupPanel.activeGroup) { animPreview.setFrames([ref]); fullPreview.setFrames([ref]); }
   editor.setOnionSkin(animPreview.getOnionSkinData());
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
@@ -411,7 +415,10 @@ function renderPalette() {
   container.innerHTML = '';
 
   const entries = Object.entries(state.palette);
-  if (entries.length === 0) return;
+  if (entries.length === 0) {
+    if (!state.activeColor) setActiveColor('#000000', '#000000');
+    return;
+  }
 
   if (!state.activeColor && entries.length > 0) {
     setActiveColor(entries[0][0], entries[0][1]);

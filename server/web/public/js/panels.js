@@ -187,6 +187,7 @@ export class GroupPanel {
 
   setGroups(groups) {
     this._groups = groups || {};
+    if (!this._groups[this._activeGroup]) this._activeGroup = null;
     this.render();
   }
 

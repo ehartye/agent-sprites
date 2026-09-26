@@ -4,6 +4,18 @@ A pixel-art sprite authoring toolset for coding agents and 2D game projects, wit
 
 Built and battle-tested by shipping real games with it (SNES-style dungeon crawlers, a rhythm brawler) — every tool exists because a real build needed it.
 
+## Collaborative preview workbench
+
+Open the server's preview URL to work on the same live draft as your agent.
+
+- **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
+- **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.
+- **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace and verification forms run existing file workflows from the server's localhost page; restart remains a terminal command.
+- **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
+- Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
+
+Draft changes persist automatically. **Save project** writes the editable file on disk. Copies preserve animation timing and shape groups. Session guards stop stale tabs or in-flight batches from editing a different design after a switch. Large traces fit the canvas and have searchable, paged shape lists.
+
 ## The core idea
 
 Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixel buffers. Shapes carry z-order, live in grid cells, support per-cell undo/redo, and are addressable by name for later edits (`move-to`, `recolor`, `resize`, `clone`, `flip`, `rotate`, `tween`). This gives an LLM semantic handles instead of pixel coordinates — the affordance that makes agent-driven pixel art tractable.

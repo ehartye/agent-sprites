@@ -6,6 +6,20 @@ import { CanvasRenderer } from '../../engine/canvas-renderer.js';
 import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
 import { saveDraft } from '../http.js';
 import { mapCommandToApi } from '../../../scripts/batch-commands.js';
+import { buildProject } from '../../build/project-build.js';
+import { traceImageFile } from '../../engine/image-trace.js';
+import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
+
+export function localFileRequestAllowed(req) {
+  const remote = req.socket.remoteAddress;
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote)) return false;
+  try {
+    const server = new URL(`http://${req.get('host')}`);
+    if (!['localhost', '127.0.0.1', '[::1]'].includes(server.hostname)) return false;
+    const origin = req.get('origin');
+    return !origin || new URL(origin).origin === server.origin;
+  } catch { return false; }
+}
 
 function projectName(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(value) || /[. ]$/.test(value) || ['.', '..'].includes(value)) {
@@ -49,12 +63,15 @@ export function workbenchRoutes(state) {
     const projectPath = parent?.project_path ?? process.cwd();
     // Session id in the destination guarantees that saving a copy never overwrites
     // another copy with the same friendly name, or the imported source file.
-    const session = state.db.createSession({ project_name: project.name, project_path: projectPath,
-      destination_folder: '', json_file: null, draft_json: JSON.stringify(project.toJSON()) });
-    state.db.updateSession(session.id, { destination_folder: join(projectPath, 'assets', 'claude-sprites', session.id, project.name) });
+    const session = state.db.db.transaction(() => {
+      const pending = state.db.createSession({ project_name: project.name, project_path: projectPath,
+        destination_folder: '', json_file: null, draft_json: JSON.stringify(project.toJSON()) });
+      state.db.updateSession(pending.id, { destination_folder: join(projectPath, 'assets', 'claude-sprites', pending.id, project.name) });
+      restoreProjectMetadata({ ...state, project, sessionId: pending.id });
+      return pending;
+    })();
     state.project = project;
     state.sessionId = session.id;
-    restoreProjectMetadata(state);
     state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: session.id });
     return { session_id: session.id, project_name: project.name, copied_from: origin ?? null };
   }
@@ -109,5 +126,23 @@ export function workbenchRoutes(state) {
     });
     res.json({ ok: true, data: requests });
   }));
+  const localFilesOnly = (req, res, next) => {
+    if (!localFileRequestAllowed(req)) return res.status(403).json({ ok: false, error: 'Local file tools require this server’s localhost page and a matching origin.' });
+    next();
+  };
+  for (const command of ['build', 'trace', 'verify']) {
+    router.post(`/workbench/${command}`, localFilesOnly, route(async (req, res) => {
+      if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
+      let report;
+      if (command === 'build') report = await buildProject(req.body.path);
+      if (command === 'trace') report = await traceImageFile(req.body.path, { output: req.body.out, name: req.body.name || 'image-trace' });
+      if (command === 'verify') {
+        const options = { ...req.body }; delete options.path;
+        if (Array.isArray(options.outlineColors) && options.outlineColors.length === 0) delete options.outlineColors;
+        report = await verifyAtlasFile(req.body.path, options);
+      }
+      res.json({ ok: true, data: report });
+    }));
+  }
   return router;
 }

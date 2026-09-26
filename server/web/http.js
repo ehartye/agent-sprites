@@ -60,7 +60,7 @@ export async function startWebServer(state, port) {
   // remain compatible, while stale tabs cannot accidentally edit a newly opened design.
   app.use('/api', (req, res, next) => {
     const expected = req.get('X-Sprite-Session');
-    if (req.method !== 'GET' && expected && expected !== state.sessionId) {
+    if (expected && expected !== state.sessionId) {
       return res.status(409).json({ ok: false, error: 'The active session changed. Refresh the design before editing.' });
     }
     next();
