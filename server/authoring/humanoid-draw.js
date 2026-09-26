@@ -25,9 +25,9 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     if(ribbed){p.line(`${l.name}_knee_rib_1`,l.knee[0]-2,l.knee[1]-2,l.knee[0]+2,l.knee[1]-2,c.suit);p.line(`${l.name}_knee_rib_2`,l.knee[0]-2,l.knee[1]+1,l.knee[0]+2,l.knee[1]+1,c.suitShade);}
     const [x,y]=l.ankle;
     if(side){
-      p.poly(`${l.name}_boot_outline`,[[x-2,y-3],[x+1,y-3],[x+1,y-1],[x+3,y-1],[x+4,y],[x+4,y+2],[x-2,y+2]],c.outline);
-      p.poly(`${l.name}_boot`,[[x-1,y-2],[x,y-2],[x,y],[x+2,y],[x+3,y+1],[x-1,y+1]],isNear?c.boots:c.pantsShade);
-      p.line(`${l.name}_boot_toe`,x+1,y,x+3,y+1,isNear?c.metal:c.pantsLight);
+      p.poly(`${l.name}_boot_outline`,l.foot.outline,c.outline);
+      p.poly(`${l.name}_boot`,l.foot.fill,isNear?c.boots:c.pantsShade);
+      p.line(`${l.name}_boot_toe`,l.ball[0],l.ball[1]-1,l.toe[0]-1,l.toe[1]-1,isNear?c.metal:c.pantsLight);
     }else{
       const out=l.hip[0]<20?-1:1,local=points=>points.map(([u,v])=>[x+u*out,y+v]);
       p.poly(`${l.name}_boot_outline`,local([[-2,-2],[1,-2],[1,-1],[3,0],[3,2],[-2,2]]),c.outline);
@@ -65,6 +65,13 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     p.rect('pack_status',packX+1,b.torsoTop+3+dy,1,2,c.signal);
   }
   leg(near,true);
+  const {top:pelvisTop,crotchY,seatY,depth}=pose.pelvis;
+  const seatLeft=20-Math.ceil(depth/2),seatRight=20+Math.floor(depth/2);
+  // A single trouser volume wraps the sockets and merges into the upper thighs.
+  // Its rear contour belongs behind the hip axis, unlike a displaced torso.
+  p.poly('pelvis_outline',[[seatLeft+1,pelvisTop],[seatRight-1,pelvisTop],[seatRight,seatY],[seatRight-2,crotchY],[20,crotchY-1],[seatLeft+2,crotchY],[seatLeft,seatY]],c.outline);
+  p.poly('pelvis',[[seatLeft+2,pelvisTop],[seatRight-2,pelvisTop],[seatRight-1,seatY],[seatRight-2,crotchY-1],[20,crotchY-1],[seatLeft+2,crotchY-1],[seatLeft+1,seatY]],trouser);
+  p.line('pelvis_seat_shade',seatLeft+1,seatY-1,seatLeft+2,crotchY-1,trouserShade);
   const width=(side?Math.max(8,b.width-2):b.width)+(bulky?2:0),left=20-Math.floor(width/2),right=left+width-1,{top,waistY,hemY}=pose.torso;
   const waistLeft=left+(side?2:1),waistRight=right-1;
   // Neck -> deltoid -> ribcage -> waist. A rectangular shoulder stripe and

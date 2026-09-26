@@ -1,6 +1,6 @@
 # Reusable character recipes
 
-Requires agent-sprites 0.19.0 (0.19.1 for corrected side-view helmets). Copy `sprite-project.json` into your project and run
+Requires agent-sprites 0.19.0 (0.21.4 for paired anatomy, pelvic volume and calibrated profile walking). Copy `sprite-project.json` into your project and run
 `node "<checked-plugin-root>/scripts/run-managed.js" build <config> --json` after
 the setup check. The `character` object replaces `ops`/`generator`; never combine
 sources. This example builds an adult and child in everyday clothing and three
@@ -54,8 +54,12 @@ and arm joints, support contact, bounds and checks. Left-facing geometry mirrors
 the right-facing rig and swaps anatomical labels. The report is part of the same
 atomic build publication: invalid recipes preserve previous output.
 
-Profile frames also expose `legs[].heel` and `legs[].toe`: the actual boot-outline
-sole endpoints in source pixels, rather than the ankle joint or guessed foot center.
+Profile frames also expose `legs[].heel`, `legs[].ball` and `legs[].toe`: actual
+boot-outline sole landmarks in source pixels, rather than a guessed foot center.
+`legs[].foot` describes the authored `heel`, `flat`, `toe`, or `swing` shape and
+whether it contacts the floor. `support` identifies the loading/supporting leg;
+the trailing foot may still contact the floor during the handoff. A toe-supported
+foot has a raised heel and ankle, so contact checks must not require ankle y=52.
 `alignment` records the upright preset, `neutral` (true only for idle), shoulder/hip
 landmarks in `shoulders`, and heel/toe/hip landmarks in `feet`. Each record has the
 anatomical `name` and signed world-coordinate `offsetX`: shoulder minus hip or heel
@@ -69,6 +73,40 @@ Named shapes retain separate eye whites, irises, pupils, catchlights, eyelids an
 brows. Shape groups include face, helmet, and each arm/leg. Suits include helmet,
 neck/wrist/ankle seals, gloves and a life-support pack; hair stays inside the hood.
 Profile helmets use an opaque rear shell, one visible side hinge and a forward visor; the entire construction mirrors for left-facing art. These are visual designs, not pressure-suit engineering specifications.
+
+## Anatomy and distance-driven walking (0.21.4)
+
+Paired arms share upper/lower segment lengths and shoulder-relative angular poses.
+Compare an anatomical side at frame `f` with its opposite at `(f + 4) % 8`, allowing
+for projection and pixel rounding. Their simultaneous poses differ by design.
+The `pelvis` report and `pelvis_outline`/`pelvis` shapes connect the waist and
+upper thighs; the seat contour is separate from the hip joint and alignment axis.
+
+Each report frame includes `locomotion`: `cycleDistance`, `frameDistance`,
+`phaseDistance`, `frameCount` (8), configured `fps`, a cardinal `direction` vector,
+`contactCalibration`, `rootCompensation`, and per-leg `contacts`. Distances are
+source pixels. For a distance-driven walk:
+
+```js
+const frame = Math.floor(distance / gait.frameDistance) % gait.frameCount;
+const remainder = distance % gait.frameDistance;
+const speed = gait.frameDistance * gait.fps;
+// Profile sprites are discrete poses. Hold the drawing between pose advances.
+const offset = gait.rootCompensation === 'subtract-phase-remainder'
+  ? gait.direction.map(component => -component * remainder)
+  : [0, 0];
+```
+
+Apply the offset only while walking, to the draw position, not collision state.
+Reset the phase when turning; derive facing and travel from actual displacement
+after collision. Match source-to-world scale when interpreting distances. A
+different speed changes cadence; do not retain a former hard-coded frame distance.
+
+Profile contact is calibrated: the same physical heel during landing/flat support,
+and toe during flat support/push-off, remain planted across their contact windows.
+Front/back views are marked `contactCalibration: "projected"` with compensation
+`"none"`: their depth/lift shorthand is not an exact world-space foot-lock model.
+Do not advertise profile contact measurements as certification of those views.
 
 ## Review and iterate
 
@@ -87,6 +125,10 @@ Profile helmets use an opaque rear shell, one visible side hinge and a forward v
    guides, implementation history or a suspected fix. Keep those observations
    separate from the later guided measurement pass. Compare exported shoulder,
    hip, heel and toe landmarks against the rendered pixels after that first pass.
+5. Check the same physical sole landmark over a fixed floor grid during actual
+   movement. A contact sheet cannot reveal sliding or certify cadence. Test both
+   facings, release to idle, and collision sliding. Compare phase-matched anatomy
+   before blaming deliberate shading or occlusion for a mismatched limb.
 
 Geometry validation catches clipping and defined joint regressions; it cannot
 certify appealing silhouettes, weight transfer or convincing playback. A numeric

@@ -63,7 +63,13 @@ test('walk recipes export eight-frame animation tags and preserve timing', async
   const tag = atlas.meta.frameTags.find(tag => tag.name === 'mara_field_down_walk');
   expect(tag.to - tag.from + 1).toBe(8);
   expect(atlas.frames.slice(tag.from, tag.to + 1).every(frame => frame.duration === 100)).toBe(true);
-  expect(readJson(result.artifacts.characterReport).frames).toHaveLength(8);
+  const frames=readJson(result.artifacts.characterReport).frames;
+  expect(frames).toHaveLength(8);
+  for(const [index,frame] of frames.entries()){
+    expect(frame.locomotion).toMatchObject({fps:10,frameCount:8,contactCalibration:'projected',rootCompensation:'none'});
+    expect(frame.locomotion.cycleDistance).toBe(8*frame.locomotion.frameDistance);
+    expect(frame.locomotion.phaseDistance).toBe(index*frame.locomotion.frameDistance);
+  }
 }, 20000);
 
 test('nonhuman recipe publishes four-arm joints and distinct clothing states through the managed build pipeline', async () => {

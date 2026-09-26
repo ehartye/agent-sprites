@@ -21,7 +21,8 @@ test.each(['adult','adult-sturdy','adult-slim','child','older-child'])('%s walks
   expect(built.report.frames).toHaveLength(32);
   for(const frame of built.report.frames){
     const legs=frame.legs;
-    expect(legs.some(l=>l.support&&l.ankle[1]===52)).toBe(true);
+    expect(legs.some(l=>l.support&&l.foot.contact)).toBe(true);
+    if(['right','left'].includes(frame.direction))expect(legs.some(l=>l.support&&l.foot.anchor[1]===frame.ground)).toBe(true);
     for(const leg of legs){
       if(['down','up'].includes(frame.direction))expect(leg.knee[0]).toBe(leg.ankle[0]);
       else{

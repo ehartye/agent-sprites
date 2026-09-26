@@ -206,8 +206,11 @@ For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). Choose exactly one source:
 `ops`, `generator`, `character`, or `environment`. No game-local generator is required.
 Review a true idle pose before judging a paused walk frame. The character report
-includes profile shoulder/hip measurements and actual heel/toe landmarks; its
+includes profile shoulder/hip measurements and actual heel/ball/toe landmarks; its
 neutral standing checks do not constrain moving feet to the same vertical line.
+Paired anatomy, a separate pelvic mass, and heel/flat/toe shapes are shared across
+the cast. Consume the exported stride and cadence for distance-driven playback;
+profile contact is calibrated, while front/back views retain projected depth cues.
 Follow the [character review procedure](examples/character-cast/README.md#review-and-iterate)
 for separate raw blind reviews, guided measurement, silhouettes and playback.
 
