@@ -4,10 +4,13 @@ import {drawInsectoidHead} from './insectoid-face.js';
 import {isSealed,drawTravelLayers,drawTorsoDetails} from './character-wardrobe.js';
 const drawHead=(p,person,options)=>(person.head==='insectoid'?drawInsectoidHead:drawHumanoidHead)(p,options);
 
-function segment(p,name,a,b,width,color,shoulder=false){
+function segment(p,name,a,b,width,color,shoulder=false,join=null){
   const [x,y]=a,[u,v]=b,length=Math.hypot(u-x,v-y)||1,nx=(v-y)/length*width/2,ny=(x-u)/length*width/2;
   const inset=Math.max(0,(width-2)/width),cap=Math.min(2,length/2),tx=(u-x)/length*cap,ty=(v-y)/length*cap;
   const points=shoulder?[[x+nx*inset,y+ny*inset],[x+nx+tx,y+ny+ty],[u+nx,v+ny],[u-nx,v-ny],[x-nx+tx,y-ny+ty],[x-nx*inset,y-ny*inset]]:[[x+nx,y+ny],[u+nx,v+ny],[u-nx,v-ny],[x-nx,y-ny]];
+  // The inner cap shares the garment's neck-to-shoulder slope. Rounding both
+  // ends independently leaves a notch between the torso and sleeve.
+  if(shoulder&&join)points[(join[0]-x)*nx+(join[1]-y)*ny>0?0:5]=join;
   p.poly(name,points.map(q=>q.map(Math.round)),color);
 }
 function reflectedLimbPen(p,axis){
@@ -55,9 +58,13 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
     const reflect=direction==='down'&&l.name==='right'||direction==='up'&&l.name==='left';
     const p=reflect?reflectedLimbPen(pen,l.shoulder[0]):pen;
     const armWidth=person.arms===4?3:limbWidth;
-    segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline,!l.name.endsWith('_lower'));
+    const primary=!l.name.endsWith('_lower');
+    const neckX=l.shoulder[0]<20?18:22;
+    const join=!side&&primary?[reflect?2*l.shoulder[0]-neckX:neckX,pose.torso.top]:null;
+    const fillJoin=join?[join[0],join[1]+1]:null;
+    segment(p,`${l.name}_upper_arm_outline`,l.shoulder,l.elbow,armWidth+1,c.outline,primary,join);
     segment(p,`${l.name}_forearm_outline`,l.elbow,l.wrist,armWidth,c.outline);
-    segment(p,`${l.name}_sleeve`,l.shoulder,l.elbow,armWidth-1,isNear?bodyColor:shade,!l.name.endsWith('_lower'));
+    segment(p,`${l.name}_sleeve`,l.shoulder,l.elbow,armWidth-1,isNear?bodyColor:shade,primary,fillJoin);
     segment(p,`${l.name}_forearm`,l.elbow,l.wrist,armWidth-2,isNear?light:bodyColor);
     if(ribbed)p.rect(`${l.name}_elbow_rib`,l.elbow[0]-1,l.elbow[1],3,1,c.suit);
     if(outfit==='wayfarer'){
