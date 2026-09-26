@@ -11,7 +11,7 @@ const PATTERNS = {
  * Mirrors server-side CanvasRenderer drawing logic for client-side preview.
  */
 
-const MIN_ZOOM = 2;
+const MIN_ZOOM = 0.125;
 const MAX_ZOOM = 40;
 
 export class CanvasEditor {
@@ -276,6 +276,16 @@ export class CanvasEditor {
   }
 
   _renderShapes(ctx, ox, oy, z) {
+    if (z < 1) {
+      // Fit large traces using nearest-neighbor sampling of the native raster.
+      // Fractional fillRect edges would otherwise introduce seams between runs.
+      const native = document.createElement('canvas');
+      native.width = this.cellW; native.height = this.cellH;
+      this._renderShapes(native.getContext('2d'), 0, 0, 1);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
+      return;
+    }
     for (const shape of this._shapes) {
       const color = this._resolveColor(shape.color);
       ctx.fillStyle = color;
@@ -464,6 +474,7 @@ export class CanvasEditor {
   }
 
   _renderGrid(ctx, ox, oy, z) {
+    if (z < 4) return;
     const gridW = this.cellW * z;
     const gridH = this.cellH * z;
     const style = getComputedStyle(document.documentElement);

@@ -4,7 +4,7 @@ import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, shapeGroups }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, shapeGroups, review }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -15,6 +15,7 @@ export class Project {
     this.pivot = pivot ?? null;
     this.animationFps = animationFps ?? {};
     this.shapeGroups = shapeGroups ?? {};
+    this.review = review ?? null;
     this.path = null;
   }
 
@@ -46,6 +47,7 @@ export class Project {
       groups: this.groups.toJSON(),
       animationFps: this.animationFps,
       shapeGroups: this.shapeGroups,
+      ...(this.review ? { review: this.review } : {}),
     };
   }
 
@@ -70,6 +72,7 @@ export class Project {
       pivot: data.pivot,
       animationFps: data.animationFps,
       shapeGroups: data.shapeGroups,
+      review: data.review,
     });
   }
 

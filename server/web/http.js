@@ -15,6 +15,7 @@ import { cellRoutes } from './api/cell-routes.js';
 import { groupRoutes } from './api/group-routes.js';
 import { controlRoutes } from './api/control-routes.js';
 import { castingRoutes } from './api/casting-routes.js';
+import { workbenchRoutes } from './api/workbench-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
@@ -54,9 +55,19 @@ export function dispatchWebMessage(state, msg) {
 
 export async function startWebServer(state, port) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '64mb' }));
+  // Optional optimistic session guard for the collaborative browser. CLI clients
+  // remain compatible, while stale tabs cannot accidentally edit a newly opened design.
+  app.use('/api', (req, res, next) => {
+    const expected = req.get('X-Sprite-Session');
+    if (req.method !== 'GET' && expected && expected !== state.sessionId) {
+      return res.status(409).json({ ok: false, error: 'The active session changed. Refresh the design before editing.' });
+    }
+    next();
+  });
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1, version, runtimeRoot }));
   app.use('/api/session', sessionRoutes(state));
+  app.use('/api', workbenchRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));
   app.use('/api', cellRoutes(state));
@@ -78,7 +89,7 @@ export async function startWebServer(state, port) {
 
   // Broadcast helper — tools call this after state changes
   state.broadcast = (msg) => {
-    const data = JSON.stringify(msg);
+    const data = JSON.stringify({ ...msg, sessionId: state.sessionId });
     for (const client of wss.clients) {
       if (client.readyState === 1) client.send(data);
     }
@@ -87,7 +98,7 @@ export async function startWebServer(state, port) {
   wss.on('connection', (ws) => {
     // Send current project state on connect
     if (state.project) {
-      ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON() }));
+      ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON(), sessionId: state.sessionId }));
     }
 
     ws.on('message', (raw) => {
@@ -96,10 +107,11 @@ export async function startWebServer(state, port) {
         // Handle project state request (for resync after MCP mutations)
         if (msg.action === 'get_project') {
           if (state.project) {
-            ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON() }));
+            ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON(), sessionId: state.sessionId }));
           }
           return;
         }
+        if (msg.sessionId && msg.sessionId !== state.sessionId) throw new Error('The active session changed. Refresh the design before editing.');
         const result = dispatchWebMessage(state, msg);
         saveDraft(state);
         ws.send(JSON.stringify({ type: 'result', action: msg.action, data: result }));
