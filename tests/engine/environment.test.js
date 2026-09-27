@@ -15,6 +15,38 @@ function render(recipe,frame){
 }
 const pixel=(data,x,y,w=32)=>Array.from(data.slice((y*w+x)*4,(y*w+x)*4+4));
 
+test('habitat styles have distinct opaque silhouettes, compatible rooms and native-size door recesses',()=>{
+  const silhouettes=[],floorPixels=[],wallPixels=[];
+  for(const style of ['cottage','workshop','kitchen','barn']){
+    const recipe=generateEnvironmentRecipe({kind:'habitat',style});
+    expect(recipe.report.style).toBe(style);
+    expect(recipe.report.layout).toEqual(generateEnvironmentRecipe({kind:'habitat'}).report.layout);
+    expect(recipe.report.cellSize).toEqual({width:320,height:256});
+    expect(generateEnvironmentRecipe({kind:'habitat',style})).toEqual(recipe);
+    for(const frame of recipe.report.frames){
+      const data=render(recipe,frame);
+      if(frame.alias==='habitat_roof'){
+        silhouettes.push(Buffer.from(data.filter((_,i)=>i%4===3)).toString('base64'));
+        let transparentWall=0;for(let y=160;y<220;y++)for(let x=24;x<296;x++)transparentWall+=Number(pixel(data,x,y,320)[3]!==255);
+        expect(transparentWall).toBe(0);
+        if(style==='barn')expect(pixel(data,24,80,320)[3]).toBe(0);
+        if(style==='cottage')expect(pixel(data,301,85,320)[3]).toBe(0);
+        const dark=pixel(data,160,200,320);
+        for(let y=184;y<219;y++)for(let x=140;x<181;x++)expect(pixel(data,x,y,320)).toEqual(dark);
+      }
+      if(frame.alias==='habitat_floor')floorPixels.push(Buffer.from(data).toString('base64'));
+      if(frame.alias==='habitat_back')wallPixels.push(Buffer.from(data).toString('base64'));
+      for(let y=220;y<256;y++)for(let x=136;x<184;x++)expect(pixel(data,x,y,320)[3]).toBe(frame.alias==='habitat_floor'?255:0);
+      expect(data.every((value,i)=>i%4!==3||value===0||value===255)).toBe(true);
+    }
+  }
+  expect(new Set(silhouettes).size).toBe(4);
+  expect(new Set(floorPixels).size).toBe(4);
+  expect(new Set(wallPixels).size).toBe(4);
+});
+
+test.each([{kind:'habitat',style:'unknown'},{kind:'habitat',style:null},{kind:'terrain',style:'cottage'}])('rejects invalid habitat style %j',config=>expect(()=>generateEnvironmentRecipe(config)).toThrow(/style/i));
+
 test.each([['terrain',24,32,32],['habitat',4,320,256],['furniture',6,64,64]])('%s provides deterministic editable bounded frames',(kind,count,width,height)=>{
   const result=generateEnvironmentRecipe({kind});expect(generateEnvironmentRecipe({kind})).toEqual(result);
   expect(result.report).toMatchObject({ok:true,version:1,kind,cellSize:{width,height}});expect(result.report.frames).toHaveLength(count);
