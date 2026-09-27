@@ -32,7 +32,11 @@ For spheres (circle/ellipse targets), `draw sphere-shade` composes all the tiers
 ```
 sprite.js draw sphere-shade --cell 0,0 --shape ball --direction top-left
 # --intensity auto picks low/med/high by size. Override with --intensity high for extra tiers.
+sprite.js draw sphere-shade --cell 0,0 --shape apple --coverage true
+# small forms (radius 4–7): paint whole crescents instead of arc samples
 ```
+
+**Small forms need `--coverage true`.** At radius 4–7 the default tiers change only a few percent of the pixels and read as freckles. Coverage paints whole regions inside the rendered silhouette instead: shadow crescents (the pixels outside the outline shifted toward the light), an offset highlight disc and, at `high`, a specular spot. That is typically 25–45% of the form. Rim light is omitted in coverage mode. The flag is opt-in, so existing sprites rebuild unchanged.
 
 The tier table below documents what `sphere-shade` emits and why — read it before overriding defaults.
 

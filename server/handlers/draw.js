@@ -1,4 +1,5 @@
 import { patternTest } from '../engine/patterns.js';
+import { CanvasRenderer } from '../engine/canvas-renderer.js';
 
 /**
  * Compute bounding box from shape type + params.
@@ -163,6 +164,15 @@ export function deriveShade(hex, type, strength = 1) {
   return '#' + [rr, gg, bb].map(v => Math.round((v + o) * 255).toString(16).padStart(2, '0')).join('');
 }
 
+/** Ramp step when the palette has one, otherwise an HSL-derived step (reported). */
+function shadeColor(palette, color, type, strength) {
+  const ramp = palette[type === 'highlight' ? 'lighter' : 'darker'](color, strength);
+  if (ramp) return { color: ramp };
+  const from = palette.resolve(color), to = deriveShade(from, type, strength);
+  if (!to) throw new Error(`Color "${color}" is neither in palette ramps nor a #rrggbb colour — cannot compute ${type}`);
+  return { color: to, derived: { from, to, type, strength, method: 'hsl' } };
+}
+
 function handleHighlightShadow(state, type, params) {
   const cell = state.project.cells.getCell(params.cell);
   const targetShape = cell.shapes.get(params.shape);
@@ -173,16 +183,8 @@ function handleHighlightShadow(state, type, params) {
     throw new Error(`Shape "${params.shape}" is a ${targetShape.type} — no bounding box`);
   }
 
-  const palette = state.project.palette;
   const strength = params.strength ?? 1;
-  const rampFn = type === 'highlight' ? 'lighter' : 'darker';
-  let newColor = palette[rampFn](targetShape.color, strength), derived;
-  if (!newColor) {
-    const from = palette.resolve(targetShape.color);
-    newColor = deriveShade(from, type, strength);
-    if (!newColor) throw new Error(`Color "${targetShape.color}" is neither in palette ramps nor a #rrggbb colour — cannot compute ${type}`);
-    derived = { from, to: newColor, type, strength, method: 'hsl' };
-  }
+  const { color: newColor, derived } = shadeColor(state.project.palette, targetShape.color, type, strength);
 
   const bbox = getBoundingBox(targetShape);
   if (!bbox) throw new Error(`Shape "${params.shape}" is a ${targetShape.type} — no bounding box`);
@@ -301,6 +303,8 @@ function handleSphereShade(state, params) {
   // 'top-left', shadow-side tiers 'bottom-right'. Rotate both to the requested light.
   const light = params.direction ?? 'top-left';
   if (!(light in OPPOSITE_DIRECTION)) throw new Error(`direction must be one of ${Object.keys(OPPOSITE_DIRECTION).join('|')}`);
+  if (params.coverage != null && typeof params.coverage !== 'boolean') throw new Error('coverage must be true or false');
+  if (params.coverage) return sphereShadeCoverage(state, params, cell, target, intensity, light, base);
   const allNames = [], derived = new Map();
   for (const [label, type, strength, dir, span, rf] of tiers) {
     const extra = label === 'spec' ? { count: 2 } : {};
@@ -314,6 +318,48 @@ function handleSphereShade(state, params) {
     for (const d of r.derived ?? []) derived.set(`${d.type}${d.strength}`, d);
   }
   return derived.size ? { shapeNames: allNames, derived: [...derived.values()] } : { shapeNames: allNames };
+}
+
+/**
+ * Coverage tiers paint whole regions instead of arc samples, so small forms
+ * (radius 4–7) read as volume rather than freckles. Shadows are crescents: the
+ * target's rendered pixels outside its outline shifted toward the light by
+ * depth × radius. Highlights are offset discs clipped to the target. Rim light
+ * is omitted: at these sizes one rim pixel reads as noise. Later tiers draw on top.
+ */
+const COVERAGE_TIERS = {
+  low:  [['core', 'shadow', 2, { depth: 0.4 }], ['hl', 'highlight', 1, { offset: 0.4, size: 0.3 }]],
+  med:  [['mid', 'shadow', 1, { depth: 0.35 }], ['core', 'shadow', 2, { depth: 0.15 }], ['hl', 'highlight', 1, { offset: 0.4, size: 0.3 }]],
+  high: [['mid', 'shadow', 1, { depth: 0.35 }], ['core', 'shadow', 2, { depth: 0.15 }], ['hl', 'highlight', 1, { offset: 0.4, size: 0.3 }], ['spec', 'highlight', 3, { offset: 0.5, size: 0.12 }]],
+};
+
+function sphereShadeCoverage(state, params, cell, target, intensity, light, base) {
+  const p = target.params, rx = target.type === 'circle' ? p.r : p.rx, ry = target.type === 'circle' ? p.r : p.ry;
+  const angle = DIRECTION_ANGLES[light], ux = Math.cos(angle), uy = Math.sin(angle);
+  const renderer = new CanvasRenderer(state.project.palette);
+  const silhouette = renderer.shapeCoverage(target, cell.width, cell.height);
+  const shapeNames = [], derived = [];
+  for (const [label, type, strength, rule] of COVERAGE_TIERS[intensity]) {
+    const { color, derived: d } = shadeColor(state.project.palette, target.color, type, strength);
+    if (d) derived.push(d);
+    let region;
+    if (rule.depth) {
+      // Continuous offset: rounding the shift per axis collapses small diagonal crescents to 1px.
+      const ox = p.cx + ux * rx * rule.depth, oy = p.cy + uy * ry * rule.depth, ex = rx + 0.5, ey = ry + 0.5;
+      region = [...silhouette].filter(key => { const [x, y] = key.split(',').map(Number); return ((x - ox) / ex) ** 2 + ((y - oy) / ey) ** 2 > 1; });
+    } else {
+      const disc = { type: 'ellipse', params: { cx: Math.round(p.cx + ux * rx * rule.offset), cy: Math.round(p.cy + uy * ry * rule.offset), rx: Math.max(0, Math.round(rx * rule.size)), ry: Math.max(0, Math.round(ry * rule.size)), filled: true } };
+      const lit = disc.params.rx && disc.params.ry ? renderer.shapeCoverage(disc, cell.width, cell.height) : new Set([`${disc.params.cx},${disc.params.cy}`]);
+      region = [...lit].filter(key => silhouette.has(key));
+    }
+    region.forEach((key, i) => {
+      const [x, y] = key.split(',').map(Number), name = `${base}_${label}_${i}`;
+      const shape = cell.draw('point', { x, y }, color, name);
+      state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+      shapeNames.push(name);
+    });
+  }
+  return derived.length ? { shapeNames, derived } : { shapeNames };
 }
 
 /**
