@@ -168,6 +168,14 @@ export async function buildProject(configPath) {
         writeFileSync(join(stage, artifacts.uiBoot), `// Generated bitmap bootstrap: no network font or platform text renderer.\nexport const imageDataUrl=${JSON.stringify('data:image/png;base64,' + png.toString('base64'))};\nexport const atlas=${JSON.stringify(atlas)};\nexport const report=${JSON.stringify(recipeReport)};\n`);
       }
     }
+    // Consumers read one portable file instead of guessing names per recipe kind.
+    // Names are relative so the manifest survives copying the output directory.
+    const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind };
+    if (recipeReport?.kind) manifest.kind = recipeReport.kind;
+    if (inline) manifest.report = artifacts[`${sourceKind}Report`];
+    manifest.files = { ...artifacts };
+    artifacts.manifest = 'sprite-manifest.json';
+    writeFileSync(join(stage, artifacts.manifest), json(manifest));
     verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, contactSheet: artifacts.contactSheet };
     writeFileSync(join(stage, artifacts.verification), json(verified));
     writeFileSync(join(stage, artifacts.project), json(project.toJSON()));

@@ -72,7 +72,8 @@ projects. The custom generator workflow below remains useful for other assets.
 3. Run the managed build; stop on nonzero exit. It isolates the session, stages and
    verifies artifacts, and preserves previous output on failure.
 4. Inspect the emitted contact sheet and play `preview.html`. Load its PNG and
-   atlas in the engine. Keep the generated directory dedicated to build outputs.
+   atlas in the engine through `sprite-manifest.json` (`files.sheet`, `files.atlas`,
+   `report`), resolved relative to the manifest; never derive paths from the recipe kind. Keep the generated directory dedicated to build outputs.
 
 Copy `<plugin-root>/examples/blink` into the game source tree for an ops-file
 example. See the [build config and ownership rules](../../README.md#build-a-repeatable-asset-project).

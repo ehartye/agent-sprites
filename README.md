@@ -230,6 +230,14 @@ snapshots and serialize the final editable project once; interactive sessions
 continue to autosave each edit. It stages and structurally verifies all
 outputs before publishing: PNG, Aseprite atlas, editable `.project.json`, labeled
 contact sheet, verification report, captured operations, and `preview.html`.
+
+Every build also writes `sprite-manifest.json`: `format`, `version: 1`, the project
+`name`, its `source` (`ops`, `generator`, `character`, `environment` or `ui`), the recipe
+`kind` when it has one (for example `furniture` or `font`), the recipe `report` file, and a
+`files` map using the same keys as the build's `artifacts` result (`sheet`, `atlas`,
+`environmentReport`, `uiRuntime` and so on). Every name is relative to the manifest,
+so a game can copy the output directory anywhere and load the sheet, atlas and report
+from the manifest instead of guessing URLs from the recipe kind.
 Open the self-contained preview directly in a browser to play tags at their
 exported durations, pause, step, and zoom. Saved projects retain cell groups,
 animation speeds, shape groups, names and pivots when reopened.
