@@ -1,6 +1,6 @@
 # Space to Grow cast concepts
 
-Eight exploratory characters use the native 16×32 adult/child mannequins and their four-direction walks. These are concept studies, not replacements for the game's current 40×56 sprites. Nori is a provisional child-neighbor design; the other names come from the game's brief and existing art studies.
+Eight characters use the native 16×32 adult/child mannequins and their four-direction walks. The owner accepted this format to replace Room2Grow's previous 40×56 cast. Nori is a provisional child-neighbor design; the other names come from the game's brief and existing art studies. An available character model does not establish their presence in the playable story: Clementine remains missing.
 
 | Character | Visual idea |
 |---|---|
@@ -27,6 +27,8 @@ Serve `examples/native-character` over HTTP and open `cast.html`. The gallery of
 ## Pressure suit concepts
 
 The **Outfit** selector compares everyday clothing with **Field suit**, **Service shell**, and **Retro ribbed** across all eight characters. Open `cast.html?outfit=field` (or `service` / `retro`) to start suited. The glob above builds all 32 cast/outfit presets. The 24 suit presets use the same generator with `[characterId, suitId]`; their output names add `-field`, `-service`, or `-retro`.
+
+**Robots generally do not need vacuum suits.** Sprocket and Registrar Nine normally operate in vacuum in their own casings. Their shell variants are optional protection against specific hazards, such as corrosive environments, rather than mandatory breathing or pressure equipment. Organic characters use pressure gear when the destination requires it. Portal travel alone does not require a suit; the prototype's Upside has breathable air. These are Space to Grow design rules, not general engineering claims about robots.
 
 `pressure-suit.mjs` owns the shared fit. Field suits combine teal fabric and rounded cream helmets; service shells use angular helmets and harder chest panels; retro suits use copper fabric, ribbed chest panels and paired rear tanks. Head, collar, chest and pack attachments follow each pose's landmarks. Adult/child dimensions use their respective mannequins. Source skin outside the head becomes a separate pressure-fabric material, including hands and neck; it is removed from skin-role groups so later skin edits cannot uncover gloves. Robots keep their face displays inside environmental shrouds. Vey retains four arms with suited sleeves and gloves; antennae and the everyday wing mantle are enclosed or stowed.
 
