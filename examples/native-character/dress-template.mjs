@@ -3,14 +3,15 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
 
-export function dressTemplate(kind='adult', style='jacket', tone='peach') {
+export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short') {
   if (!['adult','child'].includes(kind) || !['jacket','dress'].includes(style)) throw new Error('Choose adult/child and jacket/dress.');
+  if (!['short','tied','none'].includes(wig)) throw new Error('Choose short, tied or none for the wig.');
   const project=JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url),'utf8'));
   const ops=deriveBackStudy(project,{kind,tone});
-  ops[0].name=`${kind}-${style}`;
+  ops[0].name=`${kind}-${style}${wig===(style==='dress'?'tied':'short')?'':'-'+wig}`;
   const headTop=kind==='adult'?2:8, shoulder=kind==='adult'?15:20, waist=kind==='adult'?21:24;
   const palettes={
-    hair:style==='jacket'?{o:'#302238',S:'#523048',B:'#824556',H:'#b96c72'}:{o:'#382537',S:'#743c48',B:'#b76455',H:'#e5a371'},
+    hair:wig==='short'?{o:'#302238',S:'#523048',B:'#824556',H:'#b96c72'}:{o:'#382537',S:'#743c48',B:'#b76455',H:'#e5a371'},
     cloth:style==='jacket'?{o:'#243449',S:'#32576a',B:'#467f8a',H:'#7db4ab'}:{o:'#283c40',S:'#356557',B:'#579775',H:'#99c18a'},
     trim:{o:'#443345',S:'#977453',B:'#d2ad71',H:'#f2d3a2'},
     trousers:{o:'#283140',S:'#394755',B:'#526673',H:'#7d9098'},
@@ -50,6 +51,7 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach') {
       for(let x=dir==='right'?6:5;x<=(dir==='right'?10:10);x++)pixel(x,waist,'trim','B');
     }
     // Twelve-pixel hair envelope wraps a ten-pixel bare head. Front fringe stops above eyes.
+    if(wig!=='none') {
     const front=[
       '..oooooooo..', '.oSSHHHHSSo.', 'oSHHHBBBBBSo', 'oSHHBBBBBBSo',
       'oSBBBooBBBSo', '.oBBo..oBBo.', '..oo....oo..'
@@ -62,11 +64,12 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach') {
     const rows=dir==='back'?rear:dir==='right'?front.slice(0,6):front;
     rows.forEach((row,j)=>[...row].forEach((c,i)=>{if(c!=='.')pixel(i+2,headTop-1+j,'hair',c);}));
     if(dir==='right')for(let y=headTop+4;y<=headTop+9;y++)for(let x=3;x<=6;x++)pixel(x,y,'hair',x===3?'o':x===4?'S':'B');
-    if(style==='dress'){
+    if(wig==='tied'){
       // A tied knot changes silhouette, visibly behind the head in profile.
       if(dir==='right') ['.oo.','oHBo','oBSo','.oo.'].forEach((r,j)=>[...r].forEach((c,i)=>{if(c!=='.')pixel(i+1,headTop+6+j,'hair',c);}));
       if(dir==='back') ['.oo.','oHBo','oBSo','.oo.'].forEach((r,j)=>[...r].forEach((c,i)=>{if(c!=='.')pixel(i+6,headTop+7+j,'hair',c);}));
       if(dir==='front')for(const [x,y] of [[3,headTop+6],[12,headTop+6]])pixel(x,y,'hair','o');
+    }
     }
     // Every newly exposed material boundary gets an opaque outline in place.
     for(const key of overlay.keys())occupied.add(key);

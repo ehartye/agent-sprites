@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "generator": "generate-wig.mjs",
+  "args": [
+    "child",
+    "tied"
+  ],
+  "output": "dist/child-wig-tied",
+  "scale": 10,
+  "expectedFrames": [
+    "front",
+    "right",
+    "back"
+  ]
+}

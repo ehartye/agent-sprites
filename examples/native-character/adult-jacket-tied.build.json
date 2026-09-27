@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "generator": "dress-template.mjs",
+  "args": [
+    "adult",
+    "jacket",
+    "peach",
+    "tied"
+  ],
+  "output": "dist/adult-jacket-tied",
+  "scale": 10,
+  "outlineColors": [
+    "#673649",
+    "#302238",
+    "#382537",
+    "#243449",
+    "#283c40",
+    "#443345",
+    "#302637",
+    "#283140"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back"
+  ]
+}
