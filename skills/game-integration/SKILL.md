@@ -29,6 +29,8 @@ Use `ui-boot.mjs` when loading/failure messages must also use the exported font.
 For a strictly pixel interface, replace visible browser lettering, native form
 art, tooltips, list markers, focus rings and world labels as well as main menus.
 Retain semantic controls for keyboard and screen readers beneath the visual layer.
+Drive dirty UI painting from the game's existing frame loop; use one-shot
+invalidation during bootstrap rather than a second perpetual animation loop.
 
 Verify long dialogue wrapping, scrolled/clipped content, focus and disabled states,
 modal layering and phone hit targets in the running game. A loaded atlas or a
