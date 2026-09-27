@@ -28,6 +28,19 @@ export function hitBounds(frame, anchor, x, y, { scale = 1 } = {}) {
   return { x: x + (b.left - anchor.x) * scale, y: y + (b.top - anchor.y) * scale, w: (b.right - b.left + 1) * scale, h: (b.bottom - b.top + 1) * scale };
 }
 
+/**
+ * World point and draw layer for one-sided gear (a held tool, holster, single
+ * glove) from its declared anatomical side. A far-side item draws under the
+ * body; near, front and back items draw over it.
+ */
+export function attachmentFor(frame, side, joint, anchor, x, y, { scale = 1 } = {}) {
+  if (!['left', 'right'].includes(side)) throw new Error('side must be left or right');
+  if (!['shoulder', 'wrist', 'hip', 'lowerWrist'].includes(joint)) throw new Error('joint must be shoulder, wrist, hip or lowerWrist');
+  const s = frame.sides?.[side];
+  if (!s?.[joint]) throw new Error(`frame ${frame.alias} has no ${side} ${joint}`);
+  return { x: x + (s[joint][0] - anchor.x) * scale, y: y + (s[joint][1] - anchor.y) * scale, role: s.role, layer: s.role === 'far' ? 'under-body' : 'over-body' };
+}
+
 /** Facing from displacement: dominant axis wins; a tie keeps a matching current facing. */
 export function facingFor(dx, dy, current = 'down') {
   if (!dx && !dy) return current;

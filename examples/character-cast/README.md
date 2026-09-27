@@ -54,6 +54,17 @@ and arm joints, support contact, bounds and checks. Left-facing geometry mirrors
 the right-facing rig and swaps anatomical labels. The report is part of the same
 atomic build publication: invalid recipes preserve previous output.
 
+Every frame also reports `sides.left` and `sides.right`: the anatomical side's
+`role` (`near`/`far` in profile, `front` or `back` otherwise), `shoulder`,
+`wrist`, `hip` and, for four arms, `lowerWrist`. Facing right, the character's
+right side is near; facing left, its left; from the front its right hand is on the
+image left. One-sided gear (a held tool, a holster, a single glove) should declare
+its body side and attach through `attachmentFor(frame, side, joint, anchor, x, y,
+{scale})` in `playback-runtime.mjs`, which returns the world point and
+`layer: 'under-body'` for far-side items or `'over-body'` otherwise. Never place
+such gear by image side or by facing: a right-hip holster must stay on the right
+hip when the character turns.
+
 Profile frames also expose `legs[].heel`, `legs[].ball` and `legs[].toe`: actual
 boot-outline sole landmarks in source pixels, rather than a guessed foot center.
 `legs[].foot` describes the authored `rest`, `heel`, `flat`, `toe`, or `swing` shape and
