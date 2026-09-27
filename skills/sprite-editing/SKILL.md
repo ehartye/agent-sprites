@@ -92,6 +92,8 @@ sprite.js draw polyline --cell 0,0 --points "0,8 4,4 8,8 12,4" --color "#ffffff"
 
 Polygons/polylines move, flip, rotate, and group like any other named shape — prefer one named polygon over a pile of line/point shapes for angular forms.
 
+For brush strokes 2–4px thick, add `--width 2`–`4` to `line`, `polyline` or `arc`. A square brush is stamped along the 1px path (odd widths centered, even widths extend toward +x/+y) and emitted as named points `<name>_<i>`, so a wide stroke no longer moves as one shape. Width 1, the default, is unchanged.
+
 Use `sprite.js view --cell 0,0` or check the web UI frequently to verify your work.
 
 ## Animation Workflow
@@ -160,8 +162,8 @@ Hard-won recipes from real builds:
   — not a bigger backing disc. The renderer trims the 1px N/S/E/W tips of
   filled circles/ellipses; a backing disc one radius larger leaves nub
   artifacts at the cardinals where the trims disagree.
-- **Thick arcs are polygons, not stacked arcs.** Concentric 1px arcs leave
-  diagonal raster gaps. For a solid crescent (sword slash, moon, rainbow),
+- **Thick arcs: `--width` for strokes, polygons for shaped crescents.** Concentric 1px arcs leave
+  diagonal raster gaps. `draw arc --width 2`–`4` gives an even-thickness stroke. For a tapering crescent (sword slash, moon, rainbow),
   compute a filled polygon: outer arc swept one way, inner arc traced back.
   A build-script helper makes this a one-liner (see the generator-script
   pattern in the tool reference).

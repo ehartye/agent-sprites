@@ -443,26 +443,71 @@ function rasterizeEllipseArc(cx, cy, rx, ry, fromDeg, toDeg) {
   return pixels;
 }
 
-function handleArc(state, params, cell) {
+/** Stroke width 1–4, validated once; undefined means the classic 1px stroke. */
+function strokeWidth(type, params) {
+  if (params.width == null) return 1;
+  if (!['line', 'polyline', 'arc'].includes(type)) throw new Error(`width applies only to line, polyline and arc, not ${type}`);
+  const w = params.width;
+  if (!Number.isInteger(w) || w < 1 || w > 4) throw new Error(`draw ${type}: width must be an integer from 1 to 4`);
+  return w;
+}
+
+// Same Bresenham as CanvasRenderer._drawLine, so a wide stroke covers exactly
+// the pixels its 1px form renders.
+function linePixels(x1, y1, x2, y2) {
+  const out = [], dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+  const sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
+  let err = dx - dy, x = x1, y = y1;
+  while (true) {
+    out.push({ x, y });
+    if (x === x2 && y === y2) return out;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+}
+
+/**
+ * Stamp a width×width square brush on every path pixel. Odd widths center on
+ * the path; even widths extend the extra pixel toward +x/+y. Pixels outside the
+ * cell are dropped, as the renderer would clip them.
+ */
+function stampBrush(path, width, cell) {
+  const lo = -Math.floor((width - 1) / 2), seen = new Set(), out = [];
+  for (const { x, y } of path) {
+    for (let dy = lo; dy < lo + width; dy++) for (let dx = lo; dx < lo + width; dx++) {
+      const px = x + dx, py = y + dy, key = `${px},${py}`;
+      if (px < 0 || py < 0 || px >= cell.width || py >= cell.height || seen.has(key)) continue;
+      seen.add(key); out.push({ x: px, y: py });
+    }
+  }
+  return out;
+}
+
+function emitPoints(state, params, cell, pixels, base) {
+  const shapeNames = [];
+  for (let i = 0; i < pixels.length; i++) {
+    const name = `${base}_${i}`;
+    const shape = cell.draw('point', pixels[i], params.color, name);
+    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+    shapeNames.push(name);
+  }
+  return { shapeNames };
+}
+
+function handleArc(state, params, cell, width = 1) {
   const rx = params.rx ?? params.r;
   const ry = params.ry ?? params.r;
   if (!rx || !ry) throw new Error('arc requires rx/ry or r');
-  const pixels = rasterizeEllipseArc(params.cx, params.cy, rx, ry, params.from_deg, params.to_deg);
+  let pixels = rasterizeEllipseArc(params.cx, params.cy, rx, ry, params.from_deg, params.to_deg);
+  if (width > 1) pixels = stampBrush(pixels, width, cell);
   let filtered = pixels;
   if (params.clip_to) {
     const mask = cell.shapes.get(params.clip_to);
     if (!mask) throw new Error(`Clip-to shape "${params.clip_to}" not found`);
     filtered = pixels.filter(pt => isInsideShape(mask, pt.x, pt.y));
   }
-  const base = params.shape_name ?? 'arc';
-  const shapeNames = [];
-  for (let i = 0; i < filtered.length; i++) {
-    const name = `${base}_${i}`;
-    const shape = cell.draw('point', filtered[i], params.color, name);
-    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
-    shapeNames.push(name);
-  }
-  return { shapeNames };
+  return emitPoints(state, params, cell, filtered, params.shape_name ?? 'arc');
 }
 
 /**
@@ -631,13 +676,14 @@ function _handleDrawInner(state, type, params) {
   }
 
   const cell = state.project.cells.getCell(params.cell);
+  const width = strokeWidth(type, params);
 
   if (type === 'border') {
     return handleBorder(state, params, cell);
   }
 
   if (type === 'arc') {
-    return handleArc(state, params, cell);
+    return handleArc(state, params, cell, width);
   }
 
   if (type === 'ring') {
@@ -702,6 +748,14 @@ function _handleDrawInner(state, type, params) {
     }
     default:
       throw new Error(`Unknown draw type: ${type}`);
+  }
+
+  // A wide stroke is a brush stamped along the 1px path, emitted as named
+  // points like arc; width 1 keeps the single editable line/polyline shape.
+  if (width > 1) {
+    const pts = type === 'line' ? [{ x: drawParams.x1, y: drawParams.y1 }, { x: drawParams.x2, y: drawParams.y2 }] : drawParams.points;
+    const path = pts.slice(1).flatMap((b, i) => linePixels(pts[i].x, pts[i].y, b.x, b.y));
+    return emitPoints(state, params, cell, stampBrush(path, width, cell), params.shape_name ?? type);
   }
 
   const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null);
