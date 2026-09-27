@@ -731,6 +731,8 @@ function parsePoints(input) {
   throw new Error('points required ("x,y x,y ..." or an array of points)');
 }
 
+const ERASABLE = ['point', 'line', 'rect', 'circle', 'ellipse', 'polygon', 'polyline'];
+
 function _handleDrawInner(state, type, params) {
   if (!state.project) throw new Error('No project open');
 
@@ -740,6 +742,17 @@ function _handleDrawInner(state, type, params) {
 
   if (type === 'highlight' || type === 'shadow') {
     return handleHighlightShadow(state, type, params);
+  }
+
+  // An erase shape is ordinary named geometry that clears the shapes below it.
+  if (params.erase != null) {
+    if (typeof params.erase !== 'boolean') throw new Error('erase must be true or false');
+    if (params.erase) {
+      if (!ERASABLE.includes(type)) throw new Error(`erase applies to ${ERASABLE.slice(0, -1).join(', ')} and ${ERASABLE.at(-1)}, not ${type}`);
+      if (params.pattern != null) throw new Error('erase shapes cannot use a pattern');
+      // Only coverage matters; the color is stored for the editor's shape list.
+      params = { ...params, color: params.color ?? '#000000' };
+    }
   }
 
   // Every remaining draw type paints with an explicit color. Failing here
@@ -829,9 +842,11 @@ function _handleDrawInner(state, type, params) {
   if (width > 1) {
     const pts = type === 'line' ? [{ x: drawParams.x1, y: drawParams.y1 }, { x: drawParams.x2, y: drawParams.y2 }] : drawParams.points;
     const path = pts.slice(1).flatMap((b, i) => linePixels(pts[i].x, pts[i].y, b.x, b.y));
-    return emitPoints(state, params, cell, stampBrush(path, width, cell), params.shape_name ?? type);
+    const brush = stampBrush(path, width, cell).map(px => params.erase ? { ...px, erase: true } : px);
+    return emitPoints(state, params, cell, brush, params.shape_name ?? type);
   }
 
+  if (params.erase) drawParams.erase = true;
   const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null);
   state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
   return { shapeId: shape.id, shapeName: shape.name };

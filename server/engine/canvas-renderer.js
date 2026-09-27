@@ -254,6 +254,23 @@ export class CanvasRenderer {
     }
   }
 
+  /**
+   * Erase shapes punch transparency through the shapes below them (by z), not
+   * through the background or reference. Cells without one draw directly.
+   */
+  _drawShapes(ctx, shapes, width, height) {
+    if (!shapes.some(shape => shape.params.erase)) {
+      for (const shape of shapes) this._drawShape(ctx, shape);
+      return;
+    }
+    const layer = createCanvas(width, height), lctx = layer.getContext('2d');
+    for (const shape of shapes) {
+      lctx.globalCompositeOperation = shape.params.erase ? 'destination-out' : 'source-over';
+      this._drawShape(lctx, shape);
+    }
+    ctx.drawImage(layer, 0, 0);
+  }
+
   /** The exact pixels one shape paints in a width×height cell, as "x,y" keys. */
   shapeCoverage(shape, width, height) {
     const canvas = createCanvas(width, height), ctx = canvas.getContext('2d');
@@ -268,9 +285,7 @@ export class CanvasRenderer {
     const ctx = canvas.getContext('2d');
     this._applyBackground(ctx, cell.width, cell.height);
     this._drawReference(ctx, cell, opts);
-    for (const shape of cell.shapes.listByZ()) {
-      this._drawShape(ctx, shape);
-    }
+    this._drawShapes(ctx, cell.shapes.listByZ(), cell.width, cell.height);
     return ctx.getImageData(0, 0, cell.width, cell.height).data;
   }
 
@@ -289,9 +304,7 @@ export class CanvasRenderer {
     const ctx = canvas.getContext('2d');
     this._applyBackground(ctx, cell.width, cell.height);
     this._drawReference(ctx, cell, opts);
-    for (const shape of cell.shapes.listByZ()) {
-      this._drawShape(ctx, shape);
-    }
+    this._drawShapes(ctx, cell.shapes.listByZ(), cell.width, cell.height);
     return this._finish(canvas, opts.scale);
   }
 
@@ -315,9 +328,7 @@ export class CanvasRenderer {
       const cellCanvas = createCanvas(cellW, cellH);
       const cellCtx = cellCanvas.getContext('2d');
       this._applyBackground(cellCtx, cellW, cellH);
-      for (const shape of cell.shapes.listByZ()) {
-        this._drawShape(cellCtx, shape);
-      }
+      this._drawShapes(cellCtx, cell.shapes.listByZ(), cellW, cellH);
       ctx.drawImage(cellCanvas, x, y);
     });
 
