@@ -16,6 +16,7 @@ import { cellRoutes } from '../web/api/cell-routes.js';
 import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { createPreview } from './preview.js';
+import { renderFontProof } from './font-proof.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
@@ -169,6 +170,11 @@ export async function buildProject(configPath) {
       artifacts.uiRuntime = 'ui-runtime.mjs';
       writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
       if (recipeReport.kind === 'font') {
+        const proof = await renderFontProof(png, atlas, recipeReport);
+        artifacts.fontProof = 'font-proof.png';
+        artifacts.fontProofReport = 'font-proof.json';
+        writeFileSync(join(stage, artifacts.fontProof), proof.png);
+        writeFileSync(join(stage, artifacts.fontProofReport), json(proof.report));
         artifacts.uiBoot = 'ui-boot.mjs';
         writeFileSync(join(stage, artifacts.uiBoot), `// Generated bitmap bootstrap: no network font or platform text renderer.\nexport const imageDataUrl=${JSON.stringify('data:image/png;base64,' + png.toString('base64'))};\nexport const atlas=${JSON.stringify(atlas)};\nexport const report=${JSON.stringify(recipeReport)};\n`);
       }

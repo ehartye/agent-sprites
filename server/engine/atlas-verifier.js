@@ -65,26 +65,45 @@ function canonical(path) {
   return process.platform === 'win32' ? result.toLowerCase() : result;
 }
 
+// Base frames, tag runs and name aliases often share one source rectangle. Show
+// each rectangle once, labeled with every frame index and its best name, so a
+// font or cast sheet is reviewable; validation still covers every frame.
+function contactTiles(frames) {
+  const tiles = new Map();
+  frames.forEach((f, i) => {
+    const key = JSON.stringify([f.frame, f.rotated, f.spriteSourceSize, f.sourceSize]);
+    if (!tiles.has(key)) tiles.set(key, { frame: f, indices: [], names: [], durations: new Set() });
+    const t = tiles.get(key);
+    t.indices.push(i); t.durations.add(f.duration);
+    if (!/^d+$/.test(f.filename)) t.names.push(f.filename);
+  });
+  return [...tiles.values()];
+}
+
 function contactSheet(image, frames, scale) {
+  const tiles = contactTiles(frames);
   const maxW = Math.max(...frames.map(f => f.sourceSize.w));
   const maxH = Math.max(...frames.map(f => f.sourceSize.h));
-  const columns = Math.min(6, frames.length), tileW = Math.max(160, maxW * scale + 16), tileH = maxH * scale + 48;
-  const w = columns * tileW, h = Math.ceil(frames.length / columns) * tileH;
+  const tileW = Math.max(160, maxW * scale + 16), tileH = maxH * scale + 48;
+  // Roughly square sheets instead of a fixed six columns.
+  const columns = Math.max(1, Math.min(tiles.length, 12, Math.round(Math.sqrt(tiles.length * tileH / tileW)) || 1));
+  const w = columns * tileW, h = Math.ceil(tiles.length / columns) * tileH;
   if (w * h > 32_000_000 || w > 32767 || h > 32767) throw new Error('Contact sheet exceeds 32 megapixels; use a smaller scale or split the atlas.');
   const canvas = createCanvas(w, h), ctx = canvas.getContext('2d');
   ctx.fillStyle = '#858585'; ctx.fillRect(0, 0, w, h); ctx.imageSmoothingEnabled = false;
-  frames.forEach((f, i) => {
-    const x = (i % columns) * tileW, y = Math.floor(i / columns) * tileH;
+  tiles.forEach((t, i) => {
+    const f = t.frame, x = (i % columns) * tileW, y = Math.floor(i / columns) * tileH;
     ctx.fillStyle = '#252525'; ctx.fillRect(x, y, tileW, 40);
     ctx.fillStyle = '#ffffff'; ctx.font = '12px sans-serif';
-    ctx.fillText(`${i}: ${f.filename}`, x + 6, y + 16, tileW - 12);
-    ctx.fillText(`${f.duration} ms`, x + 6, y + 32, tileW - 12);
+    const extra = t.names.length > 1 ? ` +${t.names.length - 1}` : '';
+    ctx.fillText(`${t.names[0] ?? f.filename}${extra}`, x + 6, y + 16, tileW - 12);
+    ctx.fillText(`#${t.indices.join(',')} · ${[...t.durations].join('/')} ms`, x + 6, y + 32, tileW - 12);
     const r = f.frame, s = f.spriteSourceSize;
     ctx.save(); ctx.translate(x + 8 + s.x * scale, y + 44 + s.y * scale);
     if (f.rotated) { ctx.translate(0, r.w * scale); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(image, r.x, r.y, r.w, r.h, 0, 0, r.w * scale, r.h * scale); ctx.restore();
   });
-  return canvas.toBuffer('image/png');
+  return { png: canvas.toBuffer('image/png'), tiles: tiles.length };
 }
 
 // Four-neighbor boundaries include transparent holes and the packed frame edge.
@@ -156,8 +175,10 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     }
     if (contactPath) {
       if (!Number.isInteger(scale) || scale < 1 || scale > 16) throw new Error('Contact scale must be an integer from 1 to 16.');
-      writeFileSync(contactPath, contactSheet(image, frames, scale));
+      const sheet = contactSheet(image, frames, scale);
+      writeFileSync(contactPath, sheet.png);
       report.artifacts.contactSheet = resolve(contactPath);
+      report.contactSheet = { tiles: sheet.tiles, frames: frames.length };
     }
     return report;
   } catch (e) { fail('verification', e.message); return report; }
