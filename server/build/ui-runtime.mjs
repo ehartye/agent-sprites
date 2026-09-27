@@ -78,3 +78,30 @@ export function drawNineSlice(ctx,{image,atlas,report},name,x,y,width,height,{sc
     sy+=sh[row];dy+=dh[row];
   }
 }
+
+// Opaque bounds and integer fitting are shared by portraits, specimen displays,
+// inventory previews and other consumers of padded exported frames.
+export function getOpaqueBounds({data,width,height}){
+  positiveInteger(width,'Source width');positiveInteger(height,'Source height');
+  if(!data||data.length!==width*height*4)throw Error('Expected RGBA image data.');
+  let left=width,top=height,right=-1,bottom=-1;
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(data[(y*width+x)*4+3]){
+    left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);
+  }
+  return right<0?null:{x:left,y:top,width:right-left+1,height:bottom-top+1};
+}
+export function drawPixelFit(ctx,image,bounds,destination,{padding=0}={}){
+  if(!bounds)return null;
+  for(const [label,rect] of [['Source',bounds],['Destination',destination]]){
+    integer(rect.x,`${label} X`);integer(rect.y,`${label} Y`);positiveInteger(rect.width,`${label} width`);positiveInteger(rect.height,`${label} height`);
+  }
+  if(bounds.x<0||bounds.y<0)throw Error('Source bounds must be nonnegative.');
+  integer(padding,'Padding');if(padding<0)throw Error('Padding must be nonnegative.');
+  const scale=Math.floor(Math.min((destination.width-2*padding)/bounds.width,(destination.height-2*padding)/bounds.height));
+  // Never shrink into fractional pixels or spill out of an undersized box.
+  if(scale<1)return null;
+  const width=bounds.width*scale,height=bounds.height*scale;
+  const x=destination.x+Math.floor((destination.width-width)/2),y=destination.y+Math.floor((destination.height-height)/2);
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(image,bounds.x,bounds.y,bounds.width,bounds.height,x,y,width,height);
+  return {x,y,width,height,scale};
+}

@@ -284,7 +284,20 @@ For bitmap text and reusable nine-slice controls, use the [`ui` source](examples
 Font and skin recipes export editable named pixel rectangles, tone variants, metrics,
 `ui-report.json`, and a portable `ui-runtime.mjs` compositor that draws atlas images
 without platform fonts. Font builds also publish an embedded `ui-boot.mjs` for
-loading/error UI. Grid dimensions have no product policy caps: use positive safe
+loading/error UI. Message skin families include `message` (utility), `speech`, `specimen`,
+`specimen_mount`, `specimen_label` (mint label with ink text), `note` (paper),
+`notification`, and `warning`. Their report metrics include six-pixel fixed
+insets, twelve-pixel content padding, minimum dimensions, and `textTone`.
+Use the exported metrics for layout at your integer display scale. The separate
+`scrim_solid` frame is opaque pixel art; composite it at its reported `opacity`
+(0.48) to quiet the world behind a dialog. Historical skin frames and regular /
+compact font colors remain unchanged. The portable runtime also exports
+`getOpaqueBounds(imageData)` and `drawPixelFit(ctx, image, bounds, destination,
+{padding})` to crop transparent padding and center artwork at a uniform integer
+scale. Empty art and boxes too small for 1× return `null` without drawing; no
+fractional shrinking or overflow is introduced.
+
+Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the
 underlying image renderer determine which sheets can actually be allocated.
 

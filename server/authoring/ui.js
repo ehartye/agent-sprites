@@ -2,7 +2,7 @@ import {FONT_GLYPHS,FONT_CHARACTERS} from './ui-font.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
 
-export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eceddb',muted:'#a8bcb9',gold:'#eed09b',moss:'#98b58a',light:'#ded5b4',shadow:'#10242d'};
+export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eceddb',muted:'#a8bcb9',gold:'#eed09b',moss:'#98b58a',light:'#ded5b4',shadow:'#10242d',orbitalInk:'#26333f',instrumentTeal:'#528f8b',wornCopper:'#bc7858',seedGold:'#dfac59',mint:'#a4d4c4',paper:'#eedfbe',specimenWell:'#36565e'};
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
   for(const k of Object.keys(config))if(!['name','kind','theme','characters','face'].includes(k))throw Error(`Unknown UI field: ${k}`);
