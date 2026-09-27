@@ -56,7 +56,7 @@
 <main>
   <header><div><h1>Mannequin walk study</h1><p>Compare the body, wardrobe, and hair through a full walking cycle.</p></div><p class="spec">16 × 32 px · 4 facings · 4 steps</p></header>
   <section class="controls" aria-label="Appearance and playback">
-    <label>Body<select id="body"><option value="adult">Adult</option><option value="child">Child</option></select></label>
+    <label>Body<select id="body"><option value="adult">Adult</option><option value="child">Child</option><option value="large">Large</option></select></label>
     <label>Clothing<select id="clothing"><option value="bare">Bare mannequin</option><option value="jacket">Jacket</option><option value="dress">Dress</option></select></label>
     <label>Hair<select id="hair"><option value="default">Outfit default</option><option value="short">Short</option><option value="tied">Tied</option><option value="none">None</option></select></label>
     <label>Motion<select id="motion"><option value="walk">Walk</option><option value="idle">Idle</option></select></label>
@@ -157,17 +157,21 @@
 
   async function selectAppearance() {
     const currentGeneration = ++generation;
-    const kind = body.value, style = clothing.value;
+    const kind = body.value;
+    // Broad-body clothing needs its own fitting pass; head-compatible adult wigs already align.
+    if (kind === 'large') clothing.value = 'bare';
+    clothing.disabled = kind === 'large';
+    const style = clothing.value;
     const wig = hair.value === 'default' ? ({bare:'none', jacket:'short', dress:'tied'})[style] : hair.value;
     sheets = []; cursor = 0; elapsed = 0; render(true); syncPlayback();
     status.classList.remove('error'); status.textContent = 'Loading ' + kind + ' · ' + style + ' · ' + wig + ' hair…';
     try {
       const loading = [style === 'bare' ? loadSheet(kind, 'native-' + kind) : loadSheet(kind + '-' + style + '-none')];
-      if (wig !== 'none') loading.push(loadSheet(kind + '-wig-' + wig));
+      if (wig !== 'none') loading.push(loadSheet((kind === 'large' ? 'adult' : kind) + '-wig-' + wig));
       const loaded = await Promise.all(loading);
       if (currentGeneration !== generation) return;
       sheets = loaded; render(true); syncPlayback();
-      status.textContent = (kind === 'adult' ? 'Adult' : 'Child') + ' · ' + (style === 'bare' ? 'bare mannequin' : style) + ' · ' + (wig === 'none' ? 'no hair' : wig + ' hair') + ' · ' + (sheets.length === 2 ? 'separate wig overlay' : 'body and clothing sheet');
+      status.textContent = ({adult:'Adult', child:'Child', large:'Large'})[kind] + ' · ' + (style === 'bare' ? 'bare mannequin' : style) + ' · ' + (wig === 'none' ? 'no hair' : wig + ' hair') + ' · ' + (sheets.length === 2 ? 'separate wig overlay' : 'body and clothing sheet');
     } catch (error) {
       if (currentGeneration !== generation) return;
       status.classList.add('error');

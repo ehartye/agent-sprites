@@ -1,3 +1,4 @@
+import {broadenMannequin} from './large-mannequin.mjs';
 import {readFileSync} from 'node:fs';
 import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
 
@@ -6,6 +7,7 @@ export const DIRECTIONS=['front','right','back','left'];
 // Source poses stay editable and unchanged. Left is a reflected profile; rear
 // uses the authored rear treatment on each front pose's moving silhouette.
 export function nativeMannequin(kind='adult',tone='peach'){
+  if(kind==='large')return broadenMannequin(nativeMannequin('adult',tone),tone);
   if(!['adult','child'].includes(kind))throw Error('Choose adult or child.');
   const source=JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url)));
   const poses=Array.from({length:4},(_,phase)=>deriveBackStudy({...source,
