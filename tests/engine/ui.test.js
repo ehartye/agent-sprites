@@ -22,6 +22,20 @@ test('font publishes deterministic editable glyphs, metrics, game symbols, and c
   }
 });
 function fixture(kind){const {report}=generateUIRecipe({kind});return {image:{},report,atlas:{frames:report.frames.map((f,i)=>({filename:f.alias,frame:{x:i*report.cellSize.width,y:0,w:report.cellSize.width,h:report.cellSize.height}}))}};}
+test('compact font keeps the full repertoire with smaller authored metrics and integer rendering',()=>{
+  const regular=generateUIRecipe({kind:'font'}),compact=generateUIRecipe({kind:'font',face:'compact'});
+  expect(compact.report).toMatchObject({cellSize:{width:6,height:10},baseline:7,lineHeight:10,face:'compact'});
+  expect(Object.keys(compact.report.glyphs)).toEqual(Object.keys(regular.report.glyphs));
+  for(const [char,glyph] of Object.entries(compact.report.glyphs)){
+    expect(glyph.advance).toBe(char===' '?3:5);
+    if(char!==' '){expect(glyph.bounds.right).toBeLessThan(5);expect(glyph.bounds.bottom).toBeLessThan(10);expect(glyph.bounds.right).toBeGreaterThanOrEqual(0);}
+  }
+  const report=compact.report,atlas={frames:report.frames.map((f,i)=>({filename:f.alias,frame:{x:i*6,y:0,w:6,h:10}}))};
+  const font=createBitmapFont({image:{},report,atlas});
+  expect(font.measure('A hint',{scale:2})).toMatchObject({width:56,height:20});
+  expect(()=>generateUIRecipe({kind:'skin',face:'compact'})).toThrow(/font/);
+  expect(()=>generateUIRecipe({kind:'font',face:'tiny'})).toThrow(/face/);
+});
 test('runtime wraps with shared metrics, preserves explicit newlines, and draws atlas pixels only',()=>{
   const font=createBitmapFont(fixture('font')),calls=[],ctx={drawImage:(...args)=>calls.push(args)};
   expect(font.measure('AB',{scale:2})).toMatchObject({width:24,height:24});

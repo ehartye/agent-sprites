@@ -8,7 +8,8 @@ let dir,path,config;
 beforeEach(()=>{dir=mkdtempSync(join(tmpdir(),'sprite-ui-build-'));path=join(dir,'sprite-project.json');config={version:1,output:'dist',scale:1,ui:{name:'ui-font',kind:'font',characters:' Agé?'}};});
 afterEach(()=>rmSync(dir,{recursive:true,force:true}));
 const write=()=>writeFileSync(path,JSON.stringify(config));
-test('UI build publishes deterministic editable font, portable runtime, embedded bootstrap and owned report',async()=>{
+test.each(['regular','compact'])('%s UI build publishes deterministic editable font, portable runtime, embedded bootstrap and owned report',async face=>{
+  config.ui.face=face;
   write();const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
   for(const key of ['uiReport','uiRuntime','uiBoot'])expect(existsSync(result.artifacts[key])).toBe(true);
   const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-runtime.mjs');expect(marker.files).toContain('ui-boot.mjs');

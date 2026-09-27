@@ -3,7 +3,17 @@
 Build `font.json` and `skin.json` through the checked managed CLI. Each selects the
 `ui` inline source, exclusively of `ops`, `generator`, `character`, and `environment`.
 The only supported theme is `moss-brass`. `name`, `kind`, `theme`, and optional
-font-only `characters` are the complete recipe fields; unknown fields fail.
+font-only `characters` and `face` are the complete recipe fields; unknown fields fail.
+
+Use `face: "compact"` for secondary hints, captions and inventory descriptions.
+It has authored four-column, six-row letters in 6×10 cells, baseline 7, line height
+10, advance 5 and space advance 3. Punctuation/symbols retain up to five columns;
+accents and descenders have reserved rows. It supports the same repertoire and
+tones as the default `face: "regular"`. Build it as a separate font atlas, then
+compose both faces at integer 2×: ordinary lettering is 14 pixels high and compact
+lettering 12. Do not downscale the regular font to fake smaller type. Use matching
+advance/space metrics in semantic layouts. Keep important actions in the regular
+face and quiet supporting text in compact; use ink on light panels, cream on dark.
 
 The original 5-column font provides 8×12 cells, baseline 9, line height 12, advance
 6 and space advance 4. Lowercase descenders and common accents have reserved rows.
