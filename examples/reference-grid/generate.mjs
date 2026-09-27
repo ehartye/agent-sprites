@@ -2,11 +2,14 @@ import sharp from 'sharp';
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { SKIN_TONES, referenceSkinRole } from '../../server/engine/skin-tones.js';
 
 // Reconstruct a known enlarged pixel grid. Sampling the most frequent color in
 // each source block suppresses resampling fringes without shrinking drawn shapes.
 export async function generateReferenceGrid(config, base = process.cwd()) {
   const { source, name, grid, head } = config;
+  const tone = config.skinTone == null ? null : SKIN_TONES.find(tone => tone.id === config.skinTone);
+  if (config.skinTone != null && !tone) throw new Error(`Unknown skin tone: ${config.skinTone}`);
   const isHex = value => typeof value === 'string' && /^#[a-f\d]{6}$/i.test(value);
   if (typeof source !== 'string' || !source || typeof name !== 'string' || !name.trim()) throw new Error('source and name are required.');
   if (!isHex(config.background) || (config.outline !== undefined && !isHex(config.outline))) throw new Error('background and outline must be six-digit hex colors.');
@@ -83,14 +86,18 @@ export async function generateReferenceGrid(config, base = process.cwd()) {
     const edge = (x, y) => [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) => !pixels[y + dy]?.[x + dx]);
     const edges = pixels.map((line, y) => line.map((color, x) => !!color && edge(x, y)));
     const parts = { head: [], body: [] };
+    const skin = { highlight: [], base: [], shadow: [], outline: [] };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (!pixels[y][x]) continue;
       const part = y >= top && y < top + 10 ? 'head' : 'body';
       const shapeName = `${part}-${x}-${y}`;
       parts[part].push(shapeName);
-      operations.push({ command: 'draw', type: 'point', cell, name: shapeName, x, y, color: edges[y][x] ? outline : pixels[y][x] });
+      const role = tone ? (edges[y][x] ? 'outline' : referenceSkinRole(pixels[y][x])) : null;
+      if (role) skin[role].push(shapeName);
+      operations.push({ command: 'draw', type: 'point', cell, name: shapeName, x, y, color: role ? tone.colors[role] : edges[y][x] ? outline : pixels[y][x] });
     }
     for (const [part, shapes] of Object.entries(parts)) operations.push({ command: 'shape-group', sub: 'create', cell, name: part, shapes });
+    if (tone) for (const [role, shapes] of Object.entries(skin)) if (shapes.length) operations.push({ command: 'shape-group', sub: 'create', cell, name: `skin-${role}`, shapes });
     frames.push({ name: frameName, headWidth: width, headTop: top });
   }
   return { operations, report: { cellWidth: W, cellHeight: H, frames, method: 'Calibrated modal block sampling, transparent background, contour repair; not an exact full-resolution trace.' } };

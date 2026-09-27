@@ -328,3 +328,13 @@ npm start       # run the server directly
 ## License
 
 MIT
+
+### Selectable reference skin tones
+
+The [reference-grid example](examples/reference-grid/README.md) can deconstruct
+striped palette demonstrations into skin shading groups. Open a normalized
+project and use **All palettes > Skin tone** to apply any of seven ramps across
+all poses, preserving eyes and geometry. `skin-tone <tone>` provides the same
+operation from the managed CLI. Unprepared designs are not automatically
+classified; generate the role groups first. Tone edits survive saves and copies,
+with one undo step per affected cell.

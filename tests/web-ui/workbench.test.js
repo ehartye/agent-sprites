@@ -24,6 +24,17 @@ test('renders all palette families together; selecting another palette uses exac
   document.querySelector('[title="nes / red · #d82800"]').click();
   expect(color).toHaveBeenCalledWith('#d82800', '#d82800');
 });
+test('skin tone buttons apply a whole ramp to the pinned session, separately from drawing swatches', async () => {
+  bench.sessionId = 'different-session';
+  bench.renderPalettes({ current: [], presets: [], skinTones: { supported: true, selected: 'rose', sessionId: 'skin-session', presets: [
+    { id: 'umber', name: 'Umber', colors: { highlight: '#8b3e28', base: '#80362d', shadow: '#732b2c', outline: '#432331' } },
+  ] } });
+  const button = document.querySelector('[data-skin-tone="umber"]');
+  expect(button).not.toBeNull();
+  button.click();
+  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/workbench/skin-tone', { tone: 'umber' }, { sessionId: 'skin-session' }));
+  expect(color).not.toHaveBeenCalled();
+});
 test('sessions are escaped and switching uses the stable id', async () => {
   await bench.show('sessions');
   expect(document.querySelector('script')).toBeNull();

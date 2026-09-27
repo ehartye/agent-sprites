@@ -9,6 +9,7 @@ import { mapCommandToApi } from '../../../scripts/batch-commands.js';
 import { buildProject } from '../../build/project-build.js';
 import { traceImageFile } from '../../engine/image-trace.js';
 import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
+import { applySkinTone, skinToneState } from '../../engine/skin-tones.js';
 
 export function localFileRequestAllowed(req) {
   const remote = req.socket.remoteAddress;
@@ -111,9 +112,18 @@ export function workbenchRoutes(state) {
     res.json({ ok: true, data: project.review });
   }));
   router.get('/workbench/palettes', route((_req, res) => {
+    if (state.project) captureProjectMetadata(state);
     res.json({ ok: true, data: { current: state.project?.palette.toJSON() ?? [],
       presets: Palette.listPresets().map(name => ({ name, colors: Palette.fromPreset(name).toJSON() })),
+      skinTones: { ...skinToneState(state.project), sessionId: state.sessionId },
     } });
+  }));
+  router.post('/workbench/skin-tone', route((req, res) => {
+    const project = requireProject();
+    const result = applySkinTone(project, req.body.tone);
+    saveDraft(state);
+    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: state.sessionId });
+    res.json({ ok: true, data: result });
   }));
   router.post('/workbench/map-operations', route((req, res) => {
     const operations = req.body.operations;

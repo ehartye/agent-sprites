@@ -76,6 +76,21 @@ describe('collaborative workbench', () => {
     expect(palettes.data.presets.map(p => p.name)).toEqual(expect.arrayContaining(['pico8','nes','gameboy','db-16','db-32']));
     expect(palettes.data.current.find(c => c.name === 'red').color).toBe('#ff004d');
   });
+  test('skin tone selection updates role groups in the draft and persists through session copy', async () => {
+    await make();
+    await api('group/shape/create', { cell: '0,0', name: 'skin-base', shapes: ['body'] });
+    const result = await api('workbench/skin-tone', { tone: 'umber' });
+    expect(result.ok).toBe(true);
+    expect(state.project.cells.getCell('0,0').shapes.getByName('body').color).toBe('#80362d');
+    const palettes = await api('workbench/palettes');
+    expect(palettes.data.skinTones).toMatchObject({ supported: true, selected: 'umber' });
+    expect(palettes.data.skinTones.presets).toHaveLength(7);
+    const saved = JSON.parse(state.db.getSession(state.sessionId).draft_json);
+    expect(saved.cells['0,0'].shapes.find(s => s.name === 'body').color).toBe('#80362d');
+    await api('session/copy', { name: 'Tone copy' });
+    expect((await api('workbench/palettes')).data.skinTones.selected).toBe('umber');
+    expect((await api('workbench/skin-tone', { tone: 'bad' })).ok).toBe(false);
+  });
   test('metadata restore failure does not activate or retain a half-imported session', async () => {
     const original = await make();
     const count = state.db.listSessions().length;

@@ -15,6 +15,7 @@ export const COMMANDS = [
   post('save', 'Session', 'Save project on disk', '/api/session/save', {}),
   post('export', 'Session', 'Export PNG and atlas on disk', '/api/session/export', {}, 'Uses this session’s export folder. Add a dest field in JSON for another folder.'),
   post('pivot', 'Session', 'Set sprite pivot', '/api/session/pivot', { anchor: 'bottom-center' }),
+  post('skin-tone', 'Character', 'Apply skin tone', '/api/workbench/skin-tone', { tone: 'peach' }, 'Applies to every pose with skin role groups. Choose rose, peach, apricot, terracotta, umber, plum or espresso.'),
   draw('point', 'Point', { x: 8, y: 8 }),
   draw('line', 'Line', { x1: 4, y1: 4, x2: 12, y2: 12 }),
   draw('rect', 'Rectangle', { x: 4, y: 4, w: 8, h: 8, filled: true }),
