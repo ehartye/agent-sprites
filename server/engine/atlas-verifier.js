@@ -87,8 +87,25 @@ function contactSheet(image, frames, scale) {
   return canvas.toBuffer('image/png');
 }
 
+// Four-neighbor boundaries include transparent holes and the packed frame edge.
+// Samples use local packed coordinates, also for rotated/trimmed atlas entries.
+function outlineGaps(pixels, width, height, colors) {
+  let count = 0;
+  const samples = [];
+  const alpha = (x,y) => x<0 || y<0 || x>=width || y>=height ? 0 : pixels[(y*width+x)*4+3];
+  for (let y=0; y<height; y++) for (let x=0; x<width; x++) {
+    const i=(y*width+x)*4;
+    if (!pixels[i+3] || (alpha(x-1,y) && alpha(x+1,y) && alpha(x,y-1) && alpha(x,y+1))) continue;
+    const rgb=(pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2];
+    if (pixels[i+3]===255 && colors.has(rgb)) continue;
+    count++;
+    if (samples.length<16) samples.push({x,y});
+  }
+  return {count,pixels:samples};
+}
+
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], contactPath, reportPath, scale = 4 } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, reportPath, scale = 4 } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -106,6 +123,10 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
       fail('output-path', 'Review output paths must differ from each other and from atlas/PNG inputs (including file links).'); return report;
     }
     safeReport = Boolean(reportPath);
+    if (outlineColors !== undefined && (!Array.isArray(outlineColors) || !outlineColors.length || outlineColors.some(c => typeof c!=='string' || !/^#[0-9a-f]{6}$/i.test(c)))) {
+      fail('outline-colors', 'outlineColors must be a nonempty array of #RRGGBB colors.'); return report;
+    }
+    const contourColors = outlineColors === undefined ? null : new Set(outlineColors.map(c=>parseInt(c.slice(1),16)));
     let image;
     try {
       const bytes = readFileSync(imagePath);
@@ -116,11 +137,22 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     if (!report.ok) return report;
     const frames = atlasFrames(atlas);
     const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
+    const checkedContours = new Set();
+    if (contourColors) report.outlineColors = outlineColors;
     for (const [i, f] of frames.entries()) {
       const r = f.frame, pixels = ctx.getImageData(r.x, r.y, r.w, r.h).data;
       let visible = false;
       for (let j = 3; j < pixels.length; j += 4) if (pixels[j]) { visible = true; break; }
       if (!visible) report.warnings.push({ code: 'empty-frame', path: `frames[${i}]`, message: `Frame ${f.filename} is fully transparent; confirm this is intentional.` });
+      const key = `${r.x},${r.y},${r.w},${r.h}`;
+      if (visible && contourColors && !checkedContours.has(key)) {
+        checkedContours.add(key);
+        const gaps = outlineGaps(pixels, r.w, r.h, contourColors);
+        if (gaps.count) {
+          report.ok = false;
+          report.errors.push({code:'outline-gap',path:`frames[${i}]`,message:`Frame ${f.filename} has ${gaps.count} boundary pixels outside its opaque outline colors. Samples are packed-frame-local coordinates.`,...gaps});
+        }
+      }
     }
     if (contactPath) {
       if (!Number.isInteger(scale) || scale < 1 || scale > 16) throw new Error('Contact scale must be an integer from 1 to 16.');

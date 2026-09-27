@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": [
+    "adult",
+    "identity.json"
+  ],
+  "output": "dist/adult",
+  "expectedTags": [
+    "idle_front",
+    "idle_right"
+  ],
+  "scale": 6,
+  "outlineColors": ["#39283f"],
+  "expectedFrames": [
+    "idle_front",
+    "idle_right"
+  ]
+}

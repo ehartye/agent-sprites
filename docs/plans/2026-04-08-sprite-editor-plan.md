@@ -1,6 +1,6 @@
 # Claude-Sprites Implementation Plan
 
-Historical plan: its example 10×10 grid restriction was removed in 0.22.0.
+Historical plan: its example 10×10 grid restriction was removed in 0.26.0.
 Current grids have no product policy caps; see the README for current behavior.
 
 > **For Claude:** REQUIRED SUB-SKILL: Use h-superpowers:subagent-driven-development, h-superpowers:team-driven-development, or h-superpowers:executing-plans to implement this plan (ask user which approach).

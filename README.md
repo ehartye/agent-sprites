@@ -4,6 +4,24 @@ A pixel-art sprite authoring toolset for coding agents and 2D game projects, wit
 
 Built and battle-tested by shipping real games with it (SNES-style dungeon crawlers, a rhythm brawler) — every tool exists because a real build needed it.
 
+## Collaborative preview workbench
+
+Open the server's preview URL to work on the same live draft as your agent.
+
+- **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
+- **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.
+- **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace and verification forms run existing file workflows from the server's localhost page; restart remains a terminal command.
+- **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
+- Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
+
+Draft changes persist automatically. **Save project** writes the editable file on disk. Copies preserve animation timing and shape groups. Session guards stop stale tabs or in-flight batches from editing a different design after a switch. Large traces fit the canvas and have searchable, paged shape lists.
+
+**Show traced baseline** hides/shows the generated `trace-000001` rectangle shapes
+throughout your local view, leaving newly drawn shapes visible. **Show reference
+image** controls an attached tracing underlay. These are view-only switches: saved
+artwork and exports retain all shapes. Renamed traced shapes no longer belong to
+that automatically recognized baseline. A new session starts with both visible.
+
 ## The core idea
 
 Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixel buffers. Shapes carry z-order, live in grid cells, support per-cell undo/redo, and are addressable by name for later edits (`move-to`, `recolor`, `resize`, `clone`, `flip`, `rotate`, `tween`). This gives an LLM semantic handles instead of pixel coordinates — the affordance that makes agent-driven pixel art tractable.
@@ -134,6 +152,14 @@ Do not publish outputs from a failed batch, even if some export operations ran.
 
 `Invoke-Sprite verify .\public\art\robot.atlas.json --expect-tags blink --contact-sheet review.png --report review.json --json`
 
+For continuous-outline character art, add `--outline-colors "#39283f"` (0.22.0+).
+The optional pixel check rejects exposed fill colors or translucent pixels along
+the four-neighbor boundary of each distinct packed frame. It reports counts and
+up to 16 packed-frame-local coordinates per failing rectangle. Multiple outline
+tones may be comma-separated. Omit it for intentionally broken/no-outline styles.
+Build configs can enforce the same check with `"outlineColors": ["#39283f"]`;
+a contour failure preserves the last successful build.
+
 Static art can declare its required frame aliases too:
 `Invoke-Sprite verify .\public\art\garden.atlas.json --expect-frames seed,wingnut,planter --json`.
 Frame names match exactly, including case. Missing names fail verification with
@@ -146,6 +172,31 @@ rectangles and labels every atlas entry in the nearest-neighbor contact sheet.
 Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
+
+### Trace a reference into editable shapes
+
+`Invoke-Sprite trace .\reference.webp --out .\reference-baseline --name reference --json`
+
+Trace accepts a local static PNG or WebP and writes a **new** directory containing
+an editable project, rendered PNG, Aseprite atlas, replayable `operations.json`,
+pixel-comparison report and standalone preview. Open `reference.project.json`
+with `Invoke-Sprite open` to edit it in the live browser UI. Tracing itself is
+offline and leaves the active session untouched.
+
+Every horizontal color run becomes a named filled rectangle; identical runs on
+adjacent rows merge vertically. The tool retains the delivered image's resolution,
+background and decoded 8-bit sRGB colors. It does not infer the original pixel
+grid, remove backgrounds, quantize colors, or identify anatomical parts. A large
+resampled reference can therefore produce thousands of shapes. Its portable
+project loads directly; replaying that many operations through `batch` or `build`
+is substantially slower.
+
+Before publishing, trace decodes the actual rendered PNG and compares every pixel
+with the decoded source. Invisible RGB at alpha zero is ignored. Canvas rounding
+can change semitransparent RGB; such inputs fail without publishing a purported
+exact baseline. Limits are 32 MiB input, 4 million pixels, 8192 pixels per side and
+100,000 shapes. Animated inputs and existing output paths are rejected. Use a new
+output directory for each variant; the source is never changed.
 
 ### Build a repeatable asset project
 
@@ -252,6 +303,7 @@ project. These native skills call the same managed CLI:
 |---|---|
 | `sprite-setup` | External CLI installation, npm linking, dependency checks and plugin/CLI/server version sync |
 | `sprite-editing` | Full tool workflow: drawing, shape editing, groups, animation, export |
+| `sprite-character` | Anime/16-bit RPG characters: adult/child proportions, faces, hair, outfits and consistent front/profile studies |
 | `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
@@ -284,3 +336,13 @@ npm start       # run the server directly
 ## License
 
 MIT
+
+### Selectable reference skin tones
+
+The [reference-grid example](examples/reference-grid/README.md) can deconstruct
+striped palette demonstrations into skin shading groups. Open a normalized
+project and use **All palettes > Skin tone** to apply any of seven ramps across
+all poses, preserving eyes and geometry. `skin-tone <tone>` provides the same
+operation from the managed CLI. Unprepared designs are not automatically
+classified; generate the role groups first. Tone edits survive saves and copies,
+with one undo step per affected cell.

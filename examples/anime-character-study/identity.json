@@ -1,0 +1,8 @@
+{
+  "colors": {
+    "outline": "#39283f", "skin": "#efac83", "skinLight": "#ffd0a0", "skinShade": "#c47774",
+    "hair": "#864733", "hairShade": "#572f37", "hairLight": "#bb7546",
+    "teal": "#328f89", "tealLight": "#64b9a1", "tealShade": "#245867"
+  },
+  "clasp": true
+}

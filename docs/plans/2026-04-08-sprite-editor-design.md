@@ -1,6 +1,6 @@
 # Claude-Sprites: Collaborative Pixel Art Sprite Sheet Editor
 
-Historical design: its grid-size restrictions were removed in 0.22.0. Current
+Historical design: its grid-size restrictions were removed in 0.26.0. Current
 grids have no product policy caps; see the README for current behavior.
 
 ## Overview

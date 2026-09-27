@@ -77,8 +77,12 @@ export function sessionRoutes(state) {
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
-  r.get('/list', (_req, res) => {
-    try { res.json({ ok: true, data: state.db.listSessions() }); }
+  r.get('/list', (req, res) => {
+    try {
+      const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error('limit must be between 1 and 1000');
+      res.json({ ok: true, data: state.db.listSessions(limit) });
+    }
     catch (e) { res.json({ ok: false, error: e.message }); }
   });
 

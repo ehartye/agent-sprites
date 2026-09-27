@@ -28,7 +28,10 @@ The lighting tools (`draw highlight`, `draw shadow`) look up a lighter/darker ne
 | `nes` | — | ❌ | Authentic NES feel — hand-shade only |
 | `cga` | — | ❌ | Retro DOS — hand-shade only |
 
-**Rule:** for anything that should have lighting, use `pico8` / `db-16` / `db-32`. For period-accurate flat-shaded retro art, the others are fine but you're hand-placing every highlight pixel.
+Use `pico8` / `db-16` / `db-32` when using automatic lighting operations. Custom
+hex ramps with explicitly drawn shadow/highlight shapes also support shaded art;
+they do not need engine changes. This is often the better fit for small RPG
+characters: see [sprite character](../sprite-character/SKILL.md).
 
 ## Choosing a Base Color (Headroom)
 
@@ -76,7 +79,11 @@ If either errors with "not in palette ramps", the color isn't usable with the li
 
 You can `draw` any shape with an arbitrary hex (`--color "#aa66dd"`), but `draw highlight` / `draw shadow` **require** a ramp-registered color. Off-palette fills work; off-palette lighting doesn't.
 
-If you need a custom color shaded, add it to the palette file (`server/engine/palette.js`) with a ramp entry. This is a code change, not a CLI workflow — only do it when the color will be reused across a project.
+For a custom ramp, define semantic hex roles in the source (skin base/shadow/light,
+hair base/light, cloth base/shadow/light) and draw those colors explicitly. Change
+`server/engine/palette.js` only when the task actually calls for reusable automatic
+ramp lookup. Preserve distinct skin ramps across a cast; do not obtain every skin
+tone by darkening the entire character or replacing all colors in one group.
 
 ## Common Mistakes
 

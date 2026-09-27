@@ -102,7 +102,7 @@ export function runNpm(args, { cwd, progress = false } = {}) {
 export function checkDependencies(root) {
   // Exercise native bindings, not only package-directory existence.
   execFileSync(process.execPath, ['--input-type=module', '-e',
-    "import {createRequire} from 'node:module'; const require=createRequire(process.cwd()+'/package.json'); require('canvas').createCanvas(1,1); const db=new (require('better-sqlite3'))(':memory:'); db.close(); require('express'); require('ws');"],
+    "import {createRequire} from 'node:module'; const require=createRequire(process.cwd()+'/package.json'); require('canvas').createCanvas(1,1); const db=new (require('better-sqlite3'))(':memory:'); db.close(); require('express'); require('ws'); await require('sharp')({create:{width:1,height:1,channels:4,background:'#000000'}}).png().toBuffer();"],
   { cwd: root, windowsHide: true, stdio: 'pipe' });
 }
 

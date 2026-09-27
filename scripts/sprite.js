@@ -223,14 +223,17 @@ SESSION
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
                          set the sprite pivot/origin exported in the atlas
   status                 show active project info
+  skin-tone <tone>       apply rose|peach|apricot|terracotta|umber|plum|espresso to skin role groups
   restart                graceful shutdown + respawn of sprite server
 
 OFFLINE VERIFICATION (does not start or contact a server)
   build <sprite-project.json> [--json]
+  trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
+    Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png]
-                      [--report report.json] [--scale 4] [--json]
-                         inspect actual PNG + metadata; nonzero exit on structural failure
+                      [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
+                         inspect actual PNG + metadata; optional continuous-outline check
 
 DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw point     --x --y
@@ -329,6 +332,22 @@ async function run() {
   }
 
   const { args, positional } = parseArgs(process.argv.slice(3));
+  if (cmd === 'trace') {
+    for (const key of Object.keys(args)) {
+      if (!['out', 'name', 'json'].includes(key)) throw new Error(`Unknown trace option: --${key}`);
+    }
+    if (positional.length !== 1 || typeof args.out !== 'string' || (args.name !== undefined && typeof args.name !== 'string')) {
+      throw new Error('Usage: agent-sprites trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]');
+    }
+    const { traceImageFile } = await import('../server/engine/image-trace.js');
+    const report = await traceImageFile(positional[0], { output: args.out, name: args.name });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Exact trace: ${report.width}×${report.height}, ${report.shapeCount} editable shapes, ${report.differingPixels} differing pixels.`);
+      for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+    }
+    return;
+  }
   if (cmd === 'build') {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
     const { buildProject } = await import('../server/build/project-build.js');
@@ -343,16 +362,17 @@ async function run() {
     return;
   }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--outline-colors "#39283f"] [--contact-sheet review.png] [--report report.json] [--json]');
     const { verifyAtlasFile } = await import('../server/engine/atlas-verifier.js');
     const report = await verifyAtlasFile(positional[0], {
       expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
       expectedFrames: args['expect-frames'] ? String(args['expect-frames']).split(',') : [],
+      outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
       contactPath: args['contact-sheet'], reportPath: args.report, scale: num(args.scale) ?? 4,
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (structural checks only)`);
+      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors ? 'structural and outline checks' : 'structural checks only'})`);
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
     }
@@ -457,6 +477,9 @@ async function run() {
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
       });
+      break;
+    case 'skin-tone':
+      result = await api('POST', '/api/workbench/skin-tone', { tone: sub });
       break;
     case 'pivot':
       result = await api('POST', '/api/session/pivot', { x: num(args.x), y: num(args.y), anchor: args.anchor });

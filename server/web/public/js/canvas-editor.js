@@ -11,7 +11,7 @@ const PATTERNS = {
  * Mirrors server-side CanvasRenderer drawing logic for client-side preview.
  */
 
-const MIN_ZOOM = 2;
+const MIN_ZOOM = 0.125;
 const MAX_ZOOM = 40;
 
 export class CanvasEditor {
@@ -84,6 +84,9 @@ export class CanvasEditor {
 
   /** Tracing reference underlay: refInfo = { opacity } from cell data, or null. */
   setReference(refInfo, cellRef) {
+    const request = this._refRequest = (this._refRequest ?? 0) + 1;
+    this._refImage = null;
+    this.render();
     if (!refInfo) {
       this._refImage = null;
       this.render();
@@ -91,8 +94,8 @@ export class CanvasEditor {
     }
     this._refOpacity = refInfo.opacity ?? 0.35;
     const img = new window.Image();
-    img.onload = () => { this._refImage = img; this.render(); };
-    img.onerror = () => { this._refImage = null; this.render(); };
+    img.onload = () => { if (request !== this._refRequest) return; this._refImage = img; this.render(); };
+    img.onerror = () => { if (request !== this._refRequest) return; this._refImage = null; this.render(); };
     img.src = `/api/cell/reference-image?cell=${encodeURIComponent(cellRef)}&t=${Date.now()}`;
   }
 
@@ -276,6 +279,16 @@ export class CanvasEditor {
   }
 
   _renderShapes(ctx, ox, oy, z) {
+    if (z < 1) {
+      // Fit large traces using nearest-neighbor sampling of the native raster.
+      // Fractional fillRect edges would otherwise introduce seams between runs.
+      const native = document.createElement('canvas');
+      native.width = this.cellW; native.height = this.cellH;
+      this._renderShapes(native.getContext('2d'), 0, 0, 1);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
+      return;
+    }
     for (const shape of this._shapes) {
       const color = this._resolveColor(shape.color);
       ctx.fillStyle = color;
@@ -464,6 +477,7 @@ export class CanvasEditor {
   }
 
   _renderGrid(ctx, ox, oy, z) {
+    if (z < 4) return;
     const gridW = this.cellW * z;
     const gridH = this.cellH * z;
     const style = getComputedStyle(document.documentElement);
