@@ -193,6 +193,11 @@ export class GroupPanel {
 
   get activeGroup() { return this._activeGroup; }
 
+  setActiveGroup(name) {
+    this._activeGroup = this._groups[name] ? name : null;
+    this.render();
+  }
+
   render() {
     const ul = document.getElementById('group-items');
     ul.innerHTML = '';
