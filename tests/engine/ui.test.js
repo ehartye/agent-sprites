@@ -1,6 +1,6 @@
 import {test,expect} from 'vitest';
 import {generateUIRecipe} from '../../server/authoring/ui.js';
-import {createBitmapFont,drawNineSlice} from '../../server/build/ui-runtime.mjs';
+import {createBitmapFont,drawNineSlice,getOpaqueBounds,drawPixelFit} from '../../server/build/ui-runtime.mjs';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
@@ -70,3 +70,35 @@ test('skin has reusable metrics and nine-slice preserves corner pixels at intege
   expect(()=>drawNineSlice(ctx,data,'button_normal',0,0,81,32,{scale:2})).toThrow(/multiple/);
 });
 test.each([null,[],{kind:'other'},{kind:'font',typo:true},{kind:'font',characters:'🦋'},{kind:'skin',characters:'a'},{kind:'font',theme:'unknown'}])('rejects unsupported UI recipe %j',config=>expect(()=>generateUIRecipe(config)).toThrow());
+
+test('message skins publish legible tones, fixed corner metrics and a solid compositing scrim',()=>{
+  const recipe=generateUIRecipe({kind:'skin'}),renderer=new CanvasRenderer(new Palette());
+  const pixels=alias=>{const frame=recipe.report.frames.find(f=>f.alias===alias),cell=new Cell({w:24,h:24});for(const op of recipe.operations.filter(o=>o.command==='draw'&&o.cell===frame.cell)){const {command,type,name,color,cell:_,...params}=op;cell.draw(type,params,color,name);}return renderer.renderCellRaw(cell);};
+  for(const name of ['message','speech','specimen','specimen_mount','specimen_label','note','notification','warning']){
+    const metrics=recipe.report.skins[name];expect(metrics.insets).toEqual({left:6,right:6,top:6,bottom:6});expect(metrics.padding.left).toBeGreaterThan(metrics.insets.left);
+    expect(metrics.textTone).toBe(['note','specimen_label'].includes(name)?'ink':'cream');
+    // The tiled middle edges are uniform; corner marks must not become a repeated rule.
+    const raster=pixels(name),row=y=>Array.from(raster.subarray(y*24*4,(y+1)*24*4));
+    for(let y=7;y<18;y++)expect(row(y)).toEqual(row(6));
+  }
+  expect(pixels('speech')).not.toEqual(pixels('specimen'));expect(pixels('note')).not.toEqual(pixels('panel_light'));
+  const scrim=pixels('scrim_solid');for(let i=3;i<scrim.length;i+=4)expect(scrim[i]).toBe(255);
+  expect(recipe.report.skins.scrim_solid).toMatchObject({opacity:0.48,insets:{left:0,right:0,top:0,bottom:0}});
+  const data=fixture('skin'),calls=[],ctx={drawImage:(...args)=>calls.push(args)};
+  drawNineSlice(ctx,data,'specimen_label',0,0,624,182,{scale:2});
+  for(const call of calls)for(const n of call.slice(1))expect(Number.isInteger(n)).toBe(true);
+});
+
+test('pixel fit crops transparent padding and preserves non-square art at whole scales',()=>{
+  const data=new Uint8ClampedArray(12*10*4);data[(3*12+2)*4+3]=255;data[(6*12+7)*4+3]=1;
+  const bounds=getOpaqueBounds({data,width:12,height:10});expect(bounds).toEqual({x:2,y:3,width:6,height:4});
+  const calls=[],ctx={drawImage:(...args)=>calls.push(args)};
+  expect(drawPixelFit(ctx,{},bounds,{x:3,y:5,width:61,height:49},{padding:8})).toEqual({x:12,y:15,width:42,height:28,scale:7});
+  expect(ctx.imageSmoothingEnabled).toBe(false);expect(calls[0].slice(1)).toEqual([2,3,6,4,12,15,42,28]);
+  expect(drawPixelFit(ctx,{},bounds,{x:0,y:0,width:5,height:3})).toBe(null);expect(calls).toHaveLength(1);
+  expect(getOpaqueBounds({data:new Uint8Array(16),width:2,height:2})).toBe(null);
+  expect(drawPixelFit(ctx,{},null,{x:0,y:0,width:20,height:20})).toBe(null);
+  expect(()=>getOpaqueBounds({data:[],width:2,height:2})).toThrow(/RGBA/);
+  expect(()=>drawPixelFit(ctx,{},bounds,{x:0.5,y:0,width:20,height:20})).toThrow(/integer/);
+  expect(()=>drawPixelFit(ctx,{},bounds,{x:0,y:0,width:20,height:20},{padding:-1})).toThrow(/nonnegative/);
+});

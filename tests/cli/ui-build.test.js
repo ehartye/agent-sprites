@@ -18,7 +18,7 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
   config.ui.characters='🦋';write();expect((await buildProject(path)).ok).toBe(false);expect(readFileSync(result.artifacts.sheet)).toEqual(previous);
 },20000);
 test('skin publishes runtime and slicing metrics without a font bootstrap',async()=>{
-  config.ui={name:'ui-skin',kind:'skin'};write();const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.artifacts.uiBoot).toBeUndefined();expect(JSON.parse(readFileSync(result.artifacts.uiReport)).skins.panel_dark).toBeDefined();
+  config.ui={name:'ui-skin',kind:'skin'};write();const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.artifacts.uiBoot).toBeUndefined();const report=JSON.parse(readFileSync(result.artifacts.uiReport));expect(report.skins.panel_dark).toBeDefined();expect(report.skins.specimen_label.textTone).toBe('ink');expect(report.skins.speech.insets.left).toBe(6);const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-report.json');
 },20000);
 test.each(['ops','generator','character','environment'])('rejects mixed UI and %s before publication',async source=>{
   config[source]=null;write();const result=await buildProject(path);expect(result.ok).toBe(false);expect(result.errors[0].message).toMatch(/exactly one/);expect(existsSync(join(dir,'dist'))).toBe(false);
