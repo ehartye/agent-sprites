@@ -207,7 +207,10 @@ sprite.js export                         # gapless sheet PNG + Aseprite JSON atl
 
 For explicit paths, use `sprite.js export --dest public/art` and
 `sprite.js view --sheet --scale 4 --out review/contact-sheet.png`; then inspect
-the PNG. Run previews separately from the batch. The atlas is Aseprite-format
+the PNG. When a game composites cells as layers at runtime (sky, swirl, land),
+inspect the composite with `sprite.js view --stack sky,swirl_0,land --scale 4 --out
+review/stack.png`: cell names or `R,C`, first at the bottom, each cell's erase
+shapes staying within its own layer. Run previews separately from the batch. The atlas is Aseprite-format
 JSON: cell groups become `meta.frameTags` (with their `direction`), group fps becomes per-frame `duration`,
 and the pivot ships as a slice. Phaser needs an explicit origin in game code;
 see [game integration](../game-integration/SKILL.md).

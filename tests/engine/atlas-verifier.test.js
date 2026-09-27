@@ -103,3 +103,13 @@ test.each(['reportPath', 'contactPath'])('review %s cannot overwrite PNGs throug
   expect(result.errors[0].code).toBe('output-path');
   expect(readFileSync(png).equals(before)).toBe(true);
 });
+
+import { contactTiles } from '../../server/engine/atlas-verifier.js';
+test('contact tiles merge a rectangle shared by numeric frames and aliases, naming it by alias only', () => {
+  const f = (filename, x, duration = 100) => ({ filename, frame: { x, y: 0, w: 8, h: 8 }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: 8, h: 8 }, sourceSize: { w: 8, h: 8 }, duration });
+  const tiles = contactTiles([f('0', 0), f('1', 8), f('2', 0, 125), f('idle', 0), f('10', 8)]);
+  expect(tiles.map(t => ({ indices: t.indices, names: t.names, durations: [...t.durations] }))).toEqual([
+    { indices: [0, 2, 3], names: ['idle'], durations: [100, 125] },
+    { indices: [1, 4], names: [], durations: [100] },
+  ]);
+});

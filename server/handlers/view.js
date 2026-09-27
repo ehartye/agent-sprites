@@ -54,6 +54,37 @@ export function handleViewCells(state, params, tmpDir) {
   return { path: p };
 }
 
+/** "sky,swirl_0,land" or "sky 0,1 land": commas or spaces; adjacent digits pair into R,C. */
+export function parseStack(text) {
+  const tokens = String(text).split(/[\s,]+/).filter(Boolean), refs = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (/^\d+$/.test(tokens[i]) && /^\d+$/.test(tokens[i + 1] ?? '')) { refs.push(`${tokens[i]},${tokens[i + 1]}`); i++; }
+    else refs.push(tokens[i]);
+  }
+  return refs;
+}
+
+/** Resolve "r,c" or a cell name. */
+function cellRef(project, ref) {
+  if (/^\d+,\d+$/.test(ref)) { project.cells.getCell(ref); return ref; }
+  for (let r = 0; r < project.cells.rows; r++) for (let c = 0; c < project.cells.cols; c++) {
+    if (project.cells.getCell(`${r},${c}`).name === ref) return `${r},${c}`;
+  }
+  throw new Error(`Unknown cell "${ref}"`);
+}
+
+/** Inspect cells a game composites at runtime (sky, swirl, land) as one image. */
+export function handleViewStack(state, params, tmpDir) {
+  if (!state.project) throw new Error('No project open');
+  const refs = typeof params.cells === 'string' ? parseStack(params.cells) : params.cells;
+  if (!Array.isArray(refs) || !refs.length) throw new Error('view --stack needs at least one cell name or R,C');
+  const layers = refs.map(ref => cellRef(state.project, ref));
+  const buf = getRenderer(state).renderStack(layers.map(ref => state.project.cells.getCell(ref)), { scale: clampScale(params.scale) });
+  const p = outPath(params, tmpDir, 'stack');
+  fs.writeFileSync(p, buf);
+  return { path: p, layers };
+}
+
 export function handleViewSheet(state, params, tmpDir) {
   if (!state.project) throw new Error('No project open');
   const renderer = getRenderer(state);

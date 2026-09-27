@@ -68,14 +68,14 @@ function canonical(path) {
 // Base frames, tag runs and name aliases often share one source rectangle. Show
 // each rectangle once, labeled with every frame index and its best name, so a
 // font or cast sheet is reviewable; validation still covers every frame.
-function contactTiles(frames) {
+export function contactTiles(frames) {
   const tiles = new Map();
   frames.forEach((f, i) => {
     const key = JSON.stringify([f.frame, f.rotated, f.spriteSourceSize, f.sourceSize]);
     if (!tiles.has(key)) tiles.set(key, { frame: f, indices: [], names: [], durations: new Set() });
     const t = tiles.get(key);
     t.indices.push(i); t.durations.add(f.duration);
-    if (!/^d+$/.test(f.filename)) t.names.push(f.filename);
+    if (!/^\d+$/.test(f.filename)) t.names.push(f.filename);
   });
   return [...tiles.values()];
 }

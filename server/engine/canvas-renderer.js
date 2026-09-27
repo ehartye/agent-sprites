@@ -308,6 +308,19 @@ export class CanvasRenderer {
     return this._finish(canvas, opts.scale);
   }
 
+  /** Composite cells as layers, first at the bottom; each keeps its own erasers. */
+  renderStack(cells, opts = {}) {
+    const { width, height } = cells[0];
+    const canvas = createCanvas(width, height), ctx = canvas.getContext('2d');
+    this._applyBackground(ctx, width, height);
+    for (const cell of cells) {
+      const layer = createCanvas(width, height);
+      this._drawShapes(layer.getContext('2d'), cell.shapes.listByZ(), width, height);
+      ctx.drawImage(layer, 0, 0);
+    }
+    return this._finish(canvas, opts.scale);
+  }
+
   renderCells(cells, opts = {}) {
     const cols = opts.cols ?? cells.length;
     const rows = Math.ceil(cells.length / cols);
