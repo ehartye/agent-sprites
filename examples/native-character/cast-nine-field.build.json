@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "nine",
+    "field"
+  ],
+  "output": "dist/cast-nine-field",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#515157",
+    "#26313f",
+    "#4e4145"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}

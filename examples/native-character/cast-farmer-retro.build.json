@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "farmer",
+    "retro"
+  ],
+  "output": "dist/cast-farmer-retro",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#654048",
+    "#272d38",
+    "#493942",
+    "#253c48",
+    "#515157",
+    "#26313f"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}
