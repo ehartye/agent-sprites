@@ -204,7 +204,7 @@ overwritten on rebuild. Copy it elsewhere before making a separate hand-edited v
 
 For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). Choose exactly one source:
-`ops`, `generator`, `character`, or `environment`. No game-local generator is required.
+`ops`, `generator`, `character`, `environment`, or `ui`. No game-local generator is required.
 Review a true idle pose before judging a paused walk frame. The character report
 includes profile shoulder/hip measurements and actual heel/ball/toe landmarks; its
 neutral standing checks do not constrain moving feet to the same vertical line.
@@ -220,6 +220,14 @@ shapes plus `environment-report.json` with floor, door, wall and furniture colli
 geometry. Games can consume that geometry alongside the atlas to keep walkable
 space aligned with the art. Terrain recipes provide deterministic variants; the
 habitat kit is an authored preset rather than an arbitrary architecture generator.
+
+For bitmap text and reusable nine-slice controls, use the [`ui` source](examples/ui/README.md).
+Font and skin recipes export editable named pixel rectangles, tone variants, metrics,
+`ui-report.json`, and a portable `ui-runtime.mjs` compositor that draws atlas images
+without platform fonts. Font builds also publish an embedded `ui-boot.mjs` for
+loading/error UI. Grid dimensions have no product policy caps: use positive safe
+integers with exactly representable sheet arithmetic. Available memory and the
+underlying image renderer determine which sheets can actually be allocated.
 
 For the older four-beat courier example, copy [`examples/character-walk`](examples/character-walk/README.md).
 Its four-beat 24×32 courier walk has coordinated anatomical limbs, contact/pass

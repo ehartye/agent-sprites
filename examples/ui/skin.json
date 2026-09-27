@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "output": "dist/skin",
+  "scale": 2,
+  "ui": {"name": "ui-skin", "kind": "skin", "theme": "moss-brass"},
+  "expectedFrames": ["panel_dark", "panel_light", "button_focus", "slot_selected", "icon_leaf"]
+}

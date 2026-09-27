@@ -1,11 +1,18 @@
 {
   "name": "agent-sprites",
-  "version": "0.21.15",
+  "version": "0.22.0",
   "description": "Pixel-art sprite authoring toolset for 2D game projects — parametric shapes, ramp-aware lighting, animation groups, Aseprite JSON atlas export, and a live collaborative web UI",
   "author": {
     "name": "ehartye"
   },
   "repository": "https://github.com/ehartye/agent-sprites",
   "license": "MIT",
-  "keywords": ["pixel-art", "sprites", "game-dev", "animation", "phaser", "aseprite"]
+  "keywords": [
+    "pixel-art",
+    "sprites",
+    "game-dev",
+    "animation",
+    "phaser",
+    "aseprite"
+  ]
 }
