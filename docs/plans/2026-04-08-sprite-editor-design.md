@@ -1,5 +1,8 @@
 # Claude-Sprites: Collaborative Pixel Art Sprite Sheet Editor
 
+Historical design: its grid-size restrictions were removed in 0.22.0. Current
+grids have no product policy caps; see the README for current behavior.
+
 ## Overview
 
 A Claude Code plugin for collaborative pixel art sprite sheet editing. A shared canvas engine powers both an MCP server (for Claude's tools) and a web UI (for the user), enabling real-time co-editing of sprite sheets.

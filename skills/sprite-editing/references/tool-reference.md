@@ -11,7 +11,7 @@ to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite d
 
 | Command | Flags | Notes |
 |---------|-------|-------|
-| `new <name>` | `--size 16 --rows 4 --cols 4 --palette pico8 [--dest <folder>]` | Create project. `--size` takes `16` (square) or `16x32` (width x height — tall character cells). Grids are capped at 10 rows by 10 columns (100 cells); a layered sheet with more layers needs bigger cells or a second sheet. Exports land under the **CLI's** working directory (`assets/claude-sprites/<name>/`) or under `--dest <parent>` if given. Palettes: `pico8`, `gameboy`, `nes`, `cga` |
+| `new <name>` | `--size 16 --rows 4 --cols 4 --palette pico8 [--dest <folder>]` | Create project. `--size` takes `16` (square) or `16x32` (width x height — tall character cells). Grid dimensions have no product policy caps; positive safe-integer dimensions and exactly representable sheet arithmetic are required. Actual memory and renderer allocation errors remain possible. Exports land under the **CLI's** working directory (`assets/claude-sprites/<name>/`) or under `--dest <parent>` if given. Palettes: `pico8`, `gameboy`, `nes`, `cga` |
 | `open <path>` | | Open saved project file |
 | `open` | `--session <name\|id>` | Reopen an earlier project from its stored draft — no `save` needed. Cell groups come back with it |
 | `sessions` | | List recent projects (id, name, last updated) — the way back after `new` switches projects |

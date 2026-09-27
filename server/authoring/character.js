@@ -31,7 +31,7 @@ export function generateCharacterRecipe(config){
   });
   if(new Set(people.map(p=>p.id)).size!==people.length)throw Error('Person IDs must be unique');
   const count=people.length*outfits.length*directions.length*(mode==='idle'?1:8);
-  if(count>100)throw Error('Character recipes support at most 100 frames; split casts into sheets');
+  if(!Number.isSafeInteger(count))throw Error('Character frame count must be exactly representable as a safe integer');
   const cols=Math.min(count,count>80?10:8),rows=Math.ceil(count/cols);
   const operations=[{command:'new',name,size:'40x56',rows,cols,palette:'pico8'}],frames=[];
   for(const person of people)for(const outfit of outfits)for(const direction of directions){
