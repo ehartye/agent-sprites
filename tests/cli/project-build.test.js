@@ -1,4 +1,4 @@
-import { test, expect, beforeEach, afterEach } from 'vitest';
+import { test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,6 +26,63 @@ beforeEach(() => {
   writeFileSync(config, JSON.stringify({ version: 1, ops: 'ops.json', output: 'dist', expectedTags: ['blink'] }));
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+test('isolated builds publish editable output without repeatedly persisting throwaway drafts', async () => {
+  ops.push(...Array.from({length:40},(_,i)=>({command:'draw',type:'point',cell:'0,0',name:`dot_${i}`,x:i%16,y:Math.floor(i/16),color:'#ffffff'})));
+  writeFileSync(join(dir,'ops.json'),JSON.stringify(ops));
+  const drafts=vi.spyOn(SessionDB.prototype,'updateDraft');
+  const snapshots=vi.spyOn(Project.prototype,'toJSON');
+  try {
+    const result=await buildProject(config);
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(drafts.mock.calls.length).toBe(0);
+    // Initial session creation and final portable output are bounded snapshots,
+    // not a serialization of the growing sheet for every operation.
+    expect(snapshots.mock.calls.length).toBeLessThanOrEqual(3);
+    const output=JSON.parse(readFileSync(result.artifacts.project,'utf8'));
+    expect(output.cells['0,0'].shapes.some(s=>s.name==='dot_39')).toBe(true);
+  } finally { drafts.mockRestore();snapshots.mockRestore(); }
+});
+
+test('interactive edits remain recoverable while an isolated build runs', async () => {
+  const db=new SessionDB(':memory:'),state={db,project:null,sessionId:null};
+  const server=await startWebServer(state,0),url=`http://127.0.0.1:${server.port}`;
+  const api=async(path,body)=>{
+    const result=await (await fetch(url+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+    expect(result.ok,result.error).toBe(true);return result;
+  };
+  try {
+    // Request data must not opt interactive sessions out of autosave.
+    await api('/api/session/new',{name:'recoverable',rows:1,cols:1,persistDrafts:false});
+    const id=state.sessionId;
+    const [built]=await Promise.all([buildProject(config),(async()=>{
+      await api('/api/draw',{type:'point',cell:'0,0',name:'keep_me',x:3,y:4,color:'#ffffff',persistDrafts:false});
+      await api('/api/cell/undo',{cell:'0,0'});
+      expect(JSON.parse(db.getSession(id).draft_json).cells['0,0']?.shapes??[]).toHaveLength(0);
+      await api('/api/cell/redo',{cell:'0,0'});
+    })()]);
+    expect(built.ok).toBe(true);
+    const saved=db.getSession(id).draft_json;
+    expect(JSON.parse(saved).cells['0,0'].shapes[0]).toMatchObject({type:'point',params:{x:3,y:4},color:'#ffffff'});
+    await api('/api/session/new',{name:'other',rows:1,cols:1});
+    await api('/api/session/open-session',{ref:id});
+    expect(state.project.cells.getCell('0,0').shapes.listByZ()[0].params).toMatchObject({x:3,y:4});
+    expect(db.getSession(id).draft_json).toBe(saved);
+  } finally {
+    server.wss.close();await new Promise(resolve=>{server.httpServer.close(resolve);server.httpServer.closeAllConnections();});db.close();
+  }
+});
+
+test('build transport preserves UTF-8 command bodies and named output', async () => {
+  ops.push({command:'name',cell:'0,1',as:'芽-étoile'});
+  writeFileSync(join(dir,'ops.json'),JSON.stringify(ops));
+  const result=await buildProject(config);
+  expect(result.errors).toEqual([]);
+  expect(result.ok).toBe(true);
+  const output=Project.load(result.artifacts.project);
+  expect(output.cells.getCell('0,1').name).toBe('芽-étoile');
+});
 
 test('build emits portable editable metadata and review artifacts with reproducible pixels', async () => {
   const result = await buildProject(config);

@@ -42,6 +42,9 @@ const DISPATCH = {
 };
 
 export function saveDraft(state) {
+  // Only the isolated build runner opts out. Live sessions keep autosaving by
+  // default; request bodies and unrelated concurrent sessions cannot change it.
+  if (state.persistDrafts === false) return;
   if (state.sessionId && state.project) {
     state.db.updateDraft(state.sessionId, JSON.stringify(state.project.toJSON()));
   }
