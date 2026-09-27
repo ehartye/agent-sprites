@@ -2,10 +2,12 @@
   "version": 1,
   "generator": "dress-template.mjs",
   "args": [
-    "child",
-    "dress"
+    "adult",
+    "jacket",
+    "peach",
+    "none"
   ],
-  "output": "dist/child-dress",
+  "output": "dist/adult-jacket-none",
   "scale": 10,
   "outlineColors": [
     "#673649",

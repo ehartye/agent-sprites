@@ -4,21 +4,24 @@ import {SKIN_TONES} from '../server/engine/skin-tones.js';
 
 for(const kind of ['adult','child'])for(const style of ['jacket','dress'])test(`${kind} ${style} preserves eyes, bounds and wardrobe across skin ramps`,()=>{
   const baseline=dressTemplate(kind,style);
-  const wardrobe=ops=>ops.filter(p=>p.command==='draw'&&/^(front|right|back)-(hair|cloth|trim|trousers|shoes)-/.test(p.name));
+  expect(baseline.filter(o=>o.command==='name')).toHaveLength(20);
+  const wardrobe=ops=>ops.filter(p=>p.command==='draw'&&/^(front|right|back|left)-(hair|cloth|trim|trousers|shoes)-/.test(p.name));
   for(const tone of SKIN_TONES){
     const ops=dressTemplate(kind,style,tone.id);
-    expect(wardrobe(ops)).toEqual(wardrobe(baseline));
-    for(const cell of ['0,0','0,1','0,2']){
+    const clothingPoints=wardrobe(ops),clothingSet=new Set(clothingPoints);
+    expect(clothingPoints).toEqual(wardrobe(baseline));
+    for(const {cell,as:alias} of ops.filter(o=>o.command==='name')){
       const points=ops.filter(p=>p.command==='draw'&&p.cell===cell);
       const names=new Set(points.map(p=>p.name));
       expect(names.size).toBe(points.length);
       expect(points.every(p=>Number.isInteger(p.x)&&Number.isInteger(p.y)&&p.x>=0&&p.x<16&&p.y>=0&&p.y<32)).toBe(true);
       expect(Math.max(...points.map(p=>p.y))).toBe(29);
       const skin=new Set(ops.filter(p=>p.command==='shape-group'&&p.cell===cell&&p.name.startsWith('skin-')).flatMap(p=>p.shapes));
-      expect(wardrobe(ops).filter(p=>p.cell===cell).every(p=>!skin.has(p.name))).toBe(true);
+      expect(clothingPoints.filter(p=>p.cell===cell).every(p=>!skin.has(p.name))).toBe(true);
       const final=new Map(points.map(p=>[`${p.x},${p.y}`,p]));
       // Facial colors are the only source points outside semantic skin roles.
-      if(cell!=='0,2')for(const p of points.filter(p=>!skin.has(p.name)&&!wardrobe(ops).includes(p)))expect(final.get(`${p.x},${p.y}`).name).toBe(p.name);
+      if(!alias.startsWith('back'))for(const p of points.filter(p=>!skin.has(p.name)&&!clothingSet.has(p)))expect(final.get(`${p.x},${p.y}`).name).toBe(p.name);
+      for(const material of ['cloth','trim','shoes','hair',...(style==='jacket'?['trousers']:[])])expect(ops.some(o=>o.command==='shape-group'&&o.cell===cell&&o.name===material),`${alias} has ${material}`).toBe(true);
       for(const g of ops.filter(p=>p.command==='shape-group'&&p.cell===cell))expect(g.shapes.every(n=>names.has(n))).toBe(true);
     }
   }
@@ -44,9 +47,10 @@ test('standalone wigs exactly reproduce their dressed overlay at native coordina
     const ops=wigTemplate(kind,wig);
     const points=ops.filter(p=>p.command==='draw');
     expect(points).toEqual(dressTemplate(kind,'jacket','peach',wig).filter(p=>p.command==='draw'&&p.name.includes('-hair-')));
-    expect(ops.filter(p=>p.command==='name').map(p=>p.as)).toEqual(['front','right','back']);
+    expect(ops.filter(p=>p.command==='name').map(p=>p.as)).toEqual(dressTemplate(kind,'jacket','peach',wig).filter(p=>p.command==='name').map(p=>p.as));
+    expect(ops.filter(p=>p.command==='group')).toHaveLength(4);
     expect(ops.filter(p=>p.command==='shape-group').every(p=>p.name==='hair'||p.name.startsWith('hair-'))).toBe(true);
-    expect(ops[0]).toMatchObject({size:'16x32',rows:1,cols:3});
+    expect(ops[0]).toMatchObject({size:'16x32',rows:4,cols:5});
     expect(ops.some(p=>p.command==='pivot'&&p.anchor==='bottom-center')).toBe(true);
   }
 });

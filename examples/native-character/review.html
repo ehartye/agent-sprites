@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mannequin walk study</title>
+  <style>
+    :root { color-scheme: light; --paper:#e5ebee; --panel:#f7f9fa; --ink:#253c49; --muted:#576c78; --line:#bdcbd2; --accent:#14698a; --ground:#d19742; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 'Trebuchet MS',sans-serif; }
+    main { max-width:1320px; margin:32px auto; padding:0 24px; }
+    header { display:flex; align-items:baseline; justify-content:space-between; gap:24px; border-bottom:2px solid var(--ink); }
+    h1 { margin:0 0 8px; font:600 clamp(25px,4vw,38px)/1.2 'Bahnschrift','Trebuchet MS',sans-serif; }
+    header p { margin:0 0 16px; color:var(--muted); }
+    .spec,output,.frame-label { font:12px/1.5 Consolas,monospace; }
+    .spec { white-space:nowrap; }
+    .controls { display:flex; flex-wrap:wrap; gap:14px 20px; align-items:end; padding:22px 0; }
+    label { display:grid; gap:5px; font-size:13px; }
+    select,button { min-height:38px; padding:8px 12px; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink); font:inherit; }
+    select,button,input { accent-color:var(--accent); }
+    button,select { cursor:pointer; }
+    button:hover { border-color:var(--accent); }
+    button:disabled { opacity:.5; cursor:default; }
+    :focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    #play { min-width:78px; background:var(--accent); border-color:var(--accent); color:white; }
+    .speed { min-width:135px; }
+    input[type=range] { height:32px; margin:0; }
+    .checks { display:flex; gap:16px; padding:8px 0; }
+    .checks label { display:flex; align-items:center; gap:7px; }
+    .checks input { margin:0; width:16px; height:16px; }
+    .status { min-height:24px; margin:0 0 16px; color:var(--muted); }
+    .status.error { color:#943c37; }
+    .views { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+    .view { overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    .view h2 { display:flex; justify-content:space-between; align-items:baseline; margin:0; padding:12px 16px; font-size:15px; font-weight:600; }
+    .view h2 span { font:11px Consolas,monospace; color:var(--muted); }
+    .stage { height:312px; position:relative; display:flex; justify-content:center; align-items:center; background:#96a4ad; }
+    .checker .stage,.checker .frame-button canvas { background-color:#96a4ad; background-image:conic-gradient(#a5b2ba 25%,transparent 0 50%,#a5b2ba 0 75%,transparent 0); background-size:16px 16px; }
+    .stage::after { content:''; position:absolute; left:0; right:0; top:calc(50% + 112px); border-top:1px solid var(--ground); pointer-events:none; display:none; }
+    .baseline .stage::after { display:block; }
+    canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+    .stage canvas { width:128px; height:256px; position:relative; z-index:1; }
+    .strip { display:flex; overflow-x:auto; gap:5px; padding:12px 10px; }
+    .frame-button { flex:none; display:grid; justify-items:center; gap:5px; padding:5px; min-height:0; border-radius:4px; }
+    .frame-button canvas { width:32px; height:64px; background:#96a4ad; }
+    .frame-button[aria-pressed=true] { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); color:var(--accent); }
+    .frame-label { font-size:10px; }
+    .readout { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:14px 0; color:var(--muted); }
+    footer { margin-top:24px; border-top:1px solid var(--line); padding-top:16px; color:var(--muted); font-size:13px; }
+    footer p { margin:4px 0; }
+    @media(max-width:1000px) { .views { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:520px) { main { padding:0 14px; margin:22px auto; } header { display:block; } .views { grid-template-columns:1fr; } .controls { gap:12px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><h1>Mannequin walk study</h1><p>Compare the body, wardrobe, and hair through a full walking cycle.</p></div><p class="spec">16 × 32 px · 4 facings · 4 steps</p></header>
+  <section class="controls" aria-label="Appearance and playback">
+    <label>Body<select id="body"><option value="adult">Adult</option><option value="child">Child</option></select></label>
+    <label>Clothing<select id="clothing"><option value="bare">Bare mannequin</option><option value="jacket">Jacket</option><option value="dress">Dress</option></select></label>
+    <label>Hair<select id="hair"><option value="default">Outfit default</option><option value="short">Short</option><option value="tied">Tied</option><option value="none">None</option></select></label>
+    <label>Motion<select id="motion"><option value="walk">Walk</option><option value="idle">Idle</option></select></label>
+    <button id="play" type="button" disabled>Pause</button><button id="step" type="button" disabled>Next frame</button>
+    <label class="speed">Speed <output id="speed-value" for="speed">8 fps</output><input id="speed" type="range" min="1" max="16" step="1" value="8"></label>
+    <div class="checks"><label><input id="checker" type="checkbox" checked>Checkerboard</label><label><input id="baseline" type="checkbox" checked>Ground line</label></div>
+  </section>
+  <p id="status" class="status" role="status" aria-live="polite">Loading mannequin sheets…</p>
+  <section id="views" class="views checker baseline" aria-label="Synchronized facings"></section>
+  <div class="readout"><output id="frame-readout">Frame — / 4</output><span>Large view 8× · frame strip 2× · native pixels</span></div>
+  <footer><p>Click any frame to pause all four views at the same step. The idle pose appears first in each strip.</p><p>Hair is drawn from a separate wig sheet over the body and clothing. Outfit default uses short hair with a jacket, tied hair with a dress, and no hair on the bare mannequin.</p></footer>
+</main>
+<script>
+  'use strict';
+  const directions = ['front', 'right', 'back', 'left'];
+  const byId = id => document.getElementById(id);
+  const body = byId('body'), clothing = byId('clothing'), hair = byId('hair');
+  const motion = byId('motion'), play = byId('play'), step = byId('step');
+  const status = byId('status'), views = byId('views'), speed = byId('speed');
+  const cache = new Map(), panels = new Map();
+  let sheets = [], generation = 0, cursor = 0, elapsed = 0, lastTime = 0;
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  for (const direction of directions) {
+    const panel = document.createElement('article'); panel.className = 'view';
+    const title = document.createElement('h2'); title.textContent = direction[0].toUpperCase() + direction.slice(1);
+    const hint = document.createElement('span'); hint.textContent = '16 × 32'; title.append(hint);
+    const stage = document.createElement('div'); stage.className = 'stage';
+    const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 32;
+    canvas.setAttribute('aria-label', direction + ' facing animation'); stage.append(canvas);
+    const strip = document.createElement('div'); strip.className = 'strip'; strip.setAttribute('aria-label', direction + ' frames');
+    const frames = [];
+    for (let index = -1; index < 4; index++) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'frame-button'; button.disabled = true;
+      const cell = document.createElement('canvas'); cell.width = 16; cell.height = 32;
+      const label = document.createElement('span'); label.className = 'frame-label'; label.textContent = index < 0 ? 'Idle' : String(index + 1);
+      button.setAttribute('aria-label', direction + (index < 0 ? ' idle pose' : ' walk frame ' + (index + 1)));
+      button.append(cell, label); strip.append(button); frames.push({ button, canvas: cell, index });
+      button.addEventListener('click', () => {
+        playing = false; motion.value = index < 0 ? 'idle' : 'walk'; cursor = Math.max(0, index); elapsed = 0; render(); syncPlayback();
+      });
+    }
+    panel.append(title, stage, strip); views.append(panel); panels.set(direction, { canvas, frames });
+  }
+
+  function loadSheet(preset, name = preset) {
+    const path = 'dist/' + preset + '/' + name;
+    if (!cache.has(path)) {
+      const pending = Promise.all([
+        fetch(path + '.atlas.json').then(response => { if (!response.ok) throw new Error(path + '.atlas.json (' + response.status + ')'); return response.json(); }),
+        new Promise((resolve, reject) => {
+          const image = new Image(); image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error(path + '.png could not load')); image.src = path + '.png';
+        })
+      ]).then(([atlas, image]) => {
+        const entries = Array.isArray(atlas.frames) ? atlas.frames : Object.entries(atlas.frames).map(([filename, frame]) => ({ ...frame, filename }));
+        const aliases = new Map(entries.map(frame => [frame.filename, frame]));
+        for (const direction of directions) {
+          for (const name of [direction, ...Array.from({length:4}, (_, i) => direction + '_walk_' + i)]) {
+            const frame = aliases.get(name);
+            if (!frame) throw new Error(path + ': missing frame ' + name);
+            if (frame.rotated || frame.sourceSize.w !== 16 || frame.sourceSize.h !== 32) throw new Error(path + ': ' + name + ' must be an unrotated 16 × 32 frame');
+            const rect = frame.frame;
+            if (rect.x < 0 || rect.y < 0 || rect.x + rect.w > image.naturalWidth || rect.y + rect.h > image.naturalHeight) throw new Error(path + ': ' + name + ' is outside the image');
+          }
+        }
+        return { image, aliases, path };
+      }).catch(error => { cache.delete(path); throw error; });
+      cache.set(path, pending);
+    }
+    return cache.get(path);
+  }
+
+  function paint(canvas, name) {
+    const context = canvas.getContext('2d'); context.imageSmoothingEnabled = false; context.clearRect(0, 0, 16, 32);
+    for (const sheet of sheets) {
+      const frame = sheet.aliases.get(name), rect = frame.frame, offset = frame.spriteSourceSize || {x:0, y:0};
+      context.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, offset.x, offset.y, rect.w, rect.h);
+    }
+  }
+
+  function render(refreshStrips = false) {
+    for (const [direction, panel] of panels) {
+      paint(panel.canvas, motion.value === 'idle' ? direction : direction + '_walk_' + cursor);
+      for (const cell of panel.frames) {
+        if (refreshStrips) paint(cell.canvas, cell.index < 0 ? direction : direction + '_walk_' + cell.index);
+        cell.button.disabled = sheets.length === 0;
+        cell.button.setAttribute('aria-pressed', String(motion.value === 'idle' ? cell.index === -1 : cell.index === cursor));
+      }
+    }
+    byId('frame-readout').textContent = sheets.length ? (motion.value === 'idle' ? 'Idle pose' : 'Frame ' + (cursor + 1) + ' / 4') : 'Frame — / 4';
+  }
+
+  function syncPlayback() {
+    play.textContent = playing ? 'Pause' : 'Play'; play.setAttribute('aria-pressed', String(playing));
+    play.disabled = sheets.length === 0 || motion.value === 'idle'; step.disabled = sheets.length === 0 || motion.value === 'idle';
+  }
+
+  async function selectAppearance() {
+    const currentGeneration = ++generation;
+    const kind = body.value, style = clothing.value;
+    const wig = hair.value === 'default' ? ({bare:'none', jacket:'short', dress:'tied'})[style] : hair.value;
+    sheets = []; cursor = 0; elapsed = 0; render(true); syncPlayback();
+    status.classList.remove('error'); status.textContent = 'Loading ' + kind + ' · ' + style + ' · ' + wig + ' hair…';
+    try {
+      const loading = [style === 'bare' ? loadSheet(kind, 'native-' + kind) : loadSheet(kind + '-' + style + '-none')];
+      if (wig !== 'none') loading.push(loadSheet(kind + '-wig-' + wig));
+      const loaded = await Promise.all(loading);
+      if (currentGeneration !== generation) return;
+      sheets = loaded; render(true); syncPlayback();
+      status.textContent = (kind === 'adult' ? 'Adult' : 'Child') + ' · ' + (style === 'bare' ? 'bare mannequin' : style) + ' · ' + (wig === 'none' ? 'no hair' : wig + ' hair') + ' · ' + (sheets.length === 2 ? 'separate wig overlay' : 'body and clothing sheet');
+    } catch (error) {
+      if (currentGeneration !== generation) return;
+      status.classList.add('error');
+      status.textContent = 'Could not load this combination: ' + error.message + '. Build the native-character presets and serve this folder over HTTP, then select it again.';
+    }
+  }
+
+  for (const control of [body, clothing, hair]) control.addEventListener('change', selectAppearance);
+  motion.addEventListener('change', () => { cursor = 0; elapsed = 0; render(); syncPlayback(); });
+  play.addEventListener('click', () => { playing = !playing; elapsed = 0; syncPlayback(); });
+  step.addEventListener('click', () => { playing = false; cursor = (cursor + 1) % 4; elapsed = 0; render(); syncPlayback(); });
+  speed.addEventListener('input', () => { elapsed = 0; byId('speed-value').textContent = speed.value + ' fps'; });
+  for (const name of ['checker', 'baseline']) byId(name).addEventListener('change', event => views.classList.toggle(name, event.target.checked));
+  document.addEventListener('visibilitychange', () => { lastTime = 0; elapsed = 0; });
+  function tick(now) {
+    if (lastTime && playing && sheets.length && motion.value === 'walk' && !document.hidden) {
+      elapsed += Math.min(now - lastTime, 250);
+      const duration = 1000 / Number(speed.value);
+      if (elapsed >= duration) { cursor = (cursor + Math.floor(elapsed / duration)) % 4; elapsed %= duration; render(); }
+    }
+    lastTime = now; requestAnimationFrame(tick);
+  }
+  selectAppearance(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

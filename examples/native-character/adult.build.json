@@ -12,6 +12,13 @@
   "expectedFrames": [
     "front",
     "right",
-    "back"
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
   ]
 }
