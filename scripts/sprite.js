@@ -292,9 +292,11 @@ TWEEN
                 frame of a cell group (draw frame 1, clone-cell fan-out, then tween)
 
 GROUPS (cells)
-  group create <name> R,C R,C ... [--fps N]     group add/remove <name> R,C ...
+  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong]
+  group add/remove <name> R,C ...
   group delete <name>                 group list
   group fps <name> <N>                set playback fps (exported as frame durations)
+  group direction <name> forward|reverse|pingpong   Aseprite tag direction (default forward)
 
 SHAPE GROUPS (within a cell)
   shape-group create <name> <shapes...> --cell
@@ -633,8 +635,9 @@ async function run() {
 
     case 'group':
       switch (sub) {
-        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps) }); break;
+        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction }); break;
         case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }); break;
+        case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }); break;
         case 'list':   result = await api('GET', '/api/group/cell/list'); break;
         case 'add':    result = await api('POST', '/api/group/cell/add', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;
         case 'remove': result = await api('POST', '/api/group/cell/remove', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;

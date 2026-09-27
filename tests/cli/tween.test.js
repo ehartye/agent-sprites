@@ -46,6 +46,7 @@ describe('CLI tween', () => {
       },
       setCellGroupFps() {},
       getCellGroupFps() { return {}; },
+      getCellGroupDirections() { return {}; },
       getShapeGroups() { return {}; },
     };
     state = { project: null, sessionId: null, db: mockDb };

@@ -7,7 +7,12 @@ export function previewSequences(project, activeCell = '0,0') {
     { id: 'all', label: 'All cells', frames: Array.from({ length: rows * cols }, (_, i) => `${Math.floor(i / cols)},${i % cols}`), fps: 8 },
     { id: 'cell', label: 'Current cell', frames: [activeCell], fps: 8 },
   ];
-  for (const [name, frames] of Object.entries(project.groups ?? {})) options.push({ id: `group:${name}`, group: name, label: name, frames, fps: project.animationFps?.[name] ?? 8 });
+  // Same rule as the exported preview's animationSequence: pingpong omits both repeated ends.
+  const play = (frames, direction) => {
+    const order = direction === 'reverse' ? [...frames].reverse() : frames;
+    return direction === 'pingpong' ? order.concat(order.slice(1, -1).reverse()) : order;
+  };
+  for (const [name, frames] of Object.entries(project.groups ?? {})) options.push({ id: `group:${name}`, group: name, label: name, frames: play(frames, project.animationDirections?.[name]), fps: project.animationFps?.[name] ?? 8 });
   return options;
 }
 export function selectPreviewSequence(options, id) {

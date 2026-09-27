@@ -15,15 +15,20 @@ function requireGroupInCell(state, name, cell) {
   return cell;
 }
 
+const DIRECTIONS = ['forward', 'reverse', 'pingpong'];
+const DIRECTION_ERROR = 'direction must be forward, reverse or pingpong';
+
 export function groupRoutes(state) {
   const r = Router();
 
   // --- Cell groups (animation frame sets) ---
   r.post('/group/cell/create', (req, res) => {
     try {
-      const { name, cells, fps } = req.body;
+      const { name, cells, fps, direction } = req.body;
+      if (direction != null && !DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
       state.db.setCellGroup(state.sessionId, name, cells);
       if (fps != null) state.db.setCellGroupFps(state.sessionId, name, fps);
+      if (direction != null) state.db.setCellGroupDirection(state.sessionId, name, direction);
       syncCellGroups(state);
       res.json({ ok: true, data: `Created cell group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -37,6 +42,18 @@ export function groupRoutes(state) {
       if (!Number.isFinite(fps) || fps <= 0) return res.json({ ok: false, error: 'fps must be a positive number' });
       state.db.setCellGroupFps(state.sessionId, name, fps);
       res.json({ ok: true, data: `Group "${name}" fps set to ${fps}` });
+    } catch (e) { res.json({ ok: false, error: e.message }); }
+  });
+
+  // Aseprite tag playback direction, emitted verbatim in meta.frameTags.
+  r.post('/group/cell/direction', (req, res) => {
+    try {
+      const { name, direction } = req.body;
+      const groups = state.db.getCellGroups(state.sessionId);
+      if (!(name in groups)) return res.json({ ok: false, error: `Group "${name}" not found` });
+      if (!DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
+      state.db.setCellGroupDirection(state.sessionId, name, direction);
+      res.json({ ok: true, data: `Group "${name}" direction set to ${direction}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 

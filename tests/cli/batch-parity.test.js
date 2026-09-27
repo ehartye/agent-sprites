@@ -62,6 +62,7 @@ describe('CLI batch parity (full pipeline in one ops file)', () => {
         return out;
       },
       setCellGroupFps(sessionId, name, fps) { groupFps.set(`${sessionId}/${name}`, fps); },
+      getCellGroupDirections() { return {}; },
       getCellGroupFps(sessionId) {
         const out = {};
         for (const [k, v] of groupFps) {

@@ -43,6 +43,7 @@ describe('CLI view --scale / view --sheet', () => {
       getCellGroups() { return {}; },
       setCellGroup() {},
       getCellGroupFps() { return {}; },
+      getCellGroupDirections() { return {}; },
       getShapeGroups() { return {}; },
     };
     state = { project: null, sessionId: null, db: mockDb, tmpDir: fs.mkdtempSync(join(os.tmpdir(), 'sprites-viewscale-cli-')) };

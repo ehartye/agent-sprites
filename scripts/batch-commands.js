@@ -161,8 +161,9 @@ export function mapCommandToApi(cmd) {
       const sub = params.sub;
       const name = params.name;
       switch (sub) {
-        case 'create': return { method: 'POST', path: '/api/group/cell/create', body: { name, cells: params.cells, fps: params.fps } };
+        case 'create': return { method: 'POST', path: '/api/group/cell/create', body: { name, cells: params.cells, fps: params.fps, direction: params.direction } };
         case 'fps':    return { method: 'POST', path: '/api/group/cell/fps', body: { name, fps: params.fps } };
+        case 'direction': return { method: 'POST', path: '/api/group/cell/direction', body: { name, direction: params.direction } };
         case 'add':    return { method: 'POST', path: '/api/group/cell/add', body: { name, cells: params.cells } };
         case 'remove': return { method: 'POST', path: '/api/group/cell/remove', body: { name, cells: params.cells } };
         case 'delete': return { method: 'POST', path: '/api/group/cell/delete', body: { name } };

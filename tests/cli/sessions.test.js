@@ -57,6 +57,7 @@ describe('CLI sessions / open --session', () => {
       },
       setCellGroupFps() {},
       getCellGroupFps() { return {}; },
+      getCellGroupDirections() { return {}; },
       getShapeGroups() { return {}; },
     };
     state = { project: null, sessionId: null, db: mockDb };
