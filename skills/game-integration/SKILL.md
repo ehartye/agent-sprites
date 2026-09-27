@@ -1,6 +1,6 @@
 ---
 name: game-integration
-description: Integrate agent-sprites exports into a 2D game, build a game's pixel-art asset set, or export sprite-based app icons. Use for Phaser, Unity, or Godot atlas loading, animation tags, and repeatable asset builds; not for CSS/SVG animation.
+description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text and inventory panels, or export sprite-based app icons. Use for atlas loading, animation tags, and repeatable game asset builds; not for CSS/SVG animation.
 ---
 
 # Game Integration
@@ -14,6 +14,27 @@ Patterns for taking agent-sprites exports into a real game project. Everything h
 
 `sprite.js` means the invocation resolved by [sprite editing](../sprite-editing/SKILL.md).
 Stop on failed CLI commands; see its PowerShell helper before running a build sequence.
+
+## Strict pixel UI
+
+For bitmap lettering, inventory panels, dialogue and pixel controls, read the
+[UI recipe and runtime contract](../../examples/ui/README.md). Build separate
+`ui` recipes with `kind: "font"` and `kind: "skin"` through the managed launcher.
+Use the exported glyph metrics, tone frames, panel insets and `ui-runtime.mjs`;
+keep font masks and skin drawing in the tool rather than copying them into a game.
+
+Compose glyphs and skin parts at integer scales. Check the actual text repertoire
+with `missingGlyphs`, including punctuation, changing quantities and error text.
+Use `ui-boot.mjs` when loading/failure messages must also use the exported font.
+For a strictly pixel interface, replace visible browser lettering, native form
+art, tooltips, list markers, focus rings and world labels as well as main menus.
+Retain semantic controls for keyboard and screen readers beneath the visual layer.
+Drive dirty UI painting from the game's existing frame loop; use one-shot
+invalidation during bootstrap rather than a second perpetual animation loop.
+
+Verify long dialogue wrapping, scrolled/clipped content, focus and disabled states,
+modal layering and phone hit targets in the running game. A loaded atlas or a
+successful build does not establish that every visible UI pixel comes from it.
 
 ## Export layout convention
 

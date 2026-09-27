@@ -17,6 +17,7 @@ import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { createPreview } from './preview.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
+import { generateUIRecipe } from '../authoring/ui.js';
 
 const exec = promisify(execFile);
 const marker = '.agent-sprites-build.json';
@@ -70,14 +71,14 @@ export async function buildProject(configPath) {
     const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath);
     if (config.version !== 1) throw new Error('Build config requires version: 1.');
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
-    const hasInline = Object.hasOwn(config, 'character') || Object.hasOwn(config, 'environment');
+    const hasInline = ['character', 'environment', 'ui'].some(key => Object.hasOwn(config, key));
     // Legacy file recipes permit an empty unused source. Inline recipes remain
     // strict so a malformed or mixed declaration cannot silently select another.
     const sources = hasInline
-      ? ['ops', 'generator', 'character', 'environment'].filter(key => Object.hasOwn(config, key))
+      ? ['ops', 'generator', 'character', 'environment', 'ui'].filter(key => Object.hasOwn(config, key))
       : ['ops', 'generator'].filter(key => Boolean(config[key]));
-    if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, or environment recipe.');
-    const sourceKind = sources[0], inline = sourceKind === 'character' || sourceKind === 'environment';
+    if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, or UI recipe.');
+    const sourceKind = sources[0], inline = ['character', 'environment', 'ui'].includes(sourceKind);
     if (inline) {
       if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
     } else if (typeof config[sourceKind] !== 'string' || !config[sourceKind]) throw new Error(`${sourceKind} source must be a nonempty file path.`);
@@ -93,7 +94,7 @@ export async function buildProject(configPath) {
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = sourceKind === 'character' ? generateCharacterRecipe : generateEnvironmentRecipe;
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe}[sourceKind];
       ({ operations, report: recipeReport } = generate(config[sourceKind]));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
@@ -133,6 +134,14 @@ export async function buildProject(configPath) {
     if (inline) {
       artifacts[`${sourceKind}Report`] = `${sourceKind}-report.json`;
       writeFileSync(join(stage, artifacts[`${sourceKind}Report`]), json(recipeReport));
+    }
+    if (sourceKind === 'ui') {
+      artifacts.uiRuntime = 'ui-runtime.mjs';
+      writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
+      if (recipeReport.kind === 'font') {
+        artifacts.uiBoot = 'ui-boot.mjs';
+        writeFileSync(join(stage, artifacts.uiBoot), `// Generated bitmap bootstrap: no network font or platform text renderer.\nexport const imageDataUrl=${JSON.stringify('data:image/png;base64,' + png.toString('base64'))};\nexport const atlas=${JSON.stringify(atlas)};\nexport const report=${JSON.stringify(recipeReport)};\n`);
+      }
     }
     verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, contactSheet: artifacts.contactSheet };
     writeFileSync(join(stage, artifacts.verification), json(verified));

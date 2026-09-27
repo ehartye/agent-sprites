@@ -30,13 +30,11 @@ function projectName(value) {
 }
 
 function validateImport(data) {
-  const w = data?.cellWidth ?? data?.cellSize;
-  const h = data?.cellHeight ?? data?.cellSize ?? w;
   const rows = data?.grid?.rows, cols = data?.grid?.cols;
-  if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1 || w > 4096 || h > 4096 ||
-      !Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 10 || cols > 10 ||
-      w * h * rows * cols > 16_777_216 || !Array.isArray(data.palette) || !data.cells || typeof data.cells !== 'object') {
-    throw new Error('Invalid project dimensions, grid, palette or cells');
+  // Project.fromJSON delegates dimensions and exact arithmetic to CellManager
+  // before activation. Import must accept the same grids the engine can export.
+  if (!Array.isArray(data?.palette) || !data?.cells || typeof data.cells !== 'object') {
+    throw new Error('Invalid project palette or cells');
   }
   let count = 0;
   for (const [ref, cell] of Object.entries(data.cells)) {
