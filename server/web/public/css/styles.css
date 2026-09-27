@@ -565,8 +565,7 @@ body {
 
 /* === Cell Thumb Canvas === */
 #cell-strip .cell-thumb-canvas {
-  width: 50px;
-  height: 50px;
+  flex: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -587,8 +586,8 @@ body {
 }
 
 #cell-strip .cell-thumb {
-  width: 52px;
-  height: 52px;
+  min-width: 52px;
+  padding: 3px;
   flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -598,8 +597,9 @@ body {
   image-rendering: crisp-edges;
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   transition: border-color 0.12s;
 }
 
@@ -613,10 +613,11 @@ body {
 }
 
 #cell-strip .cell-thumb .label {
-  position: absolute;
-  bottom: 1px;
-  left: 0;
-  right: 0;
+  max-width: 100px;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
   font-size: 0.5rem;
   color: var(--text-secondary);
@@ -643,8 +644,7 @@ body {
 }
 
 .anim-canvas {
-  width: 100%;
-  aspect-ratio: 1;
+  flex: none;
   border: 1px solid var(--border);
   border-radius: 3px;
   image-rendering: pixelated;
