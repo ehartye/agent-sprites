@@ -1,3 +1,4 @@
+import { paintShapes } from './erase-layer.js';
 // Mirrors server/engine/patterns.js so the live view matches the export.
 const PATTERNS = {
   checker: (x, y) => (x + y) % 2 === 0,
@@ -290,7 +291,7 @@ export class AnimationPreview {
     const shapes = this._getCellShapes(ref);
     const scale = this._canvas.width / this._cellW;
 
-    for (const shape of shapes) {
+    paintShapes(ctx, shapes, (ctx, shape) => {
       ctx.fillStyle = this._resolveColor(shape.color);
       const p = shape.params;
       this._fill = p.pattern && p.filled !== false && p.color2 != null && PATTERNS[p.pattern]
@@ -355,7 +356,7 @@ export class AnimationPreview {
           break;
         }
       }
-    }
+    });
   }
 
   /** Filled circle with the export's half-pixel threshold (rows 3,5,7,7,7,5,3 at r=3). */

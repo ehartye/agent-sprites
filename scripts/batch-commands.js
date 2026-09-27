@@ -94,6 +94,7 @@ export function mapCommandToApi(cmd) {
         intensity: params.intensity,
         coverage: params.coverage,
         width: params.width,
+        erase: params.erase,
         from_deg: params.from_deg,
         to_deg: params.to_deg,
         clip_to: params.clip_to,

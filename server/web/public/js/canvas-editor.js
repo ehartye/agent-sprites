@@ -1,3 +1,4 @@
+import { paintShapes } from './erase-layer.js';
 // Mirrors server/engine/patterns.js so the live view matches the export.
 const PATTERNS = {
   checker: (x, y) => (x + y) % 2 === 0,
@@ -224,6 +225,7 @@ export class CanvasEditor {
     if (prev && prev.length > 0) {
       ctx.globalAlpha = 0.3;
       for (const shape of prev) {
+        if (shape.params?.erase) continue; // an eraser has no silhouette of its own
         ctx.fillStyle = '#4488ff';
         this._renderOneShape(ctx, ox, oy, z, shape);
       }
@@ -233,6 +235,7 @@ export class CanvasEditor {
     if (next && next.length > 0) {
       ctx.globalAlpha = 0.3;
       for (const shape of next) {
+        if (shape.params?.erase) continue;
         ctx.fillStyle = '#ff4444';
         this._renderOneShape(ctx, ox, oy, z, shape);
       }
@@ -289,7 +292,7 @@ export class CanvasEditor {
       ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
       return;
     }
-    for (const shape of this._shapes) {
+    paintShapes(ctx, this._shapes, (ctx, shape) => {
       const color = this._resolveColor(shape.color);
       ctx.fillStyle = color;
 
@@ -334,7 +337,7 @@ export class CanvasEditor {
           this._drawPolygon(ctx, ox, oy, z, p.points, false, false);
           break;
       }
-    }
+    });
   }
 
   /** Arm a two-color pattern fill for the shape about to be drawn (fill only, never outlines). */

@@ -92,6 +92,8 @@ sprite.js draw polyline --cell 0,0 --points "0,8 4,4 8,8 12,4" --color "#ffffff"
 
 Polygons/polylines move, flip, rotate, and group like any other named shape — prefer one named polygon over a pile of line/point shapes for angular forms.
 
+To cut a hole or notch, draw the cutting shape with `--erase true` (point, line, rect, circle, ellipse, polygon or polyline; no color needed). An erase shape clears every shape below it in z-order, so `draw circle` then `draw polygon --points "8,8 15,3 15,13" --erase true --name mouth` gives Pac's wedge. It stays a named shape you can move, tween, hide or delete; shapes drawn after it paint over the hole. The background (transparent or chroma) shows through, never erased.
+
 For brush strokes 2–4px thick, add `--width 2`–`4` to `line`, `polyline` or `arc`. A square brush is stamped along the 1px path (odd widths centered, even widths extend toward +x/+y) and emitted as named points `<name>_<i>`, so a wide stroke no longer moves as one shape. Width 1, the default, is unchanged.
 
 Use `sprite.js view --cell 0,0` or check the web UI frequently to verify your work.

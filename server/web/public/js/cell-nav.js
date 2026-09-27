@@ -1,3 +1,4 @@
+import { paintShapes } from './erase-layer.js';
 /**
  * Cell navigator — thumbnail strip at the bottom showing all cells.
  * Click to switch active cell, filter by group.
@@ -139,7 +140,7 @@ export class CellNavigator {
       .filter(s => s.visible !== false)
       .sort((a, b) => a.zIndex - b.zIndex);
 
-    for (const shape of sorted) {
+    paintShapes(ctx, sorted, (ctx, shape) => {
       ctx.fillStyle = this._resolveColor(shape.color);
       const p = shape.params;
 
@@ -204,7 +205,7 @@ export class CellNavigator {
           break;
         }
       }
-    }
+    });
   }
 
   _resolveColor(ref) {

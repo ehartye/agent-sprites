@@ -246,6 +246,8 @@ DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
     filled rect/circle/ellipse/polygon accept --pattern checker|stripes|sparse|scatter --color2 <hex>
     (two-color dither fill: color2 paints the pattern pixels; outlines stay --color)
   draw polyline  --points "x,y x,y ..."                        open stroke
+    point/line/rect/circle/ellipse/polygon/polyline accept --erase true: the shape clears
+    everything below it (by z) to the background; it stays named and editable.
     line/polyline/arc accept --width 1-4: a square brush along the 1px path, emitted as
     named points <name>_<i> (default width 1 keeps a single editable line/polyline)
   draw highlight --shape <target> [--direction top-left|top|top-right|left|right|bottom-left|bottom|bottom-right] [--strength N] [--name <base>]
@@ -512,6 +514,7 @@ async function run() {
         intensity: args.intensity,
         coverage: args.coverage !== undefined ? bool(args.coverage) : undefined,
         width: num(args.width),
+        erase: args.erase !== undefined ? bool(args.erase) : undefined,
         from_deg: num(args['from-deg']),
         to_deg: num(args['to-deg']),
         clip_to: args['clip-to'],
