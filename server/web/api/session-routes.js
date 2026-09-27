@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Project } from '../../engine/project.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
+import { exportTrimmed } from '../../engine/trimmed-export.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
@@ -128,24 +129,27 @@ export function sessionRoutes(state) {
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
-  r.post('/export', (req, res) => {
+  r.post('/export', async (req, res) => {
     try {
       if (!state.project) return res.json({ ok: false, error: 'No active project' });
       const session = state.db.getSession(state.sessionId);
       // One-off destination override; the session's stored folder is untouched.
       const dest = req.body?.dest ?? session.destination_folder;
       const renderer = new CanvasRenderer(state.project.palette, { background: state.project.background });
-      // gap: 0 — the atlas rects are gapless, so the sheet must be too
-      const png = renderer.renderSheet(state.project.cells, { gap: 0 });
-      mkdirSync(dest, { recursive: true });
-      const pngPath = join(dest, `${session.project_name}.png`);
-      const atlasPath = join(dest, `${session.project_name}.atlas.json`);
-      const atlas = state.project.exportAseprite({
+      if (req.body?.trim !== undefined && typeof req.body.trim !== 'boolean') return res.json({ ok: false, error: 'trim must be true or false' });
+      const options = {
         imageName: `${session.project_name}.png`,
         groups: state.db.getCellGroups(state.sessionId),
         fpsMap: state.db.getCellGroupFps(state.sessionId),
         directionMap: state.db.getCellGroupDirections(state.sessionId),
-      });
+      };
+      // gap: 0 — the atlas rects are gapless, so the sheet must be too
+      const { png, atlas } = req.body?.trim
+        ? await exportTrimmed(state.project, renderer, options)
+        : { png: renderer.renderSheet(state.project.cells, { gap: 0 }), atlas: state.project.exportAseprite(options) };
+      mkdirSync(dest, { recursive: true });
+      const pngPath = join(dest, `${session.project_name}.png`);
+      const atlasPath = join(dest, `${session.project_name}.atlas.json`);
       writeFileSync(pngPath, png);
       writeFileSync(atlasPath, JSON.stringify(atlas, null, 2));
       res.json({

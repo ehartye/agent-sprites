@@ -17,8 +17,9 @@ export function groundAnchor(report, frame) {
 
 /** Draw an atlas frame so its ground anchor lands on (x, y) in world pixels. */
 export function drawAtGround(ctx, image, atlasFrame, anchor, x, y, { scale = 1, offset = [0, 0] } = {}) {
-  const f = atlasFrame.frame;
-  ctx.drawImage(image, f.x, f.y, f.w, f.h, x - anchor.x * scale + offset[0], y - anchor.y * scale + offset[1], f.w * scale, f.h * scale);
+  // Trimmed atlases place the packed rectangle at its offset within the cell.
+  const f = atlasFrame.frame, s = atlasFrame.spriteSourceSize ?? { x: 0, y: 0 };
+  ctx.drawImage(image, f.x, f.y, f.w, f.h, x + (s.x - anchor.x) * scale + offset[0], y + (s.y - anchor.y) * scale + offset[1], f.w * scale, f.h * scale);
 }
 
 /** Visual hit box from a report frame's opaque bounds. Not a collision footprint. */

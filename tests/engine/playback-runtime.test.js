@@ -112,3 +112,9 @@ describe('grounded playback adapter', () => {
     expect(() => walker.update(0, 0)).toThrow(/no idle frame ada_casual_down_idle: include an idle-mode report/);
   });
 });
+
+test('draw-at-ground honors trimmed atlas offsets', () => {
+  const calls = [], ctx = { drawImage: (...a) => calls.push(a) };
+  drawAtGround(ctx, 'img', { frame: { x: 5, y: 7, w: 18, h: 42 }, spriteSourceSize: { x: 12, y: 13, w: 18, h: 42 } }, { x: 20, y: 54 }, 100, 200, { scale: 2 });
+  expect(calls[0]).toEqual(['img', 5, 7, 18, 42, 100 - 40 + 24, 200 - 108 + 26, 36, 84]);
+});

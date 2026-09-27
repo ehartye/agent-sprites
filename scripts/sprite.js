@@ -218,7 +218,8 @@ SESSION
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
   save                   write editable project JSON (drafts already persist automatically)
-  export [--dest <folder>]  export gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
+  export [--dest <folder>] [--trim true]  export gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
+                         --trim packs each cell's opaque bounds with spriteSourceSize offsets
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
                          set the sprite pivot/origin exported in the atlas
@@ -435,6 +436,7 @@ async function run() {
         cols: num(args.cols), palette: args.palette,
         cwd: process.cwd(),
         dest: args.dest ? resolve(args.dest) : undefined,
+        trim: args.trim !== undefined ? bool(args.trim) : undefined,
       });
       break;
     }

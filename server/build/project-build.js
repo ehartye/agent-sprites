@@ -17,6 +17,7 @@ import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { createPreview } from './preview.js';
 import { renderFontProof } from './font-proof.js';
+import { exportTrimmed } from '../engine/trimmed-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
@@ -102,9 +103,11 @@ export async function buildProject(configPath) {
       : ['ops', 'generator'].filter(key => Boolean(config[key]));
     if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, or UI recipe.');
     const sourceKind = sources[0], inline = ['character', 'environment', 'ui'].includes(sourceKind);
+    if (config.trim && sourceKind === 'ui') throw new Error('trim is not supported for UI builds: the UI runtime composites whole glyph and skin cells.');
     if (inline) {
       if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
     } else if (typeof config[sourceKind] !== 'string' || !config[sourceKind]) throw new Error(`${sourceKind} source must be a nonempty file path.`);
+    if (config.trim !== undefined && typeof config.trim !== 'boolean') throw new Error('trim must be true or false.');
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const source = inline ? configPath : realpathSync(resolve(base, config[sourceKind]));
@@ -149,8 +152,10 @@ export async function buildProject(configPath) {
     }
     captureProjectMetadata(state);
     const project = state.project;
-    const png = new CanvasRenderer(project.palette, { background: project.background }).renderSheet(project.cells, { gap: 0 });
-    const atlas = project.exportAseprite({ imageName: `${name}.png` });
+    const renderer = new CanvasRenderer(project.palette, { background: project.background });
+    const { png, atlas } = config.trim
+      ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
+      : { png: renderer.renderSheet(project.cells, { gap: 0 }), atlas: project.exportAseprite({ imageName: `${name}.png` }) };
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
