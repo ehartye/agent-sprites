@@ -24,3 +24,18 @@ test('large body remains fully skin-selectable in all seven ramps',()=>{
   }
  }
 });
+
+test('large arms contain two adjacent skin pixels inside their outline in every pose',()=>{
+ const ops=nativeMannequin('large');
+ for(const {cell,as:alias} of ops.filter(o=>o.command==='name')){
+  const names=ops.find(o=>o.command==='shape-group'&&o.cell===cell&&o.name==='arms')?.shapes;
+  expect(names,alias).toBeDefined();
+  const arm=ops.filter(o=>o.command==='draw'&&o.cell===cell&&names.includes(o.name)&&o.color!=='#673649');
+  const rows=new Set(arm.filter(p=>arm.some(q=>q.y===p.y&&q.x===p.x+1)).map(p=>p.y));
+  expect(rows.size,alias).toBeGreaterThanOrEqual(3);
+ }
+ for(const cell of ['0,0','2,0'])for(const y of [16,17,18]){
+  const points=ops.filter(o=>o.command==='draw'&&o.cell===cell&&o.y===y);
+  for(const x of [2,3,12,13])expect(points.find(p=>p.x===x)?.color).not.toBe('#673649');
+ }
+});

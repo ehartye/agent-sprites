@@ -20,8 +20,35 @@ export function broadenMannequin(source,tone){
     body.set(`${x},${p.y}`,{...p,x,name:`large-body-${x}-${p.y}`,role:roleByName.get(p.name)??'base'});
    }
   }
+  // Pose-specific arm bands add actual cross-sectional mass, not just spacing.
+  const phase=Number(alias.split('_').at(-1))||0;
+  const profile=alias.startsWith('right')||alias.startsWith('left');
+  const arms=new Set();
+  const bands=[];
+  const band=(left,right,top,bottom)=>{for(let y=top;y<=bottom;y++)bands.push([left,right,y]);};
+  if(!profile){
+   band(1,4,15+bob,18+bob);band(11,14,15+bob,18+bob);
+   if(phase%2===0){band(0,3,19,22);band(12,15,19,22);}
+   else if(phase===1){band(1,4,19,20);band(11,14,19,22);}
+   else {band(1,4,19,22);band(11,14,19,20);}
+  }else if(phase%2===0){
+   band(2,6,15,20);band(11,14,18,20);
+  }else if(phase===1){
+   band(3,6,16,16);band(4,7,17,17);band(5,9,18,18);
+   band(7,11,19,19);band(10,14,20,21);band(0,3,20,21);
+  }else{
+   band(2,6,16,18);band(1,5,19,20);band(0,4,21,22);
+   band(10,14,20,21);
+  }
+  for(const [left,right,y] of bands)for(let originalX=left;originalX<=right;originalX++){
+   const x=alias.startsWith('left')?15-originalX:originalX;
+   const name=`large-body-${x}-${y}`;
+   const worldLeft=alias.startsWith('left')?15-right:left;
+   const role=originalX===left||originalX===right?'outline':x<8?(x===worldLeft+1?'highlight':'base'):(x===worldLeft+1?'base':'shadow');
+   body.set(`${x},${y}`,{command:'draw',type:'point',cell,name,x,y,role});arms.add(name);
+  }
   const mask=new Set([...body.keys(),...points.filter(p=>head.has(p.name)).map(p=>`${p.x},${p.y}`)]);
-  const grouped={head:[],body:[],'skin-highlight':[],'skin-base':[],'skin-shadow':[],'skin-outline':[]};
+  const grouped={head:[],body:[],arms:[...arms],'skin-highlight':[],'skin-base':[],'skin-shadow':[],'skin-outline':[]};
   for(const p of points.filter(p=>head.has(p.name))){result.push(p);grouped.head.push(p.name);const r=roleByName.get(p.name);if(r)grouped[`skin-${r}`].push(p.name);}
   for(const p of body.values()){
    let role=p.role;
