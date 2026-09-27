@@ -56,8 +56,15 @@ export class AnimationPreview {
     const mount = document.getElementById(this._mountId);
     if (!mount) return;
     const rect = mount.getBoundingClientRect();
-    const reserved = 80; // rough space for controls + header
-    const available = Math.max(64, Math.min(rect.width, rect.height - reserved));
+    if (!rect.width || !rect.height) return; // Hidden tabs have no usable layout yet.
+    const style = getComputedStyle(mount);
+    const paddingX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    const paddingY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+    const canvas = this._canvas.getBoundingClientRect();
+    const container = this._container.getBoundingClientRect();
+    const reservedY = Math.max(0, container.height - canvas.height);
+    const reservedX = Math.max(0, container.width - canvas.width);
+    const available = Math.max(1, Math.min(rect.width - paddingX - reservedX, rect.height - paddingY - reservedY));
     this._size = available;
     if (this._applyCanvasSize()) this._renderFrame();
   }

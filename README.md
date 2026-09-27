@@ -338,3 +338,12 @@ all poses, preserving eyes and geometry. `skin-tone <tone>` provides the same
 operation from the managed CLI. Unprepared designs are not automatically
 classified; generate the role groups first. Tone edits survive saves and copies,
 with one undo step per affected cell.
+
+### Previewing sheets without animation tags
+
+In the live **Preview** tab, choose **Current row**, **All cells**, **Current cell**,
+or a saved animation group from **Sequence**, then press **Play**. Current row is
+the default, so an untagged pose sheet can be reviewed in motion. Selecting a cell
+in another row changes that row preview. Saved groups retain their frame order,
+repeated frames and FPS. These preview choices do not create exported animation
+tags; use animation groups when defining a finished animation.

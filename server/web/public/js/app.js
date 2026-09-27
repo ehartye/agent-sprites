@@ -10,6 +10,7 @@ import { CellNavigator } from './cell-nav.js';
 import { AnimationPreview } from './animation.js';
 import { Workbench } from './workbench.js';
 import { cellsForView, isTracedShape } from './view-visibility.js';
+import { previewSequences, selectPreviewSequence } from './preview-sequences.js';
 
 const visibility = { trace: true, reference: true };
 const viewCells = () => cellsForView(state.project?.cells ?? {}, visibility);
@@ -24,6 +25,8 @@ const state = {
   palette: {},
   sessionId: null,
   selectedShape: null,
+  previewSequence: 'row',
+  previewSequenceKey: null,
 };
 
 const editor = new CanvasEditor();
@@ -135,23 +138,17 @@ function init() {
     editor.setOnionSkin(data);
   });
   fullPreview.init();
+  document.getElementById('preview-sequence').addEventListener('change', event => {
+    state.previewSequence = event.target.value;
+    syncPreviewSequence();
+  });
   initTabs();
   initUndoRedo();
 
   groupPanel.init({
     onSelect: (groupName) => {
-      if (groupName && state.project?.groups?.[groupName]) {
-        const frames = state.project.groups[groupName];
-        cellNav.setFilter(frames);
-        animPreview.setFrames(frames);
-        fullPreview.setFrames(frames);
-        animPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
-        fullPreview.setFps(state.project.animationFps?.[groupName] ?? 8);
-      } else {
-        cellNav.setFilter(null);
-        animPreview.setFrames([state.activeCell]);
-        fullPreview.setFrames([state.activeCell]);
-      }
+      state.previewSequence = groupName ? `group:${groupName}` : 'all';
+      syncPreviewSequence();
     },
     onCreate: () => {
       const name = prompt('Group name:');
@@ -224,6 +221,7 @@ function onProjectData(data) {
   const changed = workbench.sessionId !== state.sessionId;
   state.project = data;
   if (changed) {
+    state.previewSequence = 'row'; state.previewSequenceKey = null;
     visibility.trace = true; visibility.reference = true;
     state.activeCell = '0,0'; state.activeColor = null; state.selectedShape = null;
     tools.setTool(state.activeTool);
@@ -394,11 +392,33 @@ function selectCell(ref) {
   refreshShapePanel();
   cellNav.setActive(ref);
   animPreview.setActiveCell(ref);
-  if (!groupPanel.activeGroup) { animPreview.setFrames([ref]); fullPreview.setFrames([ref]); }
+  syncPreviewSequence();
   editor.setOnionSkin(animPreview.getOnionSkinData());
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
   refreshShapeGroups();
+}
+
+function syncPreviewSequence() {
+  const choices = previewSequences(state.project, state.activeCell);
+  const selected = selectPreviewSequence(choices, state.previewSequence);
+  const select = document.getElementById('preview-sequence');
+  select.replaceChildren(...choices.map(choice => {
+    const option = document.createElement('option');
+    option.value = choice.id; option.textContent = `${choice.label} · ${choice.frames.length} frame${choice.frames.length === 1 ? '' : 's'}`;
+    return option;
+  }));
+  if (!selected) return;
+  state.previewSequence = selected.id; select.value = selected.id;
+  groupPanel.setActiveGroup(selected.group ?? null);
+  cellNav.setFilter(selected.group ? selected.frames : null);
+  const key = JSON.stringify([selected.id, selected.frames, selected.fps]);
+  if (key !== state.previewSequenceKey) {
+    animPreview.setFrames(selected.frames); fullPreview.setFrames(selected.frames);
+    animPreview.setFps(selected.fps); fullPreview.setFps(selected.fps);
+    state.previewSequenceKey = key;
+  }
+  editor.setOnionSkin(animPreview.getOnionSkinData());
 }
 
 /* -- Shape groups -- */

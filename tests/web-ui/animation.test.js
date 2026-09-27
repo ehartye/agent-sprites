@@ -26,6 +26,17 @@ describe('AnimationPreview (browser)', () => {
     expect(canvas.width).toBe(64);
     expect(canvas.height).toBe(128);
   });
+  it('reserves actual controls and mount padding when fitting a responsive preview', () => {
+    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 512 }); ap.init();
+    ap.setCellSize(16, 32);
+    const mount = document.getElementById('anim-panel');
+    mount.style.padding = '16px';
+    mount.getBoundingClientRect = () => ({ width: 400, height: 400 });
+    ap._container.getBoundingClientRect = () => ({ width: 256, height: 652 });
+    ap._canvas.getBoundingClientRect = () => ({ width: 256, height: 512 });
+    ap.fitToMount();
+    expect(ap._canvas.height).toBe(224); // 400 - 32 padding - 140 controls, snapped to 32.
+  });
 
   it('constructs without an explicit size (default preview size)', () => {
     const ap = new AnimationPreview({ mountId: 'anim-panel' });
