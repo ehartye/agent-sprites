@@ -58,7 +58,10 @@ with this local build config:
 Inspect both the native PNG and enlarged preview. The named point shapes are
 grouped as head/body for later edits. Frame aliases appear alongside numeric
 frames in the atlas/contact sheet; they share the same eight physical cells.
-Poses are not declared a walk animation. Color compression artifacts, enclosed
+This reconstruction command does not declare animation tags. The downstream
+[native-character builder](../native-character/README.md) sequences these four
+front/right source poses as walk cycles and adds reflected left and authored rear
+cycles, with matching clothing and wig frames. Color compression artifacts, enclosed
 background pockets and per-frame grid drift still need visual review. Preserve
 the original full-resolution reference separately.
 
