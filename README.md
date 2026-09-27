@@ -273,7 +273,9 @@ For repeatable terrain, aligned pressure-habitat layers and furniture, use the
 [`environment` source](examples/environment/README.md). It exports editable named
 shapes plus `environment-report.json` with floor, door, wall and furniture collision
 geometry. Games can consume that geometry alongside the atlas to keep walkable
-space aligned with the art. Terrain recipes provide deterministic variants; the
+space aligned with the art. Terrain recipes provide deterministic variants;
+`terrain-transition` supplies 47 neighbor-aware path masks with rounded corners,
+irregular shoulders and four seam-compatible variants. The
 habitat kit is an authored preset rather than an arbitrary architecture generator.
 
 For bitmap text and reusable nine-slice controls, use the [`ui` source](examples/ui/README.md).

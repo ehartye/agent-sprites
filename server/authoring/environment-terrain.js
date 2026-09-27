@@ -1,5 +1,11 @@
 export const TERRAIN_MATERIALS=['moss','regolith','basalt','packed-earth','alloy','cork'];
 const RAMPS={moss:['#627e62','#5c785e','#6b8464','#81976f'],regolith:['#afa18c','#9e917e','#bfb09a','#d3c0a3'],basalt:['#616775','#565c69','#717784','#93929a'],'packed-earth':['#967e63','#887058','#a58b6a','#b6a17a'],alloy:['#899d9e','#657f83','#a8baba','#c6cebf'],cork:['#b79a71','#a18765','#c6ac82','#dfc498']};
+const MOSS_EDGE={light:'#658064',dark:'#607c61'};
+export function mossEdgeColor(x,y){
+  if((x<2||x>29)&&((y>=8&&y<=9)||(y>=23&&y<=24)))return MOSS_EDGE.light;
+  if((y<2||y>29)&&((x>=10&&x<=12)||(x>=24&&x<=26)))return MOSS_EDGE.dark;
+  return RAMPS.moss[0];
+}
 export function randomFor(seed,salt=0){let state=(seed^Math.imul(salt+1,0x45d9f3b))>>>0;return ()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};}
 
 /** Quiet clusters share matching opposite edge pixels across every variant. */
@@ -37,7 +43,7 @@ export function drawTerrain(p,material,variant,seed){
       }
     }
     // Shared shallow edge clusters prevent a blank border without introducing a tile seam.
-    const edgeLight=material==='moss'?'#658064':light,edgeDark=material==='moss'?'#607c61':dark;
+    const edgeLight=material==='moss'?MOSS_EDGE.light:light,edgeDark=material==='moss'?MOSS_EDGE.dark:dark;
     for(const [i,y] of [8,23].entries())for(const x of [0,30])p.rect(`edge_patch_x_${i}_${x}`,x,y,2,2,edgeLight);
     for(const [i,x] of [10,24].entries())for(const y of [0,30])p.rect(`edge_patch_y_${i}_${y}`,x,y,3,2,edgeDark);
     if(material==='regolith'&&variant===2){const x=ri(10,22),y=ri(10,22);p.ellipse('crater_rim',x,y,5,3,light);p.ellipse('crater_bowl',x,y,4,2,dark);p.line('crater_lip',x-3,y+2,x+2,y+2,bright);}

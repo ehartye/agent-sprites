@@ -3,6 +3,7 @@ import {generateEnvironmentRecipe} from '../../server/authoring/environment.js';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
+import {terrainTransitionPixels} from '../../server/authoring/environment-transition.js';
 
 const renderer=new CanvasRenderer(new Palette());
 function render(recipe,frame){
@@ -38,6 +39,20 @@ test('terrain variants have matching opposite edges and compatible edges between
     }
     if(edges.has(frame.material))expect(signature).toEqual(edges.get(frame.material));else edges.set(frame.material,signature);
     for(let i=3;i<data.length;i+=4)expect(data[i]).toBe(255);
+  }
+});
+
+test('path shoulders continue the actual exported moss edge clusters at every empty neighbor',()=>{
+  const moss=generateEnvironmentRecipe({kind:'terrain',materials:['moss']}),paths=generateEnvironmentRecipe({kind:'terrain-transition'});
+  const hex=rgba=>'#'+rgba.slice(0,3).map(n=>n.toString(16).padStart(2,'0')).join('');
+  for(const frame of moss.report.frames){
+    const data=render(moss,frame);
+    for(const path of paths.report.frames){
+      const pixels=terrainTransitionPixels(path.mask,path.variant);
+      for(let i=0;i<32;i++)for(const [bit,x,y] of [[1,i,0],[4,31,i],[16,i,31],[64,0,i]])if(!(path.mask&bit)){
+        expect(pixels[y*32+x],`${path.alias} side ${bit} pixel ${i}`).toBe(hex(pixel(data,x,y)));
+      }
+    }
   }
 });
 

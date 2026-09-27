@@ -1,4 +1,5 @@
 import {drawTerrain, TERRAIN_MATERIALS} from './environment-terrain.js';
+import {drawTerrainTransition,TERRAIN_MASKS,TRANSITION_BITS} from './environment-transition.js';
 import {drawHabitat, drawFurniture, HABITAT_LAYOUT, FURNITURE_COLLISIONS} from './environment-habitat.js';
 
 const fallback=(value,other)=>value===undefined?other:value;
@@ -8,17 +9,19 @@ export function generateEnvironmentRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Environment must be an object');
   for(const key of Object.keys(config))if(!['name','kind','seed','materials','variants'].includes(key))throw Error(`Unknown environment field: ${key}`);
   const kind=config.kind,name=fallback(config.name,'environment'),seed=fallback(config.seed,7);
-  if(!['terrain','habitat','furniture'].includes(kind))throw Error(`Unsupported environment kind: ${kind}`);
+  if(!['terrain','terrain-transition','habitat','furniture'].includes(kind))throw Error(`Unsupported environment kind: ${kind}`);
   if(typeof name!=='string'||! /^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid environment name');
   if(!Number.isSafeInteger(seed))throw Error('Environment seed must be a safe integer');
-  if(kind!=='terrain'&&(config.materials!==undefined||config.variants!==undefined))throw Error('Materials and variants apply only to terrain');
+  if(kind!=='terrain'&&config.materials!==undefined)throw Error('Materials apply only to terrain');
+  if(!['terrain','terrain-transition'].includes(kind)&&config.variants!==undefined)throw Error('Variants apply only to terrain');
   const materials=fallback(config.materials,TERRAIN_MATERIALS),variants=fallback(config.variants,4);
-  if(kind==='terrain'){
-    if(!Array.isArray(materials)||!materials.length||new Set(materials).size!==materials.length||materials.some(m=>!TERRAIN_MATERIALS.includes(m)))throw Error('Terrain materials must be a nonempty unique array of supported materials');
-    if(!Number.isInteger(variants)||variants<1||variants>4)throw Error('Terrain variants must be between 1 and 4');
+  if(['terrain','terrain-transition'].includes(kind)){
+    if(kind==='terrain'&&(!Array.isArray(materials)||!materials.length||new Set(materials).size!==materials.length||materials.some(m=>!TERRAIN_MATERIALS.includes(m))))throw Error('Terrain materials must be a nonempty unique array of supported materials');
+    if(kind==='terrain'&&(!Number.isInteger(variants)||variants<1||variants>4))throw Error('Terrain variants must be between 1 and 4');
+    if(kind==='terrain-transition'&&(!Number.isSafeInteger(variants)||variants<1||!Number.isSafeInteger(variants*TERRAIN_MASKS.length)||!Number.isSafeInteger(variants*32)))throw Error('Terrain transition variants require a positive safe integer and exactly representable sheet arithmetic');
   }
-  const aliases=kind==='terrain'?materials.flatMap(m=>Array.from({length:variants},(_,v)=>`${m}_${v}`)):kind==='habitat'?['habitat_floor','habitat_back','habitat_front','habitat_roof']:Object.keys(FURNITURE_COLLISIONS);
-  const width=kind==='habitat'?320:kind==='terrain'?32:64,height=kind==='habitat'?256:width,cols=kind==='terrain'?variants:kind==='habitat'?2:3;
+  const aliases=kind==='terrain-transition'?TERRAIN_MASKS.flatMap(mask=>Array.from({length:variants},(_,v)=>`path_${mask}_${v}`)):kind==='terrain'?materials.flatMap(m=>Array.from({length:variants},(_,v)=>`${m}_${v}`)):kind==='habitat'?['habitat_floor','habitat_back','habitat_front','habitat_roof']:Object.keys(FURNITURE_COLLISIONS);
+  const width=kind==='habitat'?320:kind.startsWith('terrain')?32:64,height=kind==='habitat'?256:width,cols=kind.startsWith('terrain')?variants:kind==='habitat'?2:3;
   const operations=[{command:'new',name,size:`${width}x${height}`,cols,rows:Math.ceil(aliases.length/cols),palette:'pico8'}],frames=[];
   for(const [index,alias] of aliases.entries()){
     const cell=`${Math.floor(index/cols)},${index%cols}`,names=new Set(),bounds={left:width,top:height,right:-1,bottom:-1};
@@ -41,11 +44,14 @@ export function generateEnvironmentRecipe(config){
     if(kind==='terrain'){
       const material=materials[Math.floor(index/variants)],variant=index%variants;
       drawTerrain(pen,material,variant,seed);details={material,variant,seamless:true};
+    }else if(kind==='terrain-transition'){
+      const mask=TERRAIN_MASKS[Math.floor(index/variants)],variant=index%variants;
+      drawTerrainTransition(pen,mask,variant,seed);details={mask,variant,foreground:'packed-earth',background:'moss'};
     }else if(kind==='habitat')drawHabitat(pen,alias,seed);
     else{drawFurniture(pen,alias,seed);details={collision:{...FURNITURE_COLLISIONS[alias]},ground:{x:32,y:62}};}
     operations.push({command:'shape-group',sub:'create',cell,name:'environment',shapes:[...names]});
     frames.push({alias,cell,...details,bounds});
   }
   operations.push(kind==='furniture'?{command:'pivot',x:32,y:62}:{command:'pivot',x:0,y:0});
-  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},frames,...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT)}:{})}};
+  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT)}:{})}};
 }
