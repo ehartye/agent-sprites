@@ -1,0 +1,1758 @@
+{
+  "title": "Space to Grow — native cast concepts",
+  "characters": [
+    {
+      "status": "concept",
+      "kind": "adult",
+      "outfit": "jacket",
+      "wig": "short",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "farmer",
+      "name": "The Grower",
+      "role": "Plot 7B · player concept",
+      "description": "A field jacket, seed pouch, and sun cap built for an asteroid garden.",
+      "details": [
+        "Copper jacket / oxidized teal overalls",
+        "Soft cap with a seedling-green tab",
+        "Compact airlock collar and sampling pack"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#654048",
+          "shadow": "#b67766",
+          "base": "#dda18a",
+          "highlight": "#f7c5a1"
+        },
+        "hair": {
+          "outline": "#272d38",
+          "shadow": "#3b343d",
+          "base": "#59454a",
+          "highlight": "#8a6051"
+        },
+        "cloth": {
+          "outline": "#493942",
+          "shadow": "#855047",
+          "base": "#bb7757",
+          "highlight": "#e1a574"
+        },
+        "trousers": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "trim": {
+          "outline": "#515157",
+          "shadow": "#aaa68e",
+          "base": "#ddd4b5",
+          "highlight": "#fff0ca"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "otttto",
+            "ooccoo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "otto",
+            "occo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "seed-cap",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 1,
+          "y": -2,
+          "rows": [
+            "....oooooo....",
+            "...oggcgggo...",
+            "..oggggggggo..",
+            ".oggggggggggo.",
+            "oooooooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "seed-cap",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 2,
+          "y": -2,
+          "rows": [
+            "...oooooo....",
+            "..oggcgggo...",
+            ".oggggggggo..",
+            "oggggggggggo.",
+            "ooooooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "cap-leaf",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 10,
+          "y": 0,
+          "rows": [
+            "tl",
+            "tt"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "overall-bib",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": 1,
+          "rows": [
+            "otto",
+            "tttt",
+            "tctt",
+            "tttt",
+            "oooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "sample-pack",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 1,
+          "rows": [
+            "oooooo",
+            "oggggo",
+            "ogcggo",
+            "oggggo",
+            "otttto",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "sample-pack",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 3,
+          "y": 1,
+          "rows": [
+            "ooo",
+            "ogo",
+            "oco",
+            "ogo",
+            "ooo"
+          ],
+          "colors": {},
+          "layer": "behind"
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "adult",
+      "outfit": "jacket",
+      "wig": "tied",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "mara",
+      "name": "Mara",
+      "role": "Shipwright · practical gardener",
+      "description": "A copper work jacket and worn pressure fittings, with goggles ready for the next repair.",
+      "details": [
+        "Warm brown skin / compact dark braids",
+        "Teal work trousers and brass tools",
+        "Goggles above the eyes; service pack behind"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#432f36",
+          "shadow": "#765047",
+          "base": "#aa7961",
+          "highlight": "#d5a882"
+        },
+        "hair": {
+          "outline": "#272d38",
+          "shadow": "#3b343d",
+          "base": "#59454a",
+          "highlight": "#8a6051"
+        },
+        "cloth": {
+          "outline": "#493942",
+          "shadow": "#855047",
+          "base": "#bb7757",
+          "highlight": "#e1a574"
+        },
+        "trousers": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "trim": {
+          "outline": "#515157",
+          "shadow": "#aaa68e",
+          "base": "#ddd4b5",
+          "highlight": "#fff0ca"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "otttto",
+            "ooccoo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "otto",
+            "occo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "goggles",
+          "directions": [
+            "front"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 2,
+          "rows": [
+            "oooooooooo",
+            "ogtoggttgo",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "goggles",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 2,
+          "rows": [
+            "ooooooo",
+            "ggogtgo",
+            "ooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "goggle-strap",
+          "directions": [
+            "back"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 3,
+          "rows": [
+            "aaaaaaaaaa",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "utility-harness",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 1,
+          "rows": [
+            "t....t",
+            "t....t",
+            "tttttt",
+            "t.ct.t",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "tool-belt",
+          "directions": [
+            "front"
+          ],
+          "anchor": "waist",
+          "x": 5,
+          "y": 0,
+          "rows": [
+            "oooooo",
+            "ogocgo",
+            "og.oo.",
+            "oo...."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "service-pack",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 0,
+          "rows": [
+            "oooooo",
+            "otttto",
+            "otclto",
+            "oddddo",
+            "occcco",
+            "otttto",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "service-pack",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "ooo",
+            "oto",
+            "oco",
+            "oto",
+            "odo",
+            "ooo"
+          ],
+          "colors": {},
+          "layer": "behind"
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "child",
+      "outfit": "dress",
+      "wig": "none",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "pip",
+      "name": "Pip",
+      "role": "Cook · soft-bodied neighbor",
+      "description": "A small lilac resident in a cream kitchen tunic, with a pressure-safe chef cap and a little herb pocket.",
+      "details": [
+        "Soft lilac skin and short rounded proportions",
+        "Cream apron / plum sleeves",
+        "Teal neck seal and sealed lunch canister"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#49405c",
+          "shadow": "#827898",
+          "base": "#b0a5c6",
+          "highlight": "#d8cce2"
+        },
+        "cloth": {
+          "outline": "#3b2d49",
+          "shadow": "#65455f",
+          "base": "#97647e",
+          "highlight": "#c790a3"
+        },
+        "trim": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "otttto",
+            "ooccoo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "otto",
+            "occo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "chef-cap",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 1,
+          "y": -4,
+          "rows": [
+            "....oooooo....",
+            "..oocchhhcoo..",
+            ".occhhhhhhcco.",
+            "occcccccccccco",
+            ".oooooooooooo.",
+            "..occcccccco..",
+            "..oooooooooo.."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "chef-cap",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 2,
+          "y": -4,
+          "rows": [
+            "...oooooo....",
+            ".oocchhhcoo..",
+            "occhhhhhhcco.",
+            "occccccccccco",
+            ".ooooooooooo.",
+            "..occccccco..",
+            "..ooooooooo.."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "apron",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            ".cccc.",
+            ".c..c.",
+            "occcco",
+            "occlco",
+            "octtco",
+            "occcco",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "apron-ties",
+          "directions": [
+            "back"
+          ],
+          "anchor": "waist",
+          "x": 4,
+          "y": -1,
+          "rows": [
+            "cccccccc",
+            ".oo..oo.",
+            "..c..c.."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "apron-profile",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 9,
+          "y": 0,
+          "rows": [
+            "co",
+            "co",
+            "co",
+            "co",
+            "co",
+            "co",
+            "oo"
+          ],
+          "colors": {}
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "adult",
+      "outfit": "jacket",
+      "wig": "short",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "clementine",
+      "name": "Clementine",
+      "role": "Aunt · explorer of impossible gardens",
+      "description": "Silver hair, a sage field coat, and an Almanac satchel with too many seed envelopes.",
+      "details": [
+        "Silver waves and warm, weathered face",
+        "Sage coat / plum trousers",
+        "Amber sample vial and leather Almanac bag"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#654048",
+          "shadow": "#b67766",
+          "base": "#dda18a",
+          "highlight": "#f7c5a1"
+        },
+        "hair": {
+          "outline": "#37464d",
+          "shadow": "#6e8587",
+          "base": "#b5c6ba",
+          "highlight": "#e2e3cc"
+        },
+        "cloth": {
+          "outline": "#25434a",
+          "shadow": "#386963",
+          "base": "#649d84",
+          "highlight": "#b1c7a0"
+        },
+        "trousers": {
+          "outline": "#3b2d49",
+          "shadow": "#65455f",
+          "base": "#97647e",
+          "highlight": "#c790a3"
+        },
+        "trim": {
+          "outline": "#515157",
+          "shadow": "#aaa68e",
+          "base": "#ddd4b5",
+          "highlight": "#fff0ca"
+        },
+        "shoes": {
+          "outline": "#493942",
+          "shadow": "#855047",
+          "base": "#bb7757",
+          "highlight": "#e1a574"
+        }
+      },
+      "motifs": [
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "otttto",
+            "ooccoo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "otto",
+            "occo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "silver-temples",
+          "directions": [
+            "front"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 4,
+          "rows": [
+            "ch......hc",
+            "c........c",
+            "c........c"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "field-scarf",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "pppppp",
+            ".pppp.",
+            "..pp..",
+            "..pp.."
+          ],
+          "colors": {
+            "p": "#b98265"
+          }
+        },
+        {
+          "name": "almanac-strap",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 1,
+          "rows": [
+            "a.....",
+            ".a....",
+            "..a...",
+            "...a..",
+            "....a.",
+            ".....a"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "almanac-bag",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "waist",
+          "x": 9,
+          "y": -1,
+          "rows": [
+            "ooooo",
+            "oaaco",
+            "oaaao",
+            "occco",
+            "ooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "almanac-bag",
+          "directions": [
+            "right"
+          ],
+          "anchor": "waist",
+          "x": 9,
+          "y": -1,
+          "rows": [
+            "oooo",
+            "oaco",
+            "oaao",
+            "occo",
+            "oooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "seed-patch",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": 1,
+          "rows": [
+            "oooo",
+            "oggo",
+            "otgo",
+            "oooo"
+          ],
+          "colors": {}
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "child",
+      "outfit": "jacket",
+      "wig": "none",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "sprocket",
+      "name": "Sprocket",
+      "role": "Farm droid · mostly functional",
+      "bodyMaterial": "casing",
+      "description": "A dented mustard droid with a green display, grasping hands, and little tracked feet.",
+      "details": [
+        "Mustard casing / teal status display",
+        "Red antenna beacon and seed drawer",
+        "Grounded treads instead of humanoid shoes"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#4e4145",
+          "shadow": "#936847",
+          "base": "#c9944f",
+          "highlight": "#f0c676"
+        },
+        "cloth": {
+          "outline": "#4e4145",
+          "shadow": "#936847",
+          "base": "#c9944f",
+          "highlight": "#f0c676"
+        },
+        "trousers": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        },
+        "trim": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "antenna",
+          "directions": [
+            "front",
+            "back",
+            "right"
+          ],
+          "anchor": "head",
+          "x": 8,
+          "y": -4,
+          "rows": [
+            "r",
+            "o",
+            "o",
+            "o"
+          ],
+          "colors": {
+            "r": "#e5987a"
+          }
+        },
+        {
+          "name": "display-front",
+          "directions": [
+            "front"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "oggggggggo",
+            "ogoooooogo",
+            "ooddddddoo",
+            "oodlddldoo",
+            "oodlddldoo",
+            "ooddddddoo",
+            "oggooooggo",
+            "oggggggggo",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "display-profile",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "oggggggggo",
+            "ogggggoooo",
+            "oggodddddo",
+            "oggodldddo",
+            "oggodldddo",
+            "oggodddddo",
+            "ogggggoooo",
+            "oggggggggo",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "rear-casing",
+          "directions": [
+            "back"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "oggggggggo",
+            "oggooooggo",
+            "ogoddddogo",
+            "ogoddddogo",
+            "oggooooggo",
+            "oggggggggo",
+            "ogoogooggo",
+            "oggggggggo",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "seed-drawer",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "oooooo",
+            "otttto",
+            "ocllco",
+            "oooooo",
+            "oggggo",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "rear-service",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 0,
+          "rows": [
+            "oooooo",
+            "otttto",
+            "oddddo",
+            "otttto",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "tracks",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "ground",
+          "x": 2,
+          "y": -2,
+          "rows": [
+            "oooo........",
+            "oddo....oddo",
+            "oooooooooooo"
+          ],
+          "colors": {},
+          "frames": [
+            [
+              "oooo....oooo",
+              "oddo....oddo",
+              "oooooooooooo"
+            ],
+            [
+              "oooo....oooo",
+              "oldo....odlo",
+              "oooooooooooo"
+            ],
+            [
+              "oooo....oooo",
+              "oddo....oddo",
+              "oooooooooooo"
+            ],
+            [
+              "oooo....oooo",
+              "odlo....oldo",
+              "oooooooooooo"
+            ]
+          ]
+        },
+        {
+          "name": "tracks",
+          "directions": [
+            "right"
+          ],
+          "anchor": "ground",
+          "x": 3,
+          "y": -2,
+          "rows": [
+            "ooooooooooo",
+            "oddldddlddo",
+            "ooooooooooo"
+          ],
+          "colors": {},
+          "frames": [
+            [
+              "ooooooooooo",
+              "oddldddlddo",
+              "ooooooooooo"
+            ],
+            [
+              "ooooooooooo",
+              "odldddldddo",
+              "ooooooooooo"
+            ],
+            [
+              "ooooooooooo",
+              "oddldddlddo",
+              "ooooooooooo"
+            ],
+            [
+              "ooooooooooo",
+              "oldddldddlo",
+              "ooooooooooo"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "adult",
+      "outfit": "jacket",
+      "wig": "none",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "nine",
+      "name": "Registrar Nine",
+      "role": "Retired survey robot · aspiring botanist",
+      "bodyMaterial": "casing",
+      "description": "An ivory survey shell, a cyan optical slit, and the smallest possible field filing system.",
+      "details": [
+        "Ivory panels / midnight-blue joints",
+        "One optical band, directional in profile",
+        "Survey aerial and a brass specimen case"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#515157",
+          "shadow": "#aaa68e",
+          "base": "#ddd4b5",
+          "highlight": "#fff0ca"
+        },
+        "cloth": {
+          "outline": "#515157",
+          "shadow": "#aaa68e",
+          "base": "#ddd4b5",
+          "highlight": "#fff0ca"
+        },
+        "trousers": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        },
+        "trim": {
+          "outline": "#4e4145",
+          "shadow": "#936847",
+          "base": "#c9944f",
+          "highlight": "#f0c676"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "survey-aerial",
+          "directions": [
+            "front",
+            "back",
+            "right"
+          ],
+          "anchor": "head",
+          "x": 11,
+          "y": -2,
+          "rows": [
+            "t",
+            "o"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "optics",
+          "directions": [
+            "front"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "occhhhhcco",
+            "occcccccco",
+            "ocooooooco",
+            "oodtlltdoo",
+            "oodttttdoo",
+            "ocooooooco",
+            "occcccccco",
+            "ocoooccoco",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "optics",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "occhhhccco",
+            "occcccccco",
+            "occcoooooo",
+            "occcodltto",
+            "occcodttto",
+            "occcoooooo",
+            "occcccccco",
+            "ocooocccco",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "rear-head",
+          "directions": [
+            "back"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "oooooooooo",
+            "occhhhhcco",
+            "occcccccco",
+            "ocooccooco",
+            "ocddddddco",
+            "ocddddddco",
+            "ocooccooco",
+            "occcccccco",
+            "occcccccco",
+            "oooooooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "nine-badge",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": 0,
+          "rows": [
+            "oooooo",
+            "occcco",
+            "ocggco",
+            "ocggco",
+            "ocdgco",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "survey-spine",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "oooo",
+            "otco",
+            "odco",
+            "otco",
+            "odco",
+            "otco",
+            "oooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "specimen-case",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "waist",
+          "x": 10,
+          "y": -1,
+          "rows": [
+            "oooo",
+            "oggo",
+            "ocgo",
+            "oooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "specimen-case",
+          "directions": [
+            "right"
+          ],
+          "anchor": "waist",
+          "x": 10,
+          "y": -1,
+          "rows": [
+            "oooo",
+            "oggo",
+            "ocgo",
+            "oooo"
+          ],
+          "colors": {}
+        }
+      ]
+    },
+    {
+      "status": "concept",
+      "kind": "adult",
+      "outfit": "jacket",
+      "wig": "none",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "vey",
+      "name": "Vey",
+      "role": "Four-armed mothlike wayfinder",
+      "description": "A mint-faced traveler with a plum wing mantle and two pairs of hands for a complicated universe.",
+      "details": [
+        "Mint chitin / dark compound eyes",
+        "Folded plum wings and four visible arms",
+        "Brass navigation clasp and antenna tips"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#25434a",
+          "shadow": "#386963",
+          "base": "#649d84",
+          "highlight": "#b1c7a0"
+        },
+        "cloth": {
+          "outline": "#3b2d49",
+          "shadow": "#65455f",
+          "base": "#97647e",
+          "highlight": "#c790a3"
+        },
+        "trousers": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "trim": {
+          "outline": "#4e4145",
+          "shadow": "#936847",
+          "base": "#c9944f",
+          "highlight": "#f0c676"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "antennae",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 2,
+          "y": -2,
+          "rows": [
+            "g..........g",
+            ".o........o.",
+            "..o......o.."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "antennae",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 7,
+          "y": -2,
+          "rows": [
+            "g.....g",
+            ".o...o.",
+            "..o.o.."
+          ],
+          "colors": {}
+        },
+        {
+          "name": "moth-face",
+          "directions": [
+            "front"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "..oooooo..",
+            ".otllllto.",
+            "otllllllto",
+            "oolllllloo",
+            "odoolloodo",
+            "oddooodddo",
+            "otoollooto",
+            ".otllllto.",
+            "..otooto..",
+            "...oooo..."
+          ],
+          "colors": {},
+          "part": "head"
+        },
+        {
+          "name": "moth-face",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "..oooooo..",
+            ".otllllto.",
+            "otllllllto",
+            "otlllloooo",
+            "otlloodddo",
+            "otlloddddo",
+            ".otllooddo",
+            "..otlllto.",
+            "...otooo..",
+            "....ooo..."
+          ],
+          "colors": {},
+          "part": "head"
+        },
+        {
+          "name": "rear-head",
+          "directions": [
+            "back"
+          ],
+          "anchor": "head",
+          "x": 3,
+          "y": 0,
+          "rows": [
+            "..oooooo..",
+            ".otllllto.",
+            "otllllllto",
+            "otllllllto",
+            "otllttllto",
+            "otllttllto",
+            "ottlttltto",
+            ".otttttto.",
+            "..otttto..",
+            "...oooo..."
+          ],
+          "colors": {},
+          "part": "head"
+        },
+        {
+          "name": "wing-mantle",
+          "directions": [
+            "back",
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 1,
+          "y": -2,
+          "rows": [
+            "..oooo..oooo..",
+            ".opppo..opppo.",
+            "opppppoopppppo",
+            "opgpppoopppgpo",
+            "opppppoopppppo",
+            "opppppoopppppo",
+            ".oppppooppppo.",
+            ".opgppooppgpo.",
+            "..opppoopppo..",
+            "...oppooppo...",
+            "....oooooo...."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "folded-wing",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 1,
+          "y": -2,
+          "rows": [
+            "..oooo.",
+            ".opppo.",
+            "oppppo.",
+            "opgppo.",
+            "oppppo.",
+            "oppppo.",
+            ".opppo.",
+            ".opgpo.",
+            "..oppo.",
+            "...oo.."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "navigation-clasp",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": 1,
+          "rows": [
+            "oooo",
+            "oggo",
+            "oggo",
+            "oooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "lower-hand-left",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "waist",
+          "x": 0,
+          "y": 0,
+          "rows": [
+            "....ooo",
+            "..ottto",
+            ".ottto.",
+            "otto...",
+            "ollo...",
+            ".oo...."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "lower-hand-right",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "waist",
+          "x": 9,
+          "y": 0,
+          "rows": [
+            "ooo....",
+            "ottto..",
+            ".ottto.",
+            "...otto",
+            "...ollo",
+            "....oo."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "lower-hand-rear",
+          "directions": [
+            "right"
+          ],
+          "anchor": "waist",
+          "x": 1,
+          "y": 0,
+          "rows": [
+            "...oooo",
+            ".otttto",
+            "otttto.",
+            "otto...",
+            "ollo...",
+            ".oo...."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "lower-hand-near",
+          "directions": [
+            "right"
+          ],
+          "anchor": "waist",
+          "x": 9,
+          "y": 0,
+          "rows": [
+            "oooo.",
+            "otto.",
+            ".otto",
+            ".ollo",
+            "..oo."
+          ],
+          "colors": {},
+          "layer": "behind"
+        },
+        {
+          "name": "moth-neck",
+          "directions": [
+            "front",
+            "right",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 6,
+          "y": 10,
+          "rows": [
+            "otto",
+            "otto",
+            "oooo"
+          ],
+          "colors": {}
+        }
+      ],
+      "replaceHead": true
+    },
+    {
+      "status": "concept",
+      "kind": "child",
+      "outfit": "jacket",
+      "wig": "short",
+      "colors": {
+        "o": "#26333f",
+        "c": "#eedfbe",
+        "g": "#dfac59",
+        "t": "#528f8b",
+        "a": "#bc7858",
+        "h": "#fff2d4",
+        "d": "#314d5d",
+        "l": "#a4d4c4",
+        "p": "#8b667f"
+      },
+      "id": "nori",
+      "name": "Nori",
+      "role": "Child neighbor · provisional concept",
+      "description": "An eager seed-exchange helper in yellow sleeves and teal overalls, with a tiny sample satchel.",
+      "details": [
+        "Child mannequin proportions / dark curls",
+        "Butter-yellow work top and teal overalls",
+        "Seed patch, short boots, and a small collar"
+      ],
+      "materials": {
+        "skin": {
+          "outline": "#432f36",
+          "shadow": "#765047",
+          "base": "#aa7961",
+          "highlight": "#d5a882"
+        },
+        "hair": {
+          "outline": "#272d38",
+          "shadow": "#3b343d",
+          "base": "#59454a",
+          "highlight": "#8a6051"
+        },
+        "cloth": {
+          "outline": "#4e4145",
+          "shadow": "#936847",
+          "base": "#c9944f",
+          "highlight": "#f0c676"
+        },
+        "trousers": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "trim": {
+          "outline": "#253c48",
+          "shadow": "#315e66",
+          "base": "#518788",
+          "highlight": "#91bcb0"
+        },
+        "shoes": {
+          "outline": "#26313f",
+          "shadow": "#394653",
+          "base": "#56677a",
+          "highlight": "#8694a1"
+        }
+      },
+      "motifs": [
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "otttto",
+            "ooccoo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "airlock-collar",
+          "directions": [
+            "right"
+          ],
+          "anchor": "shoulder",
+          "x": 6,
+          "y": -1,
+          "rows": [
+            "otto",
+            "occo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "hair-puffs",
+          "directions": [
+            "front",
+            "back"
+          ],
+          "anchor": "head",
+          "x": 1,
+          "y": 0,
+          "rows": [
+            ".oo........oo.",
+            "oooo......oooo",
+            "oaao......oaao",
+            ".oo........oo."
+          ],
+          "colors": {
+            "a": "#59454a"
+          }
+        },
+        {
+          "name": "hair-puff",
+          "directions": [
+            "right"
+          ],
+          "anchor": "head",
+          "x": 1,
+          "y": 0,
+          "rows": [
+            ".oo.",
+            "oooo",
+            "oaao",
+            ".oo."
+          ],
+          "colors": {
+            "a": "#59454a"
+          }
+        },
+        {
+          "name": "overall-bib",
+          "directions": [
+            "front"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "t....t",
+            "tttttt",
+            "tllllt",
+            "ttgttt",
+            "tttttt",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "overall-back",
+          "directions": [
+            "back"
+          ],
+          "anchor": "shoulder",
+          "x": 5,
+          "y": -1,
+          "rows": [
+            "t....t",
+            ".t..t.",
+            "..tt..",
+            ".t..t.",
+            "tttttt",
+            "oooooo"
+          ],
+          "colors": {}
+        },
+        {
+          "name": "seed-satchel",
+          "directions": [
+            "right"
+          ],
+          "anchor": "waist",
+          "x": 9,
+          "y": -1,
+          "rows": [
+            "oooo",
+            "oggo",
+            "otgo",
+            "oooo"
+          ],
+          "colors": {}
+        }
+      ]
+    }
+  ]
+}

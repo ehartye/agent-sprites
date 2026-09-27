@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "sprocket"
+  ],
+  "output": "dist/cast-sprocket",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#4e4145",
+    "#26313f",
+    "#253c48"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "vey"
+  ],
+  "output": "dist/cast-vey",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#25434a",
+    "#3b2d49",
+    "#253c48",
+    "#4e4145",
+    "#26313f"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}

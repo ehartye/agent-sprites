@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#181e30">
+  <title>Space to Grow — cast field notes</title>
+  <style>
+    :root { color-scheme:dark; --night:#181e30; --deck:#20283e; --well:#29324a; --ink:#eee8d8; --muted:#b1b6c3; --line:#46506a; --copper:#e1a578; --mint:#a8c6b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--night); color:var(--ink); font:15px/1.5 'Trebuchet MS',sans-serif; }
+    main { max-width:1504px; margin:auto; padding:36px 32px 24px; }
+    button,select,input { font:inherit; accent-color:var(--copper); }
+    button,select { color:var(--ink); background:var(--deck); border:1px solid var(--line); border-radius:3px; }
+    button,select { min-height:40px; padding:8px 12px; cursor:pointer; }
+    button:hover,select:hover { border-color:var(--copper); }
+    button:disabled { opacity:.45; cursor:default; }
+    :focus-visible { outline:2px solid var(--copper); outline-offset:4px; }
+    a { color:var(--copper); text-underline-offset:4px; }
+    p,h1,h2,h3 { margin:0; }
+    .eyebrow,.badge,.spec,.caption,.readout,.view-name,.frame-label { font:11px/1.5 Consolas,'Courier New',monospace; }
+    .eyebrow { color:var(--copper); letter-spacing:.14em; text-transform:uppercase; }
+    header { display:flex; justify-content:space-between; align-items:end; gap:32px; padding-bottom:25px; border-bottom:1px solid var(--line); }
+    h1 { font:normal clamp(37px,4.6vw,62px)/1.1 Georgia,serif; letter-spacing:-.045em; margin:10px 0 12px; }
+    h1 em { color:var(--copper); font-weight:normal; }
+    .intro { max-width:560px; color:var(--muted); }
+    .edition { max-width:255px; text-align:right; color:var(--muted); font-size:13px; }
+    .badge { display:inline-block; padding:5px 9px; margin-bottom:9px; color:var(--copper); border:1px solid var(--copper); text-transform:uppercase; letter-spacing:.1em; }
+    .controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px 18px; padding:22px 0 16px; }
+    .controls label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
+    .controls select { min-width:110px; }
+    #character { min-width:166px; }
+    .transport { display:flex; gap:7px; }
+    #play { min-width:76px; color:var(--night); background:var(--copper); border-color:var(--copper); }
+    .speed { min-width:112px; }
+    .speed span { display:flex; justify-content:space-between; gap:16px; }
+    input[type=range] { width:112px; height:40px; margin:0; }
+    .status-row { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+    #status { color:var(--muted); font-size:12px; }
+    #status.error { color:#f2b6a3; }
+    #retry { font-size:12px; min-height:32px; padding:4px 10px; }
+    .spec { color:var(--muted); }
+    .cast { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:10px; }
+    .cast-card { position:relative; display:flex; flex-direction:column; align-items:stretch; min-width:0; padding:0; text-align:left; background:var(--deck); overflow:hidden; }
+    .cast-card[aria-pressed=true] { border-color:var(--copper); box-shadow:inset 0 -3px var(--copper); }
+    .cast-card[aria-pressed=true] .card-stage { background-color:#354057; }
+    .card-stage { min-height:228px; display:grid; place-items:center; position:relative; background:var(--well); }
+    .card-stage::after { content:''; position:absolute; bottom:31px; left:14px; right:14px; height:1px; background:var(--line); }
+    canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; position:relative; z-index:1; }
+    .card-stage canvas { width:96px; height:192px; }
+    .card-state { position:absolute; inset:auto 6px 8px; text-align:center; color:var(--muted); font:10px Consolas,monospace; }
+    .card-copy { padding:13px 10px 16px; min-height:90px; }
+    .card-name { display:block; font-size:14px; line-height:1.25; margin-bottom:6px; }
+    .card-role { display:block; color:var(--muted); font-size:11px; }
+    .study { margin-top:38px; border-top:1px solid var(--line); padding-top:25px; }
+    .study-heading { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin-bottom:22px; }
+    .study-heading h2 { font:normal 26px/1.2 Georgia,serif; }
+    .study-layout { display:grid; grid-template-columns:235px minmax(0,1fr); gap:28px; }
+    .notes h3 { font:normal 27px/1.2 Georgia,serif; margin:8px 0 4px; }
+    #selected-role { color:var(--copper); font-size:13px; margin-bottom:15px; }
+    #description { font-size:14px; color:var(--ink); }
+    #details { padding-left:17px; margin:15px 0 20px; color:var(--muted); font-size:12px; }
+    #details li { margin:8px 0; padding-left:2px; }
+    .native { display:flex; align-items:end; gap:27px; padding:16px 0 4px; border-top:1px solid var(--line); }
+    .native figure { display:grid; justify-items:center; gap:10px; margin:0; }
+    .native .double { width:32px; height:64px; }
+    .caption { color:var(--muted); }
+    .views { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; min-width:0; }
+    .view { min-width:0; background:var(--deck); border:1px solid var(--line); }
+    .view-title { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px; padding:11px 12px; border-bottom:1px solid var(--line); }
+    .view-name { text-transform:uppercase; letter-spacing:.08em; color:var(--ink); }
+    .view-title .caption { font-size:10px; }
+    .stage { position:relative; height:278px; display:grid; place-items:center; background-color:var(--well); background-image:linear-gradient(90deg,#ffffff03 1px,transparent 1px),linear-gradient(#ffffff03 1px,transparent 1px); background-size:16px 16px; }
+    .stage::after { content:''; position:absolute; bottom:31px; left:12px; right:12px; border-top:1px solid #b8896570; }
+    .stage canvas { width:128px; height:256px; }
+    .strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; padding:10px 6px; }
+    .frame-button { display:grid; justify-items:center; gap:5px; padding:5px 0; min-height:0; border-color:transparent; background:transparent; }
+    .frame-button canvas { width:32px; height:64px; }
+    .frame-button[aria-pressed=true] { border-color:var(--copper); background:var(--well); }
+    .frame-label { color:var(--muted); font-size:10px; }
+    .readout { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:14px; color:var(--muted); }
+    footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px; border-top:1px solid var(--line); margin-top:30px; padding-top:17px; font-size:12px; color:var(--muted); }
+    [hidden] { display:none !important; }
+    @media(min-width:1600px) { main { padding-top:48px; } }
+    @media(max-width:1150px) { .cast { grid-template-columns:repeat(4,minmax(0,1fr)); } .card-stage { min-height:214px; } .study-layout { grid-template-columns:195px minmax(0,1fr); gap:18px; } .views { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:650px) { main { padding:24px 16px 20px; } header { display:block; } .edition { max-width:none; text-align:left; margin-top:19px; } .edition p { display:inline; margin-left:6px; } .badge { margin-bottom:0; } .cast { grid-template-columns:repeat(2,minmax(0,1fr)); } .study-layout { grid-template-columns:1fr; } .notes { padding-bottom:8px; } .native { gap:30px; } .study-heading { align-items:start; flex-direction:column; gap:7px; } .stage { height:218px; } .stage canvas { width:96px; height:192px; } .view-title { padding:9px 8px; } .strip { padding:8px 2px; gap:0; } .frame-button canvas { width:16px; height:32px; } .controls { gap:12px; } #character { min-width:0; max-width:175px; } .stage::after { bottom:28px; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><p class="eyebrow">Space to Grow / character field notes</p><h1>A little space.<br><em>A whole cast of lives.</em></h1><p class="intro">Neighbors, makers, and a few unfamiliar lifeforms. A first look at the people around Plot 7B, one native pixel at a time.</p></div>
+    <div class="edition"><span class="badge">Cast concepts</span><p>Exploratory designs for review.<br>These are not final game characters.</p></div>
+  </header>
+  <section class="controls" aria-label="Cast and movement controls">
+    <label>Character<select id="character" disabled><option>Loading cast…</option></select></label>
+    <label>Lineup facing<select id="direction"><option value="front">Front</option><option value="right">Right</option><option value="back">Back</option><option value="left">Left</option></select></label>
+    <label>Movement<select id="motion"><option value="idle">Idle</option><option value="walk">Walk</option></select></label>
+    <div class="transport"><button id="play" type="button" disabled>Play</button><button id="step" type="button" disabled>Next frame</button></div>
+    <label class="speed"><span>Speed <output id="speed-value" for="speed">5 fps</output></span><input id="speed" type="range" min="1" max="12" step="1" value="5"></label>
+  </section>
+  <div class="status-row"><p id="status" role="status" aria-live="polite">Opening the cast field notes…</p><button id="retry" type="button" hidden>Retry loading</button><p class="spec">16 × 32 native pixels · four facings · four walk frames</p></div>
+  <section id="cast" class="cast" aria-label="Choose a cast concept"></section>
+  <section class="study" aria-labelledby="study-title">
+    <div class="study-heading"><h2 id="study-title">Turnaround &amp; movement</h2><p class="spec">Select a character above. Select a frame below to pause.</p></div>
+    <div class="study-layout">
+      <aside class="notes" aria-label="Selected character notes"><p id="selected-status" class="eyebrow">Concept study</p><h3 id="selected-name">Opening field notes…</h3><p id="selected-role"></p><p id="description"></p><ul id="details"></ul><div class="native" aria-label="Native size comparison"><figure><canvas id="native-one" width="16" height="32" role="img" aria-label="Selected character at native size"></canvas><figcaption class="caption">1× native</figcaption></figure><figure><canvas id="native-two" class="double" width="16" height="32" role="img" aria-label="Selected character at twice native size"></canvas><figcaption class="caption">2×</figcaption></figure></div></aside>
+      <div><div id="views" class="views" aria-label="Four synchronized direction views"></div><div class="readout"><output id="frame-readout">Idle pose</output><span>Lineup 6× · turnaround 8× (6× on mobile)</span></div></div>
+    </div>
+  </section>
+  <footer><p>Space to Grow · Native cast study · Concept art, subject to change</p><a href="./review.html">Open the mannequin walk study →</a></footer>
+</main>
+<script>
+  'use strict';
+  const byId = id => document.getElementById(id);
+  const directions = ['front', 'right', 'back', 'left'];
+  const character = byId('character'), direction = byId('direction'), motion = byId('motion');
+  const play = byId('play'), step = byId('step'), speed = byId('speed'), status = byId('status');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const cache = new Map(), loaded = new Map(), cards = new Map(), panels = new Map();
+  let characters = [], selected = '', selectedSheet = null, generation = 0, bootGeneration = 0;
+  let cursor = 0, elapsed = 0, lastTime = 0, playing = false;
+
+  function newCanvas(label) {
+    const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 32;
+    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', label); return canvas;
+  }
+
+  for (const facing of directions) {
+    const panel = document.createElement('article'); panel.className = 'view';
+    const title = document.createElement('div'); title.className = 'view-title';
+    const name = document.createElement('h3'); name.className = 'view-name'; name.textContent = facing;
+    const size = document.createElement('span'); size.className = 'caption'; size.textContent = '16 × 32'; title.append(name, size);
+    const stage = document.createElement('div'); stage.className = 'stage';
+    const canvas = newCanvas(facing + ' facing'); stage.append(canvas);
+    const strip = document.createElement('div'); strip.className = 'strip'; strip.setAttribute('aria-label', facing + ' walk frames');
+    const frames = [];
+    for (let index = 0; index < 4; index++) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'frame-button'; button.disabled = true;
+      button.setAttribute('aria-label', facing + ' walk frame ' + (index + 1));
+      const cell = newCanvas(facing + ' step ' + (index + 1)); cell.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span'); label.className = 'frame-label'; label.textContent = String(index + 1);
+      button.append(cell, label); strip.append(button); frames.push({ button, canvas:cell, index });
+      button.addEventListener('click', () => { playing = false; motion.value = 'walk'; cursor = index; elapsed = 0; render(); syncPlayback(); });
+    }
+    panel.append(title, stage, strip); byId('views').append(panel); panels.set(facing, { canvas, frames });
+  }
+
+  function loadSheet(id) {
+    if (cache.has(id)) return cache.get(id);
+    const path = './dist/cast-' + id + '/cast-' + id;
+    const pending = Promise.all([
+      fetch(path + '.atlas.json').then(response => { if (!response.ok) throw new Error('Atlas unavailable (' + response.status + ')'); return response.json(); }),
+      new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('Sprite image unavailable')); image.src = path + '.png'; })
+    ]).then(([atlas, image]) => {
+      if (!atlas.frames || typeof atlas.frames !== 'object') throw new Error('Atlas has no frames');
+      const entries = Array.isArray(atlas.frames) ? atlas.frames : Object.entries(atlas.frames).map(([filename, frame]) => ({ ...frame, filename }));
+      const aliases = new Map(entries.map(frame => [frame.filename, frame]));
+      for (const facing of directions) for (const name of [facing, ...Array.from({ length:4 }, (_, i) => facing + '_walk_' + i)]) {
+        const frame = aliases.get(name), rect = frame?.frame, source = frame?.sourceSize, offset = frame?.spriteSourceSize || { x:0, y:0 };
+        if (!frame || frame.rotated || source?.w !== 16 || source?.h !== 32) throw new Error('Expected an unrotated 16 × 32 frame: ' + name);
+        if (!rect || ![rect.x, rect.y, rect.w, rect.h, offset.x, offset.y].every(Number.isInteger) || rect.x < 0 || rect.y < 0 || rect.w < 1 || rect.h < 1 || rect.x + rect.w > image.naturalWidth || rect.y + rect.h > image.naturalHeight || offset.x < 0 || offset.y < 0 || offset.x + rect.w > 16 || offset.y + rect.h > 32) throw new Error('Invalid frame bounds: ' + name);
+      }
+      return { image, aliases };
+    }).catch(error => { cache.delete(id); throw error; });
+    cache.set(id, pending); return pending;
+  }
+
+  function paint(canvas, sheet, name) {
+    const context = canvas.getContext('2d'); context.imageSmoothingEnabled = false; context.clearRect(0, 0, 16, 32);
+    if (!sheet) return;
+    const entry = sheet.aliases.get(name), rect = entry.frame, offset = entry.spriteSourceSize || { x:0, y:0 };
+    context.drawImage(sheet.image, rect.x, rect.y, rect.w, rect.h, offset.x, offset.y, rect.w, rect.h);
+  }
+
+  function pose(facing) { return motion.value === 'idle' ? facing : facing + '_walk_' + cursor; }
+
+  function render(refreshStrips = false) {
+    for (const [id, card] of cards) paint(card.canvas, loaded.get(id), pose(direction.value));
+    for (const [facing, panel] of panels) {
+      paint(panel.canvas, selectedSheet, pose(facing));
+      for (const cell of panel.frames) {
+        if (refreshStrips) paint(cell.canvas, selectedSheet, facing + '_walk_' + cell.index);
+        cell.button.disabled = !selectedSheet;
+        cell.button.setAttribute('aria-pressed', String(motion.value === 'walk' && cursor === cell.index));
+      }
+    }
+    for (const id of ['native-one', 'native-two']) paint(byId(id), selectedSheet, pose(direction.value));
+    byId('frame-readout').textContent = !selectedSheet ? 'Waiting for sprite sheet' : motion.value === 'idle' ? 'Idle pose' : 'Walk frame ' + (cursor + 1) + ' / 4';
+  }
+
+  function syncPlayback() {
+    play.textContent = playing ? 'Pause' : 'Play'; play.setAttribute('aria-pressed', String(playing));
+    play.disabled = loaded.size === 0 || motion.value === 'idle'; step.disabled = loaded.size === 0 || motion.value === 'idle';
+  }
+
+  function updateStatus() {
+    const failed = [...cards.values()].filter(card => card.failed).length;
+    const current = characters.find(entry => entry.id === selected);
+    status.classList.toggle('error', failed > 0);
+    status.textContent = loaded.size + ' / ' + characters.length + ' concepts loaded' + (current ? ' · ' + current.name + (selectedSheet ? ' selected' : ' loading') : '') + (failed ? ' · ' + failed + ' unavailable; retry to reload.' : '');
+    byId('retry').hidden = failed === 0;
+  }
+
+  async function selectCharacter(id) {
+    const entry = characters.find(item => item.id === id); if (!entry) return;
+    const currentGeneration = ++generation; selected = id; character.value = id; selectedSheet = loaded.get(id) || null;
+    byId('selected-name').textContent = entry.name; byId('selected-role').textContent = entry.role;
+    byId('selected-status').textContent = entry.status === 'provisional' || id === 'nori' ? 'Provisional concept' : 'Concept study';
+    byId('description').textContent = entry.description; byId('details').replaceChildren();
+    for (const detail of entry.details || []) { const item = document.createElement('li'); item.textContent = detail; byId('details').append(item); }
+    for (const [cardId, card] of cards) card.button.setAttribute('aria-pressed', String(cardId === id));
+    render(true); syncPlayback(); updateStatus();
+    try {
+      const sheet = await loadSheet(id);
+      if (currentGeneration !== generation) return;
+      selectedSheet = sheet; render(true); syncPlayback(); updateStatus();
+    } catch (error) {
+      if (currentGeneration !== generation) return;
+      selectedSheet = null; render(true); syncPlayback();
+      status.classList.add('error'); status.textContent = entry.name + ' could not load: ' + error.message + '. Retry loading the cast.'; byId('retry').hidden = false;
+    }
+  }
+
+  async function boot() {
+    const currentBoot = ++bootGeneration; ++generation; selectedSheet = null; playing = false;
+    loaded.clear(); cards.clear(); characters = []; byId('cast').replaceChildren(); character.replaceChildren(); character.disabled = true;
+    status.classList.remove('error'); status.textContent = 'Opening the cast field notes…'; byId('retry').hidden = true; render(true); syncPlayback();
+    try {
+      const response = await fetch('./cast/manifest.json'); if (!response.ok) throw new Error('Cast manifest unavailable (' + response.status + ')');
+      const manifest = await response.json(); if (currentBoot !== bootGeneration) return;
+      if (!Array.isArray(manifest.characters) || !manifest.characters.length) throw new Error('The cast manifest has no characters');
+      const ids = new Set();
+      for (const entry of manifest.characters) {
+        if (!entry || !/^[a-z0-9-]+$/.test(entry.id) || ids.has(entry.id) || !['name', 'role', 'description'].every(key => typeof entry[key] === 'string') || (entry.details !== undefined && (!Array.isArray(entry.details) || !entry.details.every(detail => typeof detail === 'string')))) throw new Error('A cast manifest entry is invalid');
+        ids.add(entry.id);
+      }
+      characters = manifest.characters;
+      for (const entry of characters) {
+        const option = document.createElement('option'); option.value = entry.id; option.textContent = entry.name; character.append(option);
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'cast-card'; button.setAttribute('aria-pressed', 'false'); button.setAttribute('aria-label', 'Study ' + entry.name);
+        const stage = document.createElement('div'); stage.className = 'card-stage'; const canvas = newCanvas(entry.name); canvas.setAttribute('aria-hidden', 'true');
+        const state = document.createElement('span'); state.className = 'card-state'; state.textContent = 'Loading…'; stage.append(canvas, state);
+        const copy = document.createElement('div'); copy.className = 'card-copy';
+        const name = document.createElement('strong'); name.className = 'card-name'; name.textContent = entry.name;
+        const role = document.createElement('span'); role.className = 'card-role'; role.textContent = entry.role; copy.append(name, role); button.append(stage, copy);
+        button.addEventListener('click', () => selectCharacter(entry.id)); byId('cast').append(button); cards.set(entry.id, { button, canvas, state, failed:false });
+      }
+      character.disabled = false;
+      const preferred = characters.some(entry => entry.id === selected) ? selected : characters[0].id;
+      const loads = characters.map(async entry => {
+        try {
+          const sheet = await loadSheet(entry.id); if (currentBoot !== bootGeneration) return;
+          loaded.set(entry.id, sheet); cards.get(entry.id).state.textContent = entry.id === 'nori' ? 'Provisional' : '';
+        } catch (error) {
+          if (currentBoot !== bootGeneration) return;
+          const card = cards.get(entry.id); card.failed = true; card.state.textContent = 'Could not load'; card.state.title = error.message;
+        }
+        render(); syncPlayback(); updateStatus();
+      });
+      selectCharacter(preferred); await Promise.all(loads);
+    } catch (error) {
+      if (currentBoot !== bootGeneration) return;
+      status.classList.add('error'); status.textContent = error.message + '. Serve this folder over HTTP and retry loading.'; byId('retry').hidden = false;
+      byId('selected-name').textContent = 'Cast unavailable'; byId('selected-role').textContent = ''; byId('description').textContent = 'The field notes could not be opened.'; byId('details').replaceChildren();
+    }
+  }
+
+  character.addEventListener('change', () => selectCharacter(character.value));
+  direction.addEventListener('change', () => render());
+  motion.addEventListener('change', () => { cursor = 0; elapsed = 0; playing = motion.value === 'walk' && !reducedMotion.matches; render(); syncPlayback(); });
+  play.addEventListener('click', () => { playing = !playing; elapsed = 0; syncPlayback(); });
+  step.addEventListener('click', () => { playing = false; cursor = (cursor + 1) % 4; elapsed = 0; render(); syncPlayback(); });
+  speed.addEventListener('input', () => { elapsed = 0; byId('speed-value').textContent = speed.value + ' fps'; });
+  byId('retry').addEventListener('click', boot);
+  reducedMotion.addEventListener('change', event => { if (event.matches) { playing = false; elapsed = 0; syncPlayback(); } });
+  document.addEventListener('visibilitychange', () => { lastTime = 0; elapsed = 0; });
+  function tick(now) {
+    if (lastTime && playing && loaded.size && motion.value === 'walk' && !document.hidden) {
+      elapsed += Math.min(now - lastTime, 250); const duration = 1000 / Number(speed.value);
+      if (elapsed >= duration) { cursor = (cursor + Math.floor(elapsed / duration)) % 4; elapsed %= duration; render(); }
+    }
+    lastTime = now; requestAnimationFrame(tick);
+  }
+  boot(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

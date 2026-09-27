@@ -54,3 +54,7 @@ Get-ChildItem examples/native-character/*.build.json | ForEach-Object {
 ```
 
 The review page shows synchronized front/right/back/left views, adult/child bodies, independent clothing and hair selectors, playback speed, idle mode, and clickable frame strips. Its large canvases display native pixels at 8×. This is an asset inspection page, not a game character replacement or a full customization system. Generated `dist` files must be rebuilt after source changes; refresh the page after rebuilding.
+
+## Space to Grow cast concepts
+
+The [cast example](cast/README.md) applies the new format to eight residents: the Grower, Mara, Pip, Clementine, Sprocket, Registrar Nine, Vey, and a provisional child neighbor. Build `cast-*.build.json` and open `cast.html` for a synchronized lineup and selected-character turnaround. Its shared costume adapter supports semantic material ramps, landmark-attached pixel motifs, rear layers, replacement heads and robot casings while retaining the mannequin's walk aliases and pivot.
