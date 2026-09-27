@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "generator": "generate-template.mjs",
+  "args": [
+    "adult"
+  ],
+  "output": "dist/adult",
+  "scale": 8,
+  "outlineColors": [
+    "#673649"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back"
+  ]
+}
