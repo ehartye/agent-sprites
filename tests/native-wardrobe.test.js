@@ -23,3 +23,30 @@ for(const kind of ['adult','child'])for(const style of ['jacket','dress'])test(`
     }
   }
 });
+
+test('wigs can be swapped independently of clothes or removed',()=>{
+  for(const kind of ['adult','child']) {
+    const hair=ops=>ops.filter(p=>p.command==='draw'&&p.name.includes('-hair-'));
+    const clothes=ops=>ops.filter(p=>p.command==='draw'&&/-(cloth|trim|trousers|shoes)-/.test(p.name));
+    for(const wig of ['short','tied'])expect(hair(dressTemplate(kind,'jacket','peach',wig))).toEqual(hair(dressTemplate(kind,'dress','peach',wig)));
+    for(const style of ['jacket','dress']) {
+      const original=dressTemplate(kind,style);
+      for(const wig of ['short','tied','none'])expect(clothes(dressTemplate(kind,style,'peach',wig))).toEqual(clothes(original));
+      expect(hair(dressTemplate(kind,style,'peach','none'))).toHaveLength(0);
+    }
+  }
+  expect(()=>dressTemplate('adult','jacket','peach','unknown')).toThrow(/wig/i);
+});
+
+test('standalone wigs exactly reproduce their dressed overlay at native coordinates', async()=>{
+  const {wigTemplate}=await import('../examples/native-character/generate-wig.mjs');
+  for(const kind of ['adult','child'])for(const wig of ['short','tied']) {
+    const ops=wigTemplate(kind,wig);
+    const points=ops.filter(p=>p.command==='draw');
+    expect(points).toEqual(dressTemplate(kind,'jacket','peach',wig).filter(p=>p.command==='draw'&&p.name.includes('-hair-')));
+    expect(ops.filter(p=>p.command==='name').map(p=>p.as)).toEqual(['front','right','back']);
+    expect(ops.filter(p=>p.command==='shape-group').every(p=>p.name==='hair'||p.name.startsWith('hair-'))).toBe(true);
+    expect(ops[0]).toMatchObject({size:'16x32',rows:1,cols:3});
+    expect(ops.some(p=>p.command==='pivot'&&p.anchor==='bottom-center')).toBe(true);
+  }
+});

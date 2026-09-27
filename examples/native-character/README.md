@@ -25,3 +25,17 @@ node scripts/run-managed.js build examples/native-character/child-dress.build.js
 ```
 
 `dress-template.mjs` is the editable wardrobe source; `templates/*.project.json` are the editable body sources. Build configs and committed `preview/*.png` images all live here. Generated project JSON, PNG, atlas and preview HTML live under `dist/<preset>/`. Open a generated project with `node scripts/run-managed.js open <path-to-project.json>` to copy/edit it in the live workbench. No Downloads files are required to rebuild.
+
+## Independent wigs and rear views
+
+The generator arguments are `kind outfit tone wig`: adult/child, jacket/dress, a supported skin tone, and short/tied/none. Omitting wig keeps the original short-jacket or tied-dress default. Set the build config `args` to select a different combination; output names include nondefault wigs. Existing defaults remain unchanged.
+
+```json
+"args": ["adult", "jacket", "peach", "tied"]
+```
+
+Additional checked-in configs cover `adult-jacket-tied`, `adult-dress-short`, and their child equivalents. Each still contains front/right/back. To remove a wig, set its argument to `none` and rebuild: hidden body points remain intact. For live editing, copy the session first and edit the `hair` group; deleting that group alone does not necessarily delete its member shapes.
+
+Separate `adult-wig-short`, `adult-wig-tied`, `child-wig-short`, and `child-wig-tied` configs use `generate-wig.mjs`. Their PNG sheets and atlases contain only hair, in the full 16×32 cells with the same bottom-center pivot and directions. Overlay matching cells on the corresponding body at (0,0). The hair source is shared with dressed examples; no duplicate geometry is maintained. Partial overlay edges deliberately meet the face/body and are not expected to be fully outlined in isolation; outline verification applies to the assembled dressed sprite.
+
+All rear views use the derived back anatomy, full rear hair mass and rear garment shading. They omit eyes and frontal jacket openings. The tied wig includes a rear knot and a profile knot. Hair's bare-head width allowance and material rules are documented in RULES.md.

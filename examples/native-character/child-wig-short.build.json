@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "generator": "generate-wig.mjs",
+  "args": [
+    "child",
+    "short"
+  ],
+  "output": "dist/child-wig-short",
+  "scale": 10,
+  "expectedFrames": [
+    "front",
+    "right",
+    "back"
+  ]
+}

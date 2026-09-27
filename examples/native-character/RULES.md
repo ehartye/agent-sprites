@@ -36,7 +36,7 @@ The ten-pixel constraint describes the bare head. Hair may add one pixel on each
 
 Keep the original body points underneath overlays. Clothing/hair points must never enter `skin-*` groups. Their draw order covers the body where required; exposed body points retain their skin roles. This makes skin selection independent of wardrobe colors and keeps the base recoverable. These examples use foreground overlays; future long hair, capes or equipment behind limbs need an explicit rear layer rather than this shortcut.
 
-Point names include direction, material and coordinates. Each material also has role subgroups, for example `hair`, `hair-highlight`, `cloth-shadow`, `trim`, `trousers` and `shoes`. The example generator supplies two complete presets, not arbitrary swappable hair/outfit controls. To make a new preset, edit the source masks/palettes and rebuild. Save workbench edits to a new source before rebuilding, since builds replace `dist`.
+Point names include direction, material and coordinates. Each material also has role subgroups, for example `hair`, `hair-highlight`, `cloth-shadow`, `trim`, `trousers` and `shoes`. The generator selects outfit and wig independently: jacket/dress with short/tied/none hair. Wig-only exports retain the same coordinates, frame aliases and pivot as the body. A browser wardrobe selector is not implemented; select these choices in build configs or the generator call. To make a new preset, edit the source masks/palettes and rebuild. Save workbench edits to a new source before rebuilding, since builds replace `dist`.
 
 ## Acceptance checks
 
