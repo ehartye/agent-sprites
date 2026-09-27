@@ -73,7 +73,10 @@ projects. The custom generator workflow below remains useful for other assets.
    verifies artifacts, and preserves previous output on failure.
 4. Inspect the emitted contact sheet and play `preview.html`. Load its PNG and
    atlas in the engine through `sprite-manifest.json` (`files.sheet`, `files.atlas`,
-   `report`), resolved relative to the manifest; never derive paths from the recipe kind. Keep the generated directory dedicated to build outputs.
+   `report`), resolved relative to the manifest; never derive paths from the recipe kind.
+   For characters and furniture, draw at the report's ground with the published
+   `playback-runtime.mjs` (`drawAtGround`, `createWalker`) instead of the cell bottom;
+   see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). Keep the generated directory dedicated to build outputs.
 
 Copy `<plugin-root>/examples/blink` into the game source tree for an ops-file
 example. See the [build config and ownership rules](../../README.md#build-a-repeatable-asset-project).

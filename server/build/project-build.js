@@ -160,6 +160,11 @@ export async function buildProject(configPath) {
       artifacts[`${sourceKind}Report`] = `${sourceKind}-report.json`;
       writeFileSync(join(stage, artifacts[`${sourceKind}Report`]), json(recipeReport));
     }
+    if (sourceKind === 'character' || sourceKind === 'environment') {
+      // Report-driven ground anchoring and walking, so games do not re-derive gait conventions.
+      artifacts.playbackRuntime = 'playback-runtime.mjs';
+      writeFileSync(join(stage, artifacts.playbackRuntime), readFileSync(new URL('./playback-runtime.mjs', import.meta.url)));
+    }
     if (sourceKind === 'ui') {
       artifacts.uiRuntime = 'ui-runtime.mjs';
       writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
