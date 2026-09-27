@@ -58,3 +58,15 @@ The review page shows synchronized front/right/back/left views, adult/child bodi
 ## Space to Grow cast concepts
 
 The [cast example](cast/README.md) applies the new format to eight residents: the Grower, Mara, Pip, Clementine, Sprocket, Registrar Nine, Vey, and a provisional child neighbor. Build `cast-*.build.json` and open `cast.html` for a synchronized lineup and selected-character turnaround. Its shared costume adapter supports semantic material ramps, landmark-attached pixel motifs, rear layers, replacement heads and robot casings while retaining the mannequin's walk aliases and pivot.
+
+## Large-build mannequin
+
+`large.build.json` creates `dist/large/native-large.project.json` and matching PNG/atlas/preview. It uses the same 16×32 cells, four directions, 20 frames, walk tags, adult head pixels, bob and bottom-center pivot. `large-mannequin.mjs` is the editable construction source, applied to the adult's source poses by `native-mannequin.mjs`.
+
+```powershell
+node scripts/run-managed.js build examples/native-character/large.build.json
+```
+
+The neutral front torso/shoulders span x=2..13 (12 pixels versus the adult's 10); hands reach x=1..14. The bare head remains x=3..12. Thicker thighs/calves and a deeper profile provide a base for muscular or armored designs without changing the ground row. A split expansion adds two body columns, preserves the central leg separation and neck, and adds pectoral shading. Rear shoulder and arm contours expand with the body. All body pixels retain semantic skin groups and support the seven skin ramps.
+
+Select **Large** in `review.html` to inspect it. Adult wig sheets align because the head is unchanged. Existing clothing is not fitted to this body; the review page locks clothing to the bare mannequin for Large. Armor silhouettes and costume-specific padding remain a later design pass. The committed `preview/large.png` shows every authored pose.
