@@ -1,0 +1,84 @@
+// Portable, engine-independent playback helpers for agent-sprites character and
+// environment reports. Copy beside the sheet; no DOM or engine dependency beyond
+// a 2D context with drawImage for drawAtGround.
+//
+// Units: report distances are source pixels. `scale` is world pixels per source
+// pixel. Pass the displacement your game actually applied after collision.
+
+const FACINGS = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] };
+const MODES = ['authored-contact', 'continuous-root'];
+
+/** Semantic ground point of a frame, in source pixels within its cell. */
+export function groundAnchor(report, frame) {
+  // Environment frames carry their own anchor; characters share report.ground at cell center.
+  if (frame?.ground && typeof frame.ground === 'object') return { x: frame.ground.x, y: frame.ground.y };
+  return { x: report.cellSize.width / 2, y: report.ground };
+}
+
+/** Draw an atlas frame so its ground anchor lands on (x, y) in world pixels. */
+export function drawAtGround(ctx, image, atlasFrame, anchor, x, y, { scale = 1, offset = [0, 0] } = {}) {
+  const f = atlasFrame.frame;
+  ctx.drawImage(image, f.x, f.y, f.w, f.h, x - anchor.x * scale + offset[0], y - anchor.y * scale + offset[1], f.w * scale, f.h * scale);
+}
+
+/** Visual hit box from a report frame's opaque bounds. Not a collision footprint. */
+export function hitBounds(frame, anchor, x, y, { scale = 1 } = {}) {
+  const b = frame.bounds;
+  return { x: x + (b.left - anchor.x) * scale, y: y + (b.top - anchor.y) * scale, w: (b.right - b.left + 1) * scale, h: (b.bottom - b.top + 1) * scale };
+}
+
+/** Facing from displacement: dominant axis wins; a tie keeps a matching current facing. */
+export function facingFor(dx, dy, current = 'down') {
+  if (!dx && !dy) return current;
+  const horizontal = dx > 0 ? 'right' : 'left', vertical = dy > 0 ? 'down' : 'up';
+  if (Math.abs(dx) > Math.abs(dy)) return horizontal;
+  if (Math.abs(dy) > Math.abs(dx)) return vertical;
+  return current === vertical ? vertical : horizontal;
+}
+
+/**
+ * Distance-driven walker over one person/outfit from one or more character
+ * reports (an idle-mode report supplies true idle frames).
+ *
+ * mode 'authored-contact': draw offset subtracts the phase remainder where the
+ *   report says so, so calibrated profile contacts stay planted. The body steps.
+ * mode 'continuous-root': no offset; the body follows the continuous root and
+ *   feet may slide between poses. Calmer for fast camera-following games, but
+ *   contacts are not claimed as calibrated.
+ */
+export function createWalker(reports, { person, outfit, mode, facing = 'down', scale = 1 } = {}) {
+  if (!MODES.includes(mode)) throw new Error('mode must be authored-contact or continuous-root');
+  const frames = new Map();
+  for (const report of [].concat(reports)) for (const frame of report.frames) frames.set(frame.alias, frame);
+  const prefix = `${person}_${outfit}_`;
+  let distance = 0;
+  const gait = f => {
+    const frame = frames.get(`${prefix}${f}_walk_0`);
+    if (!frame) throw new Error(`no walk frames ${prefix}${f}_walk_*: include a walk-mode report for ${f}`);
+    return frame.locomotion;
+  };
+  return {
+    gait,
+    frame: alias => frames.get(alias),
+    update(dx, dy) {
+      const next = facingFor(dx, dy, facing);
+      if (next !== facing) distance = 0;
+      facing = next;
+      if (!dx && !dy) {
+        const alias = `${prefix}${facing}_idle`;
+        if (!frames.has(alias)) throw new Error(`no idle frame ${alias}: include an idle-mode report`);
+        distance = 0;
+        return { alias, facing, moving: false, distance: 0, offset: [0, 0], contactsCalibrated: false };
+      }
+      const g = gait(facing), [ux, uy] = FACINGS[facing];
+      // Only travel along the facing axis advances the stride; the other axis slides.
+      distance += Math.abs(dx * ux + dy * uy) / scale;
+      const index = Math.floor(distance / g.frameDistance) % g.frameCount;
+      const remainder = distance % g.frameDistance;
+      const compensate = mode === 'authored-contact' && g.rootCompensation === 'subtract-phase-remainder';
+      // "+ 0" turns -0 into 0 for axes the facing does not move along.
+      const offset = compensate ? g.direction.map(c => -c * remainder * scale + 0) : [0, 0];
+      return { alias: `${prefix}${facing}_walk_${index}`, facing, moving: true, distance, offset, contactsCalibrated: compensate && g.contactCalibration === 'profile' };
+    },
+  };
+}

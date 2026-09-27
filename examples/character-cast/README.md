@@ -114,6 +114,35 @@ const offset = gait.rootCompensation === 'subtract-phase-remainder'
   : [0, 0];
 ```
 
+Character and environment builds also publish `playback-runtime.mjs`, a portable
+reference adapter that implements these rules (listed as `files.playbackRuntime`
+in `sprite-manifest.json`):
+
+```js
+import { createWalker, groundAnchor, drawAtGround, hitBounds } from './playback-runtime.mjs';
+// Pass both the idle-mode and walk-mode reports: stopping shows the true idle frame.
+const walker = createWalker([idleReport, walkReport], { person: 'ada', outfit: 'casual',
+  mode: 'authored-contact', scale: 2 });          // or 'continuous-root'
+const s = walker.update(appliedDx, appliedDy);     // displacement AFTER collision
+drawAtGround(ctx, sheet, atlas.frames.find(f => f.filename === s.alias),
+  groundAnchor(walkReport, walker.frame(s.alias)), player.x, player.y, { scale: 2, offset: s.offset });
+```
+
+- `authored-contact` subtracts the phase remainder, so calibrated profile heels
+  and toes stay planted (`contactsCalibrated: true`); the body visibly steps.
+- `continuous-root` never offsets the drawing. The body follows the continuous
+  root and feet may slide between poses. It is calmer for fast, camera-following
+  games, and it reports `contactsCalibrated: false`. Do not claim foot locking.
+- Facing comes from the dominant axis of the applied displacement (a diagonal tie
+  keeps the current facing). Only facing-axis travel advances the stride, so
+  diagonal and wall-sliding movement keep correct phase. Turning resets it.
+- `groundAnchor` returns the semantic ground (characters `(20, 54)`, furniture
+  its reported anchor), not the cell bottom. `hitBounds` gives a visual hit box
+  from frame bounds; collision footprints and approach points stay game-owned.
+
+It is proved against adult, child, pressure-suit and four-armed walks in both
+profile facings: every planted heel and toe keeps its world position.
+
 Apply the offset only while walking, to the draw position, not collision state.
 Reset the phase when turning; derive facing and travel from actual displacement
 after collision. Match source-to-world scale when interpreting distances. A

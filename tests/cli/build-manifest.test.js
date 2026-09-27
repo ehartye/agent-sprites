@@ -2,6 +2,7 @@ import { test, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { buildProject } from '../../server/build/project-build.js';
 
 let dir, path;
@@ -47,3 +48,17 @@ test('operation builds have no recipe kind or report', async () => {
   expect(manifest).not.toHaveProperty('kind');
   expect(manifest).not.toHaveProperty('report');
 });
+
+test('character and environment builds publish the portable playback runtime', async () => {
+  write({ character: { people: [{ id: 'ada' }], mode: 'walk', directions: ['right'] } });
+  const result = await buildProject(path);
+  expect(result.errors).toEqual([]);
+  expect(JSON.parse(readFileSync(result.artifacts.manifest, 'utf8')).files.playbackRuntime).toBe('playback-runtime.mjs');
+  const runtime = await import(pathToFileURL(result.artifacts.playbackRuntime).href);
+  const report = JSON.parse(readFileSync(result.artifacts.characterReport, 'utf8'));
+  const walker = runtime.createWalker([report], { person: 'ada', outfit: 'casual', mode: 'authored-contact', facing: 'right' });
+  expect(walker.update(1, 0).alias).toBe('ada_casual_right_walk_0');
+  write({ environment: { name: 'f', kind: 'furniture' } });
+  rmSync(join(dir, 'dist'), { recursive: true, force: true });
+  expect((await buildProject(path)).artifacts.playbackRuntime).toMatch(/playback-runtime\.mjs$/);
+}, 30000);
