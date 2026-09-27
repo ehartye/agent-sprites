@@ -43,6 +43,14 @@ test.each([['ops','missing.json'],['generator','missing.mjs'],['character',{peop
   expect(existsSync(join(dir,'dist'))).toBe(false);
 });
 
+test('organic terrain source exports every canonical neighborhood through the normal verified build',async()=>{
+  config.environment={name:'paths',kind:'terrain-transition',variants:1,seed:7};
+  config.expectedFrames=['path_0_0','path_5_0','path_7_0','path_255_0'];write();
+  const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.errors).toEqual([]);expect(result.warnings).toEqual([]);
+  const report=JSON.parse(readFileSync(result.artifacts.environmentReport,'utf8'));
+  expect(report.frames).toHaveLength(47);expect(report.neighbors.nw).toBe(128);
+},20000);
+
 test.each([[null], [[]], ['terrain.json']])('environment source must be an inline object: %j', async value => {
   config.environment=value;write();
   const result=await buildProject(path);
