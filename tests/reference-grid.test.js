@@ -29,8 +29,29 @@ test('reconstructs enlarged cells, keeps enclosed pale skin and ten-pixel heads,
   const points = operations.filter(op => op.command === 'draw' && op.cell === '0,0');
   expect(points).toHaveLength(100);
   expect(points.find(p => p.x === 5 && p.y === 5).color).toBe('#efdcdc');
-  expect(points.filter(p => p.x === 2 || p.x === 11 || p.y === 2 || p.y === 11).every(p => p.color === '#461e32')).toBe(true);
+  expect(points.filter(p => p.x === 3 || p.x === 12 || p.y === 2 || p.y === 11).every(p => p.color === '#461e32')).toBe(true);
   expect(operations.filter(op => op.command === 'shape-group')).toHaveLength(16);
+});
+
+test('centers heads by translating the whole pose, preserving colors and editable groups', async () => {
+  const config = await fixture();
+  const original = await generateReferenceGrid({ ...config, centerHeads: false, skinTone: 'peach' });
+  const centered = await generateReferenceGrid({ ...config, skinTone: 'peach' });
+  for (const frame of centered.report.frames) expect(frame).toMatchObject({ headLeft: 3, headWidth: 10, shiftX: 1 });
+  const oldPoints = original.operations.filter(op => op.command === 'draw');
+  const newPoints = centered.operations.filter(op => op.command === 'draw');
+  expect(newPoints.map(({ x, name, ...point }) => ({ ...point, x: x - 1 }))).toEqual(oldPoints.map(({ name, ...point }) => point));
+  for (const op of centered.operations.filter(op => op.command === 'shape-group')) {
+    expect(op.shapes.every(name => newPoints.some(point => point.cell === op.cell && point.name === name))).toBe(true);
+  }
+});
+
+test('refuses centering that would clip a limb at the frame edge', async () => {
+  const config = await fixture();
+  const { data, info } = await sharp(config.source).raw().toBuffer({ resolveWithObject: true });
+  for (let y = 80; y < 84; y++) for (let x = 60; x < 64; x++) data.set([70,30,50], (y * info.width + x) * 3);
+  await sharp(data, { raw: info }).png().toFile(config.source);
+  await expect(generateReferenceGrid(config)).rejects.toThrow('clip');
 });
 
 test('rejects wrong head calibration instead of silently scaling', async () => {

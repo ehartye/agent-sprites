@@ -10,6 +10,7 @@ export async function generateReferenceGrid(config, base = process.cwd()) {
   const { source, name, grid, head } = config;
   const tone = config.skinTone == null ? null : SKIN_TONES.find(tone => tone.id === config.skinTone);
   if (config.skinTone != null && !tone) throw new Error(`Unknown skin tone: ${config.skinTone}`);
+  if (config.centerHeads !== undefined && typeof config.centerHeads !== 'boolean') throw new Error('centerHeads must be a boolean.');
   const isHex = value => typeof value === 'string' && /^#[a-f\d]{6}$/i.test(value);
   if (typeof source !== 'string' || !source || typeof name !== 'string' || !name.trim()) throw new Error('source and name are required.');
   if (!isHex(config.background) || (config.outline !== undefined && !isHex(config.outline))) throw new Error('background and outline must be six-digit hex colors.');
@@ -57,7 +58,7 @@ export async function generateReferenceGrid(config, base = process.cwd()) {
   for (let row = 0; row < 2; row++) for (let col = 0; col < 4; col++) {
     const cell = `${row},${col}`, frameName = `${row === 0 ? 'front' : 'right'}-${col + 1}`;
     operations.push({ command: 'name', cell, as: frameName });
-    const pixels = Array.from({ length: H }, () => Array(W).fill(null));
+    let pixels = Array.from({ length: H }, () => Array(W).fill(null));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const sy = y - (grid.offsetY ?? 0);
       if (sy >= 0 && sy < H) pixels[y][x] = sample(col * W + x, row * H + sy);
@@ -82,6 +83,17 @@ export async function generateReferenceGrid(config, base = process.cwd()) {
     for (let y = top; y < top + 10; y++) for (let x = 0; x < W; x++) if (pixels[y][x]) occupied.push(x);
     const width = Math.max(...occupied) - Math.min(...occupied) + 1;
     if (width !== 10) throw new Error(`${frameName}: measured head width ${width}; adjust grid calibration to reach 10.`);
+    const headLeft = Math.min(...occupied);
+    const shiftX = config.centerHeads === false ? 0 : (W - width) / 2 - headLeft;
+    if (shiftX) {
+      const shifted = Array.from({ length: H }, () => Array(W).fill(null));
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (!pixels[y][x]) continue;
+        if (x + shiftX < 0 || x + shiftX >= W) throw new Error(`${frameName}: centering would clip pixels; adjust source framing.`);
+        shifted[y][x + shiftX] = pixels[y][x];
+      }
+      pixels = shifted;
+    }
     // Preserve the silhouette, repairing its contour in place (no dilation).
     const edge = (x, y) => [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) => !pixels[y + dy]?.[x + dx]);
     const edges = pixels.map((line, y) => line.map((color, x) => !!color && edge(x, y)));
@@ -98,7 +110,7 @@ export async function generateReferenceGrid(config, base = process.cwd()) {
     }
     for (const [part, shapes] of Object.entries(parts)) operations.push({ command: 'shape-group', sub: 'create', cell, name: part, shapes });
     if (tone) for (const [role, shapes] of Object.entries(skin)) if (shapes.length) operations.push({ command: 'shape-group', sub: 'create', cell, name: `skin-${role}`, shapes });
-    frames.push({ name: frameName, headWidth: width, headTop: top });
+    frames.push({ name: frameName, headWidth: width, headLeft: headLeft + shiftX, headTop: top, shiftX });
   }
   return { operations, report: { cellWidth: W, cellHeight: H, frames, method: 'Calibrated modal block sampling, transparent background, contour repair; not an exact full-resolution trace.' } };
 }
