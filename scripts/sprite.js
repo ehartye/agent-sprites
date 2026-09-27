@@ -254,9 +254,10 @@ DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
     and place pixels along the target shape's bounding box edge.
     Off-ramp colors (custom hex, flat palettes) get an HSL-derived step instead:
     lighter+warmer / darker+cooler, reported in the result's derived list.
-  draw sphere-shade --shape <target> [--intensity low|med|high|auto] [--name <base>]
+  draw sphere-shade --shape <target> [--intensity low|med|high|auto] [--coverage true] [--name <base>]
     compound 2–5 tier highlight+shadow lighting on a circle/ellipse in one call.
     auto picks by target size (r<=6 low, 7-12 med, >12 high).
+    --coverage true paints whole crescents and a highlight disc (small forms, r 4-7).
   draw arc     --cx --cy (--r | --rx --ry) --from-deg --to-deg --color [--clip-to <mask>] [--name <base>]
     partial ellipse outline (CW, y-down: 0=east, 90=south). emits one point shape per pixel.
   draw ring    --shape <target> --color [--clip-to <mask>] [--name <base>]
@@ -509,6 +510,7 @@ async function run() {
         span_deg: num(args['span-deg']),
         radius_factor: num(args['radius-factor']),
         intensity: args.intensity,
+        coverage: args.coverage !== undefined ? bool(args.coverage) : undefined,
         width: num(args.width),
         from_deg: num(args['from-deg']),
         to_deg: num(args['to-deg']),

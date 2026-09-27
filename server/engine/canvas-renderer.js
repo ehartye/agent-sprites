@@ -254,6 +254,15 @@ export class CanvasRenderer {
     }
   }
 
+  /** The exact pixels one shape paints in a width×height cell, as "x,y" keys. */
+  shapeCoverage(shape, width, height) {
+    const canvas = createCanvas(width, height), ctx = canvas.getContext('2d');
+    this._drawShape(ctx, { type: shape.type, params: shape.params, color: '#ffffff', visible: true });
+    const data = ctx.getImageData(0, 0, width, height).data, out = new Set();
+    for (let i = 3; i < data.length; i += 4) if (data[i]) out.add(`${((i - 3) / 4) % width},${Math.floor((i - 3) / 4 / width)}`);
+    return out;
+  }
+
   renderCellRaw(cell, opts = {}) {
     const canvas = createCanvas(cell.width, cell.height);
     const ctx = canvas.getContext('2d');
