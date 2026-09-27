@@ -33,10 +33,23 @@ their panel or board seams. Mix variants across a map to break up repetitions.
 
 The habitat contains four aligned 320×256 layers: `habitat_floor`, `habitat_back`,
 `habitat_front`, and `habitat_roof`. Use the same top-left map origin for each.
-Render floor, back wall, occupants/props, then front wall. Show the opaque roof
-for the exterior and hide it when the player enters. The 48px doorway remains
+Indoors render floor, back wall, occupants/props, then front wall. Outdoors render
+floor clipped to the reported door rectangle, front wall, then roof. Omit the
+cutaway back wall and full interior floor, which can extend past the varied roof
+silhouettes. The 48px doorway remains
 open in both modes. `environment-report.json` supplies the footprint, interior,
 door rectangle, and wall collision rectangles in cell coordinates.
+
+Add `style: "cottage"`, `"workshop"`, `"kitchen"`, or `"barn"` to a habitat
+environment for four distinct authored buildings. The cottage combines an
+asymmetric pitched roof with a greenhouse; the workshop uses a low service roof,
+extractor and solar equipment; the kitchen has a glazed barrel roof and awning;
+the barn has a tall gambrel roof, timber braces and restrained portal equipment.
+Each style includes coordinated interior flooring and wall details. All share
+the reported 320×256 cell and navigation geometry, with a 48px ground doorway
+and an open recess sized for the native adult cast. The report records `style`.
+Omitting `style` preserves the original pressure-vessel recipe and report.
+Style is supported only for `kind: "habitat"`; other values are rejected.
 
 Furniture uses 64×64 cells: `bed`, `kitchen`, `workbench`, `planter`, `stool`, and
 `locker`. Each report frame includes its collision rectangle and ground anchor

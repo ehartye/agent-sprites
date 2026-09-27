@@ -276,7 +276,9 @@ geometry. Games can consume that geometry alongside the atlas to keep walkable
 space aligned with the art. Terrain recipes provide deterministic variants;
 `terrain-transition` supplies 47 neighbor-aware path masks with rounded corners,
 irregular shoulders and four seam-compatible variants. The
-habitat kit is an authored preset rather than an arbitrary architecture generator.
+habitat kit offers cottage, workshop, kitchen and barn styles with distinct roof
+silhouettes and matching interiors, alongside the historical default pressure
+vessel. Each style keeps the same reported navigation geometry.
 
 For bitmap text and reusable nine-slice controls, use the [`ui` source](examples/ui/README.md).
 Font and skin recipes export editable named pixel rectangles, tone variants, metrics,

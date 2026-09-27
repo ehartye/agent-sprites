@@ -58,3 +58,13 @@ test.each([[null], [[]], ['terrain.json']])('environment source must be an inlin
   expect(JSON.stringify(result.errors)).toMatch(/environment.*object/i);
   expect(existsSync(join(dir,'dist'))).toBe(false);
 });
+
+test.each(['cottage','workshop','kitchen','barn'])('styled %s habitat publishes verified layers and its geometry contract',async style=>{
+  config.environment={name:`habitat-${style}`,kind:'habitat',style};
+  config.expectedFrames=['habitat_floor','habitat_back','habitat_front','habitat_roof'];write();
+  const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.errors).toEqual([]);expect(result.warnings).toEqual([]);
+  const report=JSON.parse(readFileSync(result.artifacts.environmentReport,'utf8'));
+  expect(report.style).toBe(style);expect(report.layout.door).toEqual({x:136,y:220,w:48,h:36});
+  const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json'),'utf8'));
+  expect(marker.version).toBe(2);expect(marker.config).toBe('../sprite-project.json');
+},20000);
