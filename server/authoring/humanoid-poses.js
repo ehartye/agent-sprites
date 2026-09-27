@@ -95,7 +95,28 @@ export function humanoidPose(body,direction='down',frame=0,walking=true,armCount
   }:undefined;
   const vector={right:[1,0],left:[-1,0],down:[0,1],up:[0,-1]}[direction];
   const locomotion={cycleDistance:step*8,frameDistance:step,phaseDistance:frame*step,frameCount:8,direction:vector,contactCalibration:side?'profile':'projected',rootCompensation:side?'subtract-phase-remainder':'none',contacts:legs.map(l=>({name:l.name,state:l.foot.state,support:l.support,contact:l.foot.contact,...(side?{heel:[...l.heel],ball:[...l.ball],toe:[...l.toe],anchor:[...l.foot.anchor]}:{})}))};
-  return {direction,frame,bob,legs,arms,torso,pelvis,locomotion,...(alignment?{alignment}:{}),segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
+  return {direction,frame,bob,legs,arms,torso,pelvis,locomotion,sides:bodySides(arms,legs,direction),...(alignment?{alignment}:{}),segmentLength:profile.segment,head:{top:profile.headTop+bob,size:profile.headSize},ground:GROUND};
+}
+
+/**
+ * Anatomical side -> per-facing depth role. Facing right, the character's right
+ * side is toward the viewer; facing left, its left. Front and back views show
+ * both sides (the character's right is on the image left from the front).
+ */
+export function bodySideRole(side,direction){
+  if(direction==='down')return 'front';
+  if(direction==='up')return 'back';
+  return (direction==='right')===(side==='right')?'near':'far';
+}
+
+/** Where one-sided gear attaches: the rig joints of each anatomical side, plus its role. */
+function bodySides(arms,legs,direction){
+  const sides={};
+  for(const side of ['left','right']){
+    const arm=arms.find(a=>a.name===side),leg=legs.find(l=>l.name===side),lower=arms.find(a=>a.name===`${side}_lower`);
+    sides[side]={role:bodySideRole(side,direction),shoulder:[...arm.shoulder],wrist:[...arm.wrist],hip:[...leg.hip],...(lower?{lowerWrist:[...lower.wrist]}:{})};
+  }
+  return sides;
 }
 
 export function validatePose(pose,walking){
