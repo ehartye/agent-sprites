@@ -72,3 +72,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   .library-swatches { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .workbench-tabs { padding-left: .65rem; gap: .2rem; }
 }
+.skin-tone-picker { margin-bottom: 20px; }
+.skin-tone-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.skin-tone-choice { padding: 8px; display: grid; gap: 6px; text-align: left; }
+.skin-tone-choice[aria-pressed="true"] { outline: 2px solid #ff8c54; outline-offset: 1px; }
+.skin-tone-ramp { display: flex; height: 28px; }
+.skin-tone-ramp span { flex: 1; }

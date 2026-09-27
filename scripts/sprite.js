@@ -223,6 +223,7 @@ SESSION
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
                          set the sprite pivot/origin exported in the atlas
   status                 show active project info
+  skin-tone <tone>       apply rose|peach|apricot|terracotta|umber|plum|espresso to skin role groups
   restart                graceful shutdown + respawn of sprite server
 
 OFFLINE VERIFICATION (does not start or contact a server)
@@ -476,6 +477,9 @@ async function run() {
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
       });
+      break;
+    case 'skin-tone':
+      result = await api('POST', '/api/workbench/skin-tone', { tone: sub });
       break;
     case 'pivot':
       result = await api('POST', '/api/session/pivot', { x: num(args.x), y: num(args.y), anchor: args.anchor });

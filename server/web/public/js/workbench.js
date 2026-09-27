@@ -121,6 +121,32 @@ export class Workbench {
     search.addEventListener('input', render); render();
   }
   renderPalettes(data) {
+    if (data.skinTones?.supported) {
+      const section = element('section', null, 'skin-tone-picker');
+      section.append(element('h3', 'Skin tone'), element('p', 'Apply one tone across every pose. Eyes keep their colors.', 'workbench-hint'));
+      const choices = element('div', null, 'skin-tone-choices');
+      const sessionId = data.skinTones.sessionId ?? this.sessionId;
+      for (const tone of data.skinTones.presets) {
+        const choice = button('', () => this.run(async () => {
+          choices.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
+          try {
+            await this.request('/workbench/skin-tone', { tone: tone.id }, { sessionId });
+            this.notify(`Applied ${tone.name} skin tone to every pose.`);
+            await this.refresh();
+            if (this.sessionId === sessionId && this.tab === 'palettes') await this.show('palettes');
+          } finally { choices.querySelectorAll('button').forEach(btn => { btn.disabled = false; }); }
+        }), 'skin-tone-choice');
+        choice.dataset.skinTone = tone.id;
+        choice.disabled = !sessionId;
+        choice.setAttribute('aria-pressed', String(data.skinTones.selected === tone.id));
+        const ramp = element('span', null, 'skin-tone-ramp'); ramp.setAttribute('aria-hidden', 'true');
+        for (const role of ['outline', 'shadow', 'base', 'highlight']) {
+          const sample = element('span'); sample.style.backgroundColor = tone.colors[role]; ramp.append(sample);
+        }
+        choice.append(ramp, element('span', tone.name)); choices.append(choice);
+      }
+      section.append(choices); this.body.append(section);
+    }
     this.body.append(element('p', 'Pick any color across the full palette library. Library colors draw as exact hex values; your existing artwork keeps its colors.', 'workbench-hint'));
     const custom = element('label', 'Custom color');
     const input = element('input'); input.type = 'color'; input.value = /^#[\da-f]{6}$/i.test(this.getColor()) ? this.getColor() : '#ffccaa';
