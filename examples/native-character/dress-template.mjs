@@ -1,15 +1,12 @@
-import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
+import {nativeMannequin} from './native-mannequin.mjs';
 
 export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short') {
   if (!['adult','child'].includes(kind) || !['jacket','dress'].includes(style)) throw new Error('Choose adult/child and jacket/dress.');
   if (!['short','tied','none'].includes(wig)) throw new Error('Choose short, tied or none for the wig.');
-  const project=JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url),'utf8'));
-  const ops=deriveBackStudy(project,{kind,tone});
+  const ops=nativeMannequin(kind,tone);
   ops[0].name=`${kind}-${style}${wig===(style==='dress'?'tied':'short')?'':'-'+wig}`;
-  const headTop=kind==='adult'?2:8, shoulder=kind==='adult'?15:20, waist=kind==='adult'?21:24;
   const palettes={
     hair:wig==='short'?{o:'#302238',S:'#523048',B:'#824556',H:'#b96c72'}:{o:'#382537',S:'#743c48',B:'#b76455',H:'#e5a371'},
     cloth:style==='jacket'?{o:'#243449',S:'#32576a',B:'#467f8a',H:'#7db4ab'}:{o:'#283c40',S:'#356557',B:'#579775',H:'#99c18a'},
@@ -17,9 +14,20 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     trousers:{o:'#283140',S:'#394755',B:'#526673',H:'#7d9098'},
     shoes:{o:'#302637',S:'#513d49',B:'#775453',H:'#aa7a69'}
   };
-  for(let index=0;index<3;index++) {
-    const cell=`0,${index}`, dir=['front','right','back'][index];
-    const base=ops.filter(op=>op.command==='draw'&&op.cell===cell);
+  for(const {cell,as:alias} of ops.filter(op=>op.command==='name')) {
+    const facing=alias.split('_')[0],dir=facing==='left'?'right':facing;
+    const phase=Number(alias.split('_').at(-1))||0;
+    const base=ops.filter(op=>op.command==='draw'&&op.cell===cell).map(p=>({...p,x:facing==='left'?15-p.x:p.x}));
+    const headNames=new Set(ops.find(op=>op.command==='shape-group'&&op.cell===cell&&op.name==='head').shapes);
+    const headTop=Math.min(...base.filter(p=>headNames.has(p.name)).map(p=>p.y));
+    const bob=headTop-(kind==='adult'?2:8),shoulder=(kind==='adult'?15:20)+bob,waist=(kind==='adult'?21:24)+bob;
+    // Hand silhouettes follow the actual source stride, including the forward
+    // and rear profile swings. Do not paint trousers over a low swinging hand.
+    const neutral=phase%2===0;
+    let hands=kind==='adult'?(dir==='right'?(neutral?[[4,20,7,21],[10,21,11,22]]:phase===1?[[2,20,4,22],[11,20,13,22]]:[[2,21,4,23],[10,20,12,22]]):(neutral?[[2,20,4,23],[11,20,13,23]]:[[3,19,5,21],[10,21,12,23]])):
+      (dir==='right'?(neutral?[[4,24,7,25]]:phase===1?[[2,24,4,25],[11,23,12,24]]:[[3,24,5,25],[10,24,11,25]]):(neutral?[[1,23,4,25],[11,23,14,25]]:[[3,23,5,25],[9,24,11,25]]));
+    if(dir!=='right'&&phase===3)hands=hands.map(([l,t,r,b])=>[15-r,t,15-l,b]);
+    const isHand=(x,y)=>hands.some(([l,t,r,b])=>x>=l&&x<=r&&y>=t&&y<=b);
     const skinOutline=new Set(ops.filter(op=>op.command==='shape-group'&&op.cell===cell&&op.name==='skin-outline').flatMap(op=>op.shapes));
     const occupied=new Set(base.map(p=>`${p.x},${p.y}`));
     const overlay=new Map();
@@ -27,9 +35,9 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     // Fit garment to the body, leaving the face and distal hands visible.
     for(const p of base){
       const {x,y}=p;
-      const sleeve=y>=shoulder&&y<=shoulder+(kind==='adult'?4:2);
-      const torso=x>=5&&x<=10;
-      if(y>=shoulder-1&&y<=waist+2&&(torso||sleeve)) {
+      if(headNames.has(p.name)||isHand(x,y))continue;
+      const hem=waist+(kind==='adult'?1:0);
+      if(y>=shoulder-1&&y<=hem) {
         let role=x>=9?'S':x<=6?'H':'B';
         if(skinOutline.has(p.name))role='o';
         pixel(x,y,'cloth',role);
@@ -37,19 +45,22 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
         if(y===waist&&x>=5&&x<=10)pixel(x,y,'trim','S');
         if(dir==='right'&&x===6&&y>=shoulder+1)pixel(x,y,'cloth','o');
       }
-      if(style==='jacket'&&y>waist+1&&y<27)pixel(x,y,'trousers',skinOutline.has(p.name)?'o':x<=6?'H':'B');
-      if(y>=27)pixel(x,y,'shoes',y===29?'o':x<=6?'H':'B');
+      const shoeTop=kind==='adult'?(dir==='right'&&phase===3&&x>=8?26:27):28;
+      if(style==='jacket'&&y>hem&&y<shoeTop)pixel(x,y,'trousers',skinOutline.has(p.name)?'o':x<=6?'H':'B');
+      if(y>=shoeTop)pixel(x,y,'shoes',skinOutline.has(p.name)?'o':x<=6?'H':'B');
     }
     // A collar frames the neck without moving it or covering facial pixels.
     if(dir!=='right')for(const x of [6,9])pixel(x,shoulder-1,'trim','H');
     if(style==='dress') {
       // The skirt is a new silhouette, not a stretched adult garment.
-      for(let y=waist;y<=26;y++){
-        const left=dir==='right'?5:(y>=25?3:4),right=dir==='right'?11:(y>=25?12:11);
-        for(let x=left;x<=right;x++)pixel(x,y,'cloth',y===26?'o':(x===left||x===right)?'o':x<=6?'H':x>=10?'S':'B');
+      const hem=26+bob,sway=dir==='right'?0:phase===1?1:phase===3?-1:0;
+      for(let y=waist;y<=hem;y++){
+        const left=(dir==='right'?5:(y>=hem-1?3:4))+sway,right=(dir==='right'?11:(y>=hem-1?12:11))+sway;
+        for(let x=left;x<=right;x++)pixel(x,y,'cloth',y===hem?'o':(x===left||x===right)?'o':x<=6?'H':x>=10?'S':'B');
       }
       for(let x=dir==='right'?6:5;x<=(dir==='right'?10:10);x++)pixel(x,waist,'trim','B');
     }
+    for(const p of base)if(isHand(p.x,p.y)&&!headNames.has(p.name))overlay.delete(`${p.x},${p.y}`);
     // Twelve-pixel hair envelope wraps a ten-pixel bare head. Front fringe stops above eyes.
     if(wig!=='none') {
     const front=[
@@ -76,8 +87,8 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     for(const p of overlay.values())if([[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>!occupied.has(`${p.x+dx},${p.y+dy}`)))p.role='o';
     const groups={};
     for(const p of overlay.values()){
-      const name=`${dir}-${p.part}-${p.x}-${p.y}`;
-      ops.push({command:'draw',type:'point',cell,name,x:p.x,y:p.y,color:palettes[p.part][p.role]});
+      const x=facing==='left'?15-p.x:p.x,name=`${facing}-${p.part}-${x}-${p.y}`;
+      ops.push({command:'draw',type:'point',cell,name,x,y:p.y,color:palettes[p.part][p.role]});
       for(const group of [p.part,`${p.part}-${{o:'outline',S:'shadow',B:'base',H:'highlight'}[p.role]}`])(groups[group]??=[]).push(name);
     }
     for(const [name,shapes]of Object.entries(groups))ops.push({command:'shape-group',sub:'create',cell,name,shapes});

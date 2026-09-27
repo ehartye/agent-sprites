@@ -3,9 +3,11 @@
   "generator": "dress-template.mjs",
   "args": [
     "child",
-    "dress"
+    "dress",
+    "peach",
+    "none"
   ],
-  "output": "dist/child-dress",
+  "output": "dist/child-dress-none",
   "scale": 10,
   "outlineColors": [
     "#673649",

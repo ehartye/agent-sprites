@@ -6,7 +6,7 @@ import { SKIN_TONES } from '../../server/engine/skin-tones.js';
 // A deliberately small, authored rear study for the established adult/child
 // mannequin templates, not an automatic image-to-back-view conversion.
 export function deriveBackStudy(project, { kind = 'adult', tone = 'peach' } = {}) {
-  const profile = { adult: { top: 2, shoulders: 15, hips: 22 }, child: { top: 8, shoulders: 20, hips: 25 } }[kind];
+  let profile = { adult: { top: 2, shoulders: 15, hips: 22 }, child: { top: 8, shoulders: 20, hips: 25 } }[kind];
   const ramp = SKIN_TONES.find(item => item.id === tone)?.colors;
   if (!profile || !ramp) throw new Error('Choose an adult/child template and a supported skin tone.');
   if (project.cellWidth !== 16 || project.cellHeight !== 32) throw new Error('This study requires the centered 16x32 template.');
@@ -17,6 +17,10 @@ export function deriveBackStudy(project, { kind = 'adult', tone = 'peach' } = {}
     if (shape.type !== 'point' || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 15 || y < 0 || y > 31 || shape.visible === false) throw new Error('Source must contain visible, in-bounds named point shapes.');
   }
   const mask = new Set(front.shapes.map(s => `${s.params.x},${s.params.y}`));
+  const headNames=new Set(project.shapeGroups?.['0,0']?.head??[]);
+  const headPoints=front.shapes.filter(s=>headNames.has(s.name));
+  const bob=headPoints.length?Math.min(...headPoints.map(s=>s.params.y))-profile.top:0;
+  profile={top:profile.top+bob,shoulders:profile.shoulders+bob,hips:profile.hips+bob};
   const head = front.shapes.filter(s => s.params.y >= profile.top && s.params.y <= profile.top + 10);
   if (Math.min(...head.map(s => s.params.x)) !== 3 || Math.max(...head.map(s => s.params.x)) !== 12) throw new Error('Expected a centered ten-pixel head.');
   const ops = [{ command: 'new', name: `back-study-${kind}`, size: '16x32', rows: 1, cols: 3 }];

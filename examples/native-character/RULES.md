@@ -16,7 +16,7 @@ Reviewed local Downloads `77318.png` and `77329.png`: the small gameplay sprites
 | Belt row | y=21 | y=24 |
 | Soles | y=29 | y=29 |
 
-The ten-pixel constraint describes the bare head. Hair may add one pixel on each side and above; a profile knot extends to x=1. Keep those additions explicit. Do not resize the body to accommodate clothing. Child garments need shorter sleeves and their own waist/hem placement; do not shrink an adult sprite.
+These rows describe the idle/passing pose. Stride poses lower the head, shoulders, and waist by one pixel while soles remain at y=29. Read the actual head group to follow its bob; hands require pose-specific silhouettes rather than a fixed horizontal cutoff. The ten-pixel constraint describes the bare head. Hair may add one pixel on each side and above; a right-profile knot extends to x=1 (reflected on the left). Keep those additions explicit. Do not resize the body to accommodate clothing. Child garments need shorter sleeves and their own waist/hem placement; do not shrink an adult sprite.
 
 ## Hair
 
@@ -36,8 +36,16 @@ The ten-pixel constraint describes the bare head. Hair may add one pixel on each
 
 Keep the original body points underneath overlays. Clothing/hair points must never enter `skin-*` groups. Their draw order covers the body where required; exposed body points retain their skin roles. This makes skin selection independent of wardrobe colors and keeps the base recoverable. These examples use foreground overlays; future long hair, capes or equipment behind limbs need an explicit rear layer rather than this shortcut.
 
-Point names include direction, material and coordinates. Each material also has role subgroups, for example `hair`, `hair-highlight`, `cloth-shadow`, `trim`, `trousers` and `shoes`. The generator selects outfit and wig independently: jacket/dress with short/tied/none hair. Wig-only exports retain the same coordinates, frame aliases and pivot as the body. A browser wardrobe selector is not implemented; select these choices in build configs or the generator call. To make a new preset, edit the source masks/palettes and rebuild. Save workbench edits to a new source before rebuilding, since builds replace `dist`.
+Point names include direction, material and coordinates. Each material also has role subgroups, for example `hair`, `hair-highlight`, `cloth-shadow`, `trim`, `trousers` and `shoes`. The generator selects outfit and wig independently: jacket/dress with short/tied/none hair. Wig-only exports retain the same coordinates, all 20 frame aliases, four walk tags, and pivot as the body. The browser review page composes separate wig sheets over bare or hair-free clothed bodies; build configs select baked combinations. To make a new preset, edit the source masks/palettes and rebuild. Save workbench edits to a new source before rebuilding, since builds replace `dist`.
+
+## Walking contract
+
+- Preserve all four source front/right poses and retain the repeated passing frame at phases 0 and 2. Reflect the complete right-facing body and wardrobe for left; do not mirror only a sleeve or shoe.
+- Derive each rear pose from its matching front silhouette and shift rear shading with its bob. Never carry facial pixels or a jacket opening onto the back.
+- Fit sleeves to moving arms and exclude the hands before painting garments, trousers, or a skirt. Fixed y-based clothing bands alone can paint over a swinging hand.
+- Attach hair to the current head landmark. Advance separate body and wig sheets with the same named frame. Keep their full cell size, tag order, 8 fps default, and bottom-center pivot aligned.
+- Keep shoes on the source feet and all soles on y=29. Skirt motion must leave visible footwear and fit within 16×32.
 
 ## Acceptance checks
 
-Build every authored direction and inspect both native pixels and a nearest-neighbor enlargement. Check eyes remain visible, neckline meets the head, hands remain distinguishable, rear clothing has no front opening, shoes meet y=29, and no material boundary makes an outline gap. Change skin tone and confirm garment/hair colors stay fixed. These are standing front/right/back studies: they do not establish left-facing art, walking animation, portrait fidelity or a complete customization UI.
+Build every authored direction and every walk frame; inspect native pixels, a nearest-neighbor enlargement, and looping playback. Check eyes remain visible, neckline meets the head, hands remain distinguishable, rear clothing has no front opening, shoes meet y=29, and no material boundary makes an outline gap. Change skin tone and confirm garment/hair colors stay fixed. Compare standalone wig composition with the baked outfit. These examples establish a repeatable four-direction wardrobe walk study; they do not establish portrait fidelity or a complete game customization UI.

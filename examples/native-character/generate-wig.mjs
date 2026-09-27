@@ -6,7 +6,7 @@ import {dressTemplate} from './dress-template.mjs';
 export function wigTemplate(kind='adult', wig='short') {
   if(!['short','tied'].includes(wig))throw new Error('Choose a short or tied wig.');
   const ops=dressTemplate(kind,'jacket','peach',wig).filter(op=>
-    ['new','name','pivot'].includes(op.command) ||
+    ['new','name','pivot','group'].includes(op.command) ||
     (op.command==='draw'&&op.name.includes('-hair-')) ||
     (op.command==='shape-group'&&(op.name==='hair'||op.name.startsWith('hair-'))));
   ops[0].name=`${kind}-wig-${wig}`;
