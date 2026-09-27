@@ -67,8 +67,12 @@ export class CellNavigator {
 
       // Thumbnail canvas for cell preview
       const canvas = document.createElement('canvas');
-      canvas.width = 48;
-      canvas.height = Math.round(48 * (this._cellH / this._cellW));
+      const fit = 64 / Math.max(this._cellW, this._cellH);
+      const scale = fit >= 1 ? Math.floor(fit) : fit;
+      canvas.width = Math.max(1, Math.round(this._cellW * scale));
+      canvas.height = Math.max(1, Math.round(this._cellH * scale));
+      canvas.style.width = `${this._cellW * scale}px`;
+      canvas.style.height = `${this._cellH * scale}px`;
       canvas.className = 'cell-thumb-canvas';
       this._renderThumb(canvas, ref);
       thumb.appendChild(canvas);
@@ -112,7 +116,10 @@ export class CellNavigator {
     const ctx = canvas.getContext('2d');
     const cellW = this._cellW;
     const cellH = this._cellH;
-    const scale = canvas.width / cellW;
+    // Rounded bitmap dimensions can have slightly different X/Y ratios when
+    // reducing a narrow cell. Map both axes fully; CSS retains the source ratio.
+    ctx.setTransform(canvas.width / cellW, 0, 0, canvas.height / cellH, 0, 0);
+    const scale = 1;
 
     // Checkerboard background — one square per pixel, theme-aware
     const style = getComputedStyle(document.documentElement);
