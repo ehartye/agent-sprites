@@ -3,10 +3,10 @@ import { rotateParams } from './transform.js';
 
 export class CellManager {
   constructor(cellSize, rows, cols) {
-    if (rows > 10 || cols > 10) throw new Error('Grid max is 10x10');
-    if (rows < 1 || cols < 1) throw new Error('Grid must be at least 1x1');
     // cellSize: number (square) or { w, h }
-    const { w, h } = typeof cellSize === 'object' ? { w: cellSize.w, h: cellSize.h ?? cellSize.w } : { w: cellSize, h: cellSize };
+    const { w, h } = cellSize && typeof cellSize === 'object' ? { w: cellSize.w, h: cellSize.h ?? cellSize.w } : { w: cellSize, h: cellSize };
+    if (![rows,cols,w,h].every(n=>Number.isSafeInteger(n)&&n>0)) throw new Error('Grid and cell dimensions must be positive safe integers');
+    if (![rows*cols,w*cols,h*rows,w*cols*h*rows].every(Number.isSafeInteger)) throw new Error('Grid dimensions and pixel count must be exactly representable as safe integers');
     this.cellWidth = w;
     this.cellHeight = h;
     this.rows = rows;

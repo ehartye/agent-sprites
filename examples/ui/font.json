@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "output": "dist/font",
+  "scale": 2,
+  "ui": {"name": "ui-font", "kind": "font", "theme": "moss-brass"},
+  "expectedFrames": ["glyph_0041_cream", "glyph_0067_ink", "glyph_2197_gold"]
+}

@@ -212,7 +212,7 @@ const HELP_TEXT = `sprite — CLI for agent-sprites (server at ${BASE_URL})
 
 SESSION
   new <name> [--size N | --size WxH] [--rows N --cols N --palette pico8|gameboy|nes|cga|db-16|db-32]
-             rows and cols are each capped at 10 (100 cells per sheet)
+             positive safe-integer dimensions; no grid policy caps (actual allocation depends on memory/renderer)
              [--dest <folder>]   parent folder for exports (default: <cwd>/assets/claude-sprites)
   open <path>            open saved project file
   open --session <name|id>  reopen an earlier project from its stored draft

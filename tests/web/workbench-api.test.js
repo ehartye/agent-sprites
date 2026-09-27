@@ -69,6 +69,15 @@ describe('collaborative workbench', () => {
     expect(state.sessionId).toBe(original);
     expect((await api('session/copy', { name: '../escape' })).ok).toBe(false);
   });
+  test('imports valid large grids without legacy grid, cell-size, or pixel-budget caps', async () => {
+    for(const dimensions of [{cellWidth:8,cellHeight:12,rows:12,cols:11},{cellWidth:8192,cellHeight:8,rows:1,cols:1},{cellWidth:4096,cellHeight:4096,rows:2,cols:2}]){
+      const project=Project.create({name:'Large atlas',palette:'pico8',...dimensions}).toJSON();
+      const result=await api('session/import',{project});expect(result.ok,result.error).toBe(true);
+      expect(state.project.cells.rows).toBe(dimensions.rows);expect(state.project.cellWidth).toBe(dimensions.cellWidth);
+    }
+    const original=state.sessionId,invalid=state.project.toJSON();invalid.grid.rows=Number.MAX_SAFE_INTEGER;
+    expect((await api('session/import',{project:invalid})).ok).toBe(false);expect(state.sessionId).toBe(original);
+  });
   test('all preset palettes are available together with the active custom palette', async () => {
     await make();
     const palettes = await api('workbench/palettes');

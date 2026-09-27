@@ -76,8 +76,15 @@ describe('CellManager', () => {
     expect(list[0].coord).toBe('0,0');
   });
 
-  it('enforces max grid size 10x10', () => {
-    expect(() => new CellManager(16, 11, 5)).toThrow('max');
+  it('does not impose row, column, cell-count, or pixel-budget policy caps', () => {
+    expect(new CellManager({w:8,h:12},22,24).listCells()).toHaveLength(528);
+    expect(()=>new CellManager(512,10,10)).not.toThrow();
+    expect(()=>new CellManager(256,11,5)).not.toThrow();
+    expect(()=>new CellManager(8,65,2)).not.toThrow();
+    expect(()=>new CellManager(8,33,32)).not.toThrow();
+  });
+  it('rejects invalid or arithmetically unrepresentable dimensions before allocation',()=>{
+    for(const [size,rows,cols] of [[8,0,1],[8,1.5,1],[8,NaN,1],[8,Infinity,1],[8,Number.MAX_SAFE_INTEGER,2],[Number.MAX_SAFE_INTEGER,2,1],[0,1,1],[{w:8,h:-1},1,1]])expect(()=>new CellManager(size,rows,cols)).toThrow(/integer|represent/);
   });
 
   it('serializes and deserializes', () => {

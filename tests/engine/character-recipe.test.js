@@ -65,12 +65,17 @@ test('profile helmets expose only the forward visor and one side hinge across bo
     }
   }
 });
+test('a four-person walk atlas can exceed the legacy 100-frame grid restriction',()=>{
+  const result=generateCharacterRecipe(recipe({mode:'walk',people:[{id:'a'},{id:'b'},{id:'c'},{id:'d'}],directions:['down','right','up','left']}));
+  expect(result.report.frames).toHaveLength(128);
+  expect(result.operations[0]).toMatchObject({rows:13,cols:10});
+  expect(new Set(result.report.frames.map(f=>f.alias)).size).toBe(128);
+});
 test.each([
   {name:null},{mode:null},{fps:null},{outfits:null},{directions:null},{people:[{id:'a',body:null}]},{people:[{id:'a',hair:null}]},{people:[{id:'a',skin:null}]},
   {people:[]},{people:[{id:'a'},{id:'a'}]},{people:[{id:'../escape'}]},
   {people:[{id:'a',body:'infant'}]},{people:[{id:'a',skin:'unknown'}]},
   {people:[{id:'a',colors:{skin:'red'}}]},{people:[{id:'a',colors:{typo:'#ffffff'}}]},
   {people:[{id:'a',hairstyle:'bun'}]},{mode:'unknown'},{directions:[]},{outfits:['field','field']},
-  {mode:'walk',people:[{id:'a'},{id:'b'},{id:'c'},{id:'d'}],directions:['down','right','up','left']},
   {mode:'expressions',directions:['right']},{fps:NaN},{fps:0},{unexpected:1}
 ])('rejects unsafe or ambiguous recipe %j',extra=>expect(()=>generateCharacterRecipe(recipe(extra))).toThrow());

@@ -33,8 +33,8 @@ duplicate entries and unsupported values fail before publication.
 
 Body proportions are independent of gender. Children use shorter limbs and
 different head/body ratios, rather than resized adult pixels. All cells are
-40×56 with ground at y=54 and a bottom-center pivot. Each recipe supports at most
-100 authored cells; split large casts or motion sets into separate sheets.
+40×56 with ground at y=54 and a bottom-center pivot. There is no authored-frame
+policy cap; actual memory and renderer capabilities determine feasible sheet size.
 
 ## Frames and editable parts
 
