@@ -32,6 +32,14 @@ ten rows from each crown must measure exactly ten occupied pixels across.
 This example assumes front poses in row one and right-facing poses in row two.
 Other layouts need explicit adaptation.
 
+Heads are centered horizontally by default: a ten-pixel head occupies x=3..12
+in its sixteen-pixel cell. The entire pose moves together, preserving shading,
+eyes, limb placement and ground contact. Centering fails if it would clip any
+pixel. The report records the horizontal shift for every frame. Set
+`"centerHeads": false` only when preserving the source's original alignment is
+intentional. Walking and profile poses retain their natural asymmetry; this
+does not mirror or redraw them.
+
 Run `node <repo>/examples/reference-grid/generate.mjs reference.json operations.json`
 using the installed repository dependencies.
 The output file must be new. Then use the managed agent-sprites `build` command
