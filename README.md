@@ -245,6 +245,11 @@ Open the self-contained preview directly in a browser to play tags at their
 exported durations, pause, step, and zoom. Saved projects retain cell groups,
 animation speeds, shape groups, names and pivots when reopened.
 
+Optional `trim: true` publishes a trimmed atlas (opaque bounding boxes with real
+`spriteSourceSize` offsets, the layout Phaser, Unity and Godot importers honor);
+it needs a transparent background and is not available for UI builds. `export
+--trim true` does the same for a live session.
+
 Optional `expectedFrames` lists the exact static aliases your game consumes;
 `expectedTags` lists its animations. Both default to no required names. Use these
 contracts to catch a renamed or omitted crop, prop, or animation before integration.
