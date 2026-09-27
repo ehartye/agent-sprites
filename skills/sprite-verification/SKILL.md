@@ -67,8 +67,10 @@ nearest-neighbor zoom and inspect each one for:
 - partial figures (amputated heads/feet from bad slicing)
 - character consistency (same costume, same proportions, every cell)
 
-Use `verify --contact-sheet review.png` to inspect every exported atlas entry,
-including named aliases and repeated animation frames. `sprite.js view --sheet`
+Use `verify --contact-sheet review.png` to inspect every exported source rectangle.
+Each tile appears once and lists every atlas index and alias that shares it, so
+repeated animation frames show as `#1,9,17` rather than extra tiles. Review fonts
+with the build's `font-proof.png` rather than the contact sheet. `sprite.js view --sheet`
 shows the current project grid; it does not verify the exported bytes.
 
 **3. Baseline alignment (grounded characters).** For walk cycles, verify contact

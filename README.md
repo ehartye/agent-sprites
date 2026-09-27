@@ -169,7 +169,10 @@ Frame names match exactly, including case. Missing names fail verification with
 This offline command reads the actual PNG and atlas without contacting a sprite
 server. It checks image dimensions, frame and trim bounds, unique names, positive
 durations, animation ranges/directions, and required tags. It accepts repeated
-rectangles and labels every atlas entry in the nearest-neighbor contact sheet.
+rectangles. The nearest-neighbor contact sheet shows each unique source rectangle
+once, labeled with its name (`+N` for further aliases) and every atlas index that
+uses it (`#0,8,16`), in a roughly square grid; the report's `contactSheet` records
+`tiles` and `frames`. Every frame is still validated.
 Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
@@ -291,7 +294,9 @@ vessel. Each style keeps the same reported navigation geometry.
 For bitmap text and reusable nine-slice controls, use the [`ui` source](examples/ui/README.md).
 Font and skin recipes export editable named pixel rectangles, tone variants, metrics,
 `ui-report.json`, and a portable `ui-runtime.mjs` compositor that draws atlas images
-without platform fonts. Font builds also publish an embedded `ui-boot.mjs` for
+without platform fonts. Font builds also publish `font-proof.png` (every glyph in all
+four tones at 3×, then wrapped multiline sample text, drawn through the portable
+runtime) with `font-proof.json` glyph boxes, and an embedded `ui-boot.mjs` for
 loading/error UI. Message skin families include `message` (utility), `speech`, `specimen`,
 `specimen_mount`, `specimen_label` (mint label with ink text), `note` (paper),
 `notification`, and `warning`. Their report metrics include six-pixel fixed
