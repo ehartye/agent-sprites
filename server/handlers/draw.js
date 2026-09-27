@@ -138,6 +138,31 @@ function computeArcPixels(shape, direction, count, type) {
  * Handle highlight or shadow draw type.
  * Looks up target shape, resolves lighter/darker color, places point shapes.
  */
+/**
+ * Fallback for a base colour with no ramp entry (custom skin tones, traced
+ * references): each strength step moves lightness 0.10 and hue 8° along the
+ * shorter arc — highlights toward yellow (60°), shadows toward blue (240°) —
+ * the usual pixel-art hue shift. Ramp lookup always takes precedence.
+ */
+export function deriveShade(hex, type, strength = 1) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0, l = (max + min) / 2;
+  let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d) h = (max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+  h = (h + 360) % 360;
+  const target = type === 'highlight' ? 60 : 240;
+  const delta = ((target - h + 540) % 360) - 180;
+  // Greys have no hue to shift; only their lightness moves.
+  if (s > 0) h = (h + Math.sign(delta) * Math.min(Math.abs(delta), 8 * strength) + 360) % 360;
+  l = Math.min(0.98, Math.max(0.02, l + (type === 'highlight' ? 0.1 : -0.1) * strength));
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), o = l - c / 2;
+  const [rr, gg, bb] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [rr, gg, bb].map(v => Math.round((v + o) * 255).toString(16).padStart(2, '0')).join('');
+}
+
 function handleHighlightShadow(state, type, params) {
   const cell = state.project.cells.getCell(params.cell);
   const targetShape = cell.shapes.get(params.shape);
@@ -151,10 +176,12 @@ function handleHighlightShadow(state, type, params) {
   const palette = state.project.palette;
   const strength = params.strength ?? 1;
   const rampFn = type === 'highlight' ? 'lighter' : 'darker';
-  const newColor = palette[rampFn](targetShape.color, strength);
-
+  let newColor = palette[rampFn](targetShape.color, strength), derived;
   if (!newColor) {
-    throw new Error(`Color "${targetShape.color}" not in palette ramps — cannot compute ${type}`);
+    const from = palette.resolve(targetShape.color);
+    newColor = deriveShade(from, type, strength);
+    if (!newColor) throw new Error(`Color "${targetShape.color}" is neither in palette ramps nor a #rrggbb colour — cannot compute ${type}`);
+    derived = { from, to: newColor, type, strength, method: 'hsl' };
   }
 
   const bbox = getBoundingBox(targetShape);
@@ -222,7 +249,7 @@ function handleHighlightShadow(state, type, params) {
     }
   }
 
-  return { shapeNames };
+  return derived ? { shapeNames, derived: [derived] } : { shapeNames };
 }
 
 /**
@@ -274,7 +301,7 @@ function handleSphereShade(state, params) {
   // 'top-left', shadow-side tiers 'bottom-right'. Rotate both to the requested light.
   const light = params.direction ?? 'top-left';
   if (!(light in OPPOSITE_DIRECTION)) throw new Error(`direction must be one of ${Object.keys(OPPOSITE_DIRECTION).join('|')}`);
-  const allNames = [];
+  const allNames = [], derived = new Map();
   for (const [label, type, strength, dir, span, rf] of tiers) {
     const extra = label === 'spec' ? { count: 2 } : {};
     const direction = dir === 'top-left' ? light : dir === 'bottom-right' ? OPPOSITE_DIRECTION[light] : dir;
@@ -284,8 +311,9 @@ function handleSphereShade(state, params) {
       shape_name: `${base}_${label}`, ...extra,
     });
     allNames.push(...r.shapeNames);
+    for (const d of r.derived ?? []) derived.set(`${d.type}${d.strength}`, d);
   }
-  return { shapeNames: allNames };
+  return derived.size ? { shapeNames: allNames, derived: [...derived.values()] } : { shapeNames: allNames };
 }
 
 /**

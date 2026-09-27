@@ -1,6 +1,6 @@
 ---
 name: sprite-palette
-description: Choose pixel-art palettes and ramp-aware base colors. Use for sprite color schemes, ramp headroom, palette tradeoffs, or shading errors such as a color missing from palette ramps; not general website theming.
+description: Choose pixel-art palettes and ramp-aware base colors. Use for sprite color schemes, ramp headroom, palette tradeoffs, or shading a color missing from palette ramps; not general website theming.
 ---
 
 # Sprite Palette
@@ -17,7 +17,7 @@ Pick the palette and base colors before drawing. Wrong palette → `draw highlig
 
 ## Ramp-Aware vs Flat Palettes
 
-The lighting tools (`draw highlight`, `draw shadow`) look up a lighter/darker neighbor in the palette's **ramp map**. Without a ramp, the tools error with `Color "X" not in palette ramps`.
+The lighting tools (`draw highlight`, `draw shadow`) look up a lighter/darker neighbor in the palette's **ramp map**. Without a ramp entry they derive the step in HSL instead (lighter and warmer, or darker and cooler) and list it under `derived` in the result, so you can see which colors came from the palette and which were computed.
 
 | Palette | Size | Ramps? | Use when |
 |---|---|---|---|
@@ -73,11 +73,11 @@ sprite.js draw highlight --cell 0,0 --shape test --direction top-left --strength
 sprite.js draw shadow    --cell 0,0 --shape test --direction bottom-right --strength 2
 ```
 
-If either errors with "not in palette ramps", the color isn't usable with the lighting tools in that palette — pick a different base or switch palettes.
+If the result lists `derived` entries, the color has no ramp in that palette: the steps were computed, not chosen from the palette. That is fine for a one-off tone; for a limited-palette look, pick a ramp base or switch palettes.
 
 ## Using Hex Colors Outside the Palette
 
-You can `draw` any shape with an arbitrary hex (`--color "#aa66dd"`), but `draw highlight` / `draw shadow` **require** a ramp-registered color. Off-palette fills work; off-palette lighting doesn't.
+You can `draw` any shape with an arbitrary hex (`--color "#aa66dd"`), and `draw highlight` / `draw shadow` / `sphere-shade` shade it too, deriving each step in HSL (0.10 lightness and 8° hue per strength step). Derived tones are not palette colors, so they widen the sprite's color count.
 
 For a custom ramp, define semantic hex roles in the source (skin base/shadow/light,
 hair base/light, cloth base/shadow/light) and draw those colors explicitly. Change

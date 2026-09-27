@@ -131,14 +131,13 @@ describe('Highlight/Shadow draw commands', () => {
     })).toThrow('Shape "nonexistent" not found');
   });
 
-  it('throws if color is not in palette ramps', () => {
-    // Draw a shape with a raw hex color not in the pico8 palette
+  it('derives a step for a color outside the palette ramps instead of refusing', () => {
+    // A raw hex color not in the pico8 palette
     handleDraw(state, 'circle', {
       cell: '0,0', cx: 4, cy: 4, r: 3, color: '#123456', shape_name: 'custom',
     });
-    expect(() => handleDraw(state, 'highlight', {
-      cell: '0,0', shape: 'custom', shape_name: 'fail',
-    })).toThrow('not in palette');
+    const result = handleDraw(state, 'highlight', { cell: '0,0', shape: 'custom', shape_name: 'lit' });
+    expect(result.derived[0]).toMatchObject({ from: '#123456', method: 'hsl' });
   });
 
   it('throws if shape is a point (no bounding box)', () => {
