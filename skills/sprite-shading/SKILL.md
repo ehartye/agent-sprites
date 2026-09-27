@@ -115,7 +115,7 @@ Don't use `--direction top-left` on a big ellipse — corner directions on curve
 
 ## Palette Requirements
 
-Ramp-aware palettes: `pico8`, `db-16`, `db-32`. The tool errors if the target's color isn't in a ramp. When building a new sprite, pick a base color with **headroom in both directions** — at minimum 2 darker steps and 2 lighter steps available for a 32px+ sprite.
+Ramp-aware palettes: `pico8`, `db-16`, `db-32`. A color outside the ramps gets HSL-derived steps, reported as `derived` in the result; ramp colors keep ramp precedence. When building a new sprite, pick a base color with **headroom in both directions** — at minimum 2 darker steps and 2 lighter steps available for a 32px+ sprite.
 
 See [sprite palette](../sprite-palette/SKILL.md) for ramp selection.
 

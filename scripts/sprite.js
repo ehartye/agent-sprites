@@ -252,7 +252,8 @@ DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw shadow    --shape <target> [--direction ...] [--strength N] [--name <base>]
     highlight/shadow auto-compute lighter/darker color from palette ramps
     and place pixels along the target shape's bounding box edge.
-    Requires target color to be in palette ramps (pico8, db-16, db-32).
+    Off-ramp colors (custom hex, flat palettes) get an HSL-derived step instead:
+    lighter+warmer / darker+cooler, reported in the result's derived list.
   draw sphere-shade --shape <target> [--intensity low|med|high|auto] [--name <base>]
     compound 2–5 tier highlight+shadow lighting on a circle/ellipse in one call.
     auto picks by target size (r<=6 low, 7-12 med, >12 high).
