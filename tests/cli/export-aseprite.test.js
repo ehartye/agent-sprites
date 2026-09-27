@@ -53,6 +53,7 @@ describe('CLI aseprite export (group fps, pivot, atlas)', () => {
         return out;
       },
       setCellGroupFps(sessionId, name, fps) { groupFps.set(`${sessionId}/${name}`, fps); },
+      getCellGroupDirections() { return {}; },
       getCellGroupFps(sessionId) {
         const out = {};
         for (const [k, v] of groupFps) {

@@ -4,7 +4,7 @@ import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, shapeGroups, review }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -14,6 +14,7 @@ export class Project {
     this.background = background ?? { mode: 'transparent' };
     this.pivot = pivot ?? null;
     this.animationFps = animationFps ?? {};
+    this.animationDirections = animationDirections ?? {};
     this.shapeGroups = shapeGroups ?? {};
     this.review = review ?? null;
     this.path = null;
@@ -46,6 +47,8 @@ export class Project {
       cells: this.cells.toJSON().cells,
       groups: this.groups.toJSON(),
       animationFps: this.animationFps,
+      // Omitted when empty so existing project files stay byte-identical.
+      ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
       shapeGroups: this.shapeGroups,
       ...(this.review ? { review: this.review } : {}),
     };
@@ -71,6 +74,7 @@ export class Project {
       background: data.background,
       pivot: data.pivot,
       animationFps: data.animationFps,
+      animationDirections: data.animationDirections,
       shapeGroups: data.shapeGroups,
       review: data.review,
     });
@@ -103,7 +107,7 @@ export class Project {
    * reference a contiguous range regardless of where the group's cells sit
    * in the grid.
    */
-  exportAseprite({ imageName, groups = this.groups.toJSON(), fpsMap = this.animationFps, defaultFps = 8 } = {}) {
+  exportAseprite({ imageName, groups = this.groups.toJSON(), fpsMap = this.animationFps, directionMap = this.animationDirections, defaultFps = 8 } = {}) {
     const frames = [];
     const baseIndex = new Map();
     const namedCells = [];
@@ -132,7 +136,7 @@ export class Project {
         if (bi === undefined) throw new Error(`Group "${name}" references unknown cell "${ref}"`);
         frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, dur));
       }
-      frameTags.push({ name, from, to: frames.length - 1, direction: 'forward' });
+      frameTags.push({ name, from, to: frames.length - 1, direction: directionMap[name] ?? 'forward' });
     }
 
     // Named cells become alias frames AFTER every tag run, so tools that look

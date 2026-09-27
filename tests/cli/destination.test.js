@@ -42,6 +42,7 @@ describe('CLI export destination control', () => {
       getCellGroups() { return {}; },
       setCellGroup() {},
       getCellGroupFps() { return {}; },
+      getCellGroupDirections() { return {}; },
       getShapeGroups() { return {}; },
     };
     state = { project: null, sessionId: null, db: mockDb };

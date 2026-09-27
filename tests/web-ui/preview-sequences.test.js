@@ -13,3 +13,8 @@ test('saved groups retain repeated frames and timing; removed groups fall back t
   expect(selectPreviewSequence(options, 'group:walk')).toMatchObject({ frames: ['0,1','0,0','0,2','0,0'], fps: 6 });
   expect(selectPreviewSequence(previewSequences(project, '0,0'), 'group:walk').id).toBe('row');
 });
+test('live group previews follow reverse and pingpong tag directions', () => {
+  const options = previewSequences({ ...project, groups: { chomp: ['0,0','0,1','0,2'], back: ['0,0','0,1'] }, animationDirections: { chomp: 'pingpong', back: 'reverse' } }, '0,0');
+  expect(selectPreviewSequence(options, 'group:chomp').frames).toEqual(['0,0','0,1','0,2','0,1']);
+  expect(selectPreviewSequence(options, 'group:back').frames).toEqual(['0,1','0,0']);
+});

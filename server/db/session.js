@@ -48,6 +48,7 @@ export class SessionDB {
     `);
     // fps column arrived after the table shipped; older DBs lack it.
     try { this.db.exec('ALTER TABLE cell_groups ADD COLUMN fps INTEGER'); } catch { /* already present */ }
+    try { this.db.exec('ALTER TABLE cell_groups ADD COLUMN direction TEXT'); } catch { /* already present */ }
   }
 
   createSession({ project_name, project_path, destination_folder, json_file, draft_json }) {
@@ -119,6 +120,16 @@ export class SessionDB {
   getCellGroupFps(sessionId) {
     const rows = this.db.prepare('SELECT name, fps FROM cell_groups WHERE session_id = ? AND fps IS NOT NULL').all(sessionId);
     return Object.fromEntries(rows.map(r => [r.name, r.fps]));
+  }
+
+  setCellGroupDirection(sessionId, name, direction) {
+    this.db.prepare('UPDATE cell_groups SET direction = ? WHERE session_id = ? AND name = ?')
+      .run(direction, sessionId, name);
+  }
+
+  getCellGroupDirections(sessionId) {
+    const rows = this.db.prepare('SELECT name, direction FROM cell_groups WHERE session_id = ? AND direction IS NOT NULL').all(sessionId);
+    return Object.fromEntries(rows.map(r => [r.name, r.direction]));
   }
 
   deleteCellGroup(sessionId, name) {

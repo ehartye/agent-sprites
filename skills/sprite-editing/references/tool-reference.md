@@ -198,6 +198,7 @@ Cell groups organize frames into animation sequences (stored in SQLite).
 |---------|-----------|-------|
 | `group create <name> <cells...>` | group name + cell coords | Create group with cells. `--fps N` sets playback speed (exported as atlas frame durations; default 8) |
 | `group fps <name> <N>` | group name + fps | Set/change a group's fps |
+| `group direction <name> <dir>` | group name + `forward`/`reverse`/`pingpong` | Set the exported Aseprite tag direction (also `group create --direction`; default `forward`) |
 | `group list` | | List all cell groups |
 | `group add <name> <cells...>` | group name + cell coords | Add cells to existing group |
 | `group remove <name> <cells...>` | group name + cell coords | Remove cells from group |

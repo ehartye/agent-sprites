@@ -170,7 +170,12 @@ Hard-won recipes from real builds:
 - **Repeat cells in a group for 4-beat walk cycles.** Groups accept the same
   cell more than once and export emits one frame per occurrence — so
   `group create walkd 0,1 0,0 0,2 0,0` plays `step-L, pass, step-R, pass`
-  from three drawn frames. No duplicate art, no ping-pong tag needed.
+  from three drawn frames. No duplicate art. For a plain back-and-forth
+  (`closed, half, wide, half`), `group create chomp 0,0 0,1 0,2 --direction pingpong`
+  exports an Aseprite `pingpong` tag instead; `reverse` is also accepted. Engines
+  that honor tag directions (Phaser `createFromAseprite`, Aseprite importers) play
+  it natively, as do the build `preview.html` and the editor preview. Terminal
+  `view-anim` still plays groups forward.
 
 ## Detail tiers — when to use what
 
@@ -194,13 +199,14 @@ attempting either of the higher tiers.
 ```
 sprite.js pivot --anchor bottom-center   # set sprite origin (do this before export for characters)
 sprite.js group fps walk 10              # animation speed -> atlas frame durations
+sprite.js group direction chomp pingpong # tag direction: forward (default), reverse, pingpong
 sprite.js export                         # gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
 ```
 
 For explicit paths, use `sprite.js export --dest public/art` and
 `sprite.js view --sheet --scale 4 --out review/contact-sheet.png`; then inspect
 the PNG. Run previews separately from the batch. The atlas is Aseprite-format
-JSON: cell groups become `meta.frameTags`, group fps becomes per-frame `duration`,
+JSON: cell groups become `meta.frameTags` (with their `direction`), group fps becomes per-frame `duration`,
 and the pivot ships as a slice. Phaser needs an explicit origin in game code;
 see [game integration](../game-integration/SKILL.md).
 
