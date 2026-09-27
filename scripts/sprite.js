@@ -285,6 +285,7 @@ CELLS
   ref set <image.png> --cell [--opacity 0.35]   attach a tracing reference image
   ref clear --cell                              shown under shapes in view + web UI, never exported
   view  --cell [--png true] [--scale N] [--out f.png]   view --sheet [--scale N] [--out f.png]
+  view  --stack sky,swirl_0,land [--scale N] [--out f.png]   composite cells as layers, first at the bottom
   view-anim <group>                undo/redo --cell
 
 TWEEN
@@ -622,6 +623,11 @@ async function run() {
       const out = args.out ? resolve(args.out) : undefined;
       if (bool(args.sheet)) {
         result = await api('POST', '/api/view/sheet', { scale: num(args.scale), out });
+        break;
+      }
+      if (args.stack) {
+        // Commas or spaces; R,C pairs survive: --stack sky,0,1,land
+        result = await api('POST', '/api/view/stack', { cells: args.stack, scale: num(args.scale), out });
         break;
       }
       const format = (args.png || args.out) ? 'png' : 'terminal';
