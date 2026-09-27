@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "clementine",
+    "retro"
+  ],
+  "output": "dist/cast-clementine-retro",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#654048",
+    "#37464d",
+    "#25434a",
+    "#3b2d49",
+    "#515157",
+    "#493942"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}

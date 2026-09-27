@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "nori",
+    "field"
+  ],
+  "output": "dist/cast-nori-field",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#432f36",
+    "#272d38",
+    "#4e4145",
+    "#253c48",
+    "#26313f"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}

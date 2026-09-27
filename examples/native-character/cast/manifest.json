@@ -1754,5 +1754,43 @@
         }
       ]
     }
+  ],
+  "outfits": [
+    {
+      "id": "everyday",
+      "label": "Everyday",
+      "description": "Working clothes and personal equipment for life beneath the canopy.",
+      "details": []
+    },
+    {
+      "id": "field",
+      "label": "Field suit",
+      "description": "A soft expedition suit with a clear bubble helmet and a compact life-support pack.",
+      "details": [
+        "Cream helmet / teal pressure fabric",
+        "Forward-only profile visor",
+        "Soft gloves, sealed boots, compact backpack"
+      ]
+    },
+    {
+      "id": "service",
+      "label": "Service shell",
+      "description": "An angular maintenance shell for hull repairs, with a side visor, hard chest plate, and service pack.",
+      "details": [
+        "Ivory armor / dark joint fabric",
+        "Flat forward visor and solid rear helmet",
+        "Orange chest controls and reinforced work boots"
+      ]
+    },
+    {
+      "id": "retro",
+      "label": "Retro ribbed",
+      "description": "A copper pressure suit with an ivory helmet, ribbed chest panels, and twin life-support cylinders.",
+      "details": [
+        "Copper pressure fabric / brass hardware",
+        "Rounded helmet and broad collar ring",
+        "Ribbed chest and twin rear cylinders"
+      ]
+    }
   ]
 }

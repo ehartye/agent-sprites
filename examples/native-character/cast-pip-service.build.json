@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "generator": "generate-cast.mjs",
+  "args": [
+    "pip",
+    "service"
+  ],
+  "output": "dist/cast-pip-service",
+  "scale": 8,
+  "outlineColors": [
+    "#26333f",
+    "#49405c",
+    "#3b2d49",
+    "#253c48",
+    "#26313f"
+  ],
+  "expectedFrames": [
+    "front",
+    "right",
+    "back",
+    "left"
+  ],
+  "expectedTags": [
+    "walk_front",
+    "walk_right",
+    "walk_back",
+    "walk_left"
+  ]
+}
