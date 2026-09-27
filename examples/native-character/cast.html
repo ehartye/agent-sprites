@@ -30,6 +30,14 @@
     .controls label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
     .controls select { min-width:110px; }
     #character { min-width:166px; }
+    #outfit { min-width:152px; }
+    .outfit-notes { display:flex; align-items:baseline; flex-wrap:wrap; gap:5px 18px; margin:0 0 18px; padding:13px 16px; border-left:2px solid var(--copper); background:var(--deck); }
+    .outfit-notes h2 { font-size:14px; font-weight:normal; color:var(--copper); }
+    .outfit-notes p { color:var(--muted); font-size:12px; }
+    .outfit-detail { border-top:1px solid var(--line); padding-top:14px; margin-top:18px; }
+    .outfit-detail h4 { margin:0; color:var(--copper); font-size:12px; font-weight:normal; }
+    #outfit-details { padding-left:17px; margin:10px 0 18px; color:var(--muted); font-size:12px; }
+    #outfit-details li { margin:8px 0; padding-left:2px; }
     .transport { display:flex; gap:7px; }
     #play { min-width:76px; color:var(--night); background:var(--copper); border-color:var(--copper); }
     .speed { min-width:112px; }
@@ -95,17 +103,19 @@
   </header>
   <section class="controls" aria-label="Cast and movement controls">
     <label>Character<select id="character" disabled><option>Loading cast…</option></select></label>
+    <label>Outfit<select id="outfit"><option value="everyday">Everyday</option><option value="field">Field suit</option><option value="service">Service suit</option><option value="retro">Retro suit</option></select></label>
     <label>Lineup facing<select id="direction"><option value="front">Front</option><option value="right">Right</option><option value="back">Back</option><option value="left">Left</option></select></label>
     <label>Movement<select id="motion"><option value="idle">Idle</option><option value="walk">Walk</option></select></label>
     <div class="transport"><button id="play" type="button" disabled>Play</button><button id="step" type="button" disabled>Next frame</button></div>
     <label class="speed"><span>Speed <output id="speed-value" for="speed">5 fps</output></span><input id="speed" type="range" min="1" max="12" step="1" value="5"></label>
   </section>
   <div class="status-row"><p id="status" role="status" aria-live="polite">Opening the cast field notes…</p><button id="retry" type="button" hidden>Retry loading</button><p class="spec">16 × 32 native pixels · four facings · four walk frames</p></div>
+  <section class="outfit-notes" aria-label="Selected outfit concept"><h2 id="outfit-name">Everyday</h2><p id="outfit-description">Character clothing and workwear.</p></section>
   <section id="cast" class="cast" aria-label="Choose a cast concept"></section>
   <section class="study" aria-labelledby="study-title">
     <div class="study-heading"><h2 id="study-title">Turnaround &amp; movement</h2><p class="spec">Select a character above. Select a frame below to pause.</p></div>
     <div class="study-layout">
-      <aside class="notes" aria-label="Selected character notes"><p id="selected-status" class="eyebrow">Concept study</p><h3 id="selected-name">Opening field notes…</h3><p id="selected-role"></p><p id="description"></p><ul id="details"></ul><div class="native" aria-label="Native size comparison"><figure><canvas id="native-one" width="16" height="32" role="img" aria-label="Selected character at native size"></canvas><figcaption class="caption">1× native</figcaption></figure><figure><canvas id="native-two" class="double" width="16" height="32" role="img" aria-label="Selected character at twice native size"></canvas><figcaption class="caption">2×</figcaption></figure></div></aside>
+      <aside class="notes" aria-label="Selected character notes"><p id="selected-status" class="eyebrow">Concept study</p><h3 id="selected-name">Opening field notes…</h3><p id="selected-role"></p><p class="caption">Character direction</p><p id="description"></p><ul id="details"></ul><div class="outfit-detail" id="outfit-detail" hidden><h4 id="outfit-detail-title"></h4><ul id="outfit-details"></ul></div><div class="native" aria-label="Native size comparison"><figure><canvas id="native-one" width="16" height="32" role="img" aria-label="Selected character at native size"></canvas><figcaption class="caption">1× native</figcaption></figure><figure><canvas id="native-two" class="double" width="16" height="32" role="img" aria-label="Selected character at twice native size"></canvas><figcaption class="caption">2×</figcaption></figure></div></aside>
       <div><div id="views" class="views" aria-label="Four synchronized direction views"></div><div class="readout"><output id="frame-readout">Idle pose</output><span>Lineup 6× · turnaround 8× (6× on mobile)</span></div></div>
     </div>
   </section>
@@ -115,12 +125,30 @@
   'use strict';
   const byId = id => document.getElementById(id);
   const directions = ['front', 'right', 'back', 'left'];
-  const character = byId('character'), direction = byId('direction'), motion = byId('motion');
+  const character = byId('character'), outfit = byId('outfit'), direction = byId('direction'), motion = byId('motion');
   const play = byId('play'), step = byId('step'), speed = byId('speed'), status = byId('status');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const cache = new Map(), loaded = new Map(), cards = new Map(), panels = new Map();
   let characters = [], selected = '', selectedSheet = null, generation = 0, bootGeneration = 0;
   let cursor = 0, elapsed = 0, lastTime = 0, playing = false;
+  let outfits = [
+    { id:'everyday', label:'Everyday', description:'Character clothing and workwear.', details:[] },
+    { id:'field', label:'Field suit', description:'Pressure suit concepts for work beyond the airlock.', details:[] },
+    { id:'service', label:'Service suit', description:'Utility pressure suit concepts.', details:[] },
+    { id:'retro', label:'Retro suit', description:'Retro pressure suit concepts.', details:[] }
+  ];
+  const requestedOutfit = new URL(location.href).searchParams.get('outfit');
+  if (outfits.some(entry => entry.id === requestedOutfit)) outfit.value = requestedOutfit;
+
+  function updateOutfitNotes() {
+    const entry = outfits.find(item => item.id === outfit.value);
+    byId('outfit-name').textContent = entry.label;
+    byId('outfit-description').textContent = entry.description;
+    byId('outfit-detail-title').textContent = entry.label + ' details';
+    byId('outfit-details').replaceChildren();
+    for (const detail of entry.details || []) { const item = document.createElement('li'); item.textContent = detail; byId('outfit-details').append(item); }
+    byId('outfit-detail').hidden = !entry.details?.length;
+  }
 
   function newCanvas(label) {
     const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 32;
@@ -147,9 +175,11 @@
     panel.append(title, stage, strip); byId('views').append(panel); panels.set(facing, { canvas, frames });
   }
 
-  function loadSheet(id) {
-    if (cache.has(id)) return cache.get(id);
-    const path = './dist/cast-' + id + '/cast-' + id;
+  function loadSheet(id, outfitId) {
+    const key = outfitId + ':' + id;
+    if (cache.has(key)) return cache.get(key);
+    const name = 'cast-' + id + (outfitId === 'everyday' ? '' : '-' + outfitId);
+    const path = './dist/' + name + '/' + name;
     const pending = Promise.all([
       fetch(path + '.atlas.json').then(response => { if (!response.ok) throw new Error('Atlas unavailable (' + response.status + ')'); return response.json(); }),
       new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('Sprite image unavailable')); image.src = path + '.png'; })
@@ -163,8 +193,8 @@
         if (!rect || ![rect.x, rect.y, rect.w, rect.h, offset.x, offset.y].every(Number.isInteger) || rect.x < 0 || rect.y < 0 || rect.w < 1 || rect.h < 1 || rect.x + rect.w > image.naturalWidth || rect.y + rect.h > image.naturalHeight || offset.x < 0 || offset.y < 0 || offset.x + rect.w > 16 || offset.y + rect.h > 32) throw new Error('Invalid frame bounds: ' + name);
       }
       return { image, aliases };
-    }).catch(error => { cache.delete(id); throw error; });
-    cache.set(id, pending); return pending;
+    }).catch(error => { cache.delete(key); throw error; });
+    cache.set(key, pending); return pending;
   }
 
   function paint(canvas, sheet, name) {
@@ -199,7 +229,8 @@
     const failed = [...cards.values()].filter(card => card.failed).length;
     const current = characters.find(entry => entry.id === selected);
     status.classList.toggle('error', failed > 0);
-    status.textContent = loaded.size + ' / ' + characters.length + ' concepts loaded' + (current ? ' · ' + current.name + (selectedSheet ? ' selected' : ' loading') : '') + (failed ? ' · ' + failed + ' unavailable; retry to reload.' : '');
+    const outfitLabel = outfits.find(entry => entry.id === outfit.value).label;
+    status.textContent = loaded.size + ' / ' + characters.length + ' concepts loaded · ' + outfitLabel + (current ? ' · ' + current.name + (selectedSheet ? ' selected' : cards.get(current.id)?.failed ? ' unavailable' : ' loading') : '') + (failed ? ' · ' + failed + ' unavailable; retry to reload.' : '');
     byId('retry').hidden = failed === 0;
   }
 
@@ -213,7 +244,7 @@
     for (const [cardId, card] of cards) card.button.setAttribute('aria-pressed', String(cardId === id));
     render(true); syncPlayback(); updateStatus();
     try {
-      const sheet = await loadSheet(id);
+      const sheet = await loadSheet(id, outfit.value);
       if (currentGeneration !== generation) return;
       selectedSheet = sheet; render(true); syncPlayback(); updateStatus();
     } catch (error) {
@@ -224,12 +255,26 @@
   }
 
   async function boot() {
-    const currentBoot = ++bootGeneration; ++generation; selectedSheet = null; playing = false;
+    const currentBoot = ++bootGeneration; ++generation; selectedSheet = null; elapsed = 0;
+    const chosenOutfit = outfit.value; updateOutfitNotes();
     loaded.clear(); cards.clear(); characters = []; byId('cast').replaceChildren(); character.replaceChildren(); character.disabled = true;
     status.classList.remove('error'); status.textContent = 'Opening the cast field notes…'; byId('retry').hidden = true; render(true); syncPlayback();
     try {
       const response = await fetch('./cast/manifest.json'); if (!response.ok) throw new Error('Cast manifest unavailable (' + response.status + ')');
       const manifest = await response.json(); if (currentBoot !== bootGeneration) return;
+      if (manifest.outfits !== undefined) {
+        const outfitIds = new Set();
+        if (!Array.isArray(manifest.outfits) || !manifest.outfits.length) throw new Error('The cast manifest has no outfits');
+        for (const entry of manifest.outfits) {
+          if (!entry || !/^[a-z0-9-]+$/.test(entry.id) || outfitIds.has(entry.id) || !['label', 'description'].every(key => typeof entry[key] === 'string') || (entry.details !== undefined && (!Array.isArray(entry.details) || !entry.details.every(detail => typeof detail === 'string')))) throw new Error('An outfit manifest entry is invalid');
+          outfitIds.add(entry.id);
+        }
+        if (!outfitIds.has('everyday')) throw new Error('The cast manifest needs an everyday outfit');
+        outfits = manifest.outfits;
+        outfit.replaceChildren();
+        for (const entry of outfits) { const option = document.createElement('option'); option.value = entry.id; option.textContent = entry.label; outfit.append(option); }
+        outfit.value = outfitIds.has(chosenOutfit) ? chosenOutfit : 'everyday'; updateOutfitNotes();
+      }
       if (!Array.isArray(manifest.characters) || !manifest.characters.length) throw new Error('The cast manifest has no characters');
       const ids = new Set();
       for (const entry of manifest.characters) {
@@ -251,7 +296,7 @@
       const preferred = characters.some(entry => entry.id === selected) ? selected : characters[0].id;
       const loads = characters.map(async entry => {
         try {
-          const sheet = await loadSheet(entry.id); if (currentBoot !== bootGeneration) return;
+          const sheet = await loadSheet(entry.id, outfit.value); if (currentBoot !== bootGeneration) return;
           loaded.set(entry.id, sheet); cards.get(entry.id).state.textContent = entry.id === 'nori' ? 'Provisional' : '';
         } catch (error) {
           if (currentBoot !== bootGeneration) return;
@@ -268,6 +313,11 @@
   }
 
   character.addEventListener('change', () => selectCharacter(character.value));
+  outfit.addEventListener('change', () => {
+    const url = new URL(location.href);
+    if (outfit.value === 'everyday') url.searchParams.delete('outfit'); else url.searchParams.set('outfit', outfit.value);
+    history.replaceState(null, '', url); boot();
+  });
   direction.addEventListener('change', () => render());
   motion.addEventListener('change', () => { cursor = 0; elapsed = 0; playing = motion.value === 'walk' && !reducedMotion.matches; render(); syncPlayback(); });
   play.addEventListener('click', () => { playing = !playing; elapsed = 0; syncPlayback(); });

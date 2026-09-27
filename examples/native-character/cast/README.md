@@ -24,6 +24,16 @@ Get-ChildItem examples/native-character/cast-*.build.json | ForEach-Object {
 
 Serve `examples/native-character` over HTTP and open `cast.html`. The gallery offers the whole lineup, four views of the selected character, idle/walk, frame stepping, speed, and native-size comparisons. Refresh after rebuilding. PNG, atlas, editable project, contact sheet and build verification live in `dist/cast-<id>/`. Each character keeps the same 20 aliases, four walk tags, and pivot as the bare mannequin.
 
+## Pressure suit concepts
+
+The **Outfit** selector compares everyday clothing with **Field suit**, **Service shell**, and **Retro ribbed** across all eight characters. Open `cast.html?outfit=field` (or `service` / `retro`) to start suited. The glob above builds all 32 cast/outfit presets. The 24 suit presets use the same generator with `[characterId, suitId]`; their output names add `-field`, `-service`, or `-retro`.
+
+`pressure-suit.mjs` owns the shared fit. Field suits combine teal fabric and rounded cream helmets; service shells use angular helmets and harder chest panels; retro suits use copper fabric, ribbed chest panels and paired rear tanks. Head, collar, chest and pack attachments follow each pose's landmarks. Adult/child dimensions use their respective mannequins. Source skin outside the head becomes a separate pressure-fabric material, including hands and neck; it is removed from skin-role groups so later skin edits cannot uncover gloves. Robots keep their face displays inside environmental shrouds. Vey retains four arms with suited sleeves and gloves; antennae and the everyday wing mantle are enclosed or stowed.
+
+Front visors reveal the face. Profile helmets have opaque rear casing and glass only on the forward side; they never reuse the front oval. Rear helmets are opaque. A colored collar joins the helmet rim to the torso and life-support pack, avoiding the floating-head reading caused by two adjacent dark outline rows. All four directions, both strides, and the repeated passing pose share that rule.
+
+These are visual pressure-suit concepts, not technical life-support specifications. The gallery presents 480 suited frames alongside the 160 everyday frames. Tests protect complete aliases/groups, bounds, mirrored profiles, body coverage, visible collar bridges and profile visor placement; inspect actual playback and native pixels as well.
+
 ## Repeatable costume source
 
 `manifest.json` holds both gallery copy and editable costume data. `generate-cast.mjs` passes each profile to the shared `costume-template.mjs`; no game-specific renderer or hand-edited export is needed.
@@ -39,4 +49,4 @@ Serve `examples/native-character` over HTTP and open `cast.html`. The gallery of
 
 Newly exposed costume pixels are outlined after rear/body/front composition. This catches edges where a motif protrudes beyond the base silhouette. It does not repair a disconnected shape or invent an anatomically appropriate attachment; inspect all four directions and both stride poses.
 
-The shared recipe supports palette changes, anchored details and layered silhouettes. It is not a general skeletal rig. Vey's extra arms use authored motifs; Sprocket's lower limbs use tread overlays. Their motion is a compact concept treatment, not a claim of biomechanical fidelity or a complete species animation set. Collars and fittings suggest vacuum-compatible equipment; these everyday outfits are not closed pressure suits.
+The shared recipe supports palette changes, anchored details and layered silhouettes. It is not a general skeletal rig. Vey's extra arms use authored motifs; Sprocket's lower limbs use tread overlays. Their motion is a compact concept treatment, not a claim of biomechanical fidelity or a complete species animation set. Everyday outfits suggest space equipment; the separate suit variants add closed helmets and body coverage.
