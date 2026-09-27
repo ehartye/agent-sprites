@@ -223,7 +223,10 @@ belong on stderr. Both inputs use existing batch operations, beginning with one
 `new`; omit `save`, `export`, `ref`, and further `new` operations.
 
 Build uses a fresh in-memory session and a temporary loopback API, independent of
-your editing server and its database. It stages and structurally verifies all
+your editing server and its database. Operations run sequentially through the
+same routes over a reusable native HTTP connection. Isolated builds skip per-operation draft
+snapshots and serialize the final editable project once; interactive sessions
+continue to autosave each edit. It stages and structurally verifies all
 outputs before publishing: PNG, Aseprite atlas, editable `.project.json`, labeled
 contact sheet, verification report, captured operations, and `preview.html`.
 Open the self-contained preview directly in a browser to play tags at their

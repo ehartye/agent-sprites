@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, openSync, closeSync, realpathSync, lstatSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join, basename, relative, isAbsolute, sep } from 'node:path';
 import { execFile } from 'node:child_process';
+import { Agent, request } from 'node:http';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import express from 'express';
@@ -24,6 +25,27 @@ const marker = '.agent-sprites-build.json';
 const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
+
+// Keep shared HTTP route semantics without fetch's per-operation stream overhead.
+// One private agent belongs to one build; callers still await every mutation.
+function requestOperation(url, op, agent) {
+  return new Promise((accept, reject) => {
+    const body = op.body ? JSON.stringify(op.body) : undefined;
+    const headers = body === undefined ? {} : { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+    const req = request(url + op.path, { agent, method: op.method, headers }, response => {
+      let json = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { json += chunk; });
+      response.on('error', reject);
+      response.on('end', () => {
+        try { accept({ ok: response.statusCode >= 200 && response.statusCode < 300, statusText: response.statusMessage, value: JSON.parse(json) }); }
+        catch (error) { reject(error); }
+      });
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 // Windows readers/watchers can briefly deny a directory rename after files close.
 // Keep the output intact: retry the rename itself, never remove its destination.
@@ -64,7 +86,7 @@ function assertOwnedOutput(output, configPath) {
 
 /** A build uses a fresh in-memory database and loopback-only temporary API. */
 export async function buildProject(configPath) {
-  let stage, server, db, lock, lockPath;
+  let stage, server, db, lock, lockPath, agent;
   const result = { ok: false, artifacts: {}, errors: [], warnings: [] };
   try {
     configPath = realpathSync(resolve(configPath));
@@ -110,15 +132,18 @@ export async function buildProject(configPath) {
     });
     stage = mkdtempSync(output + '.staging-');
     db = new SessionDB(':memory:');
-    const state = { db, project: null, sessionId: null };
+    // Isolated builds cannot resume this in-memory session. Serialize once for
+    // the final editable artifact instead of rewriting a growing draft per op.
+    const state = { db, project: null, sessionId: null, persistDrafts: false };
     const app = express(); app.use(express.json());
     app.use('/api/session', sessionRoutes(state));
     for (const routes of [drawRoutes, shapeRoutes, cellRoutes, groupRoutes]) app.use('/api', routes(state));
     server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', () => accept(s)); s.once('error', reject); });
     const url = `http://127.0.0.1:${server.address().port}`;
+    agent = new Agent({ keepAlive: true, maxSockets: 1 });
     for (const [i, op] of mapped.entries()) {
-      const response = await fetch(url + op.path, { method: op.method, headers: { 'Content-Type': 'application/json' }, body: op.body ? JSON.stringify(op.body) : undefined });
-      const value = await response.json();
+      const response = await requestOperation(url, op, agent);
+      const { value } = response;
       if (!response.ok || !value.ok) throw new Error(`Operation ${i + 1} (${operations[i].command}): ${value.error ?? response.statusText}`);
     }
     captureProjectMetadata(state);
@@ -173,6 +198,7 @@ export async function buildProject(configPath) {
     return result;
   } catch (error) { result.errors.push({ code: 'build', message: error.message }); return result; }
   finally {
+    agent?.destroy();
     if (server) await new Promise(accept => { server.close(accept); server.closeAllConnections(); });
     db?.close();
     if (stage) rmSync(stage, { recursive: true, force: true });
