@@ -1,3 +1,33 @@
+// Held items grip the wrist of their declared side. Owner-approved: trowel (2026-09-27).
+export const GEAR_ITEMS=['trowel'];
+export const GEAR_SLOT={trowel:'hand'};
+
+/**
+ * Draw one-sided gear for limb l in canonical (right-facing or front/back)
+ * coordinates; the pen mirrors left-facing art. Called right after the limb it
+ * belongs to, so far-side gear sits under the torso and near-side gear over it.
+ * anatomical is the character's own side of l; role is near/far/front/back.
+ */
+export function drawGear(p,person,l,anatomical,role,direction,slot){
+  const c=person.colors,far=role==='far',profile=direction==='right'||direction==='left';
+  for(const g of person.gear){
+    if(g.side!==anatomical||GEAR_SLOT[g.item]!==slot)continue;
+    const n='gear_'+g.item+'_'+g.side;
+    if(g.item==='trowel'){
+      const [x,y]=l.wrist;
+      if(profile){
+        p.rect(n+'_handle',x-2,y,5,1,far?c.pantsShade:c.boots);
+        p.poly(n+'_blade_outline',[[x+2,y+1],[x+4,y+1],[x+5,y+4],[x+3,y+6],[x+2,y+4]],c.outline);
+        p.poly(n+'_blade',[[x+3,y+2],[x+4,y+3],[x+3,y+4]],far?c.pantsShade:c.metal);
+      }else{
+        p.rect(n+'_handle',x,y-2,1,3,c.boots);
+        p.poly(n+'_blade_outline',[[x-1,y+2],[x+1,y+2],[x+2,y+4],[x,y+6],[x-2,y+4]],c.outline);
+        p.rect(n+'_blade',x-1,y+3,3,2,c.metal);
+      }
+    }
+  }
+}
+
 export const OUTFIT_NAMES=['casual','field','service','retro','wayfarer','phase-suit'];
 export const isSealed=outfit=>!['casual','wayfarer'].includes(outfit);
 

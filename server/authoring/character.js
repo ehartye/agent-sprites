@@ -1,6 +1,6 @@
 import {BODY_PROFILES,humanoidPose,validatePose} from './humanoid-poses.js';
 import {drawHumanoid} from './humanoid-draw.js';
-import {OUTFIT_NAMES,isSealed} from './character-wardrobe.js';
+import {OUTFIT_NAMES,isSealed,GEAR_ITEMS,GEAR_SLOT} from './character-wardrobe.js';
 import {EXPRESSION_NAMES} from './humanoid-face.js';
 
 const BASE={outline:'#263145',skin:'#d99c76',skinLight:'#edba91',skinShade:'#a96851',hair:'#493644',hairLight:'#795263',iris:'#527b82',jacket:'#477e85',jacketLight:'#84b7bd',jacketShade:'#355963',pants:'#506080',pantsLight:'#7d8aa4',pantsShade:'#354253',suit:'#e1ddc5',suitLight:'#fff0d4',suitShade:'#aaa98f',boots:'#384552',accent:'#629b99',metal:'#a4b9bb',signal:'#eabe6c',visor:'#344f64',glass:'#c5eee5'};
@@ -21,13 +21,22 @@ export function generateCharacterRecipe(config){
   if(mode==='expressions'&&(directions.length!==1||directions[0]!=='down'))throw Error('Expressions require only the down direction');
   if(!Array.isArray(config.people)||!config.people.length)throw Error('Character people must be a nonempty array');
   const people=config.people.map(p=>{
-    object(p,'person',['id','body','hair','skin','colors','head','arms','equipment']);
+    object(p,'person',['id','body','hair','skin','colors','head','arms','equipment','gear']);
     const id=identifier(p.id,'person id'),body=choice(fallback(p.body,'adult'),Object.keys(BODY_PROFILES),'body'),hair=choice(fallback(p.hair,'short'),HAIR,'hair'),skin=choice(fallback(p.skin,'peach'),Object.keys(SKINS),'skin');
     const colors={...BASE,...Object.fromEntries(['skin','skinLight','skinShade'].map((key,i)=>[key,SKINS[skin][i]]))};
     if(p.colors!==undefined){object(p.colors,'colors',Object.keys(BASE));for(const [key,value] of Object.entries(p.colors)){if(typeof value!=='string'||!/^#[0-9a-f]{6}$/i.test(value))throw Error(`Color ${key} must be #RRGGBB`);colors[key]=value;}}
     const head=choice(fallback(p.head,'human'),['human','insectoid'],'head'),arms=choice(fallback(p.arms,2),[2,4],'arms'),equipment=choice(fallback(p.equipment,'none'),['none','survey-rig'],'equipment');
     if(head!=='human'&&p.hair!==undefined)throw Error('Hair applies only to human heads');
-    return {id,body,hair,colors,head,arms,equipment};
+    // One-sided gear declares an anatomical side; placement comes from the rig, never image side.
+    const gear=p.gear===undefined?[]:p.gear;
+    if(!Array.isArray(gear))throw Error('Gear must be an array');
+    const seen=new Set();
+    for(const g of gear){
+      object(g,'gear',['item','side']);
+      choice(g.item,GEAR_ITEMS,'gear item');choice(g.side,['left','right'],'gear side');
+      const key=GEAR_SLOT[g.item]+g.side;if(seen.has(key))throw Error('Only one '+GEAR_SLOT[g.item]+' item per side');seen.add(key);
+    }
+    return {id,body,hair,colors,head,arms,equipment,gear:gear.map(g=>({...g}))};
   });
   if(new Set(people.map(p=>p.id)).size!==people.length)throw Error('Person IDs must be unique');
   const count=people.length*outfits.length*directions.length*(mode==='idle'?1:8);
@@ -54,13 +63,14 @@ export function generateCharacterRecipe(config){
         line(part,x1,y1,x2,y2,color){x1=mx(x1);x2=mx(x2);add('line',part,color,{x1,y1,x2,y2},[[x1,y1],[x2,y2]]);},
         ellipse(part,cx,cy,rx,ry,color){cx=mx(cx);add('ellipse',part,color,{cx,cy,rx,ry},[[cx-rx,cy-ry],[cx+rx,cy+ry]]);},
       };
-      drawHumanoid(pen,person,outfit,canonical,humanoidPose(person.body,canonical,index,mode==='walk',person.arms),expression);
-      for(const [group,pattern] of Object.entries({face:/^(?:face|head|hair|nose|mouth|cheek|antenna|mandible|chitin)(?:_|$)|(?:^|_)(?:eye|brow|ear)(?:_|$)/,helmet:/helmet|visor|neck_seal/,equipment:/^equipment_|^phase_/,garment:/^mantle_/,left_lower_arm:/^left_lower_/,right_lower_arm:/^right_lower_/,left_arm:/^left_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,right_arm:/^right_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,left_leg:/^left_(thigh|shin|knee|boot|ankle)/,right_leg:/^right_(thigh|shin|knee|boot|ankle)/})){const shapes=names.filter(n=>pattern.test(n));if(shapes.length)operations.push({command:'shape-group',sub:'create',cell,name:group,shapes});}
+      // The pen mirrors left-facing art; gear needs to know so it keeps its body side.
+      drawHumanoid(pen,{...person,mirrored:mirror},outfit,canonical,humanoidPose(person.body,canonical,index,mode==='walk',person.arms),expression);
+      for(const [group,pattern] of Object.entries({face:/^(?:face|head|hair|nose|mouth|cheek|antenna|mandible|chitin)(?:_|$)|(?:^|_)(?:eye|brow|ear)(?:_|$)/,helmet:/helmet|visor|neck_seal/,equipment:/^equipment_|^phase_/,gear:/^gear_/,garment:/^mantle_/,left_lower_arm:/^left_lower_/,right_lower_arm:/^right_lower_/,left_arm:/^left_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,right_arm:/^right_(upper_arm|forearm|sleeve|elbow|wrist|glove|hand)/,left_leg:/^left_(thigh|shin|knee|boot|ankle)/,right_leg:/^right_(thigh|shin|knee|boot|ankle)/})){const shapes=names.filter(n=>pattern.test(n));if(shapes.length)operations.push({command:'shape-group',sub:'create',cell,name:group,shapes});}
       const pose=humanoidPose(person.body,direction,index,mode==='walk',person.arms),checks=validatePose(pose,mode==='walk');
       pose.locomotion.fps=fps;
       if(bounds.left<0||bounds.top<0||bounds.right>=40||bounds.bottom>=56)checks.push('out-of-cell');
       if(checks.length)throw Error(`Invalid character ${alias}: ${checks.join(', ')}`);
-      frames.push({cell,alias,person:person.id,body:person.body,outfit,expression,...pose,headKind:person.head,armCount:person.arms,equipment:person.equipment,sealed:isSealed(outfit),bounds,checks});
+      frames.push({cell,alias,person:person.id,body:person.body,outfit,expression,...pose,headKind:person.head,armCount:person.arms,equipment:person.equipment,gear:person.gear.map(g=>({...g,role:pose.sides[g.side].role})),sealed:isSealed(outfit),bounds,checks});
     }
     if(mode!=='idle')operations.push({command:'group',sub:'create',name:`${person.id}_${outfit}_${direction}_${mode}`,cells,fps});
   }

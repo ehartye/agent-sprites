@@ -18,7 +18,7 @@ fictional pressure suits without a drawing script.
 | `fps` | Finite number 1–60; default 10 |
 
 Each person has a required `id`, and optional `body`, `hair`, `skin`, `colors`,
-`head`, `arms`, and `equipment`. Nonhuman options require 0.20.0.
+`head`, `arms`, `equipment`, and `gear`. Nonhuman options require 0.20.0.
 Names and IDs begin with a lowercase letter, contain lowercase letters, digits,
 hyphens or underscores, and are at most 48 characters. Unknown fields, nulls,
 duplicate entries and unsupported values fail before publication.
@@ -64,6 +64,14 @@ its body side and attach through `attachmentFor(frame, side, joint, anchor, x, y
 `layer: 'under-body'` for far-side items or `'over-body'` otherwise. Never place
 such gear by image side or by facing: a right-hip holster must stay on the right
 hip when the character turns.
+
+The recipe's own held gear follows that rule: `gear: [{ "item": "trowel", "side":
+"right" }]` puts a trowel in that hand (one hand item per side; both hands may hold
+one). It is drawn right after its arm, so facing away it sits behind the body and
+mostly disappears, and from the front a right-hand item is on the image left. Shapes
+are named `gear_trowel_<side>_*` in a `gear` shape group, and each report frame lists
+`gear` with the item's current `role`. The trowel is the pattern for later held
+tools and weapons; it holds one angle per facing rather than rotating with the arm.
 
 Profile frames also expose `legs[].heel`, `legs[].ball` and `legs[].toe`: actual
 boot-outline sole landmarks in source pixels, rather than a guessed foot center.
