@@ -1,5 +1,7 @@
 # Native character templates
 
+These Stardew-style 16×32 characters are the **primary** agent-sprites character system: new characters and character features start here. The 40×56 [`character` recipe](../character-cast/README.md) remains maintained for joint data, held gear and report-driven walking.
+
 Editable adult and child templates use 16×32 cells, ten-pixel bare heads centered at x=3..12, and soles at y=29. **Walking poses are present:** each source template retains four front and four right poses with semantic skin groups. The builder exports four-direction walk cycles, including reflected left poses and authored rear shading. These are reference-derived studies; rear art is an inference, not a traced reference.
 
 From the repository root:

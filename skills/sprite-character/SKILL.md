@@ -36,10 +36,14 @@ Load [sprite editing](../sprite-editing/SKILL.md) and run its managed setup/vers
 check before operations. Resolve the launcher from the installed plugin; never
 install dependencies in its cache. Use an isolated `build` for studies.
 
+Two character systems are maintained. **The Stardew-style 16×32 mannequins are the
+primary one:** start there for new characters and land new character features there
+first. Use the 40×56 recipe when its specific capabilities are needed.
+
 | Need | Source and consequence |
 |---|---|
-| Supported bodies, hair and outfits at 40×56 | Built-in `character` source: quickest, least custom code, shared anatomy fixes. Read the [recipe contract](../../examples/character-cast/README.md). It has fixed cell size and finite presets; recoloring does not change its proportions. It also holds a trowel in either hand (`gear: [{item:'trowel', side}]`) and reports each frame's body `sides` (near/far/front/back, shoulder, wrist, hip) for attaching one-sided gear by anatomical side, never by image side. |
-| Native 16×32 mannequins (adult, child, large build) with swappable wardrobe and wigs | The `examples/native-character` generators: see its [README](../../examples/native-character/README.md) and review page. Separate from the `character` recipe: no report, `sides` or playback runtime. |
+| Stardew-style 16×32 characters (adult, child, large build) with swappable wardrobe, wigs and cast costumes — **primary** | The `examples/native-character` generators: see its [README](../../examples/native-character/README.md) and review page. Hand-authored native poses with diagonal outline corners. It does not yet emit a character report, so no `sides`, held gear or playback runtime. |
+| 40×56 characters with joint data, held gear or report-driven walking | Built-in `character` source: shared anatomy fixes and a report. Read the [recipe contract](../../examples/character-cast/README.md). It has fixed cell size and finite presets; recoloring does not change its proportions. It holds a trowel in either hand (`gear: [{item:'trowel', side}]`) and reports each frame's body `sides` (near/far/front/back, shoulder, wrist, hip) for attaching one-sided gear by anatomical side, never by image side. |
 | Reference-specific face, silhouette, fantasy costume or smaller grid | Named-shape `ops` or Node `generator`: more drawing/visual review, full control; keep reusable coordinates and palette roles in source to limit maintenance. |
 
 Choose exactly one build source. Do not invent `style: anime`, arbitrary body
