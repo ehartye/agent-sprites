@@ -11,6 +11,7 @@ import { AnimationPreview } from './animation.js';
 import { Workbench } from './workbench.js';
 import { cellsForView, isTracedShape } from './view-visibility.js';
 import { previewSequences, selectPreviewSequence } from './preview-sequences.js';
+import { createRedrawScheduler } from './redraw-scheduler.js';
 
 const visibility = { trace: true, reference: true };
 const viewCells = () => cellsForView(state.project?.cells ?? {}, visibility);
@@ -271,6 +272,22 @@ function onProjectData(data) {
   refreshShapeGroups();
 }
 
+// Edits arrive one broadcast per shape; views refresh once per animation frame
+// for every cell touched since the last one.
+const redraw = createRedrawScheduler(refs => {
+  if (!state.project) return;
+  for (const ref of refs) state.project.cells?.[ref]?.shapes?.sort((a, b) => a.zIndex - b.zIndex);
+  const cells = viewCells();
+  if (refs.has(state.activeCell)) {
+    editor.setCell(cells[state.activeCell] ?? null);
+    shapePanel.setShapes(cells[state.activeCell]?.shapes || []);
+  }
+  cellNav.setCells(cells);
+  cellNav.refresh(refs);
+  animPreview.setCells(cells);
+  fullPreview.setCells(cells);
+});
+
 function onDrawUpdate(data) {
   if (!state.project) return;
   // Ensure cell exists in local state (empty cells aren't in project JSON)
@@ -282,16 +299,8 @@ function onDrawUpdate(data) {
   if (data.shape) {
     if (!cell.shapes) cell.shapes = [];
     cell.shapes.push(data.shape);
-    cell.shapes.sort((a, b) => a.zIndex - b.zIndex);
   }
-  if (data.cell === state.activeCell) {
-    editor.setCell(viewCell(data.cell));
-    refreshShapePanel();
-  }
-  cellNav.setCells(viewCells());
-  cellNav.render();
-  animPreview.setCells(viewCells());
-  fullPreview.setCells(viewCells());
+  redraw.mark(data.cell);
 }
 
 function onShapeUpdate(data) {
@@ -303,14 +312,7 @@ function onShapeUpdate(data) {
     }
     state.project.cells[data.cell].shapes = data.shapes;
   }
-  if (data.cell === state.activeCell) {
-    editor.setCell(viewCell(data.cell));
-    refreshShapePanel();
-  }
-  cellNav.setCells(viewCells());
-  cellNav.render();
-  animPreview.setCells(viewCells());
-  fullPreview.setCells(viewCells());
+  redraw.mark(data.cell);
 }
 
 function onCellUpdate(data) {
@@ -318,14 +320,7 @@ function onCellUpdate(data) {
   if (data.cell && data.cellData) {
     setCellData(data.cell, data.cellData);
   }
-  if (data.cell === state.activeCell) {
-    editor.setCell(viewCell(state.activeCell));
-    refreshShapePanel();
-  }
-  cellNav.setCells(viewCells());
-  cellNav.render();
-  animPreview.setCells(viewCells());
-  fullPreview.setCells(viewCells());
+  redraw.mark(data.cell);
 }
 
 function onError(data) {

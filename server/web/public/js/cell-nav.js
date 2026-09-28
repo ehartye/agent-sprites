@@ -94,6 +94,21 @@ export class CellNavigator {
     }
   }
 
+  /**
+   * Repaint just these cells' thumbnails (and labels) in place. Cells not in the
+   * strip are skipped; an empty strip falls back to a full render.
+   */
+  refresh(refs) {
+    const strip = document.getElementById('cell-strip');
+    if (!strip.children.length) { this.render(); return; }
+    for (const ref of refs) {
+      const thumb = [...strip.children].find(el => el.dataset.ref === ref);
+      if (!thumb) continue;
+      this._renderThumb(thumb.querySelector('canvas'), ref);
+      thumb.querySelector('.label').textContent = this._cells[ref]?.name || ref;
+    }
+  }
+
   _allRefs() {
     const refs = [];
     for (let r = 0; r < this._grid.rows; r++) {
@@ -115,6 +130,8 @@ export class CellNavigator {
    */
   _renderThumb(canvas, ref) {
     const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     const cellW = this._cellW;
     const cellH = this._cellH;
     // Rounded bitmap dimensions can have slightly different X/Y ratios when
