@@ -34,6 +34,7 @@ export function mapCommandToApi(cmd) {
     case 'export':
       return { method: 'POST', path: '/api/session/export', body: {
         dest: params.dest ? resolve(String(params.dest)) : undefined,
+        trim: params.trim,
       }};
     case 'shape-group': {
       const body = { cell: params.cell, name: params.name };

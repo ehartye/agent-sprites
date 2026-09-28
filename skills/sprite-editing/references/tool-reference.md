@@ -18,7 +18,7 @@ to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite d
 | `cast start` | `--file <casting.json> [--out <verdict.json>]` | Open a collaborative frame-casting session in the web UI (`/casting.html?id=…`): slots + candidate frame paths + predicted assignments; the user confirms/overrides/marks gaps. See the `sprite-verification` skill |
 | `cast status` | `--id <id>` | Poll a casting verdict: agreement score + per-slot prediction-vs-selection disagreements (detector-refinement signal) |
 | `save` | | Write project JSON to the opened file, or `<session destination>/<name>.json` for a new project. SQLite drafts are automatic and need no `save`; omit it when assets must contain only PNG + atlas. |
-| `export` | `[--dest <folder>]` | Export gapless sheet PNG + **Aseprite JSON atlas** (`<name>.atlas.json`) to the project's asset folder (or exactly `--dest` for this export only). The atlas carries `meta.frameTags` (one per cell group, as a contiguous appended frame run), per-frame `duration` from each group's fps, and the pivot as a slice — consumable directly by Unity/Godot/Phaser importers |
+| `export` | `[--dest <folder>] [--trim true]` | Export gapless sheet PNG + **Aseprite JSON atlas** (`<name>.atlas.json`) to the project's asset folder (or exactly `--dest` for this export only). The atlas carries `meta.frameTags` (one per cell group, as a contiguous appended frame run), per-frame `duration` from each group's fps, and the pivot as a slice — consumable directly by Unity/Godot/Phaser importers |
 | `pivot` | `--x N --y N` \| `--anchor center\|top-center\|bottom-center\|bottom-left\|bottom-right` | Set the sprite origin exported in the atlas (characters usually want `bottom-center`). Unity/Godot importers read the exported pivot slice; **Phaser ignores slices** — set `sprite.setOrigin(...)` in game code |
 | `status` | | Show current project info |
 
@@ -29,17 +29,17 @@ All draw commands: `draw <type> --cell <coord> --color <hex> [--name <shape_name
 | Type | Required Flags | Shape Anchor |
 |------|---------------|-------------|
 | `point` | `--x --y` | The pixel itself |
-| `line` | `--x1 --y1 --x2 --y2` | Bresenham pixel-perfect; start point |
+| `line` | `--x1 --y1 --x2 --y2 [--width 1-4]` | Bresenham pixel-perfect; start point. `--width` >1 stamps a square brush and emits named points `<name>_<i>` |
 | `rect` | `--x --y --w --h [--filled true]` | Top-left corner |
 | `circle` | `--cx --cy --r [--filled true]` | Center |
 | `ellipse` | `--cx --cy --rx --ry [--filled true]` | Center |
 | `fill` | `--x --y` | Flood-fills contiguous same-color region |
 | `polygon` | `--points "x,y x,y x,y ..." [--filled true]` | Closed polygon: Bresenham outline + scanline fill. First point is the move anchor. Best for angular shapes (swords, arrows, ships, terrain) |
-| `polyline` | `--points "x,y x,y ..."` | Open multi-segment stroke (no closing edge, never filled) |
+| `polyline` | `--points "x,y x,y ..." [--width 1-4]` | Open multi-segment stroke (no closing edge, never filled); `--width` as for `line` |
 | `highlight` | `--shape <target> [--direction <dir>] [--strength N] [--name <base>] [--count N --span-deg N --radius-factor F]` | Auto-places lighter pixels using palette ramp |
 | `shadow` | `--shape <target> [--direction <dir>] [--strength N] [--name <base>] [--count N --span-deg N --radius-factor F]` | Auto-places darker pixels using palette ramp |
-| `sphere-shade` | `--shape <target> [--direction <dir>] [--intensity low\|med\|high\|auto] [--name <base>]` | Compound 2–5 tier lighting on a circle/ellipse in one call |
-| `arc` | `--cx --cy (--r \| --rx --ry) --from-deg <A> --to-deg <B> --color <c> [--clip-to <mask>] [--name <base>]` | Partial ellipse outline (CW, y-down: 0=east, 90=south) |
+| `sphere-shade` | `--shape <target> [--direction <dir>] [--intensity low\|med\|high\|auto] [--coverage true] [--name <base>]` | Compound 2–5 tier lighting on a circle/ellipse in one call. `--coverage true` paints whole crescents for small forms (radius 4–7) |
+| `arc` | `--cx --cy (--r \| --rx --ry) --from-deg <A> --to-deg <B> --color <c> [--clip-to <mask>] [--width 1-4] [--name <base>]` | Partial ellipse outline (CW, y-down: 0=east, 90=south); `--width` stamps a square brush |
 | `ring` | `--shape <target> --color <c> [--clip-to <mask>] [--name <base>]` | Single-target 4-neighbor halo (sugar over `border`) |
 
 ### Clipping (masking pixels to another shape)
@@ -163,6 +163,7 @@ sprite.js resize ball --cell 0,1 --updates '{"rx":4,"ry":5}'   # stretch mid-air
 | `ref clear` | `--cell` | Remove the reference |
 | `view` | `--cell [--png true] [--scale N] [--out <file.png>]` | Render cell preview (includes the reference underlay if set). `--scale N` (1–32) nearest-neighbor upscales the PNG — use `--scale 8` to actually judge 16px art. `--out` writes the PNG exactly there (parents created; implies `--png`) |
 | `view --sheet` | `[--scale N] [--out <file.png>]` | Render the whole sheet to a PNG — a temp path by default, or exactly `--out` |
+| `view --stack` | `<cells> [--scale N] [--out <file.png>]` | Composite cells as layers, first at the bottom (`--stack sky,swirl_0,land`; names or `R,C`); each cell's erase shapes stay within its own layer |
 | `undo` | `--cell` | Undo last operation in cell |
 | `redo` | `--cell` | Redo undone operation in cell |
 

@@ -38,7 +38,8 @@ install dependencies in its cache. Use an isolated `build` for studies.
 
 | Need | Source and consequence |
 |---|---|
-| Supported bodies, hair and outfits at 40×56 | Built-in `character` source: quickest, least custom code, shared anatomy fixes. Read the [recipe contract](../../examples/character-cast/README.md). It has fixed cell size and finite presets; recoloring does not change its proportions. |
+| Supported bodies, hair and outfits at 40×56 | Built-in `character` source: quickest, least custom code, shared anatomy fixes. Read the [recipe contract](../../examples/character-cast/README.md). It has fixed cell size and finite presets; recoloring does not change its proportions. It also holds a trowel in either hand (`gear: [{item:'trowel', side}]`) and reports each frame's body `sides` (near/far/front/back, shoulder, wrist, hip) for attaching one-sided gear by anatomical side, never by image side. |
+| Native 16×32 mannequins (adult, child, large build) with swappable wardrobe and wigs | The `examples/native-character` generators: see its [README](../../examples/native-character/README.md) and review page. Separate from the `character` recipe: no report, `sides` or playback runtime. |
 | Reference-specific face, silhouette, fantasy costume or smaller grid | Named-shape `ops` or Node `generator`: more drawing/visual review, full control; keep reusable coordinates and palette roles in source to limit maintenance. |
 
 Choose exactly one build source. Do not invent `style: anime`, arbitrary body
