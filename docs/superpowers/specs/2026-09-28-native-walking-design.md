@@ -50,3 +50,14 @@ centre on row 29) ÷ 2, rounded to the nearest 0.5 px:
 
 Planted-feet walking for 16×32 (per-frame distances in the runtime, or a redrawn
 even stride). Recorded as a follow-up in the wiki.
+
+## Follow-up: planted profile walks (2026-09-28)
+
+The runtime now accepts an optional `frameDistances` table (one entry per frame,
+summing to `cycleDistance`). Native right and left walks publish the measured
+`PROFILE_STEPS` (sole centres on row 29: adult 3.5, 2.5, 4.5, 3; child 3.5, 1, 3.5, 2;
+large 4, 3, 5.5, 4) with `contactCalibration: 'profile'` and
+`rootCompensation: 'subtract-phase-remainder'`, so in `authored-contact` mode the
+support foot keeps its world position across frames. Front and back keep the
+uniform uncalibrated stride above. Tests walk every body both ways and check the
+planted sole's world position at every frame change.

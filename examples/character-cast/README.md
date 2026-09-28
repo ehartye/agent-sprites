@@ -133,6 +133,11 @@ const offset = gait.rootCompensation === 'subtract-phase-remainder'
   : [0, 0];
 ```
 
+A gait may instead give uneven per-frame travel as `frameDistances` (one entry per
+frame, summing to `cycleDistance`; the 16×32 native profile walks do): the frame is
+the first whose running total exceeds `distance % cycleDistance`, and the remainder
+is measured from that frame's start. `playback-runtime.mjs` handles both forms.
+
 Character and environment builds also publish `playback-runtime.mjs`, a portable
 reference adapter that implements these rules (listed as `files.playbackRuntime`
 in `sprite-manifest.json`):

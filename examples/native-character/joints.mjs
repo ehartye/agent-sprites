@@ -34,6 +34,15 @@ export const JOINTS = {
  */
 export const STRIDE = { adult: 3.5, child: 2.5, large: 4 };
 
+/**
+ * Body travel per profile (right/left) walk frame, in source pixels, so the
+ * support foot stays planted. Measured from the art on the ground row (29) as
+ * sole centres: frame 0 → 1 the passing foot becomes the back foot, 1 → 2 the
+ * front foot becomes the passing foot, and likewise for frames 2 → 3 → 0. Right
+ * and left mirror exactly. Uneven because the drawn strides are.
+ */
+export const PROFILE_STEPS = { adult: [3.5, 2.5, 4.5, 3], child: [3.5, 1, 3.5, 2], large: [4, 3, 5.5, 4] };
+
 /** Hand boxes that clothing leaves exposed. Moved verbatim from dress-template.mjs. */
 export function handBoxes(kind, dir, phase) {
   const neutral=phase%2===0;
