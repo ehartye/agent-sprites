@@ -23,6 +23,10 @@ Body, wardrobe, cast and pressure-suit builds publish `character-report.json` be
 
 `sides.left` and `sides.right` give each anatomical side's `role` (near/far in profile, front/back otherwise) and its `shoulder`, `wrist` and `hip`. They come from the authored table in `joints.mjs` (eight source poses per body); left, back and the large body are derived from it, and clothing reads its exposed hand boxes from the same file. Use `attachmentFor(frame, side, joint, groundAnchor(report, frame), x, y, {scale})` to place one-sided items. Walking data is not published yet, so `createWalker` stops with "no locomotion data in this report".
 
+### Held trowel
+
+Declare held gear by anatomical side: `gear=trowel:right` (or `left`) as a generator argument after the tone for `generate-template.mjs`, anywhere in the `dress-template.mjs` arguments, or as `"gear": [{"item": "trowel", "side": "right"}]` on a character in `cast/manifest.json`. One hand item per side. The trowel sits at that side's wrist from `joints.mjs`: on top of the body when the hand is near, facing the viewer or facing away; when the hand is far it is drawn only where the cell is empty, so the body hides it but any part that extends past the silhouette stays visible (the owner prefers showing equipment when feasible). Gear pixels on the new silhouette edge become outline, and the trowel joins the sheet's single corner pass. Shapes are `gear_trowel_<side>_*` in a `gear` group, and report frames list the gear with its current role. Sheets without gear are byte-identical.
+
 ## Dressed studies
 
 Read [clothing and hair rules](RULES.md) before adding presets. Four examples combine adult/child anatomy with a short-haired jacket/trousers outfit or tied hair and a green dress. Every idle and walking frame has clothing fitted to that pose, including moving sleeves, visible hands, skirt sway, trousers, and shoes.
