@@ -17,8 +17,11 @@ Principles for multi-frame pixel-art animation on top of the cell-based sprite s
 
 ## Repeatable humanoid characters
 
-For adult/child or nonhuman humanoid casts, multipart faces or pressure-suit variants, start with the
-built-in `character` build source before writing a game-local drawing generator.
+For adult/child casts start with the 16×32 `examples/native-character` generators (primary; see
+[sprite character](../sprite-character/SKILL.md)). Their right/left walks plant the support foot in
+`createWalker`'s `authored-contact` mode (measured per-frame `frameDistances`); front/back walks use a
+uniform stride and claim no planting. For nonhuman humanoids, multipart faces or pressure-suit
+variants, use the built-in 40×56 `character` build source before writing a game-local drawing generator.
 Read the [recipe contract](../../examples/character-cast/README.md), copy its JSON
 config, and run the managed `build` command. Head kind, two/four arms, body profiles, paired boots, forward
 knee hinges and shared eye layers live in the tool; a correction should improve

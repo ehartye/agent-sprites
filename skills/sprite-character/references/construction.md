@@ -100,7 +100,8 @@ not mandatory across all RPG characters.
 
 Read [sprite palette](../../sprite-palette/SKILL.md) when choosing tool ramps.
 Custom hex colors work with explicit named shadow/highlight shapes. Automatic
-lighting needs registered ramps; do not alter the engine merely to shade a face.
+lighting stays in the palette only with registered ramps (other colors get HSL-derived
+steps); do not alter the engine merely to shade a face.
 Use broad shadow shapes under fringe/chin, inside far sleeve and between legs.
 Keep highlights sparse on matte cloth and skin. Reserve sharp bright marks for
 eyes or small metal hardware. Judge local contrast on each skin tone; blanket

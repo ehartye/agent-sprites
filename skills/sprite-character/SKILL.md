@@ -22,7 +22,7 @@ For constructing new characters, do not interpret a zoomed WebP's dimensions as
 its native pixel grid, or turn its compressed edge colors into a huge palette.
 State the chosen cell size, visible character height, ground row, directions,
 and two identity cues such as a side fringe and short cape. Use the user's
-constraints; otherwise begin with 32×48 cells and a front/right idle study.
+constraints; otherwise, for a bespoke named-shape study, begin with 32×48 cells and a front/right idle study (new cast characters start from the 16×32 native generators).
 For smaller targets, redraw to that pixel budget instead of shrinking the result.
 
 Read [construction](references/construction.md) before drawing a bespoke character.
@@ -87,7 +87,7 @@ Also compare native-size front/profile: same head volume, eye line, costume hem
 and ground; readable face, attached limbs, clear feet and stable identity. Check
 the final outer contour for gaps caused by overlaid fills when the reference
 uses a continuous outline. Inspect hair, ears, chin, hands, clothes and soles.
-With agent-sprites 0.22.0+, set build `outlineColors` to the intended contour
+Set build `outlineColors` to the intended contour
 hex colors, or use `verify --outline-colors "#39283f"`; see
 [sprite verification](../sprite-verification/SKILL.md). Keep this list in sync
 with palette overrides. Use it only when a continuous opaque outline is intended.
