@@ -8,9 +8,8 @@ function syncCellGroups(state) {
   const groups = state.db.getCellGroups(state.sessionId);
   state.project.groups = GroupManager.fromJSON(groups);
   // The editor preview reads timing and direction from the live project.
-  // Optional calls, as in handlers/view.js: several CLI test doubles predate these methods.
-  state.project.animationFps = state.db.getCellGroupFps?.(state.sessionId) ?? state.project.animationFps;
-  state.project.animationDirections = state.db.getCellGroupDirections?.(state.sessionId) ?? state.project.animationDirections;
+  state.project.animationFps = state.db.getCellGroupFps(state.sessionId);
+  state.project.animationDirections = state.db.getCellGroupDirections(state.sessionId);
   state.broadcast?.({ type: 'group_created' }); // triggers get_project resync in UI
 }
 
