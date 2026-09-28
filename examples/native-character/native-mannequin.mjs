@@ -6,6 +6,17 @@ import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
 
 export const DIRECTIONS=['front','right','back','left'];
 
+/** Every outline colour in a sheet: pixels in any `*-outline` group, plus extras. */
+export function outlineColorsOf(ops,extra=[]){
+  const names=new Set(ops.filter(o=>o.command==='shape-group'&&o.name.endsWith('-outline')).flatMap(o=>o.shapes.map(n=>o.cell+'/'+n)));
+  return new Set([...ops.filter(o=>o.command==='draw'&&names.has(o.cell+'/'+o.name)).map(o=>o.color),...extra]);
+}
+
+/** The one final corner pass over a finished composite (body, garments, hair). */
+export function finishNative(ops,extra=[]){
+  return cutOutlineCorners(ops,outlineColorsOf(ops,extra)).ops;
+}
+
 // Every mannequin ends with outside outline corners cut to diagonals. The large
 // body broadens the uncut adult first, so the cut always runs on the final silhouette.
 export function nativeMannequin(kind='adult',tone='peach'){

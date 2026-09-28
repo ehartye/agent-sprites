@@ -14,7 +14,7 @@ export function costumeTemplate(profile) {
     if(motif.frames&&(!Array.isArray(motif.frames)||motif.frames.length!==4||motif.frames.some(rows=>!Array.isArray(rows))))throw Error('Animated motifs need four pixel-row frames.');
   }
   const kind=profile.kind??'adult';
-  const ops=dressTemplate(kind,profile.outfit??'jacket',profile.tone??'peach',profile.wig??'none');
+  const ops=dressTemplate(kind,profile.outfit??'jacket',profile.tone??'peach',profile.wig??'none',{finish:false});
   ops[0].name=`cast-${profile.id}`;
   const behindOps=[],removed=new Set();
   for(const [material,ramp] of Object.entries(profile.materials??{})){

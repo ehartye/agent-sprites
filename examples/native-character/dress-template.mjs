@@ -1,11 +1,13 @@
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {nativeMannequin} from './native-mannequin.mjs';
+import {sourceMannequin,finishNative} from './native-mannequin.mjs';
 
-export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short') {
+// finish:false leaves the composite uncut for costumes, which add layers and cut once at the end.
+export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short', {finish=true}={}) {
   if (!['adult','child'].includes(kind) || !['jacket','dress'].includes(style)) throw new Error('Choose adult/child and jacket/dress.');
   if (!['short','tied','none'].includes(wig)) throw new Error('Choose short, tied or none for the wig.');
-  const ops=nativeMannequin(kind,tone);
+  // Start from the uncut body: the final pass cuts the whole composite once.
+  const ops=sourceMannequin(kind,tone);
   ops[0].name=`${kind}-${style}${wig===(style==='dress'?'tied':'short')?'':'-'+wig}`;
   const palettes={
     hair:wig==='short'?{o:'#302238',S:'#523048',B:'#824556',H:'#b96c72'}:{o:'#382537',S:'#743c48',B:'#b76455',H:'#e5a371'},
@@ -93,6 +95,6 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     }
     for(const [name,shapes]of Object.entries(groups))ops.push({command:'shape-group',sub:'create',cell,name,shapes});
   }
-  return ops;
+  return finish?finishNative(ops):ops;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)process.stdout.write(JSON.stringify(dressTemplate(...process.argv.slice(2))));
