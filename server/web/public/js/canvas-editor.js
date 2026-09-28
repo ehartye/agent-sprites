@@ -221,24 +221,12 @@ export class CanvasEditor {
 
   _renderOnionSkin(ctx, ox, oy, z) {
     const { prev, next } = this._onionSkinData;
-    // Previous frame: blue-tinted at 30% opacity
-    if (prev && prev.length > 0) {
+    // Neighbouring frames: previous blue, next red, at 30% opacity. Painted like
+    // the frame itself, so their erase shapes show as holes, not filled blobs.
+    for (const [shapes, tint] of [[prev, '#4488ff'], [next, '#ff4444']]) {
+      if (!shapes?.length) continue;
       ctx.globalAlpha = 0.3;
-      for (const shape of prev) {
-        if (shape.params?.erase) continue; // an eraser has no silhouette of its own
-        ctx.fillStyle = '#4488ff';
-        this._renderOneShape(ctx, ox, oy, z, shape);
-      }
-      ctx.globalAlpha = 1;
-    }
-    // Next frame: red-tinted at 30% opacity
-    if (next && next.length > 0) {
-      ctx.globalAlpha = 0.3;
-      for (const shape of next) {
-        if (shape.params?.erase) continue;
-        ctx.fillStyle = '#ff4444';
-        this._renderOneShape(ctx, ox, oy, z, shape);
-      }
+      paintShapes(ctx, shapes, (c, shape) => { c.fillStyle = tint; this._renderOneShape(c, ox, oy, z, shape); });
       ctx.globalAlpha = 1;
     }
   }

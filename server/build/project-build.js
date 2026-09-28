@@ -17,7 +17,7 @@ import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { createPreview } from './preview.js';
 import { renderFontProof } from './font-proof.js';
-import { exportTrimmed } from '../engine/trimmed-export.js';
+import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
@@ -107,7 +107,7 @@ export async function buildProject(configPath) {
     if (inline) {
       if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
     } else if (typeof config[sourceKind] !== 'string' || !config[sourceKind]) throw new Error(`${sourceKind} source must be a nonempty file path.`);
-    if (config.trim !== undefined && typeof config.trim !== 'boolean') throw new Error('trim must be true or false.');
+    assertTrimOption(config.trim);
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const source = inline ? configPath : realpathSync(resolve(base, config[sourceKind]));

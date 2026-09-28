@@ -35,6 +35,13 @@ export class CellManager {
     throw new Error(`Cell "${ref}" not found`);
   }
 
+  /** "R,C" for a coordinate or cell name, bounds-checked. */
+  resolveRef(ref) {
+    const { r, c } = this._parseCoord(ref);
+    this.getCell(`${r},${c}`);
+    return `${r},${c}`;
+  }
+
   getCell(ref) {
     const { r, c } = this._parseCoord(ref);
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) {

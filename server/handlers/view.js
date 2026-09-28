@@ -64,21 +64,12 @@ export function parseStack(text) {
   return refs;
 }
 
-/** Resolve "r,c" or a cell name. */
-function cellRef(project, ref) {
-  if (/^\d+,\d+$/.test(ref)) { project.cells.getCell(ref); return ref; }
-  for (let r = 0; r < project.cells.rows; r++) for (let c = 0; c < project.cells.cols; c++) {
-    if (project.cells.getCell(`${r},${c}`).name === ref) return `${r},${c}`;
-  }
-  throw new Error(`Unknown cell "${ref}"`);
-}
-
 /** Inspect cells a game composites at runtime (sky, swirl, land) as one image. */
 export function handleViewStack(state, params, tmpDir) {
   if (!state.project) throw new Error('No project open');
   const refs = typeof params.cells === 'string' ? parseStack(params.cells) : params.cells;
   if (!Array.isArray(refs) || !refs.length) throw new Error('view --stack needs at least one cell name or R,C');
-  const layers = refs.map(ref => cellRef(state.project, ref));
+  const layers = refs.map(ref => state.project.cells.resolveRef(ref));
   const buf = getRenderer(state).renderStack(layers.map(ref => state.project.cells.getCell(ref)), { scale: clampScale(params.scale) });
   const p = outPath(params, tmpDir, 'stack');
   fs.writeFileSync(p, buf);
