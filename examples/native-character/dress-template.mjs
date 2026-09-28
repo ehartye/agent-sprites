@@ -2,6 +2,7 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {sourceMannequin,finishNative} from './native-mannequin.mjs';
 import {handBoxes} from './joints.mjs';
+import {nativeReport} from './native-report.mjs';
 
 // finish:false leaves the composite uncut for costumes, which add layers and cut once at the end.
 export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short', {finish=true}={}) {
@@ -96,4 +97,4 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
   }
   return finish?finishNative(ops):ops;
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)process.stdout.write(JSON.stringify(dressTemplate(...process.argv.slice(2))));
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const operations=dressTemplate(...process.argv.slice(2));process.stdout.write(JSON.stringify({operations,report:nativeReport(operations,process.argv[2]??'adult')}));}
