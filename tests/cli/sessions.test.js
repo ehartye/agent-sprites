@@ -4,6 +4,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { SessionDB } from '../../server/db/session.js';
 
 const exec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,52 +16,8 @@ describe('CLI sessions / open --session', () => {
   let port;
 
   beforeAll(async () => {
-    const sessions = new Map();
-    const cellGroups = new Map();
-    let lastId = 0;
-    const mockDb = {
-      getLastSession() {
-        const all = [...sessions.values()].sort((a, b) => b.updated_at - a.updated_at);
-        return all[0] ?? undefined;
-      },
-      getSession(id) { return sessions.get(id); },
-      listSessions(limit = 20) {
-        return [...sessions.values()]
-          .sort((a, b) => b.updated_at - a.updated_at)
-          .slice(0, limit)
-          .map(({ id, project_name, created_at, updated_at }) => ({ id, project_name, created_at, updated_at }));
-      },
-      findSessionByName(name) {
-        return [...sessions.values()]
-          .filter(s => s.project_name === name)
-          .sort((a, b) => b.updated_at - a.updated_at)[0];
-      },
-      createSession(fields) {
-        const id = `s_${++lastId}`;
-        const session = { id, ...fields, created_at: Date.now(), updated_at: Date.now() };
-        sessions.set(id, session);
-        return session;
-      },
-      updateDraft(id, json) {
-        const s = sessions.get(id);
-        if (s) { s.draft_json = json; s.updated_at = Date.now(); }
-      },
-      setCellGroup(sessionId, name, cells) { cellGroups.set(`${sessionId}/${name}`, cells); },
-      deleteCellGroup(sessionId, name) { cellGroups.delete(`${sessionId}/${name}`); },
-      getCellGroups(sessionId) {
-        const out = {};
-        for (const [k, v] of cellGroups) {
-          const [sid, name] = k.split('/');
-          if (sid === sessionId) out[name] = v;
-        }
-        return out;
-      },
-      setCellGroupFps() {},
-      getCellGroupFps() { return {}; },
-      getCellGroupDirections() { return {}; },
-      getShapeGroups() { return {}; },
-    };
-    state = { project: null, sessionId: null, db: mockDb };
+    const sessionDb = new SessionDB(':memory:');
+    state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);
     port = serverInfo.port;
   });

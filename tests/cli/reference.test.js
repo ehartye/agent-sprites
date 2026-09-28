@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
 import { createCanvas } from 'canvas';
 import fs from 'fs';
 import os from 'os';
+import { SessionDB } from '../../server/db/session.js';
 
 const exec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -23,30 +24,8 @@ describe('CLI reference image', () => {
     c.getContext('2d').fillRect(0, 0, 4, 4);
     refPath = join(os.tmpdir(), `sprites-refcli-${Date.now()}.png`);
     fs.writeFileSync(refPath, c.toBuffer('image/png'));
-
-    const sessions = new Map();
-    let lastId = 0;
-    const mockDb = {
-      getLastSession() {
-        const all = [...sessions.values()].sort((a, b) => b.updated_at - a.updated_at);
-        return all[0] ?? undefined;
-      },
-      getSession(id) { return sessions.get(id); },
-      createSession(fields) {
-        const id = `s_${++lastId}`;
-        const session = { id, ...fields, created_at: Date.now(), updated_at: Date.now() };
-        sessions.set(id, session);
-        return session;
-      },
-      updateDraft(id, json) {
-        const s = sessions.get(id);
-        if (s) { s.draft_json = json; s.updated_at = Date.now(); }
-      },
-      getCellGroups() { return {}; },
-      setCellGroup() {},
-      getShapeGroups() { return {}; },
-    };
-    state = { project: null, sessionId: null, db: mockDb };
+    const sessionDb = new SessionDB(':memory:');
+    state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);
     port = serverInfo.port;
   });

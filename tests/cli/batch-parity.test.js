@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
 import { createCanvas } from 'canvas';
 import fs from 'fs';
 import os from 'os';
+import { SessionDB } from '../../server/db/session.js';
 
 const exec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,72 +26,8 @@ describe('CLI batch parity (full pipeline in one ops file)', () => {
     c.getContext('2d').fillRect(0, 0, 4, 4);
     refPath = join(tmp, 'ref.png');
     fs.writeFileSync(refPath, c.toBuffer('image/png'));
-
-    const sessions = new Map();
-    const cellGroups = new Map();
-    const groupFps = new Map();
-    const shapeGroups = new Map();
-    let lastId = 0;
-    const mockDb = {
-      getLastSession() {
-        const all = [...sessions.values()].sort((a, b) => b.updated_at - a.updated_at);
-        return all[0] ?? undefined;
-      },
-      getSession(id) { return sessions.get(id); },
-      createSession(fields) {
-        const id = `s_${++lastId}`;
-        const session = { id, ...fields, created_at: Date.now(), updated_at: Date.now() };
-        sessions.set(id, session);
-        return session;
-      },
-      updateSession(id, fields) {
-        const s = sessions.get(id);
-        if (s) Object.assign(s, fields, { updated_at: Date.now() });
-      },
-      updateDraft(id, json) {
-        const s = sessions.get(id);
-        if (s) { s.draft_json = json; s.updated_at = Date.now(); }
-      },
-      setCellGroup(sessionId, name, cells) { cellGroups.set(`${sessionId}/${name}`, cells); },
-      deleteCellGroup(sessionId, name) { cellGroups.delete(`${sessionId}/${name}`); },
-      getCellGroups(sessionId) {
-        const out = {};
-        for (const [k, v] of cellGroups) {
-          const [sid, name] = k.split('/');
-          if (sid === sessionId) out[name] = v;
-        }
-        return out;
-      },
-      setCellGroupFps(sessionId, name, fps) { groupFps.set(`${sessionId}/${name}`, fps); },
-      getCellGroupDirections() { return {}; },
-      getCellGroupFps(sessionId) {
-        const out = {};
-        for (const [k, v] of groupFps) {
-          const [sid, name] = k.split('/');
-          if (sid === sessionId) out[name] = v;
-        }
-        return out;
-      },
-      setShapeGroup(sessionId, cell, name, shapes) { shapeGroups.set(`${sessionId}/${cell}/${name}`, shapes); },
-      getAllShapeGroups(sessionId) {
-        const out = {};
-        for (const [k, shapes] of shapeGroups) {
-          const [sid, cell, name] = k.split('/');
-          if (sid === sessionId) { out[cell] ??= {}; out[cell][name] = shapes; }
-        }
-        return out;
-      },
-      deleteShapeGroup(sessionId, cell, name) { shapeGroups.delete(`${sessionId}/${cell}/${name}`); },
-      getShapeGroups(sessionId, cell) {
-        const out = {};
-        for (const [k, v] of shapeGroups) {
-          const [sid, c, name] = k.split('/');
-          if (sid === sessionId && c === cell) out[name] = v;
-        }
-        return out;
-      },
-    };
-    state = { project: null, sessionId: null, db: mockDb };
+    const sessionDb = new SessionDB(':memory:');
+    state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);
     port = serverInfo.port;
   });

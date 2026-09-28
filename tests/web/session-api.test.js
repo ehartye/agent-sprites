@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, beforeEach } from 'vitest';
 import { startWebServer } from '../../server/web/http.js';
+import { SessionDB } from '../../server/db/session.js';
 
 describe('Session API Routes', () => {
   const servers = [];
@@ -8,26 +9,8 @@ describe('Session API Routes', () => {
 
   beforeEach(async () => {
     // Create a mock db that satisfies the session routes
-    const sessions = new Map();
-    let lastId = 0;
-    const mockDb = {
-      getLastSession() {
-        const all = [...sessions.values()].sort((a, b) => b.updated_at - a.updated_at);
-        return all[0] ?? undefined;
-      },
-      getSession(id) { return sessions.get(id); },
-      createSession(fields) {
-        const id = `s_${++lastId}`;
-        const session = { id, ...fields, created_at: Date.now(), updated_at: Date.now() };
-        sessions.set(id, session);
-        return session;
-      },
-      updateDraft(id, json) {
-        const s = sessions.get(id);
-        if (s) { s.draft_json = json; s.updated_at = Date.now(); }
-      },
-    };
-    state = { project: null, sessionId: null, db: mockDb };
+    const sessionDb = new SessionDB(':memory:');
+    state = { project: null, sessionId: null, db: sessionDb };
     const info = await startWebServer(state, 0);
     servers.push(info);
     baseUrl = `http://localhost:${info.port}`;

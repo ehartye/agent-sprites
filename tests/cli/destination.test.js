@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
 import os from 'os';
+import { SessionDB } from '../../server/db/session.js';
 
 const exec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -17,35 +18,12 @@ describe('CLI export destination control', () => {
   let port;
   let tmpCwd;
   let tmpDest;
-  const sessions = new Map();
 
   beforeAll(async () => {
     tmpCwd = fs.mkdtempSync(join(os.tmpdir(), 'sprites-cwd-'));
     tmpDest = fs.mkdtempSync(join(os.tmpdir(), 'sprites-dest-'));
-    let lastId = 0;
-    const mockDb = {
-      getLastSession() {
-        const all = [...sessions.values()].sort((a, b) => b.updated_at - a.updated_at);
-        return all[0] ?? undefined;
-      },
-      getSession(id) { return sessions.get(id); },
-      createSession(fields) {
-        const id = `s_${++lastId}`;
-        const session = { id, ...fields, created_at: Date.now(), updated_at: Date.now() };
-        sessions.set(id, session);
-        return session;
-      },
-      updateDraft(id, json) {
-        const s = sessions.get(id);
-        if (s) { s.draft_json = json; s.updated_at = Date.now(); }
-      },
-      getCellGroups() { return {}; },
-      setCellGroup() {},
-      getCellGroupFps() { return {}; },
-      getCellGroupDirections() { return {}; },
-      getShapeGroups() { return {}; },
-    };
-    state = { project: null, sessionId: null, db: mockDb };
+    const sessionDb = new SessionDB(':memory:');
+    state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);
     port = serverInfo.port;
   });
@@ -68,14 +46,14 @@ describe('CLI export destination control', () => {
 
   test('destination defaults to the CLI cwd, not the server cwd', async () => {
     await cli({ cwd: tmpCwd }, 'new', 'cwdproj', '--size', '16', '--rows', '1', '--cols', '1', '--palette', 'pico8');
-    const session = [...sessions.values()].find(s => s.project_name === 'cwdproj');
+    const session = state.db.findSessionByName('cwdproj');
     expect(session.destination_folder).toBe(join(tmpCwd, 'assets', 'claude-sprites', 'cwdproj'));
     expect(session.project_path).toBe(tmpCwd);
   });
 
   test('--dest overrides the destination parent folder', async () => {
     await cli({ cwd: tmpCwd }, 'new', 'destproj', '--size', '16', '--dest', tmpDest, '--rows', '1', '--cols', '1', '--palette', 'pico8');
-    const session = [...sessions.values()].find(s => s.project_name === 'destproj');
+    const session = state.db.findSessionByName('destproj');
     expect(session.destination_folder).toBe(join(tmpDest, 'destproj'));
   });
 
