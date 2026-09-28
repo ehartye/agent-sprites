@@ -75,5 +75,7 @@ export function generateCharacterRecipe(config){
     if(mode!=='idle')operations.push({command:'group',sub:'create',name:`${person.id}_${outfit}_${direction}_${mode}`,cells,fps});
   }
   operations.push({command:'pivot',anchor:'bottom-center'});
-  return {operations,report:{version:1,ok:true,cellSize:{width:40,height:56},ground:54,frames}};
+  // Published so playback code builds frame names from the report, not a copy of this rule.
+  const aliases={idle:'{person}_{outfit}_{direction}_idle',walk:'{person}_{outfit}_{direction}_walk_{frame}',expressions:'{person}_{outfit}_{direction}_{expression}'};
+  return {operations,report:{version:1,ok:true,cellSize:{width:40,height:56},ground:54,aliases,frames}};
 }

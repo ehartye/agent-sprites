@@ -1,7 +1,5 @@
 import { createCanvas, loadImage } from 'canvas';
-import { createBitmapFont } from './ui-runtime.mjs';
-
-const TONES = ['cream', 'muted', 'gold', 'ink'];
+import { createBitmapFont, FONT_TONES as TONES } from './ui-runtime.mjs';
 const PANGRAM = 'The quick brown fox jumps over the lazy dog.\n0123456789 Sphinx of black quartz, judge my vow!';
 
 /**
