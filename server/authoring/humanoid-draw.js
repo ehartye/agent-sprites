@@ -1,4 +1,4 @@
-import {BODY_PROFILES} from './humanoid-poses.js';
+import {BODY_PROFILES,bodySideRole} from './humanoid-poses.js';
 import {drawHumanoidHead} from './humanoid-face.js';
 import {drawInsectoidHead} from './insectoid-face.js';
 import {isSealed,drawTravelLayers,drawTorsoDetails,drawGear} from './character-wardrobe.js';
@@ -80,12 +80,13 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   const lowerArms=pose.arms.filter(a=>a.name.endsWith('_lower'));
   // Canonical left-facing art is the mirrored right-facing rig, so its limb labels swap.
   const anatomical=name=>person.mirrored?(name==='left'?'right':'left'):name;
-  const role=isNear=>direction==='down'?'front':direction==='up'?'back':isNear?'near':'far';
-  const gear=(l,isNear,slot)=>person.gear?.length&&drawGear(p,person,l,anatomical(l.name),role(isNear),direction,slot);
+  // Same role function as the report's sides, so the drawn layer matches attachmentFor.
+  const facing=person.mirrored?'left':direction;
+  const gear=(l,slot)=>person.gear?.length&&drawGear(p,person,l,anatomical(l.name),bodySideRole(anatomical(l.name),facing),direction,slot);
   leg(far,false,p);
   for(const a of lowerArms)if(a.name.startsWith(far.name))arm(a,false,p);
   arm(far,false,p);
-  gear(far,false,'hand');
+  gear(far,'hand');
   if(sealed){
     const packX=side?20-Math.ceil(b.width/2)-5:20-Math.ceil(b.width/2)-2,packW=side?(bulky?6:4):b.width+4;
     const packHeight=pose.torso.pelvis[1]-pose.torso.top;
@@ -133,7 +134,7 @@ export function drawHumanoid(p,person,outfit,direction,pose,expression){
   drawTorsoDetails(p,person,outfit,{...b,hip:pose.torso.pelvis[1]-dy},pose,direction);
   for(const a of lowerArms)if(a.name.startsWith(near.name))arm(a,true,p);
   arm(near,true,p);
-  gear(near,true,'hand');
+  gear(near,'hand');
   const headTop=pose.head.top,hs=pose.head.size;
   if(sealed){
     if(side){drawProfileHelmet(p,person,outfit,pose,expression);return;}
