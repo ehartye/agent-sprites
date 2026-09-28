@@ -1,11 +1,16 @@
-import {jointsFor,STRIDE} from './joints.mjs';
+import {jointsFor,STRIDE,PROFILE_STEPS} from './joints.mjs';
 import {bodySideRole} from '../../server/authoring/humanoid-poses.js';
 
 const RUNTIME={front:'down',back:'up',right:'right',left:'left'};
 const VECTOR={front:[0,1],back:[0,-1],right:[1,0],left:[-1,0]};
 
-// Uncalibrated walking: one measured stride per body, no foot locking claimed.
-const locomotion=(kind,direction,frame)=>({cycleDistance:4*STRIDE[kind],frameDistance:STRIDE[kind],phaseDistance:frame*STRIDE[kind],frameCount:4,fps:8,direction:VECTOR[direction],contactCalibration:'none',rootCompensation:'none',contacts:[]});
+// Profile walks travel the measured per-frame steps, so the support foot stays
+// planted. Front and back walks use one uniform stride and claim no planting.
+const locomotion=(kind,direction,frame)=>{
+  if(direction==='front'||direction==='back')return {cycleDistance:4*STRIDE[kind],frameDistance:STRIDE[kind],phaseDistance:frame*STRIDE[kind],frameCount:4,fps:8,direction:VECTOR[direction],contactCalibration:'none',rootCompensation:'none',contacts:[]};
+  const steps=PROFILE_STEPS[kind],cycle=steps.reduce((a,b)=>a+b,0);
+  return {cycleDistance:cycle,frameDistance:cycle/4,frameDistances:steps,phaseDistance:steps.slice(0,frame).reduce((a,b)=>a+b,0),frameCount:4,fps:8,direction:VECTOR[direction],contactCalibration:'profile',rootCompensation:'subtract-phase-remainder',contacts:[]};
+};
 
 /** Recipe-compatible character report for a native 16×32 sheet. */
 export function nativeReport(ops, kind, {gear=[]}={}) {

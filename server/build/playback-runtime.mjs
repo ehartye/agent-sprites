@@ -65,10 +65,20 @@ export function facingFor(dx, dy, current = 'down') {
  *
  * mode 'authored-contact': draw offset subtracts the phase remainder where the
  *   report says so, so calibrated profile contacts stay planted. The body steps.
+ *   A gait may give uneven per-frame travel as `frameDistances` (one per frame,
+ *   summing to `cycleDistance`); otherwise every frame travels `frameDistance`.
  * mode 'continuous-root': no offset; the body follows the continuous root and
  *   feet may slide between poses. Calmer for fast camera-following games, but
  *   contacts are not claimed as calibrated.
  */
+/** The frame a gait shows after travelling distance, and how far into it. */
+function phaseOf(g, distance) {
+  if (!g.frameDistances) return [Math.floor(distance / g.frameDistance) % g.frameCount, distance % g.frameDistance];
+  let into = distance % g.cycleDistance, index = 0;
+  while (index < g.frameCount - 1 && into >= g.frameDistances[index]) into -= g.frameDistances[index++];
+  return [index, into];
+}
+
 export function createWalker(reports, { person, outfit, mode, facing = 'down', scale = 1 } = {}) {
   if (!MODES.includes(mode)) throw new Error('mode must be authored-contact or continuous-root');
   const frames = new Map();
@@ -101,8 +111,7 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
       const g = gait(facing), [ux, uy] = g.direction;
       // Only travel along the facing axis advances the stride; the other axis slides.
       distance += Math.abs(dx * ux + dy * uy) / scale;
-      const index = Math.floor(distance / g.frameDistance) % g.frameCount;
-      const remainder = distance % g.frameDistance;
+      const [index, remainder] = phaseOf(g, distance);
       const compensate = mode === 'authored-contact' && g.rootCompensation === 'subtract-phase-remainder';
       // "+ 0" turns -0 into 0 for axes the facing does not move along.
       const offset = compensate ? g.direction.map(c => -c * remainder * scale + 0) : [0, 0];
