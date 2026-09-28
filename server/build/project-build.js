@@ -125,7 +125,15 @@ export async function buildProject(configPath) {
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
       const generated = await exec(process.execPath, [source, ...(config.args ?? [])], { cwd: base, timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true });
-      operations = JSON.parse(generated.stdout);
+      const generatedOut = JSON.parse(generated.stdout);
+      if (Array.isArray(generatedOut)) operations = generatedOut;
+      else {
+        // Generators may publish a character report beside their operations.
+        if (!generatedOut || !Array.isArray(generatedOut.operations)) throw new Error('Generator output must be an operations array or { operations, report }.');
+        if (generatedOut.report !== undefined && (generatedOut.report?.kind !== 'character' || !Array.isArray(generatedOut.report.frames))) throw new Error('Generator report must be a character report with frames.');
+        operations = generatedOut.operations;
+        recipeReport = generatedOut.report;
+      }
     } else operations = JSON.parse(readFileSync(source, 'utf8'));
     if (!Array.isArray(operations) || !operations.length || operations[0]?.command !== 'new') throw new Error('Build operations must start with exactly one new project.');
     const name = operations[0].name;
@@ -162,11 +170,13 @@ export async function buildProject(configPath) {
     result.warnings = verified.warnings;
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
-    if (inline) {
-      artifacts[`${sourceKind}Report`] = `${sourceKind}-report.json`;
-      writeFileSync(join(stage, artifacts[`${sourceKind}Report`]), json(recipeReport));
+    // Inline recipes name their report by source; generator reports are character reports.
+    const reportKey = inline ? `${sourceKind}Report` : recipeReport ? 'characterReport' : null;
+    if (reportKey) {
+      artifacts[reportKey] = reportKey.replace(/Report$/, '-report.json');
+      writeFileSync(join(stage, artifacts[reportKey]), json(recipeReport));
     }
-    if (sourceKind === 'character' || sourceKind === 'environment') {
+    if (sourceKind === 'character' || sourceKind === 'environment' || recipeReport?.kind === 'character') {
       // Report-driven ground anchoring and walking, so games do not re-derive gait conventions.
       artifacts.playbackRuntime = 'playback-runtime.mjs';
       writeFileSync(join(stage, artifacts.playbackRuntime), readFileSync(new URL('./playback-runtime.mjs', import.meta.url)));
@@ -188,7 +198,7 @@ export async function buildProject(configPath) {
     // Names are relative so the manifest survives copying the output directory.
     const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind };
     if (recipeReport?.kind) manifest.kind = recipeReport.kind;
-    if (inline) manifest.report = artifacts[`${sourceKind}Report`];
+    if (reportKey) manifest.report = artifacts[reportKey];
     manifest.files = { ...artifacts };
     artifacts.manifest = 'sprite-manifest.json';
     writeFileSync(join(stage, artifacts.manifest), json(manifest));
