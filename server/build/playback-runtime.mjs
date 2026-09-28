@@ -5,8 +5,17 @@
 // Units: report distances are source pixels. `scale` is world pixels per source
 // pixel. Pass the displacement your game actually applied after collision.
 
-const FACINGS = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] };
 const MODES = ['authored-contact', 'continuous-root'];
+// Used only when an older report predates published alias patterns.
+const DEFAULT_ALIASES = { idle: '{person}_{outfit}_{direction}_idle', walk: '{person}_{outfit}_{direction}_walk_{frame}' };
+const fill = (pattern, values) => pattern.replace(/\{(\w+)\}/g, (_, key) => String(values[key]));
+
+/** A whole atlas entry (frame, spriteSourceSize, duration) by name; array or hash atlases. */
+export function atlasEntry(atlas, name) {
+  const entry = Array.isArray(atlas.frames) ? atlas.frames.find(f => f.filename === name) : atlas.frames?.[name];
+  if (!entry?.frame) throw new Error(`Missing atlas frame: ${name}`);
+  return entry;
+}
 
 /** Semantic ground point of a frame, in source pixels within its cell. */
 export function groundAnchor(report, frame) {
@@ -64,11 +73,12 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
   if (!MODES.includes(mode)) throw new Error('mode must be authored-contact or continuous-root');
   const frames = new Map();
   for (const report of [].concat(reports)) for (const frame of report.frames) frames.set(frame.alias, frame);
-  const prefix = `${person}_${outfit}_`;
+  const aliases = [].concat(reports).find(r => r.aliases)?.aliases ?? DEFAULT_ALIASES;
+  const name = (mode, direction, frame) => fill(aliases[mode], { person, outfit, direction, frame });
   let distance = 0;
   const gait = f => {
-    const frame = frames.get(`${prefix}${f}_walk_0`);
-    if (!frame) throw new Error(`no walk frames ${prefix}${f}_walk_*: include a walk-mode report for ${f}`);
+    const frame = frames.get(name('walk', f, 0));
+    if (!frame) throw new Error(`no walk frames ${name('walk', f, '*')}: include a walk-mode report for ${f}`);
     return frame.locomotion;
   };
   return {
@@ -79,12 +89,13 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
       if (next !== facing) distance = 0;
       facing = next;
       if (!dx && !dy) {
-        const alias = `${prefix}${facing}_idle`;
+        const alias = name('idle', facing);
         if (!frames.has(alias)) throw new Error(`no idle frame ${alias}: include an idle-mode report`);
         distance = 0;
         return { alias, facing, moving: false, distance: 0, offset: [0, 0], contactsCalibrated: false };
       }
-      const g = gait(facing), [ux, uy] = FACINGS[facing];
+      // The report's own facing vector, so the runtime never restates it.
+      const g = gait(facing), [ux, uy] = g.direction;
       // Only travel along the facing axis advances the stride; the other axis slides.
       distance += Math.abs(dx * ux + dy * uy) / scale;
       const index = Math.floor(distance / g.frameDistance) % g.frameCount;
@@ -92,7 +103,7 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
       const compensate = mode === 'authored-contact' && g.rootCompensation === 'subtract-phase-remainder';
       // "+ 0" turns -0 into 0 for axes the facing does not move along.
       const offset = compensate ? g.direction.map(c => -c * remainder * scale + 0) : [0, 0];
-      return { alias: `${prefix}${facing}_walk_${index}`, facing, moving: true, distance, offset, contactsCalibrated: compensate && g.contactCalibration === 'profile' };
+      return { alias: name('walk', facing, index), facing, moving: true, distance, offset, contactsCalibrated: compensate && g.contactCalibration === 'profile' };
     },
   };
 }

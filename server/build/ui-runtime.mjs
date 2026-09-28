@@ -1,6 +1,8 @@
 // Portable browser compositor for agent-sprites UI reports. Artwork lives in the atlas.
 const positiveInteger=(value,name)=>{if(!Number.isInteger(value)||value<1)throw Error(`${name} must be a positive integer.`);return value;};
 const integer=(value,name)=>{if(!Number.isInteger(value))throw Error(`${name} must be an integer.`);return value;};
+/** The four tones every font glyph carries. */
+export const FONT_TONES=['cream','muted','gold','ink'];
 const frameMaps=new WeakMap();
 export function getFrame(atlas,name){
   if(!frameMaps.has(atlas))frameMaps.set(atlas,Array.isArray(atlas.frames)?new Map(atlas.frames.map(f=>[f.filename,f])):new Map(Object.entries(atlas.frames||{})));
@@ -11,7 +13,7 @@ export function createBitmapFont({image,atlas,report}){
   if(report?.kind!=='font'||!report.glyphs?.[report.fallback]||!Number.isInteger(report.lineHeight)||report.lineHeight<1)throw Error('Invalid bitmap font report.');
   for(const [char,g] of Object.entries(report.glyphs)){
     positiveInteger(g.advance,`Advance for ${char}`);
-    if(char!==' ')for(const tone of ['cream','muted','gold','ink']){if(typeof g.frames?.[tone]!=='string')throw Error(`Missing font tone: ${tone} for ${char}`);getFrame(atlas,g.frames[tone]);}
+    if(char!==' ')for(const tone of FONT_TONES){if(typeof g.frames?.[tone]!=='string')throw Error(`Missing font tone: ${tone} for ${char}`);getFrame(atlas,g.frames[tone]);}
   }
   const glyph=char=>report.glyphs[char]||report.glyphs[report.fallback];
   const lineWidth=line=>[...line].reduce((n,char)=>n+glyph(char).advance,0);

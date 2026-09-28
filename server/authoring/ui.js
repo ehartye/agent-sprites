@@ -1,6 +1,7 @@
 import {FONT_GLYPHS,FONT_CHARACTERS} from './ui-font.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
+import {FONT_TONES} from '../build/ui-runtime.mjs';
 
 export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eceddb',muted:'#a8bcb9',gold:'#eed09b',moss:'#98b58a',light:'#ded5b4',shadow:'#10242d',orbitalInk:'#26333f',instrumentTeal:'#528f8b',wornCopper:'#bc7858',seedGold:'#dfac59',mint:'#a4d4c4',paper:'#eedfbe',specimenWell:'#36565e'};
 export function generateUIRecipe(config){
@@ -19,7 +20,7 @@ export function generateUIRecipe(config){
   if(typeof characters!=='string'||!characters.length)throw Error('Font characters must be a nonempty string.');
   const chars=[...new Set([...characters,'?',' '])].sort((a,b)=>a.codePointAt(0)-b.codePointAt(0));
   if(kind==='font')for(const char of chars)if(char!==' '&&!FONT_GLYPHS[char])throw Error(`Unsupported font character: ${char}`);
-  const tones=['cream','muted','gold','ink'],width=kind==='font'?(compact?6:8):24,height=kind==='font'?(compact?10:12):24;
+  const tones=FONT_TONES,width=kind==='font'?(compact?6:8):24,height=kind==='font'?(compact?10:12):24;
   const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions();
   const maxCols=kind==='font'?32:8;
   const fittingCols=()=>Array.from({length:maxCols},(_,i)=>maxCols-i).find(n=>entries.length%n===0);
