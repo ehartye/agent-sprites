@@ -17,6 +17,12 @@ Idle aliases remain `front`, `right`, `back`, and `left`. Walk aliases use `<dir
 
 `native-mannequin.mjs` preserves every source front/right point. Left reflects right across the cell. Each rear frame shares the corresponding front silhouette and ground, replaces facial colors with skin, and moves rear skull, neck, shoulder, arm and heel shading with the pose's bob. The original enlarged references stay outside this repository. See [reference-grid](../reference-grid/README.md) for reconstruction and tone normalization.
 
+## Character report and body sides
+
+Body, wardrobe, cast and pressure-suit builds publish `character-report.json` beside the sheet, plus `playback-runtime.mjs`, both listed in `sprite-manifest.json`. Wig overlays have no report. The report uses the 40×56 recipe's contract with native names: `kind: 'character'`, `system: 'native'`, `cellSize` 16×32, `ground: 29`, `aliases` (`{direction}` and `{direction}_walk_{frame}`), `directions` mapping the runtime's down/up to front/back, and per-frame `alias`, `direction`, `frame`, `sides`, `gear` and `bounds`.
+
+`sides.left` and `sides.right` give each anatomical side's `role` (near/far in profile, front/back otherwise) and its `shoulder`, `wrist` and `hip`. They come from the authored table in `joints.mjs` (eight source poses per body); left, back and the large body are derived from it, and clothing reads its exposed hand boxes from the same file. Use `attachmentFor(frame, side, joint, groundAnchor(report, frame), x, y, {scale})` to place one-sided items. Walking data is not published yet, so `createWalker` stops with "no locomotion data in this report".
+
 ## Dressed studies
 
 Read [clothing and hair rules](RULES.md) before adding presets. Four examples combine adult/child anatomy with a short-haired jacket/trousers outfit or tied hair and a green dress. Every idle and walking frame has clothing fitted to that pose, including moving sleeves, visible hands, skirt sway, trousers, and shoes.

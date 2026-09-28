@@ -74,11 +74,14 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
   const frames = new Map();
   for (const report of [].concat(reports)) for (const frame of report.frames) frames.set(frame.alias, frame);
   const aliases = [].concat(reports).find(r => r.aliases)?.aliases ?? DEFAULT_ALIASES;
-  const name = (mode, direction, frame) => fill(aliases[mode], { person, outfit, direction, frame });
+  // Reports may name facings their own way (native sheets say front/back for down/up).
+  const directions = [].concat(reports).find(r => r.directions)?.directions ?? {};
+  const name = (mode, direction, frame) => fill(aliases[mode], { person, outfit, direction: directions[direction] ?? direction, frame });
   let distance = 0;
   const gait = f => {
     const frame = frames.get(name('walk', f, 0));
     if (!frame) throw new Error(`no walk frames ${name('walk', f, '*')}: include a walk-mode report for ${f}`);
+    if (!frame.locomotion) throw new Error('no locomotion data in this report');
     return frame.locomotion;
   };
   return {
