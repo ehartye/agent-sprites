@@ -121,7 +121,7 @@ sprite.js draw ellipse --cell 0,0 --cx 10 --cy 32 --rx 24 --ry 24 \
 
 The ellipse's outline would normally extend from x=−14 to x=34, but only the pixels falling inside `body` become permanent points. Result: a curved stripe that hugs the body's surface and disappears at its edges.
 
-Limitations: the clip source must be an unfilled outline (`--filled false` on ellipse or circle). Masks can be circle, ellipse, or rect; `arc`, `ring` and `border` also accept `--clip-to`.
+Limitations: the clip source must be an unfilled outline (`--filled false` on ellipse or circle). Masks can be circle, ellipse, rect or polygon (by rendered filled area); `arc`, `ring` and `border` also accept `--clip-to`.
 
 ## Copy / Clone Patterns
 

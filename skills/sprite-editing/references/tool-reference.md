@@ -59,7 +59,7 @@ sprite.js draw ellipse --cell 0,0 --cx 8 --cy 32 --rx 20 --ry 16 \
                        --name arc --clip-to ball
 ```
 
-Masks: `circle`, `ellipse` or `rect`, by filled area. Clipping applies to unfilled circle/ellipse outlines, `arc`, `ring` and `border`; other draw types ignore `--clip-to`.
+Masks: `circle`, `ellipse`, `rect` or `polygon`, by the filled area the export renders. Clipping applies to unfilled circle/ellipse outlines, `arc`, `ring` and `border`; other draw types ignore `--clip-to`.
 
 Colors: hex string like `"#ff0000"` or palette color name.
 

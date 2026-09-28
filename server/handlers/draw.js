@@ -1,4 +1,5 @@
 import { patternTest } from '../engine/patterns.js';
+import { snapParams, rasterShape } from '../web/public/js/shared/raster.js';
 import { CanvasRenderer } from '../engine/canvas-renderer.js';
 
 /**
@@ -203,7 +204,8 @@ function handleHighlightShadow(state, type, params) {
   delete targetShape.__overrideSpanDeg;
   // Lighting effects should be contained within the bounds of the shape they
   // light. Drop any pixel that falls outside the renderable target area.
-  const pixels = rawPixels.filter(pt => isRenderablyInsideShape(targetShape, pt.x, pt.y));
+  const inside = areaOf(targetShape);
+  const pixels = rawPixels.filter(pt => inside.has(`${pt.x},${pt.y}`));
 
   const baseName = params.shape_name ?? `${params.shape}_${type === 'highlight' ? 'hl' : 'sh'}`;
   const shapeNames = [];
@@ -242,7 +244,7 @@ function handleHighlightShadow(state, type, params) {
     const ditherPixels = ditherRaw.filter(pt =>
       (((pt.x + pt.y) % 2) + 2) % 2 === 0 &&
       !seen.has(`${pt.x},${pt.y}`) &&
-      isRenderablyInsideShape(targetShape, pt.x, pt.y));
+      inside.has(`${pt.x},${pt.y}`));
     for (let i = 0; i < ditherPixels.length; i++) {
       const name = `${baseName}_d_${i}`;
       const shape = cell.draw('point', { x: ditherPixels[i].x, y: ditherPixels[i].y }, newColor, name);
@@ -362,133 +364,26 @@ function sphereShadeCoverage(state, params, cell, target, intensity, light, base
   return derived.length ? { shapeNames, derived } : { shapeNames };
 }
 
-/**
- * Test whether (px, py) falls inside the *renderable* area of a shape — i.e.,
- * mathematically inside AND not at a cardinal extreme that the rasterizer's
- * tip-trim would skip. Used to keep auto-emitted lighting pixels inside the
- * actual silhouette (no orphan pixels past the trimmed edge).
- */
-function isRenderablyInsideShape(shape, px, py) {
-  if (!isInsideShape(shape, px, py)) return false;
-  const p = shape.params;
-  if (shape.type === 'circle') {
-    if (p.r >= 2 && px === p.cx && (py === p.cy - p.r || py === p.cy + p.r)) return false;
-    if (p.r >= 2 && py === p.cy && (px === p.cx - p.r || px === p.cx + p.r)) return false;
-  }
-  if (shape.type === 'ellipse') {
-    if (p.ry >= 2 && px === p.cx && (py === p.cy - p.ry || py === p.cy + p.ry)) return false;
-    if (p.rx >= 2 && py === p.cy && (px === p.cx - p.rx || px === p.cx + p.rx)) return false;
-  }
-  return true;
-}
-
-/**
- * Test whether (px, py) falls inside a mask shape's filled area.
- * Supports circle, ellipse, rect. Points/lines are treated as zero-area.
- */
-function isInsideShape(shape, px, py) {
-  const p = shape.params;
-  switch (shape.type) {
-    case 'circle': {
-      const dx = px - p.cx, dy = py - p.cy;
-      return dx * dx + dy * dy <= p.r * p.r;
-    }
-    case 'ellipse': {
-      const dx = (px - p.cx) / p.rx;
-      const dy = (py - p.cy) / p.ry;
-      return dx * dx + dy * dy <= 1;
-    }
-    case 'rect':
-      return px >= p.x && px < p.x + p.w && py >= p.y && py < p.y + p.h;
-    default:
-      return false;
-  }
-}
-
-/**
- * Rasterize any shape to a Set of "x,y" keys. Used by clip + border handlers.
- */
-function rasterizeShapeToSet(shape) {
+/** The exact pixels a shape renders, as "x,y" keys, from the shared rasterizer. */
+function coverageOf(shape) {
   const set = new Set();
-  const p = shape.params;
-  const add = (x, y) => set.add(`${x},${y}`);
-  switch (shape.type) {
-    case 'point':
-      add(p.x, p.y);
-      break;
-    case 'line': {
-      let x0 = p.x1, y0 = p.y1;
-      const x1 = p.x2, y1 = p.y2;
-      const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
-      const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-      let err = dx + dy;
-      while (true) {
-        add(x0, y0);
-        if (x0 === x1 && y0 === y1) break;
-        const e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x0 += sx; }
-        if (e2 <= dx) { err += dx; y0 += sy; }
-      }
-      break;
-    }
-    case 'rect': {
-      const x0 = p.x, y0 = p.y, w = p.w, h = p.h;
-      if (p.filled === false) {
-        for (let x = x0; x < x0 + w; x++) { add(x, y0); add(x, y0 + h - 1); }
-        for (let y = y0; y < y0 + h; y++) { add(x0, y); add(x0 + w - 1, y); }
-      } else {
-        for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) add(x, y);
-      }
-      break;
-    }
-    case 'circle':
-    case 'ellipse': {
-      const rx = shape.type === 'circle' ? p.r : p.rx;
-      const ry = shape.type === 'circle' ? p.r : p.ry;
-      if (p.filled === false) {
-        for (const pt of rasterizeEllipseOutline(p.cx, p.cy, rx, ry)) add(pt.x, pt.y);
-      } else {
-        const trimRow = ry >= 2;
-        const trimCol = rx >= 2;
-        const colHeight = new Array(2 * rx + 1).fill(0);
-        const rowWidth = new Array(2 * ry + 1).fill(0);
-        const inEllipse = (x, y) => (x * x) / (rx * rx) + (y * y) / (ry * ry) <= 1;
-        if (trimRow || trimCol) {
-          for (let yy = -ry; yy <= ry; yy++)
-            for (let xx = -rx; xx <= rx; xx++)
-              if (inEllipse(xx, yy)) { rowWidth[yy + ry]++; colHeight[xx + rx]++; }
-        }
-        for (let y = -ry; y <= ry; y++) {
-          for (let x = -rx; x <= rx; x++) {
-            if (!inEllipse(x, y)) continue;
-            if (trimRow && (y === -ry || y === ry) && rowWidth[y + ry] === 1) continue;
-            if (trimCol && (x === -rx || x === rx) && colHeight[x + rx] === 1) continue;
-            add(p.cx + x, p.cy + y);
-          }
-        }
-      }
-      break;
-    }
-  }
+  rasterShape(shape.type, snapParams(shape.params), {
+    px: (x, y) => set.add(`${x},${y}`),
+    rect: (x, y, w, h) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) set.add(`${i},${j}`); },
+  });
   return set;
 }
 
+const AREA_TYPES = new Set(['circle', 'ellipse', 'rect', 'polygon']);
+
 /**
- * Rasterize an ellipse outline (unfilled) into a deduped list of pixels.
- * Mirrors the renderer's parametric sweep so clip results match what's drawn.
+ * A shape's filled area as rendered, whatever its own filled flag: the mask for
+ * clip_to and the containment for highlights and shadows. Points, lines and
+ * polylines have no area.
  */
-function rasterizeEllipseOutline(cx, cy, rx, ry) {
-  const steps = Math.max(rx, ry) * 4;
-  const drawn = new Set();
-  const pixels = [];
-  for (let i = 0; i < steps; i++) {
-    const a = (2 * Math.PI * i) / steps;
-    const px = Math.round(cx + rx * Math.cos(a));
-    const py = Math.round(cy + ry * Math.sin(a));
-    const key = `${px},${py}`;
-    if (!drawn.has(key)) { drawn.add(key); pixels.push({ x: px, y: py }); }
-  }
-  return pixels;
+function areaOf(shape) {
+  if (!AREA_TYPES.has(shape.type)) return new Set();
+  return coverageOf({ type: shape.type, params: { ...shape.params, filled: true, pattern: undefined } });
 }
 
 /**
@@ -579,7 +474,8 @@ function handleArc(state, params, cell, width = 1) {
   if (params.clip_to) {
     const mask = cell.shapes.get(params.clip_to);
     if (!mask) throw new Error(`Clip-to shape "${params.clip_to}" not found`);
-    filtered = pixels.filter(pt => isInsideShape(mask, pt.x, pt.y));
+    const inside = areaOf(mask);
+    filtered = pixels.filter(pt => inside.has(`${pt.x},${pt.y}`));
   }
   return emitPoints(state, params, cell, filtered, params.shape_name ?? 'arc');
 }
@@ -595,12 +491,14 @@ function handleClippedEllipse(state, params, cell) {
   if (!mask) throw new Error(`Clip-to shape "${params.clip_to}" not found`);
   const rx = params.rx, ry = params.ry, cx = params.cx, cy = params.cy;
   if (rx <= 0 || ry <= 0) throw new Error('Ellipse needs positive rx/ry');
-  const pixels = rasterizeEllipseOutline(cx, cy, rx, ry);
+  const outline = params.type === 'circle' ? { type: 'circle', params: { cx, cy, r: rx, filled: false } } : { type: 'ellipse', params: { cx, cy, rx, ry, filled: false } };
+  const pixels = [...coverageOf(outline)].map(k => { const [x, y] = k.split(',').map(Number); return { x, y }; });
+  const inside = areaOf(mask);
   const baseName = params.shape_name ?? `clipped`;
   const shapeNames = [];
   let emitted = 0;
   for (const pt of pixels) {
-    if (!isInsideShape(mask, pt.x, pt.y)) continue;
+    if (!inside.has(`${pt.x},${pt.y}`)) continue;
     const name = `${baseName}_${emitted++}`;
     const shape = cell.draw('point', { x: pt.x, y: pt.y }, params.color, name);
     state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
@@ -631,10 +529,11 @@ function handleBorder(state, params, cell) {
 
   const mask = params.clip_to ? cell.shapes.get(params.clip_to) : null;
   if (params.clip_to && !mask) throw new Error(`Clip-to shape "${params.clip_to}" not found`);
+  const inside = mask ? areaOf(mask) : null;
 
   const occupied = new Set();
   for (const s of sources) {
-    for (const k of rasterizeShapeToSet(s)) occupied.add(k);
+    for (const k of coverageOf(s)) occupied.add(k);
   }
 
   const dilated = new Set();
@@ -654,7 +553,7 @@ function handleBorder(state, params, cell) {
   for (const k of dilated) {
     const [xs, ys] = k.split(',');
     const x = Number(xs), y = Number(ys);
-    if (mask && !isInsideShape(mask, x, y)) continue;
+    if (inside && !inside.has(k)) continue;
     const name = `${baseName}_${emitted++}`;
     const shape = cell.draw('point', { x, y }, params.color, name);
     state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
@@ -794,7 +693,7 @@ function _handleDrawInner(state, type, params) {
     const r = params.r;
     const rx = type === 'circle' ? r : params.rx;
     const ry = type === 'circle' ? r : params.ry;
-    return handleClippedEllipse(state, { ...params, rx, ry }, cell);
+    return handleClippedEllipse(state, { ...params, type, rx, ry }, cell);
   }
 
   const pattern = patternParams(type, params);
