@@ -1,16 +1,22 @@
-import {broadenMannequin,cutOutlineCorners} from './large-mannequin.mjs';
+import {broadenMannequin} from './large-mannequin.mjs';
+import {cutOutlineCorners} from '../../server/engine/outline-corners.js';
 import {SKIN_TONES} from '../../server/engine/skin-tones.js';
 import {readFileSync} from 'node:fs';
 import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
 
 export const DIRECTIONS=['front','right','back','left'];
 
+// Every mannequin ends with outside outline corners cut to diagonals. The large
+// body broadens the uncut adult first, so the cut always runs on the final silhouette.
+export function nativeMannequin(kind='adult',tone='peach'){
+  const body=kind==='large'?broadenMannequin(sourceMannequin('adult',tone),tone,{bulk:2}):sourceMannequin(kind,tone);
+  return cutOutlineCorners(body,SKIN_TONES.find(t=>t.id===tone).colors.outline).ops;
+}
+
 // Source poses stay editable and unchanged. Left is a reflected profile; rear
 // uses the authored rear treatment on each front pose's moving silhouette.
-export function nativeMannequin(kind='adult',tone='peach'){
-  // Large: broad shoulders, neck and jaw (bulk 2), then outside outline corners cut to diagonals.
-  if(kind==='large')return cutOutlineCorners(broadenMannequin(nativeMannequin('adult',tone),tone,{bulk:2}),SKIN_TONES.find(t=>t.id===tone).colors.outline).ops;
-  if(!['adult','child'].includes(kind))throw Error('Choose adult or child.');
+export function sourceMannequin(kind='adult',tone='peach'){
+  if(!['adult','child'].includes(kind))throw Error('Choose adult, child or large.');
   const source=JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url)));
   const poses=Array.from({length:4},(_,phase)=>deriveBackStudy({...source,
     cells:{'0,0':source.cells[`0,${phase}`],'1,0':source.cells[`1,${phase}`]},

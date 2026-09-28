@@ -43,7 +43,7 @@ test('large arms contain two adjacent skin pixels inside their outline in every 
  }
 });
 
-import {cutOutlineCorners} from '../examples/native-character/large-mannequin.mjs';
+import {cutOutlineCorners} from '../server/engine/outline-corners.js';
 const OUTLINE='#673649';
 const cellsOf=ops=>{const m=new Map();for(const o of ops)if(o.command==='draw'){if(!m.has(o.cell))m.set(o.cell,new Map());m.get(o.cell).set(o.x+','+o.y,o);}return m;};
 const aliasOf=(ops,cell)=>ops.find(o=>o.command==='name'&&o.cell===cell).as;
