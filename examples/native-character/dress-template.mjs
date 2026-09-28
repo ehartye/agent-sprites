@@ -1,6 +1,7 @@
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {sourceMannequin,finishNative} from './native-mannequin.mjs';
+import {handBoxes} from './joints.mjs';
 
 // finish:false leaves the composite uncut for costumes, which add layers and cut once at the end.
 export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short', {finish=true}={}) {
@@ -26,9 +27,7 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     // Hand silhouettes follow the actual source stride, including the forward
     // and rear profile swings. Do not paint trousers over a low swinging hand.
     const neutral=phase%2===0;
-    let hands=kind==='adult'?(dir==='right'?(neutral?[[4,20,7,21],[10,21,11,22]]:phase===1?[[2,20,4,22],[11,20,13,22]]:[[2,21,4,23],[10,20,12,22]]):(neutral?[[2,20,4,23],[11,20,13,23]]:[[3,19,5,21],[10,21,12,23]])):
-      (dir==='right'?(neutral?[[4,24,7,25]]:phase===1?[[2,24,4,25],[11,23,12,24]]:[[3,24,5,25],[10,24,11,25]]):(neutral?[[1,23,4,25],[11,23,14,25]]:[[3,23,5,25],[9,24,11,25]]));
-    if(dir!=='right'&&phase===3)hands=hands.map(([l,t,r,b])=>[15-r,t,15-l,b]);
+    const hands=handBoxes(kind,dir,phase);
     const isHand=(x,y)=>hands.some(([l,t,r,b])=>x>=l&&x<=r&&y>=t&&y<=b);
     const skinOutline=new Set(ops.filter(op=>op.command==='shape-group'&&op.cell===cell&&op.name==='skin-outline').flatMap(op=>op.shapes));
     const occupied=new Set(base.map(p=>`${p.x},${p.y}`));
