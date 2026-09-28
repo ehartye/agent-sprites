@@ -436,7 +436,6 @@ async function run() {
         cols: num(args.cols), palette: args.palette,
         cwd: process.cwd(),
         dest: args.dest ? resolve(args.dest) : undefined,
-        trim: args.trim !== undefined ? bool(args.trim) : undefined,
       });
       break;
     }
@@ -487,6 +486,7 @@ async function run() {
     case 'export':
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
+        trim: args.trim !== undefined ? bool(args.trim) : undefined,
       });
       break;
     case 'skin-tone':

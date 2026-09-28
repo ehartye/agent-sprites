@@ -37,6 +37,8 @@ If you discover something drawn too low in z, you have two options:
 
 The CLI has no `set-z` command; use draw-order discipline.
 
+**Erase shapes obey the same order.** `--erase true` on a point, line, rect, circle, ellipse, polygon or polyline clears every shape *below* it in its cell (a mouth wedge, a hollow tile), and shapes drawn *after* it paint over the hole. Draw the eraser right after the shapes it should cut and before anything that must stay whole. It never erases the background, and it cannot be combined with `--clip-to`.
+
 ## Naming Convention
 
 Every shape that might be referenced later should have `--name`. Points that are just decoration can skip naming.

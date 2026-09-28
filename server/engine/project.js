@@ -3,6 +3,9 @@ import { Palette } from './palette.js';
 import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 
+/** Tag playback directions this tool produces; the verifier also accepts Aseprite's pingpong_reverse. */
+export const TAG_DIRECTIONS = ['forward', 'reverse', 'pingpong'];
+
 export class Project {
   constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review }) {
     this.name = name;
@@ -62,6 +65,9 @@ export class Project {
   }
 
   static fromJSON(data) {
+    for (const [name, direction] of Object.entries(data.animationDirections ?? {})) {
+      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse or pingpong`);
+    }
     const w = data.cellWidth ?? data.cellSize;
     const h = data.cellHeight ?? data.cellSize ?? w;
     return new Project({

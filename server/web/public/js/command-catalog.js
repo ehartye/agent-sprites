@@ -4,7 +4,9 @@ const post = (id, category, label, path, body, description = '') => ({ id, categ
 const get = (id, category, label, path, query = {}) => ({ id, category, label, method: 'GET', path, body: query });
 const cell = '0,0';
 const shape = 'body';
-const draw = (type, label, params) => post(`draw ${type}`, 'Draw', label, '/api/draw', { type, cell, shape_name: type, color: '#ffccaa', ...params });
+const draw = (type, label, params, description = '') => post(`draw ${type}`, 'Draw', label, '/api/draw', { type, cell, shape_name: type, color: '#ffccaa', ...params }, description);
+const ERASE_NOTE = 'Add "erase": true to cut a hole through the shapes below it instead of painting.';
+const WIDTH_NOTE = 'Add "width": 2–4 for a thicker brush stroke (emitted as named points).';
 export const COMMANDS = [
   post('new', 'Session', 'New design', '/api/session/new', { name: 'New design', width: 32, height: 48, rows: 1, cols: 4, palette: 'db-32' }),
   post('open', 'Session', 'Open project on disk', '/api/session/open', { path: '' }),
@@ -13,21 +15,21 @@ export const COMMANDS = [
   get('sessions', 'Session', 'List sessions', '/api/session/list'),
   get('status', 'Session', 'Current session', '/api/session/status'),
   post('save', 'Session', 'Save project on disk', '/api/session/save', {}),
-  post('export', 'Session', 'Export PNG and atlas on disk', '/api/session/export', {}, 'Uses this session’s export folder. Add a dest field in JSON for another folder.'),
+  post('export', 'Session', 'Export PNG and atlas on disk', '/api/session/export', {}, 'Uses this session’s export folder. Add a dest field in JSON for another folder, or "trim": true for a trimmed atlas.'),
   post('pivot', 'Session', 'Set sprite pivot', '/api/session/pivot', { anchor: 'bottom-center' }),
   post('skin-tone', 'Character', 'Apply skin tone', '/api/workbench/skin-tone', { tone: 'peach' }, 'Applies to every pose with skin role groups. Choose rose, peach, apricot, terracotta, umber, plum or espresso.'),
-  draw('point', 'Point', { x: 8, y: 8 }),
-  draw('line', 'Line', { x1: 4, y1: 4, x2: 12, y2: 12 }),
-  draw('rect', 'Rectangle', { x: 4, y: 4, w: 8, h: 8, filled: true }),
-  draw('circle', 'Circle', { cx: 8, cy: 8, r: 4, filled: true }),
-  draw('ellipse', 'Ellipse', { cx: 8, cy: 8, rx: 4, ry: 6, filled: true }),
+  draw('point', 'Point', { x: 8, y: 8 }, ERASE_NOTE),
+  draw('line', 'Line', { x1: 4, y1: 4, x2: 12, y2: 12 }, `${WIDTH_NOTE} ${ERASE_NOTE}`),
+  draw('rect', 'Rectangle', { x: 4, y: 4, w: 8, h: 8, filled: true }, ERASE_NOTE),
+  draw('circle', 'Circle', { cx: 8, cy: 8, r: 4, filled: true }, ERASE_NOTE),
+  draw('ellipse', 'Ellipse', { cx: 8, cy: 8, rx: 4, ry: 6, filled: true }, ERASE_NOTE),
   draw('fill', 'Flood fill', { x: 8, y: 8 }),
-  draw('polygon', 'Polygon', { points: [{ x: 4, y: 4 }, { x: 12, y: 4 }, { x: 8, y: 12 }], filled: true }),
-  draw('polyline', 'Open polyline', { points: [{ x: 4, y: 4 }, { x: 12, y: 4 }, { x: 8, y: 12 }] }),
+  draw('polygon', 'Polygon', { points: [{ x: 4, y: 4 }, { x: 12, y: 4 }, { x: 8, y: 12 }], filled: true }, ERASE_NOTE),
+  draw('polyline', 'Open polyline', { points: [{ x: 4, y: 4 }, { x: 12, y: 4 }, { x: 8, y: 12 }] }, `${WIDTH_NOTE} ${ERASE_NOTE}`),
   draw('highlight', 'Highlight', { shape, direction: 'top-left', strength: 1 }),
   draw('shadow', 'Shadow', { shape, direction: 'bottom-right', strength: 1 }),
-  draw('sphere-shade', 'Sphere shading', { shape, intensity: 'auto' }),
-  draw('arc', 'Arc', { cx: 8, cy: 8, r: 5, from_deg: 180, to_deg: 360 }),
+  draw('sphere-shade', 'Sphere shading', { shape, intensity: 'auto' }, 'Add "coverage": true to paint whole crescents on small forms (radius 4–7).'),
+  draw('arc', 'Arc', { cx: 8, cy: 8, r: 5, from_deg: 180, to_deg: 360 }, WIDTH_NOTE),
   draw('ring', 'Ring outline', { shape }),
   draw('border', 'Continuous border', { shapes: [shape] }),
   post('draw dither', 'Draw', 'Dither fill', '/api/draw', { type: 'rect', cell, x: 4, y: 4, w: 8, h: 8, filled: true, color: '#ffccaa', color2: '#d9a066', pattern: 'checker' }),
@@ -54,13 +56,14 @@ export const COMMANDS = [
   post('ref clear', 'Cells', 'Remove tracing reference', '/api/cell/reference', { cell, path: null }),
   post('view', 'Cells', 'Render cell on disk', '/api/cell/view', { cell, format: 'png', scale: 4 }),
   post('view sheet', 'Cells', 'Render sheet on disk', '/api/view/sheet', { scale: 1 }),
+  post('view stack', 'Cells', 'Render cells stacked as layers', '/api/view/stack', { cells: [cell, '0,1'], scale: 4 }, 'Cell names or R,C, first at the bottom.'),
   post('undo', 'Cells', 'Undo cell edit', '/api/cell/undo', { cell }),
   post('redo', 'Cells', 'Redo cell edit', '/api/cell/redo', { cell }),
   post('tween', 'Animation', 'Tween a shape across frames', '/api/shape/tween', { group: 'idle', shape, to: { x: 8, y: 10 }, ease: 'in-out' }),
-  ...['create','add','remove','delete','fps','list'].map(sub => sub === 'list'
+  ...['create','add','remove','delete','fps','direction','list'].map(sub => sub === 'list'
     ? get('group list', 'Animation', 'List animation groups', '/api/group/cell/list')
     : post(`group ${sub}`, 'Animation', `${sub[0].toUpperCase() + sub.slice(1)} animation group`, `/api/group/cell/${sub}`, {
-      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}),
+      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}), ...(sub === 'direction' ? { direction: 'pingpong' } : {}),
     })),
   ...['create','add','remove','delete','list'].map(sub => sub === 'list'
     ? get('shape-group list', 'Groups', 'List shape groups', '/api/group/shape/list', { cell })

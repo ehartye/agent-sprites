@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import { saveDraft } from '../http.js';
 import { GroupManager } from '../../engine/group-manager.js';
+import { TAG_DIRECTIONS as DIRECTIONS } from '../../engine/project.js';
 
 // Rebuild state.project.groups from SQLite and notify the browser.
 function syncCellGroups(state) {
   const groups = state.db.getCellGroups(state.sessionId);
   state.project.groups = GroupManager.fromJSON(groups);
+  // The editor preview reads timing and direction from the live project.
+  // Optional calls, as in handlers/view.js: several CLI test doubles predate these methods.
+  state.project.animationFps = state.db.getCellGroupFps?.(state.sessionId) ?? state.project.animationFps;
+  state.project.animationDirections = state.db.getCellGroupDirections?.(state.sessionId) ?? state.project.animationDirections;
   state.broadcast?.({ type: 'group_created' }); // triggers get_project resync in UI
 }
 
@@ -15,7 +20,6 @@ function requireGroupInCell(state, name, cell) {
   return cell;
 }
 
-const DIRECTIONS = ['forward', 'reverse', 'pingpong'];
 const DIRECTION_ERROR = 'direction must be forward, reverse or pingpong';
 
 export function groupRoutes(state) {
@@ -41,6 +45,7 @@ export function groupRoutes(state) {
       if (!(name in groups)) return res.json({ ok: false, error: `Group "${name}" not found` });
       if (!Number.isFinite(fps) || fps <= 0) return res.json({ ok: false, error: 'fps must be a positive number' });
       state.db.setCellGroupFps(state.sessionId, name, fps);
+      syncCellGroups(state);
       res.json({ ok: true, data: `Group "${name}" fps set to ${fps}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -53,6 +58,7 @@ export function groupRoutes(state) {
       if (!(name in groups)) return res.json({ ok: false, error: `Group "${name}" not found` });
       if (!DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
       state.db.setCellGroupDirection(state.sessionId, name, direction);
+      syncCellGroups(state);
       res.json({ ok: true, data: `Group "${name}" direction set to ${direction}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });

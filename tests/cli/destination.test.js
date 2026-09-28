@@ -87,4 +87,16 @@ describe('CLI export destination control', () => {
     expect(fs.existsSync(join(oneOff, 'destproj.png'))).toBe(true);
     expect(fs.existsSync(join(oneOff, 'destproj.atlas.json'))).toBe(true);
   });
+
+  test('export --trim true reaches the export route from the CLI and from batch files', async () => {
+    const trimmed = join(tmpDest, 'trimmed');
+    await cli({}, 'export', '--dest', trimmed, '--trim', 'true');
+    const atlas = JSON.parse(fs.readFileSync(join(trimmed, 'destproj.atlas.json'), 'utf8'));
+    expect(atlas.frames[0]).toMatchObject({ trimmed: true, spriteSourceSize: { x: 1, y: 1, w: 1, h: 1 } });
+    const batched = join(tmpDest, 'batched');
+    const ops = join(tmpCwd, 'export-ops.json');
+    fs.writeFileSync(ops, JSON.stringify([{ command: 'export', dest: batched, trim: true }]));
+    await cli({}, 'batch', ops);
+    expect(JSON.parse(fs.readFileSync(join(batched, 'destproj.atlas.json'), 'utf8')).frames[0].trimmed).toBe(true);
+  });
 });

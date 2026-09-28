@@ -77,6 +77,8 @@ projects. The custom generator workflow below remains useful for other assets.
    For characters and furniture, draw at the report's ground with the published
    `playback-runtime.mjs` (`drawAtGround`, `createWalker`) instead of the cell bottom;
    see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). Keep the generated directory dedicated to build outputs.
+   A build with `trim: true` (or `export --trim true`) packs frames tightly: draw each at its
+   `spriteSourceSize.x/y` offset inside the cell (engines' Aseprite importers and `drawAtGround` do).
 
 Copy `<plugin-root>/examples/blink` into the game source tree for an ops-file
 example. See the [build config and ownership rules](../../README.md#build-a-repeatable-asset-project).

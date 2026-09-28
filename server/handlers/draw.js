@@ -750,6 +750,8 @@ function _handleDrawInner(state, type, params) {
     if (params.erase) {
       if (!ERASABLE.includes(type)) throw new Error(`erase applies to ${ERASABLE.slice(0, -1).join(', ')} and ${ERASABLE.at(-1)}, not ${type}`);
       if (params.pattern != null) throw new Error('erase shapes cannot use a pattern');
+      // The clip-to paths emit plain points and would paint the placeholder color.
+      if (params.clip_to != null) throw new Error('erase cannot be combined with clip-to');
       // Only coverage matters; the color is stored for the editor's shape list.
       params = { ...params, color: params.color ?? '#000000' };
     }
