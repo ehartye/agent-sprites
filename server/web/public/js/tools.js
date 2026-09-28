@@ -2,6 +2,7 @@
  * Drawing tool handlers — translates mouse events on the canvas into
  * WebSocket operations sent to the server.
  */
+import { snapParams, rasterShape } from './shared/raster.js';
 
 export const TOOLS = [
   { id: 'point',   label: 'Point',   icon: '.' },
@@ -15,60 +16,42 @@ export const TOOLS = [
   { id: 'select',  label: 'Select',  icon: '+' },
 ];
 
-/** Hit-test: find topmost shape at (x, y) by checking params. */
-function hitTestShapes(shapes, x, y) {
+/**
+ * How far (x, y) is from the pixels a shape paints, in Chebyshev pixels, capped
+ * at 2: 0 = on a painted pixel, 1 = beside one. Uses the shared shape rules, so
+ * selection follows exactly what the export draws. A flood fill is picked by its
+ * seed pixel.
+ */
+function hitDistance(shape, x, y) {
+  const p = snapParams(shape.params);
+  if (shape.type === 'fill') return Math.min(2, Math.max(Math.abs(p.x - x), Math.abs(p.y - y)));
+  let best = 2;
+  rasterShape(shape.type, p, {
+    px(px, py) { best = Math.min(best, Math.max(Math.abs(px - x), Math.abs(py - y))); },
+    rect(rx, ry, w, h) {
+      const dx = x < rx ? rx - x : x >= rx + w ? x - (rx + w - 1) : 0;
+      const dy = y < ry ? ry - y : y >= ry + h ? y - (ry + h - 1) : 0;
+      best = Math.min(best, Math.max(dx, dy));
+    },
+  });
+  return best;
+}
+
+/**
+ * Hit-test: the topmost shape that paints (x, y); failing that, the topmost one
+ * painting a pixel beside it, so thin strokes stay easy to click.
+ */
+export function hitTestShapes(shapes, x, y) {
   if (!shapes) return null;
   // Iterate in reverse z-order (topmost first)
-  const sorted = [...shapes].sort((a, b) => b.zIndex - a.zIndex);
+  const sorted = [...shapes].filter(s => s.visible !== false).sort((a, b) => b.zIndex - a.zIndex);
+  let near = null;
   for (const shape of sorted) {
-    if (!shape.visible) continue;
-    const p = shape.params;
-    switch (shape.type) {
-      case 'point':
-        if (p.x === x && p.y === y) return shape;
-        break;
-      case 'rect':
-        if (x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h) return shape;
-        break;
-      case 'circle': {
-        const dx = x - p.cx, dy = y - p.cy;
-        if (p.filled) {
-          if (dx * dx + dy * dy <= p.r * p.r) return shape;
-        } else {
-          const dist = Math.abs(Math.sqrt(dx * dx + dy * dy) - p.r);
-          if (dist < 1.5) return shape;
-        }
-        break;
-      }
-      case 'line': {
-        // Check distance from point to line segment
-        const lx = p.x2 - p.x1, ly = p.y2 - p.y1;
-        const len2 = lx * lx + ly * ly;
-        if (len2 === 0) { if (p.x1 === x && p.y1 === y) return shape; break; }
-        let t = ((x - p.x1) * lx + (y - p.y1) * ly) / len2;
-        t = Math.max(0, Math.min(1, t));
-        const px = p.x1 + t * lx, py = p.y1 + t * ly;
-        const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
-        if (dist < 1.5) return shape;
-        break;
-      }
-      case 'ellipse': {
-        const ex = x - p.cx, ey = y - p.cy;
-        if (p.filled) {
-          if ((ex * ex) / (p.rx * p.rx) + (ey * ey) / (p.ry * p.ry) <= 1) return shape;
-        } else {
-          const val = (ex * ex) / (p.rx * p.rx) + (ey * ey) / (p.ry * p.ry);
-          if (Math.abs(val - 1) < 0.3) return shape;
-        }
-        break;
-      }
-      case 'fill':
-        // Flood fills are hard to hit-test; treat as point at origin
-        if (p.x === x && p.y === y) return shape;
-        break;
-    }
+    const d = hitDistance(shape, x, y);
+    if (d === 0) return shape;
+    if (d === 1 && !near) near = shape;
   }
-  return null;
+  return near;
 }
 
 export class ToolManager {
