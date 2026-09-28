@@ -22,9 +22,10 @@ test('the native report matches the recipe contract with native names',()=>{
   }
 });
 
-test('runtime helpers work from a native report; the walker explains what is missing',()=>{
+test('runtime helpers work from a native report; the walker explains a report without walk data',()=>{
   const r=nativeReport(nativeMannequin('child'),'child'),f=r.frames.find(x=>x.alias==='right');
   expect(groundAnchor(r,f)).toEqual({x:8,y:29});
   expect(attachmentFor(f,'right','wrist',groundAnchor(r,f),100,200,{scale:2})).toMatchObject({role:'near',layer:'over-body'});
-  expect(()=>createWalker([r],{person:'',outfit:'',mode:'continuous-root',facing:'right'}).update(1,0)).toThrow(/no locomotion data in this report/);
+  const stripped={...r,frames:r.frames.map(({locomotion,...frame})=>frame)};
+  expect(()=>createWalker([stripped],{person:'',outfit:'',mode:'continuous-root',facing:'right'}).update(1,0)).toThrow(/no locomotion data in this report/);
 });

@@ -26,6 +26,14 @@ export const JOINTS = {
   },
 };
 
+/**
+ * Walk stride per frame, in source pixels. Measured from the art: the mean over the
+ * two stride frames of (front-foot centre − back-foot centre on row 29) ÷ 2, rounded
+ * to 0.5. The drawn walk is uneven, so a constant stride leaves about 1px of foot
+ * slide: reports mark contacts uncalibrated.
+ */
+export const STRIDE = { adult: 3.5, child: 2.5, large: 4 };
+
 /** Hand boxes that clothing leaves exposed. Moved verbatim from dress-template.mjs. */
 export function handBoxes(kind, dir, phase) {
   const neutral=phase%2===0;
