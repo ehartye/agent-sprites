@@ -60,8 +60,9 @@ Omit `save` when no project JSON should enter assets; drafts persist automatical
 A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Keep one
 build config per sheet and use the managed `sprite.js build <config> --json`.
 
-For human casts, expression sheets and fitted pressure suits, prefer the built-in
-[`character` recipe](../../examples/character-cast/README.md). It needs only JSON,
+For human casts start with the 16×32 native generators (primary; see
+[sprite character](../sprite-character/SKILL.md)); for expression sheets, nonhuman humanoids and fitted
+pressure suits use the built-in 40×56 [`character` recipe](../../examples/character-cast/README.md). It needs only JSON,
 exports ordinary editable shapes plus a joint report, and shares fixes across
 projects. The custom generator workflow below remains useful for other assets.
 
@@ -76,7 +77,8 @@ projects. The custom generator workflow below remains useful for other assets.
    `report`), resolved relative to the manifest; never derive paths from the recipe kind.
    For characters and furniture, draw at the report's ground with the published
    `playback-runtime.mjs` (`drawAtGround`, `createWalker`) instead of the cell bottom;
-   see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). Keep the generated directory dedicated to build outputs.
+   if you drive walks yourself, honor `frameDistances` when a gait has them (the frame is the first
+   whose running total exceeds `distance % cycleDistance`); see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). Keep the generated directory dedicated to build outputs.
    A build with `trim: true` (or `export --trim true`) packs frames tightly: draw each at its
    `spriteSourceSize.x/y` offset inside the cell (engines' Aseprite importers and `drawAtGround` do).
 

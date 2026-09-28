@@ -17,7 +17,7 @@ Discipline around draw order, naming, and grouping. Prevents the "my highlight d
 
 ## Z-Order Is Draw Order
 
-The tool assigns z-index in the order shapes are created. Later shapes render **on top**. There is no late-stage z reordering by name — order-of-creation is load-bearing.
+The tool assigns z-index in the order shapes are created. Later shapes render **on top**. The CLI has no z-reorder command (the web editor can step a shape up or down), so order-of-creation is load-bearing.
 
 ### Canonical bottom-up order
 
@@ -121,12 +121,12 @@ sprite.js draw ellipse --cell 0,0 --cx 10 --cy 32 --rx 24 --ry 24 \
 
 The ellipse's outline would normally extend from x=−14 to x=34, but only the pixels falling inside `body` become permanent points. Result: a curved stripe that hugs the body's surface and disappears at its edges.
 
-Limitations: the clip source must be an unfilled outline (`--filled false` on ellipse or circle). Masks can be circle, ellipse, or rect.
+Limitations: the clip source must be an unfilled outline (`--filled false` on ellipse or circle). Masks can be circle, ellipse, or rect; `arc`, `ring` and `border` also accept `--clip-to`.
 
 ## Copy / Clone Patterns
 
 - **`copy --from --to`** — deep-copies *all shapes* in a cell. Use when building animation frames from a base frame.
-- **`clone-cell --from R,C --to R1,C1 R2,C2 ...`** — atomic fan-out: copy one source cell into many destinations in a single call. Replaces the bash loop pattern for initializing a full animation strip from a base frame. Either all destinations succeed or nothing changes.
+- **`clone-cell --from R,C --to "R1,C1 R2,C2 ..."`** (quote the list) — atomic fan-out: copy one source cell into many destinations in a single call. Replaces the bash loop pattern for initializing a full animation strip from a base frame. Either all destinations succeed or nothing changes.
 - **`clone <name> --from --to [--as]`** — copies a *single named shape* across cells. Use when only one element moves across frames (e.g., eye blink — clone `eye_l` from "open" frame to "closed" frame, adjust).
 
 Rule of thumb: `clone-cell` first (seed every frame from the base), then `move-to` / `resize` per-frame. Only `clone` for single-shape changes on an otherwise-unchanged scene.

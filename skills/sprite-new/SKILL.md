@@ -13,7 +13,7 @@ Run:
 node "<plugin-root>/scripts/run-managed.js" new <name> --size <N|WxH> --rows <R> --cols <C> --palette <palette>
 ```
 
-Defaults: 16x16 cells, 4x4 grid, pico8 palette, name "untitled". Grid dimensions have no product policy caps. Use positive safe integers with exactly representable sheet arithmetic; actual memory and renderer allocation errors remain possible. Tall characters usually want `--size 16x24` or `--size 16x32`. Ramp-aware palettes (`pico8`, `db-16`, `db-32`) unlock the highlight/shadow/sphere-shade lighting tools.
+The name is required; defaults are 16x16 cells, a 4x4 grid and the pico8 palette. Grid dimensions have no product policy caps. Use positive safe integers with exactly representable sheet arithmetic; actual memory and renderer allocation errors remain possible. Tall characters usually want `--size 16x24` or `--size 16x32`. Ramp palettes (`pico8`, `gameboy`, `db-16`, `db-32`) keep the highlight/shadow/sphere-shade lighting tools inside the palette; other colors get HSL-derived steps.
 
 Afterward, tell the user the live web UI is at `http://localhost:3377` (or `$SPRITE_PORT` if set) and load the `sprite-editing` skill before drawing.
 

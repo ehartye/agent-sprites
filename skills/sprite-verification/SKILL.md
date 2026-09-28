@@ -24,7 +24,7 @@ does not need skin-tone detection or a walking gait. For CLI invocation use
 
 ## Verification ladder
 
-For a deliberately continuous outline (0.22.0+), add
+For a deliberately continuous outline, add
 `--outline-colors "#39283f,#573858"` to `verify`, or set
 `"outlineColors": ["#39283f", "#573858"]` in the build config. Every visible
 pixel touching transparency along a horizontal/vertical edge, including frame

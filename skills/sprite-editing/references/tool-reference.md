@@ -11,7 +11,7 @@ to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite d
 
 | Command | Flags | Notes |
 |---------|-------|-------|
-| `new <name>` | `--size 16 --rows 4 --cols 4 --palette pico8 [--dest <folder>]` | Create project. `--size` takes `16` (square) or `16x32` (width x height — tall character cells). Grid dimensions have no product policy caps; positive safe-integer dimensions and exactly representable sheet arithmetic are required. Actual memory and renderer allocation errors remain possible. Exports land under the **CLI's** working directory (`assets/claude-sprites/<name>/`) or under `--dest <parent>` if given. Palettes: `pico8`, `gameboy`, `nes`, `cga` |
+| `new <name>` | `--size 16 --rows 4 --cols 4 --palette pico8 [--dest <folder>]` | Create project. `--size` takes `16` (square) or `16x32` (width x height — tall character cells). Grid dimensions have no product policy caps; positive safe-integer dimensions and exactly representable sheet arithmetic are required. Actual memory and renderer allocation errors remain possible. Exports land under the **CLI's** working directory (`assets/claude-sprites/<name>/`) or under `--dest <parent>` if given. Palettes: `pico8`, `gameboy`, `nes`, `db-16`, `db-32` |
 | `open <path>` | | Open saved project file |
 | `open` | `--session <name\|id>` | Reopen an earlier project from its stored draft — no `save` needed. Cell groups come back with it |
 | `sessions` | | List recent projects (id, name, last updated) — the way back after `new` switches projects |
@@ -36,11 +36,15 @@ All draw commands: `draw <type> --cell <coord> --color <hex> [--name <shape_name
 | `fill` | `--x --y` | Flood-fills contiguous same-color region |
 | `polygon` | `--points "x,y x,y x,y ..." [--filled true]` | Closed polygon: Bresenham outline + scanline fill. First point is the move anchor. Best for angular shapes (swords, arrows, ships, terrain) |
 | `polyline` | `--points "x,y x,y ..." [--width 1-4]` | Open multi-segment stroke (no closing edge, never filled); `--width` as for `line` |
+| any + `--erase true` | geometry of point/line/rect/circle/ellipse/polygon/polyline | Named erase shape: clears the shapes below it to the background; color optional |
 | `highlight` | `--shape <target> [--direction <dir>] [--strength N] [--name <base>] [--count N --span-deg N --radius-factor F]` | Auto-places lighter pixels using palette ramp |
 | `shadow` | `--shape <target> [--direction <dir>] [--strength N] [--name <base>] [--count N --span-deg N --radius-factor F]` | Auto-places darker pixels using palette ramp |
 | `sphere-shade` | `--shape <target> [--direction <dir>] [--intensity low\|med\|high\|auto] [--coverage true] [--name <base>]` | Compound 2–5 tier lighting on a circle/ellipse in one call. `--coverage true` paints whole crescents for small forms (radius 4–7) |
 | `arc` | `--cx --cy (--r \| --rx --ry) --from-deg <A> --to-deg <B> --color <c> [--clip-to <mask>] [--width 1-4] [--name <base>]` | Partial ellipse outline (CW, y-down: 0=east, 90=south); `--width` stamps a square brush |
 | `ring` | `--shape <target> --color <c> [--clip-to <mask>] [--name <base>]` | Single-target 4-neighbor halo (sugar over `border`) |
+| `border` | `(--shapes a,b,... \| --shape-prefix <prefix>) --color <c> [--clip-to <mask>] [--name <base>]` | 4-neighbor halo around several shapes at once, emitted as named points `<base>_<i>` |
+
+Any draw also accepts `--group <shape-group>` (adds the emitted shape names to that shape group in the cell) and `--cell-group <name>` (enrolls the cell in that cell group, creating it if needed).
 
 ### Clipping (masking pixels to another shape)
 
@@ -55,7 +59,7 @@ sprite.js draw ellipse --cell 0,0 --cx 8 --cy 32 --rx 20 --ry 16 \
                        --name arc --clip-to ball
 ```
 
-Supported mask shape types: `circle`, `ellipse`, `rect`. Currently applies only to unfilled ellipse/circle outlines; other source shapes don't yet clip.
+Masks: `circle`, `ellipse` or `rect`, by filled area. Clipping applies to unfilled circle/ellipse outlines, `arc`, `ring` and `border`; other draw types ignore `--clip-to`.
 
 Colors: hex string like `"#ff0000"` or palette color name.
 
@@ -83,7 +87,7 @@ Batch ops take the same keys: `"pattern": "checker", "color2": "#..."`. A patter
 
 Prefer these over hand-placed points for lighting. They:
 - Look up the named target shape (rect/circle/ellipse — not point/line).
-- Resolve a lighter (`highlight`) or darker (`shadow`) color from the palette's color ramp. Ramp-aware palettes: `pico8`, `db-16`, `db-32`. Target color must exist in a ramp.
+- Resolve a lighter (`highlight`) or darker (`shadow`) color from the palette's color ramp. Ramp palettes: `pico8`, `gameboy`, `db-16`, `db-32`. A color with no ramp entry gets an HSL-derived step, listed under `derived`; only a named color that is neither in a ramp nor hex is an error.
 - For **circles/ellipses**, sample pixels along a curved arc centered on the direction, placed *inside* the shape — this follows the form like proper sphere shading and avoids "pillow shading" (tracing the outline).
 - For **rects**, place pixels along the bbox edge (straight runs are correct for flat-sided shapes).
 
@@ -138,7 +142,7 @@ sprite.js resize ball --cell 0,1 --updates '{"rx":4,"ry":5}'   # stretch mid-air
 
 | Command | Positional | Flags | Notes |
 |---------|-----------|-------|-------|
-| `shapes` | | `--cell` | List shapes z-ordered (id, name, type, color) |
+| `shapes` | | `--cell` | List shapes z-ordered (name or id, type, z, color) |
 | `move <name>` | shape name | `--cell --dx --dy` | Relative pixel offset |
 | `move-to <name>` | shape name | `--cell --x --y` | Absolute position (anchor-dependent) |
 | `resize <name>` | shape name | `--cell --updates '{"w":10}'` | Merge param updates |
@@ -199,7 +203,6 @@ Cell groups organize frames into animation sequences (stored in SQLite).
 |---------|-----------|-------|
 | `group create <name> <cells...>` | group name + cell coords | Create group with cells. `--fps N` sets playback speed (exported as atlas frame durations; default 8) |
 | `group fps <name> <N>` | group name + fps | Set/change a group's fps |
-| `draw <type> ... --erase true` | geometry of point/line/rect/circle/ellipse/polygon/polyline | Named erase shape: clears the shapes below it to the background; color optional |
 | `group direction <name> <dir>` | group name + `forward`/`reverse`/`pingpong` | Set the exported Aseprite tag direction (also `group create --direction`; default `forward`) |
 | `group list` | | List all cell groups |
 | `group add <name> <cells...>` | group name + cell coords | Add cells to existing group |
@@ -222,11 +225,11 @@ Shape groups let you move or recolor multiple shapes within a cell at once (stor
 
 Use `--all-cells true` to apply the operation across every cell that contains the named shape group.
 
-**Palette-swap recipe (recolored variants of one character):** shape groups do **not** travel with `clone-cell`/`copy` — they are per-cell records. Draw the character once, `clone-cell` fan-out to the variant cells, then create the group in every cell at once with the pattern form and recolor per variant cell:
+**Palette-swap recipe (recolored variants of one character):** shape groups travel with `clone-cell`/`copy`. Draw the character once, group its recolorable shapes, `clone-cell` fan-out to the variant cells, and recolor per variant cell (the `--all-cells --pattern` form groups cells cloned before the group existed):
 
 ```
+sprite.js shape-group create suit head body skirt --cell 0,0
 sprite.js clone-cell --from 0,0 --to "1,0 2,0 3,0"
-sprite.js shape-group create suit --all-cells true --pattern "^(head|body|skirt)$"
 sprite.js recolor-group suit --cell 1,0 --color "#ff77a8"   # pinky
 sprite.js recolor-group suit --cell 2,0 --color "#29adff"   # inky
 sprite.js recolor-group suit --cell 3,0 --color "#ffa300"   # clyde
@@ -268,6 +271,7 @@ sprite.js batch ops.json [--vars-file frames.json | --vars k=v,k=v] [--continue-
 - `ops.json` — array of objects with top-level command parameters, e.g.
   `{"command":"draw","type":"rect","cell":"0,0","x":3,"y":3,"w":10,"h":10,"color":"#c2c3c7","name":"body"}`.
   Do not nest parameters under `args`. String values may contain `{{var}}` placeholders.
+  Key names: shape edits (`move`, `move-to`, `resize`, `recolor`, `delete`, `flip`, `rotate`, `duplicate`, `tween`) name their target with `"shape"`; `draw` uses `"name"`; the cell `name` command uses `"as"`; `rename` takes `"shape_id"` and `"name"`; `group`, `shape-group` and `ref` need a `"sub"` (`create`, `add`, ...).
 - **A complete asset build fits in one file**: `new` (incl. `"WxH"` size and `dest`), `clear`, all `draw` types, shape edits, `clone-cell`, `copy`, `mirror`/`rotate-cell`/`flip`/`rotate`, `tween` (`to` as `"X,Y"` or `{x,y}`), `group` (incl. `create` with `fps` and the `fps` sub-command), `shape-group` create/add/remove/delete, `move-group`/`recolor-group`, `pivot`, `ref` set/clear, `save`, `export` (with optional `dest`). Not batchable: `view`/`view-anim` (interactive output).
 - **Lead scene builds with `{"command": "clear", "cell": ...}`** — the ops file becomes idempotent: iterate by editing the generator and re-running the same batch.
 - `--vars-file frames.json` — JSON array of per-iteration variable dicts. The whole op list replays once per dict.

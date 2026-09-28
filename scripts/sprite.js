@@ -211,7 +211,7 @@ function describeBatchCommand(cmd) {
 const HELP_TEXT = `sprite — CLI for agent-sprites (server at ${BASE_URL})
 
 SESSION
-  new <name> [--size N | --size WxH] [--rows N --cols N --palette pico8|gameboy|nes|cga|db-16|db-32]
+  new <name> [--size N | --size WxH] [--rows N --cols N --palette pico8|gameboy|nes|db-16|db-32]
              positive safe-integer dimensions; no grid policy caps (actual allocation depends on memory/renderer)
              [--dest <folder>]   parent folder for exports (default: <cwd>/assets/claude-sprites)
   open <path>            open saved project file
@@ -265,6 +265,9 @@ DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
     partial ellipse outline (CW, y-down: 0=east, 90=south). emits one point shape per pixel.
   draw ring    --shape <target> --color [--clip-to <mask>] [--name <base>]
     single-target sugar over border — 4-neighbor halo around the target shape.
+  draw border  (--shapes a,b | --shape-prefix <p>) --color [--clip-to <mask>] [--name <base>]
+    4-neighbor halo around several shapes. Any draw also takes --group <shape-group>
+    (adds emitted names) and --cell-group <name> (enrolls the cell).
 
 SHAPES
   shapes      --cell                                list shapes z-ordered

@@ -13,7 +13,7 @@ checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
 CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md);
 load that setup before running commands and stop on command failure.
 
-Pick the palette and base colors before drawing. Wrong palette → `draw highlight` / `draw shadow` errors or produces mud.
+Pick the palette and base colors before drawing. Wrong palette → `draw highlight` / `draw shadow` derive off-palette tones or produce mud.
 
 ## Ramp-Aware vs Flat Palettes
 
@@ -24,11 +24,10 @@ The lighting tools (`draw highlight`, `draw shadow`) look up a lighter/darker ne
 | `pico8` | 16 | ✅ | General-purpose, punchy retro colors |
 | `db-16` | 16 | ✅ | Richer earthy/muted 16-color set |
 | `db-32` | 32 | ✅ | Larger color space, deeper ramps (best for 32px+ sprites) |
-| `gameboy` | 4 | ❌ | Flat 4-shade green/monochrome — hand-shade only |
-| `nes` | — | ❌ | Authentic NES feel — hand-shade only |
-| `cga` | — | ❌ | Retro DOS — hand-shade only |
+| `gameboy` | 4 | ✅ | 4-step green ramp (ends clamp); auto tools give one or two visible steps |
+| `nes` | — | ❌ | Authentic NES feel — auto tools derive HSL steps; hand-shade for exact NES colors |
 
-Use `pico8` / `db-16` / `db-32` when using automatic lighting operations. Custom
+Use `pico8` / `gameboy` / `db-16` / `db-32` when you want automatic lighting to stay inside the palette. Custom
 hex ramps with explicitly drawn shadow/highlight shapes also support shaded art;
 they do not need engine changes. This is often the better fit for small RPG
 characters: see [sprite character](../sprite-character/SKILL.md).
@@ -54,7 +53,7 @@ Pick base colors that sit in the **middle of a ramp chain**, not at an end.
 ### Anti-candidates (ramp dead-ends)
 
 - `black`, `white`, `valhalla` — lighter/darker step stays at itself; can't highlight/shadow meaningfully.
-- Any color flagged as a single-step in the ramp map (rare; `draw` will error if so).
+- Any color whose ramp step is itself (the ramp clamps; the tool paints no visible change).
 
 ## Picking a Palette by Task
 
@@ -87,7 +86,7 @@ tone by darkening the entire character or replacing all colors in one group.
 
 ## Common Mistakes
 
-- **Starting with the wrong palette** — drew everything in `gameboy` then asked why `draw shadow` errors. Switch palettes **before** drawing, or prepare to hand-shade.
+- **Starting with the wrong palette** — drew everything in `nes` or custom hex, then got HSL-derived shadows that sit outside the palette. Switch palettes **before** drawing, or hand-shade with chosen colors.
 - **Using a ramp endpoint as base** — `black` as a ball color leaves nowhere to go darker. Pick a mid-ramp color.
 - **Ignoring temperature shifts in ramps** — db-32 ramps aren't pure value shifts; blue → cornflower → viking drifts toward cyan. Usually this reads as cool light. For warm light, pick a ramp that drifts toward yellow/orange (e.g. `rope → tahiti-gold → twine`).
 

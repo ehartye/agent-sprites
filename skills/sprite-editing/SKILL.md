@@ -27,7 +27,7 @@ sprite.js new myproject --size 16 --rows 4 --cols 4 --palette pico8
 
 - Default: 16x16 cells, 4x4 grid, pico8 palette
 - Non-square cells: `--size 16x32` (width x height) — the usual shape for tall characters
-- Built-in palettes: `pico8`, `gameboy`, `nes`, `cga`
+- Built-in palettes: `pico8`, `gameboy`, `nes`, `db-16`, `db-32`
 - Name cells immediately: `sprite.js name --cell 0,0 --as idle_1`
 - Check project state: `sprite.js status`
 - `new --dest <parent>` stores the destination as `<parent>/<name>`;
@@ -52,8 +52,8 @@ See [trace limits and alpha behavior](../../README.md#trace-a-reference-into-edi
 
 For a repeatable asset build, use `sprite.js build sprite-project.json --json`.
 Copy `<plugin-root>/examples/blink` into the user's project as a starting point;
-never generate build outputs in the plugin cache. The config selects an `ops` file
-or Node `generator`, an explicit `output`, and `expectedTags`. Build isolates state
+never generate build outputs in the plugin cache. The config selects an `ops` file,
+a Node `generator` or an inline `character`, `environment` or `ui` recipe, an explicit `output`, and `expectedTags`. Build isolates state
 from live editing, verifies before publishing, and emits PNG, atlas, editable
 project, contact sheet and self-contained preview. Inspect both contact sheet and
 animation before integration. See the [build config](../../README.md#build-a-repeatable-asset-project).
@@ -96,7 +96,7 @@ To cut a hole or notch, draw the cutting shape with `--erase true` (point, line,
 
 For brush strokes 2–4px thick, add `--width 2`–`4` to `line`, `polyline` or `arc`. A square brush is stamped along the 1px path (odd widths centered, even widths extend toward +x/+y) and emitted as named points `<name>_<i>`, so a wide stroke no longer moves as one shape. Width 1, the default, is unchanged.
 
-Use `sprite.js view --cell 0,0` or check the web UI frequently to verify your work.
+Use `sprite.js view --cell 0,0` or check the web UI frequently to verify your work. The web editor, cell thumbnails and animation preview draw with the export's own shape rules, so patterns, ellipses, fills and erase shapes look as they will in the PNG; select and delete in the editor pick the shape that paints the clicked pixel (polygons included).
 
 ## Animation Workflow
 

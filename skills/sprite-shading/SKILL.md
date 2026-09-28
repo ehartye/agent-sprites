@@ -47,7 +47,7 @@ Before placing any lighting pixel, answer:
 2. **What surface am I on — flat or curved?** Flat sides get straight edge runs; curves get arc-following clusters.
 3. **What tone tiers does this surface need?** Use the size of the shaded region and its material. The tier budgets below suit isolated round forms; they are not minimum color counts for characters.
 
-## The Five-Tier Ramp
+## The Six-Tier Ramp
 
 Canonical pixel-art sphere shading uses a value ramp of five steps. Draw in this z-order (bottom → top) so detail sits on top of broad fills:
 
@@ -115,11 +115,11 @@ The tool branches internally:
 - **Rects** get pixels along the bbox edge (straight runs — correct for flat sides).
 - **Circles / ellipses** get pixels along an arc **inside** the shape, following the curve.
 
-Don't use `--direction top-left` on a big ellipse — corner directions on curves trace the bbox corner, which is outside the filled area. Use `top` or `top-left` only when the tool's arc logic can handle it (circles/ellipses do; mixed-geometry targets may not).
+Circles and ellipses light along an inward arc, so any direction works on them. On rects, corner directions sample the bbox corner run; check that it falls inside the fill.
 
 ## Palette Requirements
 
-Ramp-aware palettes: `pico8`, `db-16`, `db-32`. A color outside the ramps gets HSL-derived steps, reported as `derived` in the result; ramp colors keep ramp precedence. When building a new sprite, pick a base color with **headroom in both directions** — at minimum 2 darker steps and 2 lighter steps available for a 32px+ sprite.
+Ramp palettes: `pico8`, `gameboy`, `db-16`, `db-32`. A color outside the ramps gets HSL-derived steps, reported as `derived` in the result; ramp colors keep ramp precedence. When building a new sprite, pick a base color with **headroom in both directions** — at minimum 2 darker steps and 2 lighter steps available for a 32px+ sprite.
 
 See [sprite palette](../sprite-palette/SKILL.md) for ramp selection.
 
