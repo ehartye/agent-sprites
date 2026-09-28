@@ -3,9 +3,10 @@ import {pathToFileURL} from 'node:url';
 import {sourceMannequin,finishNative} from './native-mannequin.mjs';
 import {handBoxes} from './joints.mjs';
 import {nativeReport} from './native-report.mjs';
+import {drawNativeGear,parseGear} from './native-gear.mjs';
 
 // finish:false leaves the composite uncut for costumes, which add layers and cut once at the end.
-export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short', {finish=true}={}) {
+export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=style==='dress'?'tied':'short', {finish=true,gear=[]}={}) {
   if (!['adult','child'].includes(kind) || !['jacket','dress'].includes(style)) throw new Error('Choose adult/child and jacket/dress.');
   if (!['short','tied','none'].includes(wig)) throw new Error('Choose short, tied or none for the wig.');
   // Start from the uncut body: the final pass cuts the whole composite once.
@@ -95,6 +96,8 @@ export function dressTemplate(kind='adult', style='jacket', tone='peach', wig=st
     }
     for(const [name,shapes]of Object.entries(groups))ops.push({command:'shape-group',sub:'create',cell,name,shapes});
   }
-  return finish?finishNative(ops):ops;
+  // Held gear joins the composite before its single corner pass.
+  const held=drawNativeGear(ops,kind,gear);
+  return finish?finishNative(held):held;
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const operations=dressTemplate(...process.argv.slice(2));process.stdout.write(JSON.stringify({operations,report:nativeReport(operations,process.argv[2]??'adult')}));}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const args=process.argv.slice(2),gear=parseGear(args.filter(a=>a.startsWith('gear='))),[kind='adult',style,tone,wig]=args.filter(a=>!a.startsWith('gear='));const operations=dressTemplate(kind,style,tone,wig,{gear});process.stdout.write(JSON.stringify({operations,report:nativeReport(operations,kind,{gear})}));}
