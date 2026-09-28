@@ -736,13 +736,10 @@ const ERASABLE = ['point', 'line', 'rect', 'circle', 'ellipse', 'polygon', 'poly
 function _handleDrawInner(state, type, params) {
   if (!state.project) throw new Error('No project open');
 
-  if (type === 'sphere-shade') {
-    return handleSphereShade(state, params);
-  }
-
-  if (type === 'highlight' || type === 'shadow') {
-    return handleHighlightShadow(state, type, params);
-  }
+  // Validate every flag before any early return, so a flag that does not apply
+  // to this type is rejected rather than silently ignored.
+  const width = strokeWidth(type, params);
+  if (params.coverage != null && type !== 'sphere-shade') throw new Error(`coverage applies only to sphere-shade, not ${type}`);
 
   // An erase shape is ordinary named geometry that clears the shapes below it.
   if (params.erase != null) {
@@ -757,6 +754,14 @@ function _handleDrawInner(state, type, params) {
     }
   }
 
+  if (type === 'sphere-shade') {
+    return handleSphereShade(state, params);
+  }
+
+  if (type === 'highlight' || type === 'shadow') {
+    return handleHighlightShadow(state, type, params);
+  }
+
   // Every remaining draw type paints with an explicit color. Failing here
   // names the problem at authoring time; an undefined color otherwise
   // surfaces later as an opaque crash when the sheet is rendered/exported.
@@ -765,7 +770,6 @@ function _handleDrawInner(state, type, params) {
   }
 
   const cell = state.project.cells.getCell(params.cell);
-  const width = strokeWidth(type, params);
 
   if (type === 'border') {
     return handleBorder(state, params, cell);

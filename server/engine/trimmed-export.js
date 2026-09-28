@@ -1,5 +1,10 @@
 import { createCanvas } from 'canvas';
 
+/** The one validator for a trim option from a build config or an export request. */
+export function assertTrimOption(value) {
+  if (value !== undefined && typeof value !== 'boolean') throw new Error('trim must be true or false');
+}
+
 /** Opaque bounding box of RGBA data, or null when the cell is empty. */
 function opaqueBounds(data, width, height) {
   let minX = width, minY = height, maxX = -1, maxY = -1;

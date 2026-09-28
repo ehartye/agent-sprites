@@ -3,14 +3,15 @@
  * WebSocket operations sent to the server.
  */
 
-const TOOLS = [
+export const TOOLS = [
   { id: 'point',   label: 'Point',   icon: '.' },
   { id: 'line',    label: 'Line',    icon: '/' },
   { id: 'rect',    label: 'Rect',    icon: '#' },
   { id: 'circle',  label: 'Circle',  icon: 'O' },
   { id: 'ellipse', label: 'Ellipse', icon: 'E' },
   { id: 'fill',    label: 'Fill',    icon: '%' },
-  { id: 'erase',   label: 'Erase',   icon: 'X' },
+  // Deletes the shape under the cursor; distinct from drawing an erase shape.
+  { id: 'erase',   label: 'Delete',  icon: 'X' },
   { id: 'select',  label: 'Select',  icon: '+' },
 ];
 

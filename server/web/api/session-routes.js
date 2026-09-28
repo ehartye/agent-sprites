@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Project } from '../../engine/project.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
-import { exportTrimmed } from '../../engine/trimmed-export.js';
+import { exportTrimmed, assertTrimOption } from '../../engine/trimmed-export.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
@@ -136,7 +136,7 @@ export function sessionRoutes(state) {
       // One-off destination override; the session's stored folder is untouched.
       const dest = req.body?.dest ?? session.destination_folder;
       const renderer = new CanvasRenderer(state.project.palette, { background: state.project.background });
-      if (req.body?.trim !== undefined && typeof req.body.trim !== 'boolean') return res.json({ ok: false, error: 'trim must be true or false' });
+      assertTrimOption(req.body?.trim);
       const options = {
         imageName: `${session.project_name}.png`,
         groups: state.db.getCellGroups(state.sessionId),

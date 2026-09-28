@@ -47,7 +47,7 @@ describe('view --stack', () => {
   });
 
   it('rejects unknown names and empty stacks', () => {
-    expect(() => handleViewStack(state, { cells: ['sky', 'moon'] }, dir)).toThrow(/Unknown cell "moon"/);
+    expect(() => handleViewStack(state, { cells: ['sky', 'moon'] }, dir)).toThrow(/Cell "moon" not found/);
     expect(() => handleViewStack(state, { cells: [] }, dir)).toThrow(/at least one cell/);
   });
 });

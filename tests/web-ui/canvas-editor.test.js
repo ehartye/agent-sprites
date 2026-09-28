@@ -87,3 +87,18 @@ describe('CanvasEditor (browser)', () => {
     expect(pixelAt(ed, 128 + 2 * 4, 128 + 3 * 4)[0]).not.toBe(255);
   });
 });
+
+describe('CanvasEditor onion skin', () => {
+  it('shows a neighbouring frame\'s erase-shape holes instead of drawing them filled', () => {
+    const ed = makeEditor({ width: 64, height: 64, zoom: 4 });
+    ed.setCell({ shapes: [] });
+    ed.setOnionSkin({ prev: [
+      { type: 'rect', params: { x: 0, y: 0, w: 16, h: 16, filled: true }, color: '#000000' },
+      { type: 'rect', params: { x: 4, y: 4, w: 8, h: 8, filled: true, erase: true }, color: '#000000' },
+    ], next: [] });
+    ed.render();
+    // 64px canvas, 16px cell at zoom 4: the cell fills the canvas. Compare a hole pixel with a solid one.
+    const solid = pixelAt(ed, 6, 6), hole = pixelAt(ed, 34, 34);
+    expect(solid).not.toEqual(hole);
+  });
+});
