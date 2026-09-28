@@ -526,7 +526,7 @@ function strokeWidth(type, params) {
   return w;
 }
 
-// Same Bresenham as CanvasRenderer._drawLine, so a wide stroke covers exactly
+// Same Bresenham as the shared rasterizer (web/public/js/shared/raster.js), so a wide stroke covers exactly
 // the pixels its 1px form renders.
 function linePixels(x1, y1, x2, y2) {
   const out = [], dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
