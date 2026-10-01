@@ -1,7 +1,9 @@
 // Hull trim shared by every module style, so the farm deck reads as one habitat system:
 // a riveted pressure seam at the eaves, hazard chevrons on the door jambs, a roof vent, and round ports.
 
-export const KIT={ink:'#344751',dark:'#283c44',brass:'#a9895e',gold:'#d4b47c',glass:'#527b8b',glint:'#bce0d3',light:'#f4edcf',cream:'#dfddbd',leaf:'#a7bb79',sea:'#83b5af'};
+export const KIT={ink:'#344751',dark:'#283c44',brass:'#a9895e',gold:'#d4b47c',glass:'#527b8b',glint:'#bce0d3',light:'#f4edcf',cream:'#dfddbd',leaf:'#a7bb79',sea:'#83b5af',
+  // Dark clay roof ramp for the hull roofs: the lit edge turns warmer, the shade turns cooler and redder, all below the walls' value.
+  roofLit:'#9a6a50',roofBase:'#7a4c3c',roofShade:'#573738'};
 
 /** Riveted pressure seam: a flat band with a lit top row, a dark bottom row and evenly spaced rivets. */
 export function seamBand(p,prefix,x0,x1,y0,y1,{base,lit,shade,rivet}){

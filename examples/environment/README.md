@@ -69,8 +69,10 @@ layout (footprint, interior, door, walls) is unchanged, so navigation, collision
 rise above the reported footprint (the crane, tower and silos do), so check draw order and clearance against the cell's reported
 `bounds`, not the footprint. All four share one hull trim: a riveted pressure seam at the eaves (the dome's docking ring
 is its seam), hazard chevrons on both door jambs, a roof vent or port, and the kit palette and ink outline of the base styles.
-The capsule, vault and gantry read in grayscale as a dark roof over a light wall (roof to wall at least 1.6:1 by WCAG luminance) with
-mid-value structure between; the dome stays a light glass shell. Light comes from the top left, curved forms use flat planes with hard
+The capsule, vault and gantry read in grayscale as a dark roof over a light wall with mid-value structure between. The capsule and vault
+roofs use one shared kit roof ramp, a dark clay (`roofLit #9a6a50`, `roofBase #7a4c3c`, `roofShade #573738`: the lit edge is warmer, the shade
+cooler and redder), so their roof to wall contrast is at least 2.0:1 by WCAG luminance and the roof's mean luminance stays under 0.10
+(measured: capsule about 3.0:1, vault about 2.9:1). The gantry keeps its slate hall (at least 1.6:1, cool against the warm capsule and vault); the dome stays a light glass shell. Light comes from the top left, curved forms use flat planes with hard
 edges, and nothing is dithered.
 
 Furniture uses 64×64 cells: `bed`, `kitchen`, `workbench`, `planter`, `stool`, and
