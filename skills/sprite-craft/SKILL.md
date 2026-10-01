@@ -19,6 +19,23 @@ Treat **[thin]** as a prompt to look, not a rule. Sourcing and links are in
 
 These rules judge one asset. For a whole place (terrain, paths, shadows, scale across
 a scene) read [world rules](references/world-rules.md).
+For choosing sizes before you draw (pixel size, proportions in character heights, tile
+size, camera zoom, measuring a finished frame) read [scale and proportion](references/scale-and-proportion.md).
+
+## Declare your scale before drawing
+
+Every brief for a new place, building, prop or tile kit opens with a scale contract, before
+the first operation:
+
+- **Source pixel size** of the asset (its canvas in art pixels) and the **draw scale** the game uses for it.
+- **The anchor** it matches: normally the character, with its source size and draw scale
+  (this project's native primary is 16x32 drawn at 2x).
+- **Exempt layers**, each with its reason: UI, text, maps, title art, small effects. Any layer
+  that is off the anchor and not listed is a defect, not a style choice.
+
+Derive the source size from the screen footprint you want divided by the draw scale. If the
+brief gives no anchor, read the draw scale from the game's code; never assume 1x. Details,
+proportion tables and the measurement recipe are in the reference above.
 
 ## Critique in this order
 
