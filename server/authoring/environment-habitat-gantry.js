@@ -26,19 +26,19 @@ export function gantry(p,t){
 
   // Roof hall: chamfered body in three planes.
   const body=[[16,152],[16,126],[30,114],[290,114],[303,126],[303,152]];
-  drawPlanes(p,'gantry_roof',body,16,304,{base:SL[2],slabs:[[.08,SL[2]],[.8,SL[1]],[1,SL[0]]]});
-  for(let x=48;x<300;x+=40)R(`gantry_roof_rib_${x}`,x,116,x,140,SL[0]);
+  drawPlanes(p,'gantry_roof',body,16,304,{base:SL[1],slabs:[[.08,SL[1]],[1,SL[0]]]});
+  for(let x=48;x<300;x+=40)R(`gantry_roof_rib_${x}`,x,116,x,140,DARK);
   // Solar array.
   R('gantry_solar_frame',60,118,168,142,INK);
   for(let gx=62;gx<168;gx+=12)for(let gy=120;gy<141;gy+=7)R(`gantry_solar_${gx}_${gy}`,gx,gy,gx+10,gy+5,GLASS);
   R('gantry_solar_glint',62,119,166,119,SL[4]);
-  seamBand(p,'gantry_hall',16,303,144,152,{base:SL[0],lit:SL[1],shade:DARK,rivet:BRASS});
+  seamBand(p,'gantry_hall',16,303,144,152,{base:SL[1],lit:SL[2],shade:DARK,rivet:BRASS});
 
   // Wall, full width; the caller's door covers x128..191 afterwards.
-  R('gantry_wall_a',16,153,261,218,SL[3]);R('gantry_wall_b',262,153,303,218,SL[2]);
-  for(const x of [48,80,112,144,176,208,240,272])R(`gantry_wall_joint_${x}`,x,154,x,217,SL[1]);
-  R('gantry_wall_joint_299',299,154,299,217,SL[1]);
-  R('gantry_wall_base',16,200,303,218,SL[0]);
+  R('gantry_wall_a',16,153,261,218,SL[4]);R('gantry_wall_b',262,153,303,218,SL[3]);
+  for(const x of [48,80,112,144,176,208,240,272])R(`gantry_wall_joint_${x}`,x,154,x,217,SL[2]);
+  R('gantry_wall_joint_299',299,154,299,217,SL[2]);
+  R('gantry_wall_base',16,200,303,218,SL[1]);
 
   // Slot window.
   R('gantry_window_ink',40,166,104,192,INK);R('gantry_window_frame',43,169,101,189,COPPER);

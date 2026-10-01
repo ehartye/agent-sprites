@@ -19,6 +19,13 @@ export function hazardChevrons(p){
   }
 }
 
+/** The same chevrons on the interior door frame: the south wall's two jambs (y220..241), gold and ink bars. */
+export function interiorChevrons(p,prefix){
+  for(const [side,x] of [['left',128],['right',184]]){
+    for(let i=0;i<4;i++)p.rect(`${prefix}_hazard_${side}_${i}`,x,221+i*6,8,3,i%2?KIT.ink:KIT.gold);
+  }
+}
+
 /** Round port: ink ring, brass rim, glass, shaded lower half and a diagonal glint at the upper left. */
 export function port(p,prefix,cx,cy,r){
   p.ellipse(`${prefix}_ring`,cx,cy,r,r,KIT.ink);

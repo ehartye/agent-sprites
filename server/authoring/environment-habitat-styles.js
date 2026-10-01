@@ -1,6 +1,6 @@
 import {drawHabitat} from './environment-habitat.js';
 import {MODULE_BASE_STYLES,MODULE_DRAWERS} from './environment-habitat-modules.js';
-import {hazardChevrons} from './environment-habitat-trim.js';
+import {hazardChevrons,interiorChevrons,seamBand,KIT} from './environment-habitat-trim.js';
 
 export const BASE_HABITAT_STYLES=['cottage','workshop','kitchen','barn'];
 export const HABITAT_STYLES=[...BASE_HABITAT_STYLES,...Object.keys(MODULE_BASE_STYLES)];
@@ -17,7 +17,15 @@ const themes={
 export function drawStyledHabitat(p,layer,seed,style){
   // A module style reuses its base style's rooms, doorway and theme; only the exterior roof layer is its own.
   const module=MODULE_DRAWERS[style]?style:null,base=module?MODULE_BASE_STYLES[style]:style;
-  if(module&&layer!=='habitat_roof')return drawStyledHabitat(p,layer,seed,base);
+  if(module&&layer!=='habitat_roof'){
+    drawStyledHabitat(p,layer,seed,base);
+    // Interior trim shared with the module exteriors, kept clear of the floor, furniture and doorway:
+    // a riveted seam along the foot of the back wall (y74..79) and chevrons on the south wall's door jambs.
+    const t=themes[base];
+    if(layer==='habitat_back')seamBand(p,`${module}_back`,24,295,74,79,{base:t.shade,lit:t.mid,shade:KIT.dark,rivet:t.lit});
+    if(layer==='habitat_front')interiorChevrons(p,`${module}_front`);
+    return;
+  }
   style=base;
   const t=themes[style];
   if(layer!=='habitat_roof'){

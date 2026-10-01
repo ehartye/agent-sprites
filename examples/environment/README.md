@@ -62,12 +62,16 @@ Four further styles draw the same rooms as the buildings above with space-habita
 | `gantry` | `workshop` | Flat service hall with a pressure tank and a lattice crane |
 | `dome` | `kitchen` | Half-round glass dome on a docking ring |
 
-Only the `habitat_roof` layer differs: floor, back wall and front wall are byte-identical to the base style, and the report's
+Only the `habitat_roof` layer is a new exterior: the floor is byte-identical to the base style. The back wall and front wall are the
+base style's plus a little module trim in the same shared kit (a riveted seam along the foot of the back wall, hazard chevrons on
+the south wall's door jambs), all of it named with the module prefix, and the report's
 layout (footprint, interior, door, walls) is unchanged, so navigation, collision and interiors are unaffected. The roof layer can
 rise above the reported footprint (the crane, tower and silos do), so check draw order and clearance against the cell's reported
 `bounds`, not the footprint. All four share one hull trim: a riveted pressure seam at the eaves (the dome's docking ring
 is its seam), hazard chevrons on both door jambs, a roof vent or port, and the kit palette and ink outline of the base styles.
-Light comes from the top left, curved forms use flat planes with hard edges, and nothing is dithered.
+The capsule, vault and gantry read in grayscale as a dark roof over a light wall (roof to wall at least 1.6:1 by WCAG luminance) with
+mid-value structure between; the dome stays a light glass shell. Light comes from the top left, curved forms use flat planes with hard
+edges, and nothing is dithered.
 
 Furniture uses 64×64 cells: `bed`, `kitchen`, `workbench`, `planter`, `stool`, and
 `locker`. Each report frame includes its collision rectangle and ground anchor
