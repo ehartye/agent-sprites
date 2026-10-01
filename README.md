@@ -347,6 +347,7 @@ project. These native skills call the same managed CLI:
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
 | `sprite-craft` | Expert craft rules and critique order: silhouette, value, outlines, clusters, dithering, small-sprite motion |
+| `sprite-review` | Scores art against a written rubric, with an evidence kit, and writes a prioritized remediation plan |
 | `sprite-composition` | Draw order discipline, naming conventions, sheet layout |
 | `game-integration` | Wiring exports into Phaser/Unity/Godot, full-game asset builds, app icons |
 | `sprite-verification` | Source-cell and atlas checks, per-frame inspection, animation review |
