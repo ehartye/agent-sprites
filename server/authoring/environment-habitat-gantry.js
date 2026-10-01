@@ -16,8 +16,7 @@ export function gantry(p0,t){
   const ring=(n,x0,y0,x1,y1)=>p.poly(n,[[x0-2,y0-1],[x0-1,y0-2],[x1+1,y0-2],[x1+2,y0-1],[x1+2,y1+1],[x1+1,y1+2],[x0-1,y1+2],[x0-2,y1+1]],INK);
 
   // Outlines first, so every part fill sits on top of its neighbours' rings.
-  p.poly('gantry_hall_ink',[[14,164],[14,125],[29,112],[291,112],[305,125],[305,164]],INK);
-  R('gantry_wall_ink_left',14,164,15,219,INK);R('gantry_wall_ink_right',304,164,305,219,INK);
+  p.poly('gantry_hall_ink',[[14,219],[14,125],[29,112],[291,112],[305,125],[305,219]],INK);
   const tankTop=arcPoints(49,55,21,5,180,360,14);
   p.poly('gantry_tank_ink',[[26,114],[26,54],...arcPoints(49,55,23,7,180,360,16),[72,54],[72,114]],INK);
   ring('gantry_stack_ink',44,32,54,52);
@@ -38,17 +37,11 @@ export function gantry(p0,t){
   R('gantry_solar_glint',62,119,166,119,SL[4]);
   seamBand(p,'gantry_hall',16,303,144,152,{base:SL[0],lit:SL[1],shade:DARK,rivet:BRASS});
 
-  // Wall, kept clear of the doorway region.
-  const wallSpans=[[16,303,153,163],[16,123,164,199],[197,303,164,199],[16,123,200,218],[197,303,200,218]];
-  wallSpans.forEach(([x0,x1,y0,y1],i)=>{
-    const a=Math.min(x1,261),b=Math.max(x0,262);
-    if(x0<=a)R(`gantry_wall_a_${i}`,x0,y0,a,y1,SL[3]);
-    if(b<=x1)R(`gantry_wall_b_${i}`,b,y0,x1,y1,SL[2]);
-  });
-  for(const x of [48,80,112,208,240,272])R(`gantry_wall_joint_${x}`,x,154,x,199,SL[1]);
-  R('gantry_wall_joint_299',299,154,299,199,SL[1]);
-  for(const x of [48,80,112,208,240,272,299])R(`gantry_wall_joint_low_${x}`,x,200,x,217,SL[1]);
-  R('gantry_wall_base_left',16,200,123,218,SL[0]);R('gantry_wall_base_right',197,200,303,218,SL[0]);
+  // Wall, full width; the caller's door covers x128..191 afterwards.
+  R('gantry_wall_a',16,153,261,218,SL[3]);R('gantry_wall_b',262,153,303,218,SL[2]);
+  for(const x of [48,80,112,144,176,208,240,272])R(`gantry_wall_joint_${x}`,x,154,x,217,SL[1]);
+  R('gantry_wall_joint_299',299,154,299,217,SL[1]);
+  R('gantry_wall_base',16,200,303,218,SL[0]);
 
   // Slot window.
   R('gantry_window_ink',40,166,104,192,INK);R('gantry_window_frame',43,169,101,189,COPPER);

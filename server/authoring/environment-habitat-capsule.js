@@ -11,14 +11,7 @@ function hullTop(x){
   return 142-Math.sqrt(Math.max(0,46*46-dx*dx));
 }
 
-// Wall rectangles never enter the doorway region (x124..196, y164..220); the caller draws the door there.
-function wallRect(p,name,x0,y0,x1,y1,color){
-  if(x1<124||x0>196||y1<164){p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);return;}
-  if(y0<164)p.rect(`${name}_top`,x0,y0,x1-x0+1,164-y0,color);
-  const ys=Math.max(y0,164);
-  if(x0<124)p.rect(`${name}_left`,x0,ys,124-x0,y1-ys+1,color);
-  if(x1>196)p.rect(`${name}_right`,197,ys,x1-196,y1-ys+1,color);
-}
+const wallRect=(p,name,x0,y0,x1,y1,color)=>p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);
 
 export function capsule(p,t){
   const clay={lit:t.lit,mid:t.mid,base:t.base,shade:t.shade};
@@ -46,7 +39,7 @@ export function capsule(p,t){
   wallRect(p,'capsule_wall_shade',251,151,303,219,KIT.brass);
   for(let x=48;x<300;x+=32){
     const color=x<250?KIT.brass:clay.shade;
-    p.rect(`capsule_panel_${x}`,x,152,1,x>=124&&x<=196?12:48,color);
+    p.rect(`capsule_panel_${x}`,x,152,1,48,color);
   }
   wallRect(p,'capsule_plinth',16,200,303,219,clay.base);
   port(p,'capsule_port_l',72,180,15);

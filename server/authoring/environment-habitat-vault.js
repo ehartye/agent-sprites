@@ -3,18 +3,10 @@ import {arcPoints,clipPoly,ellipsePoly,tidy} from './environment-habitat-geometr
 
 // Seed vault: a broad vaulted hangar roof in three copper planes, a riveted seam, a wooden wall with
 // two cargo hatches, and a tall banded seed silo at each end that rises above the vault.
-// The door region x124..196 y164..220 belongs to the caller and is never painted here.
-const DOOR={x0:124,x1:196,y0:164,y1:220};
+// The caller draws the door (x128..191) and open recess afterwards, so the wall runs full width behind it.
 
-/** Rect in inclusive pixel bounds, split so it never touches the door region. */
-function rectClear(p,name,x0,y0,x1,y1,color){
-  const hit=x0<=DOOR.x1&&x1>=DOOR.x0&&y0<=DOOR.y1&&y1>=DOOR.y0;
-  if(!hit){p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);return;}
-  if(y0<DOOR.y0)p.rect(`${name}_top`,x0,y0,x1-x0+1,DOOR.y0-y0,color);
-  if(x0<DOOR.x0)p.rect(`${name}_l`,x0,Math.max(y0,DOOR.y0),DOOR.x0-x0,Math.min(y1,DOOR.y1)-Math.max(y0,DOOR.y0)+1,color);
-  if(x1>DOOR.x1)p.rect(`${name}_r`,DOOR.x1+1,Math.max(y0,DOOR.y0),x1-DOOR.x1,Math.min(y1,DOOR.y1)-Math.max(y0,DOOR.y0)+1,color);
-  if(y1>DOOR.y1)p.rect(`${name}_bot`,x0,DOOR.y1+1,x1-x0+1,y1-DOOR.y1,color);
-}
+/** Rect in inclusive pixel bounds; the caller's door is drawn afterwards and covers x128..191. */
+function rectClear(p,name,x0,y0,x1,y1,color){p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);}
 
 /** Hard-terminator vertical planes: cols[0] fills the form, later cols overlay slabs from edge[i] onward. */
 function planes(p,prefix,poly,x0,x1,cols,cuts){

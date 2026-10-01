@@ -5,8 +5,6 @@ import {KIT} from './environment-habitat-trim.js';
 
 const SG={d:'#506a59',m:'#779566',l:'#96ad7b',h:'#c1d3a0',cr:'#dfddbd'};
 const CX=160,BASE=158,R=138;
-// The caller draws the doorway after us; nothing of ours may touch this box.
-const DOOR={x0:124,x1:196,y0:164};
 
 /** Sutherland-Hodgman clip of a polygon against a convex polygon (clockwise or counter-clockwise). */
 function clipConvex(subject,clip){
@@ -29,14 +27,7 @@ function clipConvex(subject,clip){
 
 export function dome(p,t){
   const {ink,brass,glass,glint,sea}=KIT;
-  // Rectangle (inclusive corners) that steps around the doorway box.
-  const rect=(name,x0,y0,x1,y1,color)=>{
-    if(y1<DOOR.y0||x1<DOOR.x0||x0>DOOR.x1){p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);return;}
-    if(y0<DOOR.y0)p.rect(`${name}_t`,x0,y0,x1-x0+1,DOOR.y0-y0,color);
-    const ya=Math.max(y0,DOOR.y0);
-    if(x0<DOOR.x0)p.rect(`${name}_l`,x0,ya,DOOR.x0-x0,y1-ya+1,color);
-    if(x1>DOOR.x1)p.rect(`${name}_r`,DOOR.x1+1,ya,x1-DOOR.x1,y1-ya+1,color);
-  };
+  const rect=(name,x0,y0,x1,y1,color)=>p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);
   const half=r=>arcPoints(CX,BASE,r,r,180,360,Math.ceil(r*1.2));
   const domePoly=tidy([...half(R),[CX+R,BASE],[CX-R,BASE]]);
   const inDome=poly=>poly&&clipConvex(poly,domePoly);
