@@ -58,6 +58,8 @@ expert would not change it. Use whole numbers and cite the evidence view.
 For places, terrain and scenes, also apply [world rules](../sprite-craft/references/world-rules.md)
 (one pixel scale, a value ladder, one contact shadow, a human kit over a biome ground, a ground
 recipe, solid-looking is solid).
+For lettering (logos, titles, signage, UI text, app icons) use [branding and text](references/branding-and-text.md);
+for ships, vehicles and establishing shots use [vehicles and reveals](references/vehicles-and-reveals.md).
 Add **Motion** (timing, stable clusters between frames) only for animated art, using
 [small-sprite motion](../sprite-craft/references/small-sprite-motion.md). Tag each score
 **measured**, **viewed** or **inferred**; keep inferred scores out of the overall figure.
