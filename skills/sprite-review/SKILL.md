@@ -51,10 +51,13 @@ expert would not change it. Use whole numbers and cite the evidence view.
 | Color and palette | Neighbors distinct at 1x; hue-shifted ramps; count fits the style | palette table |
 | Outline and edges | One deliberate policy; contrast against object and background; no stray pixels or broken runs | crop, palette |
 | Texture and detail | Detail survives 1x; no accidental noise or dither | context, crop |
-| Fit to context | Reads against the real background; grounded; right scale; honors the brief | context |
+| Fit to context | Reads against the real background; grounded by one contact shadow; one pixel scale across the frame; honors the brief | context |
 | Set: consistency | Shared palette, outline, light, pixel scale | palette, lineup |
 | Set: distinctness | Identifiable without labels or color alone | silhouette, grayscale |
 
+For places, terrain and scenes, also apply [world rules](../sprite-craft/references/world-rules.md)
+(one pixel scale, a value ladder, one contact shadow, a human kit over a biome ground, a ground
+recipe, solid-looking is solid).
 Add **Motion** (timing, stable clusters between frames) only for animated art, using
 [small-sprite motion](../sprite-craft/references/small-sprite-motion.md). Tag each score
 **measured**, **viewed** or **inferred**; keep inferred scores out of the overall figure.

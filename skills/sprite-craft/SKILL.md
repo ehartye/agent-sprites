@@ -17,6 +17,9 @@ community tutorials). Each is tagged **[agreed]** (independent sources concur),
 Treat **[thin]** as a prompt to look, not a rule. Sourcing and links are in
 [the references](references/).
 
+These rules judge one asset. For a whole place (terrain, paths, shadows, scale across
+a scene) read [world rules](references/world-rules.md).
+
 ## Critique in this order
 
 Fix an earlier step before polishing a later one. Judge the sprite at **1×**, since
