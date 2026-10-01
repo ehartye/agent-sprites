@@ -51,6 +51,24 @@ and an open recess sized for the native adult cast. The report records `style`.
 Omitting `style` preserves the original pressure-vessel recipe and report.
 Style is supported only for `kind: "habitat"`; other values are rejected.
 
+### Habitat modules
+
+Four further styles draw the same rooms as the buildings above with space-habitat exteriors:
+
+| Style | Rooms of | Silhouette |
+|---|---|---|
+| `capsule` | `cottage` | Low barrel hull with a glass crop tower on one shoulder |
+| `vault` | `barn` | Vaulted hangar between two banded seed silos |
+| `gantry` | `workshop` | Flat service hall with a pressure tank and a lattice crane |
+| `dome` | `kitchen` | Half-round glass dome on a docking ring |
+
+Only the `habitat_roof` layer differs: floor, back wall and front wall are byte-identical to the base style, and the report's
+layout (footprint, interior, door, walls) is unchanged, so navigation, collision and interiors are unaffected. The roof layer can
+rise above the reported footprint (the crane, tower and silos do), so check draw order and clearance against the cell's reported
+`bounds`, not the footprint. All four share one hull trim: a riveted pressure seam at the eaves (the dome's docking ring
+is its seam), hazard chevrons on both door jambs, a roof vent or port, and the kit palette and ink outline of the base styles.
+Light comes from the top left, curved forms use flat planes with hard edges, and nothing is dithered.
+
 Furniture uses 64×64 cells: `bed`, `kitchen`, `workbench`, `planter`, `stool`, and
 `locker`. Each report frame includes its collision rectangle and ground anchor
 `{ "x": 32, "y": 62 }`. The two final rows are transparent. Use the ground anchor
