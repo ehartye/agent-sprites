@@ -33,6 +33,7 @@ from a description.
 | Silhouette fill (one dark color) | Shape identity, near-duplicate silhouettes in a set |
 | Palette table: colors per asset, edge colors, colors shared across the set | Palette discipline, outline policy, kit coherence |
 | Set lineup, side by side at one scale | Consistency and distinctness |
+| Scale contract: the anchor (character source size, draw scale), each layer's source size, draw scale and measured pixel step, and the exempt list | Mixels, wrong-size assets, undeclared exceptions |
 
 Instrument what the eye cannot judge (counts, contrast ratios); do not instrument taste.
 Record which view each finding came from.
@@ -57,7 +58,7 @@ expert would not change it. Use whole numbers and cite the evidence view.
 
 For places, terrain and scenes, also apply [world rules](../sprite-craft/references/world-rules.md)
 (one pixel scale, a value ladder, one contact shadow, a human kit over a biome ground, a ground
-recipe, solid-looking is solid).
+recipe, solid-looking is solid) and size things with [scale and proportion](../sprite-craft/references/scale-and-proportion.md).
 For lettering (logos, titles, signage, UI text, app icons) use [branding and text](references/branding-and-text.md);
 for ships, vehicles and establishing shots use [vehicles and reveals](references/vehicles-and-reveals.md).
 Add **Motion** (timing, stable clusters between frames) only for animated art, using
@@ -65,7 +66,11 @@ Add **Motion** (timing, stable clusters between frames) only for animated art, u
 **measured**, **viewed** or **inferred**; keep inferred scores out of the overall figure.
 
 **Gates.** A 0 or 1 on silhouette, value or fit-to-context fails the asset regardless of
-average. **Bands** for the mean of measured and viewed scores: 3.3+ ship, 2.5-3.3 polish,
+average. **The scale contract is a hard gate:** state the anchor, then list each layer's effective
+scale (draw scale from code, confirmed by the pixel-step measurement in
+[scale and proportion](../sprite-craft/references/scale-and-proportion.md)). Any layer off the
+anchor fails the review unless it is on the exempt list with a reason (UI, text, map, title art,
+small effects). An unmeasured contract is reported as not reviewed, not as passed. **Bands** for the mean of measured and viewed scores: 3.3+ ship, 2.5-3.3 polish,
 below 2.5 rework.
 
 ## 4. Separate what to fix from what to keep
