@@ -1,6 +1,6 @@
 // Commons dome: a half-round glass dome in three flat planes, meridian ribs, a docking ring, solar louvers
 // and a cream wall with two panoramic planter windows. Light comes from the upper left.
-import {arcPoints,clipPoly,thickLine,tidy} from './environment-habitat-geometry.js';
+import {arcPoints,boxRect,clipPoly,thickLine,tidy} from './environment-habitat-geometry.js';
 import {KIT} from './environment-habitat-trim.js';
 
 const SG={d:'#506a59',m:'#779566',l:'#96ad7b',h:'#c1d3a0',cr:'#dfddbd'};
@@ -27,7 +27,7 @@ function clipConvex(subject,clip){
 
 export function dome(p,t){
   const {ink,brass,glass,glint,sea}=KIT;
-  const rect=(name,x0,y0,x1,y1,color)=>p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);
+  const rect=(name,...box)=>boxRect(p,name,...box);
   const half=r=>arcPoints(CX,BASE,r,r,180,360,Math.ceil(r*1.2));
   const domePoly=tidy([...half(R),[CX+R,BASE],[CX-R,BASE]]);
   const inDome=poly=>poly&&clipConvex(poly,domePoly);

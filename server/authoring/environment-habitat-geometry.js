@@ -4,10 +4,16 @@
 const roundPoint=([x,y])=>[Math.round(x),Math.round(y)];
 const same=(a,b)=>a[0]===b[0]&&a[1]===b[1];
 
+/** Round every point of a polygon to whole pixels. */
+export const roundPoints=points=>points.map(roundPoint);
+
+/** Rectangle from inclusive pixel corners (x0,y0)..(x1,y1), unlike p.rect which takes a width and height. */
+export const boxRect=(p,name,x0,y0,x1,y1,color)=>p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);
+
 /** Drop consecutive duplicate points; return null when fewer than three points remain. */
 export function tidy(points){
   const out=[];
-  for(const point of points.map(roundPoint))if(!out.length||!same(out.at(-1),point))out.push(point);
+  for(const point of roundPoints(points))if(!out.length||!same(out.at(-1),point))out.push(point);
   if(out.length>1&&same(out[0],out.at(-1)))out.pop();
   return out.length>=3?out:null;
 }

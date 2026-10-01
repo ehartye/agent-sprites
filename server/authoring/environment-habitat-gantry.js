@@ -1,5 +1,5 @@
 import {KIT,seamBand} from './environment-habitat-trim.js';
-import {arcPoints,clipPoly,drawPlanes,ellipsePoly,thickLine} from './environment-habitat-geometry.js';
+import {arcPoints,boxRect,clipPoly,drawPlanes,ellipsePoly,roundPoints,thickLine} from './environment-habitat-geometry.js';
 
 // Service gantry: a flat slate hall with chamfered corners and a roof solar array, a pressure tank
 // on the left, and a lattice mast carrying a boom, stay cable, counterweight and hook on the right.
@@ -7,18 +7,15 @@ import {arcPoints,clipPoly,drawPlanes,ellipsePoly,thickLine} from './environment
 const SL=['#405762','#607d8b','#7896a0','#91a3a0','#a4c2c3'];
 const {ink:INK,dark:DARK,glass:GLASS,brass:COPPER,gold:BRASS}=KIT;
 
-export function gantry(p0,t){
-  const rnd=pts=>pts.map(([x,y])=>[Math.round(x),Math.round(y)]);
-  const p={rect:(...a)=>p0.rect(...a),line:(...a)=>p0.line(...a),ellipse:(...a)=>p0.ellipse(...a),poly:(n,pts,c)=>p0.poly(n,rnd(pts),c)};
+export function gantry(p,t){
   // Inclusive-corner rectangle, matching the approved concept's pixel boxes.
-  const R=(n,x0,y0,x1,y1,c)=>p.rect(n,x0,y0,x1-x0+1,y1-y0+1,c);
+  const R=(n,...box)=>boxRect(p,n,...box);
   // Two-pixel ink outline around a rectangle with the corners rounded off.
   const ring=(n,x0,y0,x1,y1)=>p.poly(n,[[x0-2,y0-1],[x0-1,y0-2],[x1+1,y0-2],[x1+2,y0-1],[x1+2,y1+1],[x1+1,y1+2],[x0-1,y1+2],[x0-2,y1+1]],INK);
 
   // Outlines first, so every part fill sits on top of its neighbours' rings.
   p.poly('gantry_hall_ink',[[14,219],[14,125],[29,112],[291,112],[305,125],[305,219]],INK);
-  const tankTop=arcPoints(49,55,21,5,180,360,14);
-  p.poly('gantry_tank_ink',[[26,114],[26,54],...arcPoints(49,55,23,7,180,360,16),[72,54],[72,114]],INK);
+  p.poly('gantry_tank_ink',roundPoints([[26,114],[26,54],...arcPoints(49,55,23,7,180,360,16),[72,54],[72,114]]),INK);
   ring('gantry_stack_ink',44,32,54,52);
   ring('gantry_mast_ink',252,12,272,114);ring('gantry_mast_cap_ink',246,6,278,12);
   ring('gantry_counterweight_ink',272,16,294,40);
@@ -51,7 +48,7 @@ export function gantry(p0,t){
   for(let y=171;y<189;y+=5)R(`gantry_vent_slot_${y}`,226,y,270,y+1,SL[0]);
 
   // Pressure tank with copper cap.
-  const tank=[[28,114],[28,55],...tankTop.slice(0,-1).map(([x,y])=>[x,y]),[70,55],[70,114]];
+  const tank=roundPoints([[28,114],[28,55],...arcPoints(49,55,21,5,180,360,14).slice(0,-1),[70,55],[70,114]]);
   drawPlanes(p,'gantry_tank',tank,28,71,{base:SL[4],slabs:[[.14,SL[4]],[.42,SL[3]],[.74,SL[2]],[1,SL[0]]]});
   for(const y of [70,92])R(`gantry_tank_band_${y}`,28,y,70,y+2,SL[0]);
   const cap=ellipsePoly(49,55,19,4,18);if(cap)p.poly('gantry_tank_cap',cap,COPPER);

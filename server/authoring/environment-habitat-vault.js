@@ -1,12 +1,9 @@
 import {KIT,seamBand,port,ventPanel} from './environment-habitat-trim.js';
-import {arcPoints,clipPoly,ellipsePoly,tidy} from './environment-habitat-geometry.js';
+import {arcPoints,boxRect,clipPoly,ellipsePoly,tidy} from './environment-habitat-geometry.js';
 
 // Seed vault: a broad vaulted hangar roof in three copper planes, a riveted seam, a wooden wall with
 // two cargo hatches, and a tall banded seed silo at each end that rises above the vault.
 // The caller draws the door (x128..191) and open recess afterwards, so the wall runs full width behind it.
-
-/** Rect in inclusive pixel bounds; the caller's door is drawn afterwards and covers x128..191. */
-function rectClear(p,name,x0,y0,x1,y1,color){p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);}
 
 /** Hard-terminator vertical planes: cols[0] fills the form, later cols overlay slabs from edge[i] onward. */
 function planes(p,prefix,poly,x0,x1,cols,cuts){
@@ -42,15 +39,15 @@ export function vault(p,t){
   ventPanel(p,'vault',128,46,192,60,{base:t.mid,slot:t.shade});
 
   // Wooden wall with two cargo hatches and a dark plinth band.
-  rectClear(p,'vault_wall',40,151,239,218,t.wall);
-  rectClear(p,'vault_wall_far',240,151,279,218,t.base);
+  boxRect(p,'vault_wall',40,151,239,218,t.wall);
+  boxRect(p,'vault_wall_far',240,151,279,218,t.base);
   for(const [i,x0] of [74,204].entries()){
     const face=x0<150?t.mid:t.base;
     p.rect(`vault_hatch_frame_${i}`,x0,160,45,47,t.shade);
     p.rect(`vault_hatch_face_${i}`,x0+3,163,39,41,face);
     for(let y=167;y<201;y+=6)p.line(`vault_hatch_slat_${i}_${y}`,x0+3,y,x0+41,y,t.shade);
   }
-  rectClear(p,'vault_plinth',40,200,279,218,t.shade);
+  boxRect(p,'vault_plinth',40,200,279,218,t.shade);
 
   // Seed silos: banded, with a domed copper cap, service rungs and a porthole.
   for(const [i,[x0,x1]] of silos.entries()){

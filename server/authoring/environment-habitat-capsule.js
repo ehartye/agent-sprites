@@ -1,4 +1,4 @@
-import {arcPoints,drawPlanes,roundedRectPoly,tidy} from './environment-habitat-geometry.js';
+import {arcPoints,boxRect,drawPlanes,roundedRectPoly,tidy} from './environment-habitat-geometry.js';
 import {KIT,port,seamBand,ventPanel} from './environment-habitat-trim.js';
 
 // Garden capsule: a low barrel hull with a clay roof in three flat planes, a riveted pressure seam,
@@ -10,8 +10,6 @@ function hullTop(x){
   const dx=x<62?62-x:x>257?x-257:0;
   return 142-Math.sqrt(Math.max(0,46*46-dx*dx));
 }
-
-const wallRect=(p,name,x0,y0,x1,y1,color)=>p.rect(name,x0,y0,x1-x0+1,y1-y0+1,color);
 
 export function capsule(p,t){
   const clay={lit:t.lit,mid:t.mid,base:t.base,shade:t.shade};
@@ -35,13 +33,13 @@ export function capsule(p,t){
   seamBand(p,'capsule',16,303,142,150,{base:clay.shade,lit:clay.base,shade:KIT.dark,rivet:clay.lit});
 
   // tan paneled wall, shaded toward the right, with a darker plinth
-  wallRect(p,'capsule_wall',16,151,250,219,t.wall);
-  wallRect(p,'capsule_wall_shade',251,151,303,219,KIT.brass);
+  boxRect(p,'capsule_wall',16,151,250,219,t.wall);
+  boxRect(p,'capsule_wall_shade',251,151,303,219,KIT.brass);
   for(let x=48;x<300;x+=32){
     const color=x<250?KIT.brass:clay.shade;
     p.rect(`capsule_panel_${x}`,x,152,1,48,color);
   }
-  wallRect(p,'capsule_plinth',16,200,303,219,clay.base);
+  boxRect(p,'capsule_plinth',16,200,303,219,clay.base);
   port(p,'capsule_port_l',72,180,15);
   port(p,'capsule_port_r',248,180,15);
 
