@@ -29,30 +29,30 @@ export function vault(p,t){
   }
 
   // Vault roof: three flat copper planes, vertical ribs, riveted seam, ridge vent.
-  planes(p,'vault_roof',dome(RX,RY,2.5),40,279,[t.mid,t.base,t.shade],[.34,.74]);
+  planes(p,'vault_roof',dome(RX,RY,2.5),40,279,[t.base,t.shade,t.shade],[.34,.74]);
   for(let x=64;x<260;x+=24){
     if(Math.abs(x-160)<6)continue;
     const top=Math.ceil(CY-RY*Math.sqrt(1-((x+.5-CX)/RX)**2));
-    p.rect(`vault_rib_${x}`,x,top,1,142-top,x<200?t.shade:t.base);
+    p.rect(`vault_rib_${x}`,x,top,1,142-top,x<121?t.shade:KIT.dark);
   }
-  seamBand(p,'vault',40,279,142,150,{base:t.shade,lit:t.base,shade:KIT.dark,rivet:t.lit});
+  seamBand(p,'vault',40,279,142,150,{base:t.base,lit:t.mid,shade:KIT.dark,rivet:t.lit});
   ventPanel(p,'vault',128,46,192,60,{base:t.mid,slot:t.shade});
 
   // Wooden wall with two cargo hatches and a dark plinth band.
-  boxRect(p,'vault_wall',40,151,239,218,t.wall);
-  boxRect(p,'vault_wall_far',240,151,279,218,t.base);
+  boxRect(p,'vault_wall',40,151,239,218,t.lit);
+  boxRect(p,'vault_wall_far',240,151,279,218,t.wall);
   for(const [i,x0] of [74,204].entries()){
     const face=x0<150?t.mid:t.base;
     p.rect(`vault_hatch_frame_${i}`,x0,160,45,47,t.shade);
     p.rect(`vault_hatch_face_${i}`,x0+3,163,39,41,face);
     for(let y=167;y<201;y+=6)p.line(`vault_hatch_slat_${i}_${y}`,x0+3,y,x0+41,y,t.shade);
   }
-  boxRect(p,'vault_plinth',40,200,279,218,t.shade);
+  boxRect(p,'vault_plinth',40,200,279,218,t.base);
 
   // Seed silos: banded, with a domed copper cap, service rungs and a porthole.
   for(const [i,[x0,x1]] of silos.entries()){
     const body=tidy([...arcPoints(x0+24.5,71.5,24.5,5.5,180,360,24),[x1+1,72],[x1+1,219],[x0,219],[x0,72]]);
-    planes(p,`vault_silo_${i}`,body,x0,x1,[t.lit,t.mid,t.wall,t.shade],[.14,.42,.74]);
+    planes(p,`vault_silo_${i}`,body,x0,x1,[t.lit,t.mid,t.base,t.shade],[.14,.42,.74]);
     for(const y of [112,150,188])p.rect(`vault_silo_band_${i}_${y}`,x0,y,x1-x0+1,3,t.shade);
     const cap=ellipsePoly(x0+24.5,71.5,22.5,4.5,24);
     p.poly(`vault_silo_cap_${i}`,cap,KIT.brass);
