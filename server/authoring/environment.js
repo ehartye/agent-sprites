@@ -13,7 +13,7 @@ export function generateEnvironmentRecipe(config){
   if(!['terrain','terrain-transition','habitat','furniture'].includes(kind))throw Error(`Unsupported environment kind: ${kind}`);
   if(typeof name!=='string'||! /^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid environment name');
   if(!Number.isSafeInteger(seed))throw Error('Environment seed must be a safe integer');
-  if(config.style!==undefined&&(kind!=='habitat'||!HABITAT_STYLES.includes(config.style)))throw Error('Habitat style must be cottage, workshop, kitchen or barn and applies only to habitat');
+  if(config.style!==undefined&&(kind!=='habitat'||!HABITAT_STYLES.includes(config.style)))throw Error('Habitat style must be cottage, workshop, kitchen, barn, capsule, vault, gantry or dome and applies only to habitat');
   if(kind!=='terrain'&&config.materials!==undefined)throw Error('Materials apply only to terrain');
   if(!['terrain','terrain-transition'].includes(kind)&&config.variants!==undefined)throw Error('Variants apply only to terrain');
   const materials=fallback(config.materials,TERRAIN_MATERIALS),variants=fallback(config.variants,4);
