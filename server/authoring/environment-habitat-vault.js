@@ -29,14 +29,14 @@ export function vault(p,t){
   }
 
   // Vault roof: three flat copper planes, vertical ribs, riveted seam, ridge vent.
-  planes(p,'vault_roof',dome(RX,RY,2.5),40,279,[t.base,t.shade,t.shade],[.34,.74]);
+  planes(p,'vault_roof',dome(RX,RY,2.5),40,279,[KIT.roofBase,KIT.roofShade,KIT.roofShade],[.34,.74]);
   for(let x=64;x<260;x+=24){
     if(Math.abs(x-160)<6)continue;
     const top=Math.ceil(CY-RY*Math.sqrt(1-((x+.5-CX)/RX)**2));
-    p.rect(`vault_rib_${x}`,x,top,1,142-top,x<121?t.shade:KIT.dark);
+    p.rect(`vault_rib_${x}`,x,top,1,142-top,x<121?KIT.roofShade:KIT.roofBase);
   }
-  seamBand(p,'vault',40,279,142,150,{base:t.base,lit:t.mid,shade:KIT.dark,rivet:t.lit});
-  ventPanel(p,'vault',128,46,192,60,{base:t.mid,slot:t.shade});
+  seamBand(p,'vault',40,279,142,150,{base:KIT.roofBase,lit:KIT.roofLit,shade:KIT.dark,rivet:KIT.roofLit});
+  ventPanel(p,'vault',128,46,192,60,{base:KIT.roofLit,slot:KIT.roofShade});
 
   // Wooden wall with two cargo hatches and a dark plinth band.
   boxRect(p,'vault_wall',40,151,239,218,t.lit);

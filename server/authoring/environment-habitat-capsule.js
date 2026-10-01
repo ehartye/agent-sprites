@@ -12,7 +12,7 @@ function hullTop(x){
 }
 
 export function capsule(p,t){
-  const clay={lit:t.lit,mid:t.mid,base:t.base,shade:t.shade};
+  const clay={lit:KIT.roofLit,base:KIT.roofBase,shade:KIT.roofShade};
   const roofPoly=roundedRectPoly(16,96,303,149,{tl:46,tr:46});
 
   // ink outline first, so every fill below sits inside it
@@ -25,22 +25,22 @@ export function capsule(p,t){
 
   // clay roof in three flat planes with raised ribs
   // Dark roof: a small lit plane on the left, then base and shade, so the roof reads darker than the tan wall.
-  drawPlanes(p,'capsule_roof',roofPoly,16,303,{base:clay.mid,slabs:[[0.12,clay.mid],[0.45,clay.base],[1,clay.shade]]});
+  drawPlanes(p,'capsule_roof',roofPoly,16,303,{base:clay.lit,slabs:[[0.12,clay.lit],[0.45,clay.base],[1,clay.shade]]});
   for(const x of [48,96,224,272]){
     const top=Math.ceil(Math.max(hullTop(x),hullTop(x+1),hullTop(x-1)));
     p.rect(`capsule_rib_${x}`,x,top,2,150-top,x<160?clay.shade:KIT.dark);
     p.rect(`capsule_rib_lip_${x}`,x-1,top,1,150-top,x<160?clay.lit:clay.base);
   }
-  seamBand(p,'capsule',16,303,142,150,{base:clay.base,lit:clay.mid,shade:KIT.dark,rivet:clay.lit});
+  seamBand(p,'capsule',16,303,142,150,{base:clay.base,lit:clay.lit,shade:KIT.dark,rivet:clay.lit});
 
   // tan paneled wall, shaded toward the right, with a darker plinth
   boxRect(p,'capsule_wall',16,151,250,219,t.wall);
   boxRect(p,'capsule_wall_shade',251,151,303,219,KIT.brass);
   for(let x=48;x<300;x+=32){
-    const color=x<250?KIT.brass:clay.shade;
+    const color=x<250?KIT.brass:t.shade;
     p.rect(`capsule_panel_${x}`,x,152,1,48,color);
   }
-  boxRect(p,'capsule_plinth',16,200,303,219,clay.mid);
+  boxRect(p,'capsule_plinth',16,200,303,219,t.mid);
   port(p,'capsule_port_l',72,180,15);
   port(p,'capsule_port_r',248,180,15);
 

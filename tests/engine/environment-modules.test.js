@@ -2,6 +2,7 @@ import {test,expect} from 'vitest';
 import {generateEnvironmentRecipe} from '../../server/authoring/environment.js';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
+import {KIT} from '../../server/authoring/environment-habitat-trim.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
 
 const renderer=new CanvasRenderer(new Palette());
@@ -75,13 +76,30 @@ test('module exteriors have distinct silhouettes and use only the shipped kit co
   const names=Object.keys(MODULES),shapes=names.map(n=>alpha(roofs[n]));
   for(let i=0;i<names.length;i++)for(let j=i+1;j<names.length;j++)expect(overlap(shapes[i],shapes[j]),`${names[i]} vs ${names[j]}`).toBeLessThan(0.88);
   expect(new Set(ALL.map(style=>Buffer.from(alpha(roofs[style])).toString('base64'))).size).toBe(ALL.length);
-  const kit=new Set();
+  const kit=new Set([KIT.roofLit,KIT.roofBase,KIT.roofShade].map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)).join(',')));
   for(const base of Object.values(MODULES))for(const color of colorsOf(roofs[base]))kit.add(color);
   for(const style of names)for(const color of colorsOf(roofs[style]))expect(kit.has(color),`${style} uses ${color}`).toBe(true);
 });
 
-test.each([['capsule',[16,94,303,150],[[0,0,98,110],[228,0,270,99]]],['vault',[62,55,257,150],[]],['gantry',[16,114,303,152],[]]])('%s reads as a dark roof over a light wall in grayscale',(style,[rx0,ry0,rx1,ry1],holes)=>{
-  const data=roofs[style],lum=c=>{const v=c.map(u=>{u/=255;return u<=.03928?u/12.92:((u+.055)/1.055)**2.4;});return .2126*v[0]+.7152*v[1]+.0722*v[2];};
+const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+const key=hex=>rgb(hex).join(',');
+const luminance=c=>{const v=c.map(u=>{u/=255;return u<=.03928?u/12.92:((u+.055)/1.055)**2.4;});return .2126*v[0]+.7152*v[1]+.0722*v[2];};
+const DARK_ROOF=0.10;
+
+test('the clay roof ramp is one shared kit ramp, dark, and only the capsule and vault roofs use it',()=>{
+  const ramp=[KIT.roofLit,KIT.roofBase,KIT.roofShade];
+  // lit edge to shade steps down in value, and the shade turns cooler and redder than the lit edge
+  expect(luminance(rgb(KIT.roofLit))).toBeGreaterThan(luminance(rgb(KIT.roofBase)));
+  expect(luminance(rgb(KIT.roofBase))).toBeGreaterThan(luminance(rgb(KIT.roofShade)));
+  expect(luminance(rgb(KIT.roofLit))).toBeLessThan(0.2);
+  for(const color of [KIT.roofBase,KIT.roofShade])expect(luminance(rgb(color)),color).toBeLessThan(0.12);
+  for(const style of ['capsule','vault'])for(const color of ramp)expect(colorsOf(roofs[style]).has(key(color)),`${style} ${color}`).toBe(true);
+  // the ramp is a roof shade: no base style and no other module draws it
+  for(const style of ['cottage','workshop','kitchen','barn','gantry','dome'])for(const color of ramp)expect(colorsOf(roofs[style]).has(key(color)),`${style} ${color}`).toBe(false);
+});
+
+test.each([['capsule',[16,94,303,150],[[0,0,98,110],[228,0,270,99]],2.0],['vault',[62,55,257,150],[],2.0],['gantry',[16,114,303,152],[],1.6]])('%s reads as a dark roof over a light wall in grayscale',(style,[rx0,ry0,rx1,ry1],holes,minContrast)=>{
+  const data=roofs[style],lum=luminance;
   const mean=(x0,y0,x1,y1,skip)=>{
     let sum=0,n=0;
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
@@ -92,7 +110,8 @@ test.each([['capsule',[16,94,303,150],[[0,0,98,110],[228,0,270,99]]],['vault',[6
     return sum/n;
   };
   const roof=mean(rx0,ry0,rx1,ry1,holes.map(([a,b,c,d])=>[a,b||ry0,c,d])),wall=mean(Math.max(rx0,style==='vault'?62:16),153,Math.min(rx1,style==='vault'?257:303),218,[]);
-  expect((wall+.05)/(roof+.05)).toBeGreaterThanOrEqual(1.6);
+  expect((wall+.05)/(roof+.05)).toBeGreaterThanOrEqual(minContrast);
+  if(style!=='gantry')expect(roof).toBeLessThan(DARK_ROOF);
 });
 
 test.each(Object.keys(MODULES))('%s carries the shared hull trim',style=>{
