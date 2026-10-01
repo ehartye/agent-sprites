@@ -67,13 +67,14 @@ export function dome(p,t){
   rect('dome_ring_base',ra,148,rb-1,172,SG.l);
   rect('dome_ring_shade',rb,148,rx1,172,SG.m);
   rect('dome_ring_under',rx0,170,rx1,172,SG.d);
-  for(let x=26;x<296;x+=18)rect(`dome_ring_rivet_${x}`,x,160,x+1,161,SG.cr);
+  if(p.pixelScale===2)for(let x=13;x<148;x+=9)p.src.rect(`dome_ring_rivet_${x*2}`,x,80,2,1,SG.cr);
+  else for(let x=26;x<296;x+=18)rect(`dome_ring_rivet_${x}`,x,160,x+1,161,SG.cr);
 
   // Solar louvers, alternating cream and sage; the ink behind shows as the slats' gaps.
   rect('dome_louver_backing',16,173,303,190,ink);
   for(let i=0,x=20;x<300;i++,x+=20){
     rect(`dome_louver_${i}`,x,174,x+17,190,i%2?SG.l:SG.cr);
-    rect(`dome_louver_shade_${i}`,x,189,x+17,190,SG.m);
+    if(!(p.pixelScale===2&&i===8))rect(`dome_louver_shade_${i}`,x,189,x+17,190,SG.m);
   }
 
   // Cream wall with the lit left face and a shaded right end.

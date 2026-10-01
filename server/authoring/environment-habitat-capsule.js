@@ -55,6 +55,8 @@ export function capsule(p,t){
   }
   p.ellipse('capsule_tower_cap',64,36,27,8,KIT.brass);
   p.ellipse('capsule_tower_cap_light',52,33,10,3,KIT.gold);
+  // the tower's sea plane would show as one pixel between the outline and the cap light at half size
+  if(p.pixelScale===2)p.src.rect('capsule_tower_cap_join',21,15,1,1,KIT.gold);
   p.rect('capsule_finial',62,14,4,15,KIT.brass);
   p.rect('capsule_finial_top',60,12,8,3,KIT.gold);
 

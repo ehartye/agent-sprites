@@ -18,6 +18,8 @@ multiple of its source art. Mixed scales (a 3x deck, 2x characters and 1x props,
 anywhere else. Pick the characters' scale as the anchor and draw or scale everything to
 it. Read the draw scales from code before judging by eye.
 
+For generated environments (terrain, habitats, furniture) set `pixelScale: 2` in the recipe: it is redrawn on a half-size grid, so the atlas is drawn at the characters' 2x without changing any reported layout number.
+
 ## 2. A value ladder **[review]**
 
 Separate the layers by contrast, in this order, so the eye reads them without outlines:

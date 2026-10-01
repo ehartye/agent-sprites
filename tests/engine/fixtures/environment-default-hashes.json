@@ -1,0 +1,95 @@
+{
+ "terrain": {
+  "config": {
+   "kind": "terrain"
+  },
+  "sha256": "868dad783c2602a4c381111b3a6a399712d6b99d2721bc6f880115b106a822ef"
+ },
+ "terrain-seed9-two": {
+  "config": {
+   "kind": "terrain",
+   "seed": 9,
+   "materials": [
+    "moss",
+    "alloy"
+   ],
+   "variants": 2
+  },
+  "sha256": "2fef956598d334b6998a2053c6239a19f8ec905bd4604ba0c9f3264cafcf02d3"
+ },
+ "transition": {
+  "config": {
+   "kind": "terrain-transition",
+   "variants": 2
+  },
+  "sha256": "3e9f8816c3e9f64e255b0d7d8702cc8847742131a483e8a2fbfab8939335ad29"
+ },
+ "furniture": {
+  "config": {
+   "kind": "furniture"
+  },
+  "sha256": "9ae849d97fe0963503e6602cb03b2464e7e5c44fbfd1f46f60162275c449c5e1"
+ },
+ "habitat": {
+  "config": {
+   "kind": "habitat"
+  },
+  "sha256": "dea562105e233ef40b869f9e34522892a680885f12196261a658c137c1fc3a60"
+ },
+ "habitat-cottage": {
+  "config": {
+   "kind": "habitat",
+   "style": "cottage"
+  },
+  "sha256": "29ac7a7596cf0bbf67a6bef4e5144b45060aaf1998aa8bdc37e9fafb63996c86"
+ },
+ "habitat-workshop": {
+  "config": {
+   "kind": "habitat",
+   "style": "workshop"
+  },
+  "sha256": "f67b2de35cd51f1c98efd737dad717551fa9678840a605af3164e7f3899e962c"
+ },
+ "habitat-kitchen": {
+  "config": {
+   "kind": "habitat",
+   "style": "kitchen"
+  },
+  "sha256": "a8f5a1fb3ca38f605a3990b2690a1b6b753aeeb1719924e44348a58f182f6248"
+ },
+ "habitat-barn": {
+  "config": {
+   "kind": "habitat",
+   "style": "barn"
+  },
+  "sha256": "4edb5118aa0909a185bdc93f265ecaf75ee12b9ae7986c8c6e8dd716ccdd194c"
+ },
+ "habitat-capsule": {
+  "config": {
+   "kind": "habitat",
+   "style": "capsule"
+  },
+  "sha256": "c65225ad7d00f5afeb9a230a5b548696a63811ad752bcfc6b430c77850d459fb"
+ },
+ "habitat-vault": {
+  "config": {
+   "kind": "habitat",
+   "style": "vault"
+  },
+  "sha256": "79b88c2357d013b1763dc21c7a3394b79fc0dd3a55699bee73a17a03cd1fa548"
+ },
+ "habitat-gantry": {
+  "config": {
+   "kind": "habitat",
+   "style": "gantry"
+  },
+  "sha256": "c8de801885a54f0878c706ad7ce654bc82e2798fed2c963440a741f070d12cc5"
+ },
+ "habitat-dome": {
+  "config": {
+   "kind": "habitat",
+   "style": "dome"
+  },
+  "sha256": "aca90dad000547b1483a27c0a1f703ce35793f7ad084bb7f7ae8a82fad5528c6"
+ }
+}

@@ -68,3 +68,24 @@ test.each(['cottage','workshop','kitchen','barn'])('styled %s habitat publishes 
   const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json'),'utf8'));
   expect(marker.version).toBe(2);expect(marker.config).toBe('../sprite-project.json');
 },20000);
+
+test.each([['habitat',{style:'capsule'},[160,128],[320,256],['habitat_floor','habitat_roof']],['furniture',{},[32,32],[64,64],['bed','locker']],['terrain',{materials:['moss'],variants:1},[16,16],[32,32],['moss_0']]])('pixelScale 2 %s build records the scale in the atlas, report and manifest',async(kind,extra,source,screen,frames)=>{
+  config.environment={name:`${kind}-half`,kind,pixelScale:2,...extra};
+  config.expectedFrames=frames;write();
+  const result=await buildProject(path);
+  expect(result.errors).toEqual([]);expect(result.ok).toBe(true);expect(result.warnings).toEqual([]);
+  const atlas=JSON.parse(readFileSync(result.artifacts.atlas,'utf8'));
+  expect(atlas.meta.pixelScale).toBe(2);
+  expect(atlas.frames ? Object.values(atlas.frames)[0].frame : atlas.frames).toMatchObject({w:source[0],h:source[1]});
+  const report=JSON.parse(readFileSync(result.artifacts.environmentReport,'utf8'));
+  expect(report).toMatchObject({pixelScale:2,cellSize:{width:source[0],height:source[1]},screenCellSize:{width:screen[0],height:screen[1]}});
+  const manifest=JSON.parse(readFileSync(result.artifacts.manifest,'utf8'));
+  expect(manifest.pixelScale).toBe(2);
+},30000);
+
+test('an environment build without pixelScale leaves the atlas and manifest unchanged',async()=>{
+  const result=await buildProject(path);
+  expect(result.ok).toBe(true);
+  expect(JSON.parse(readFileSync(result.artifacts.atlas,'utf8')).meta.pixelScale).toBeUndefined();
+  expect(JSON.parse(readFileSync(result.artifacts.manifest,'utf8')).pixelScale).toBeUndefined();
+},20000);
