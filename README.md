@@ -346,6 +346,7 @@ project. These native skills call the same managed CLI:
 | `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
+| `sprite-craft` | Expert craft rules and critique order: silhouette, value, outlines, clusters, dithering, small-sprite motion |
 | `sprite-composition` | Draw order discipline, naming conventions, sheet layout |
 | `game-integration` | Wiring exports into Phaser/Unity/Godot, full-game asset builds, app icons |
 | `sprite-verification` | Source-cell and atlas checks, per-frame inspection, animation review |

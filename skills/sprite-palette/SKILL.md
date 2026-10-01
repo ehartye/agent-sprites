@@ -14,6 +14,7 @@ CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md
 load that setup before running commands and stop on command failure.
 
 Pick the palette and base colors before drawing. Wrong palette → `draw highlight` / `draw shadow` derive off-palette tones or produce mud.
+For the color rules experts use to judge a sprite (neighbor identity, hue-shifted ramps, outline contrast), see [sprite craft](../sprite-craft/SKILL.md).
 
 ## Ramp-Aware vs Flat Palettes
 

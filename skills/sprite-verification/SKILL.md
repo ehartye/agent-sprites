@@ -19,7 +19,9 @@ edits, regeneration).
 Scope checks to the asset: every sheet needs structural and visual inspection;
 game integration adds loader checks; directional characters add facing checks;
 humanoid walks add feet/hand gait measurements. A blinking robot, icon, or effect
-does not need skin-tone detection or a walking gait. For CLI invocation use
+does not need skin-tone detection or a walking gait. This skill checks that a sheet
+is correct; whether it is *good* is judged with [sprite craft](../sprite-craft/SKILL.md).
+For CLI invocation use
 [sprite editing](../sprite-editing/SKILL.md).
 
 ## Verification ladder

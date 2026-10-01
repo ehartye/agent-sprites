@@ -9,7 +9,8 @@ Build an original character whose silhouette, face and costume remain recognizab
 across views and variants. Start with a small standing study before multiplying
 the design into a cast or animation sheet. “16-bit” is an art direction, not a
 16×16 canvas requirement, and the named games are references rather than one
-interchangeable style.
+interchangeable style. Judge the finished study against [sprite craft](../sprite-craft/SKILL.md)
+(silhouette first, then value, outline policy and cluster cleanliness).
 
 ## Establish the visual contract
 

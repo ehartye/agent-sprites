@@ -14,6 +14,7 @@ CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md
 load that setup before running commands and stop on command failure.
 
 Principles for multi-frame pixel-art animation on top of the cell-based sprite sheet.
+For pixel-scale polish rules of thumb (timing holds, one-frame anticipation, stable clusters between frames) and their confidence, see [sprite craft](../sprite-craft/references/small-sprite-motion.md).
 
 ## Repeatable humanoid characters
 
