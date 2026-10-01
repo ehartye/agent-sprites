@@ -57,6 +57,8 @@ export function vault(p,t){
     const cap=ellipsePoly(x0+24.5,71.5,22.5,4.5,24);
     p.poly(`vault_silo_cap_${i}`,cap,KIT.brass);
     p.ellipse(`vault_silo_cap_light_${i}`,x0+14,68,9,2,KIT.gold);
+    // the cap would cut the ink ring into two runs; one outline pixel keeps it whole at half size
+    if(p.pixelScale===2)p.src.rect(`vault_silo_ring_join_${i}`,i?153:29,33,1,1,KIT.ink);
     for(let y=120;y<212;y+=8)p.rect(`vault_silo_rung_${i}_${y}`,x1-4,y,4,1,KIT.brass);
   }
   port(p,'vault_port_l',36,134,8);

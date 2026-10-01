@@ -164,6 +164,8 @@ export async function buildProject(configPath) {
     const { png, atlas } = config.trim
       ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
       : { png: renderer.renderSheet(project.cells, { gap: 0 }), atlas: project.exportAseprite({ imageName: `${name}.png` }) };
+    // An environment drawn on a coarser source grid tells the game how far to scale the atlas.
+    if (recipeReport?.pixelScale !== undefined) atlas.meta.pixelScale = recipeReport.pixelScale;
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
@@ -198,6 +200,7 @@ export async function buildProject(configPath) {
     // Names are relative so the manifest survives copying the output directory.
     const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind };
     if (recipeReport?.kind) manifest.kind = recipeReport.kind;
+    if (recipeReport?.pixelScale !== undefined) manifest.pixelScale = recipeReport.pixelScale;
     if (reportKey) manifest.report = artifacts[reportKey];
     manifest.files = { ...artifacts };
     artifacts.manifest = 'sprite-manifest.json';

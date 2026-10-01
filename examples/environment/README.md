@@ -19,7 +19,7 @@ return to its deterministic source. No external raster artwork is required.
 ```
 
 `kind` is `terrain`, `terrain-transition`, `habitat`, or `furniture`. `seed` defaults to 7 and must be a
-safe integer. Terrain defaults to all six materials and four variants; a subset
+safe integer. `pixelScale` is 1 (default) or 2; see [Pixel scale](#pixel-scale). Terrain defaults to all six materials and four variants; a subset
 can request 1–4 variants. Unknown fields are rejected. `materials` applies only
 to `terrain`; `variants` also applies to `terrain-transition`, with any positive
 safe count whose sheet arithmetic remains exactly representable (default four).
@@ -80,6 +80,35 @@ Furniture uses 64×64 cells: `bed`, `kitchen`, `workbench`, `planter`, `stool`, 
 `{ "x": 32, "y": 62 }`. The two final rows are transparent. Use the ground anchor
 for world placement and depth sorting; use the reported foot rectangle for
 collision, so the tops of taller props can overlap the player naturally.
+
+### Pixel scale
+
+`pixelScale: 1 | 2` (default 1) lets a game draw terrain, habitats and furniture at the same 2x as its characters
+without changing any layout number. With `pixelScale: 2` the recipe is redrawn on a grid of half the size and the atlas is
+emitted at that source size; the game draws it at scale 2.
+
+| Kind | Source cell (atlas) | Screen cell (drawn at 2x) |
+|---|---|---|
+| `habitat` | 160×128 | 320×256 |
+| `furniture` | 32×32 | 64×64 |
+| `terrain` | 16×16 | 32×32 |
+
+Everything the game consumes is still reported in screen units: the habitat `layout` (footprint, interior, door, walls),
+furniture `collision` and `ground`, and every frame's `bounds`. So collision, navigation and saves read identical numbers at
+either scale. The report adds `pixelScale`, `screenCellSize`, and per frame `sourceBounds` (and `sourceGround` for furniture,
+the pivot in source pixels). The atlas JSON records `meta.pixelScale` (and the build manifest `pixelScale`) so a game can assert
+the scale it draws at; a recipe that omits `pixelScale` writes none of these and is byte-identical to before.
+Terrain transitions do not support it yet and reject the option.
+
+This is a redraw, not a resample. Shapes are filled on the half grid by pixel cover (a screen pixel belongs to the source
+pixel that contains it), so rectangles that tile still tile, and hand-set trim is authored in source pixels: line weight is one
+source pixel (two screen pixels). Details finer than a source pixel are simplified by the world rules instead of shrunk: the
+seam band is a lit row, a base row and a dark row with two-pixel rivets; hazard chevrons are four-pixel bars two rows tall; ports
+are round discs one pixel thick per ring; window frames and outlines are one pixel; furniture stitching, utensils, spanners
+and graph traces are reduced to what fits; terrain flecks are at least two source pixels and stay off the border. At
+`pixelScale: 2` every habitat style and layer, every furniture piece and every terrain tile has hard alpha, no isolated
+single pixels (8-connected, tiles measured as repeating), no dither and only the colors of the full-size art. The legacy
+pressure-vessel habitat (no `style`) is drawn at half size by the same fill rule but has not been hand-tuned.
 
 ## Organic path transitions
 

@@ -1,4 +1,5 @@
 import {randomFor} from './environment-terrain.js';
+import {HALF_FURNITURE} from './environment-furniture-half.js';
 
 const C={ink:'#344751',deep:'#42646b',teal:'#659797',sea:'#83b5af',cream:'#dfddbd',light:'#f4edcf',shade:'#b4b9a3',bronze:'#a9895e',gold:'#d4b47c',wood:'#b79a71',woodDark:'#927958',woodLight:'#cbb18a',glass:'#527b8b',glint:'#bce0d3',green:'#779566',leaf:'#a7bb79',soil:'#6b6658',red:'#bb7866'};
 export const HABITAT_LAYOUT={footprint:{x:16,y:48,w:288,h:196},interior:{x:24,y:80,w:272,h:140},door:{x:136,y:220,w:48,h:36},walls:[{x:16,y:48,w:288,h:32},{x:16,y:80,w:8,h:140},{x:296,y:80,w:8,h:140},{x:16,y:220,w:120,h:24},{x:184,y:220,w:120,h:24}]};
@@ -22,10 +23,33 @@ function southWalls(p,prefix='south'){
     for(let j=0;j<3;j++)p.rect(`${prefix}_${i}_rib_${j}`,x+15+j*35,223,3,13,C.sea);
   }
   p.rect(`${prefix}_left_jamb`,128,220,8,22,C.bronze);p.rect(`${prefix}_right_jamb`,184,220,8,22,C.bronze);
-  p.line(`${prefix}_left_light`,132,220,132,237,C.gold);p.line(`${prefix}_right_light`,187,220,187,237,C.gold);
+  const top=p.pixelScale===2?222:220;p.line(`${prefix}_left_light`,132,top,132,237,C.gold);p.line(`${prefix}_right_light`,187,top,187,237,C.gold);
+}
+/** Half-size floor, authored in source pixels: eight-row planks with a dark seam row, ends, grain, rails and entry plate. */
+function floorHalf(p,seed){
+  const q=p.src;
+  q.rect('floor_underlay',12,38,136,72,C.woodDark);
+  for(let row=0;row<9;row++){
+    const y=38+row*8;
+    q.rect(`floor_board_${row}`,12,y,136,7,C.wood);
+    q.line(`floor_board_light_${row}`,13,y,146,y,C.woodLight);
+    for(let x=12+(row%2?20:4),j=0;x<146;x+=34,j++)q.line(`floor_end_${row}_${j}`,x,y+1,x,y+6,C.woodDark);
+    const random=randomFor(seed,row),placed=[];
+    for(let j=0;j<9;j++){
+      const x=(29+Math.floor(random()*251))>>1,gy=y+2+Math.floor(random()*5);
+      // a grain stroke that would overlap or touch another in its row is dropped, so none is left as a lone pixel
+      if(placed.some(([px,py])=>Math.abs(py-gy)<=1&&Math.abs(px-x)<=4))continue;
+      placed.push([x,gy]);q.line(`floor_grain_${row}_${j}`,x,gy,x+2,gy,j%3?C.woodLight:C.woodDark);
+    }
+  }
+  q.rect('perimeter_back',12,38,136,2,C.bronze);q.rect('perimeter_left',12,40,2,70,C.bronze);q.rect('perimeter_right',146,40,2,70,C.bronze);
+  q.rect('entry_underlay',68,110,24,18,C.ink);q.rect('entry_plate',69,110,22,18,C.teal);
+  for(let i=0;i<6;i++){q.line(`entry_tread_${i}`,70,111+i*3,89,111+i*3,C.sea);q.line(`entry_tread_shadow_${i}`,70,112+i*3,89,112+i*3,C.deep);}
+  q.line('threshold',69,110,90,110,C.gold);
 }
 export function drawHabitat(p,layer,seed){
-  if(layer==='habitat_floor'){
+  if(layer==='habitat_floor'&&p.pixelScale===2)floorHalf(p,seed);
+  else if(layer==='habitat_floor'){
     p.rect('floor_underlay',24,76,272,144,C.woodDark);
     for(let row=0;row<9;row++){
       const y=76+row*16;p.rect(`floor_board_${row}`,25,y+1,270,14,C.wood);
@@ -43,7 +67,10 @@ export function drawHabitat(p,layer,seed){
     p.poly('back_pressure_shell',[[16,79],[16,61],[28,49],[46,48],[273,48],[291,49],[303,61],[303,79]],C.ink);
     p.poly('back_wall_face',[[20,77],[20,62],[30,53],[289,53],[299,62],[299,77]],C.cream);
     p.line('back_crown_light',34,51,285,51,C.light);p.rect('back_wall_bottom',24,74,272,6,C.teal);
-    for(let i=0;i<8;i++){const x=36+i*34;p.line(`back_panel_join_${i}`,x,54,x,72,C.shade);p.rect(`back_panel_pin_${i}`,x+3,56,2,2,C.bronze);}
+    for(let i=0;i<8;i++){const x=36+i*34;// At half size a join or pin that the port, panel or a style's fittings cut down to one pixel is not drawn.
+      const half=p.pixelScale===2,skip=half?(p.skipJoins||[1,4,6]):[];
+      if(!skip.includes(i))p.line(`back_panel_join_${i}`,x,54,x,72,C.shade);
+      if(!(half&&i===3))p.rect(`back_panel_pin_${i}`,x+3,56,2,2,C.bronze);}
     for(const [i,x] of [[0,80],[1,240]]){p.ellipse(`inner_port_rim_${i}`,x,63,13,9,C.bronze);p.ellipse(`inner_port_glass_${i}`,x,63,10,6,C.glass);p.line(`inner_port_light_${i}`,x-6,59,x+4,59,C.glint);}
     panel(p,'life_support',143,54,34,20,C.deep);p.rect('life_support_screen',149,59,16,6,C.sea);p.rect('life_support_indicator',169,61,3,3,C.gold);
     for(const [side,x] of [['left',16],['right',296]]){
@@ -111,6 +138,7 @@ export function drawHabitat(p,layer,seed){
 function feet(p,x0,x1,y){for(const [i,x] of [[0,x0],[1,x1]]){p.rect(`foot_${i}`,x,y,5,62-y,C.ink);p.rect(`foot_light_${i}`,x+1,y,2,61-y,C.bronze);}}
 export function drawFurniture(p,kind,seed){
   const collision=FURNITURE_COLLISIONS[kind];
+  if(p.pixelScale===2&&HALF_FURNITURE[kind])return HALF_FURNITURE[kind](p,collision,seed);
   p.ellipse('ground_shadow',32,59,Math.floor(collision.w/2),2,C.deep);
   if(kind==='bed'){
     feet(p,11,48,56);panel(p,'bed_frame',10,17,44,41,C.bronze);

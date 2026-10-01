@@ -9,7 +9,62 @@ export function mossEdgeColor(x,y){
 export function randomFor(seed,salt=0){let state=(seed^Math.imul(salt+1,0x45d9f3b))>>>0;return ()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};}
 
 /** Quiet clusters share matching opposite edge pixels across every variant. */
+/**
+ * Half-size tile (16 by 16 source pixels, drawn at 2x): every fleck is at least two source pixels, flecks stay clear
+ * of the border so opposite edges match, and the shared edge clusters are one source pixel wide so they pair up
+ * across the seam of two neighbouring tiles.
+ */
+function drawTerrainHalf(p,material,variant,seed){
+  const q=p.src,[base,dark,light,bright]=RAMPS[material],random=randomFor(seed,variant+TERRAIN_MATERIALS.indexOf(material)*29);
+  const ri=(lo,hi)=>lo+Math.floor(random()*(hi-lo+1));
+  q.rect('surface',0,0,16,16,base);
+  if(material==='alloy'){
+    q.rect('panel_inset',1,1,14,14,light);q.rect('panel_face',2,2,12,11,base);
+    q.line('panel_upper_bevel',2,1,13,1,bright);q.line('panel_lower_recess',1,14,14,14,dark);
+    // fasteners are two-pixel dashes: a single dark pixel would read as a speck
+    for(const [i,x,y] of [[0,2,2],[1,12,2],[2,2,11],[3,12,11]])q.rect(`fastener_${i}`,x,y,2,1,dark);
+    const y=5+variant*2;q.line('panel_scuff',5,y,8,y,light);q.line('panel_scuff_tip',9,y+1,10,y+1,light);
+  }else if(material==='cork'){
+    for(const y of [0,7,15])q.line(`board_seam_${y}`,0,y,15,y,dark);
+    q.line('board_light',0,1,15,1,light);q.line('board_second_light',0,8,15,8,light);
+    q.line('board_end_upper',6,2,6,6,dark);q.line('board_end_lower',12,9,12,14,dark);
+    for(let i=0;i<9;i++){const x=ri(1,12),y=ri(2,13);if(y===7||y===8||y===1||Math.abs(x-6)<=2||Math.abs(x-12)<=2)continue;q.rect(`cork_grain_${i}`,x,y,2,1,i%4?light:dark);}
+  }else{
+    const clusterCount=material==='moss'?[2,4,6,8][variant]:[4,6,8,10][variant];
+    // a cluster that would overlap or touch an earlier one is moved up to three times, then dropped, so none is cut to a speck
+    const placed=[];
+    for(let i=0;i<clusterCount;i++){
+      let x,y,w,h,ok=false;
+      for(let attempt=0;attempt<4&&!ok;attempt++){
+        x=ri(2,10);y=ri(2,11);w=ri(2,3);h=ri(1,2);
+        ok=!placed.some(([px,py])=>Math.abs(px-x)<=5&&Math.abs(py-y)<=3);
+      }
+      if(!ok)continue;placed.push([x,y]);
+      const tone=i%3?light:dark;
+      if(material==='moss'){
+        q.poly(`moss_patch_${i}`,[[x,y],[x+w-1,y],[x+w,y+1],[x+w-1,y+h],[x,y+h]],tone);
+        if(variant>1&&i===2)q.rect(`moss_leaf_${i}`,x,y-1,2,1,bright);
+      }else if(material==='regolith'){
+        q.rect(`pebble_shadow_${i}`,x+1,y+1,w,1,dark);
+        q.rect(`pebble_${i}`,x,y,w,1,tone);
+        if(i%4===0)q.line(`pebble_glint_${i}`,x,y,x+1,y,bright);
+      }else if(material==='basalt'){
+        q.poly(`stone_facet_${i}`,[[x,y],[x+w,y],[x+w,y+1],[x,y+h]],tone);
+        if(i%4===0){q.line(`mineral_vein_${i}`,x,y+1,x+1,y,bright);q.line(`mineral_branch_${i}`,x+2,y,x+3,y+1,light);}
+      }else{
+        q.poly(`earth_patch_${i}`,[[x,y],[x+w-1,y],[x+w,y+1],[x+w-1,y+h],[x,y+h]],tone);
+        if(i%4===0)q.rect(`earth_grit_${i}`,x+1,y-1,2,1,bright);
+      }
+    }
+    const edgeLight=material==='moss'?MOSS_EDGE.light:light,edgeDark=material==='moss'?MOSS_EDGE.dark:dark;
+    for(const [i,y] of [4,11].entries())for(const x of [0,15])q.rect(`edge_patch_x_${i}_${x}`,x,y,1,2,edgeLight);
+    for(const [i,x] of [5,12].entries())for(const y of [0,15])q.rect(`edge_patch_y_${i}_${y}`,x,y,2,1,edgeDark);
+    if(material==='regolith'&&variant===2){const x=ri(5,11),y=ri(5,11);q.ellipse('crater_rim',x,y,3,2,light);q.ellipse('crater_bowl',x,y,2,1,dark);q.line('crater_lip',x-1,y+1,x+1,y+1,bright);}
+  }
+}
+
 export function drawTerrain(p,material,variant,seed){
+  if(p.pixelScale===2)return drawTerrainHalf(p,material,variant,seed);
   const [base,dark,light,bright]=RAMPS[material],random=randomFor(seed,variant+TERRAIN_MATERIALS.indexOf(material)*29);
   const ri=(lo,hi)=>lo+Math.floor(random()*(hi-lo+1));
   p.rect('surface',0,0,32,32,base);

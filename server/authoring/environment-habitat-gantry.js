@@ -8,6 +8,7 @@ const SL=['#405762','#607d8b','#7896a0','#91a3a0','#a4c2c3'];
 const {ink:INK,dark:DARK,glass:GLASS,brass:COPPER,gold:BRASS}=KIT;
 
 export function gantry(p,t){
+  const half=p.pixelScale===2;
   // Inclusive-corner rectangle, matching the approved concept's pixel boxes.
   const R=(n,...box)=>boxRect(p,n,...box);
   // Two-pixel ink outline around a rectangle with the corners rounded off.
@@ -27,11 +28,21 @@ export function gantry(p,t){
   // Roof hall: chamfered body in three planes.
   const body=[[16,152],[16,126],[30,114],[290,114],[303,126],[303,152]];
   drawPlanes(p,'gantry_roof',body,16,304,{base:SL[1],slabs:[[.08,SL[1]],[1,SL[0]]]});
-  for(let x=48;x<300;x+=40)R(`gantry_roof_rib_${x}`,x,116,x,140,DARK);
+  for(let x=48;x<300;x+=40)R(`gantry_roof_rib_${x}`,x,half?118:116,x,140,DARK);
   // Solar array.
-  R('gantry_solar_frame',60,118,168,142,INK);
-  for(let gx=62;gx<168;gx+=12)for(let gy=120;gy<141;gy+=7)R(`gantry_solar_${gx}_${gy}`,gx,gy,gx+10,gy+5,GLASS);
-  R('gantry_solar_glint',62,119,166,119,SL[4]);
+  if(half){
+    // Half size: 9 by 3 cells of five by three source pixels on one-pixel ink gaps, each with a lit top row.
+    const q=p.src;
+    q.rect('gantry_solar_frame',30,59,55,13,INK);
+    for(let c=0;c<9;c++)for(let r=0;r<3;r++){
+      q.rect(`gantry_solar_${c}_${r}`,31+c*6,60+r*4,5,3,GLASS);
+      q.line(`gantry_solar_glint_${c}_${r}`,31+c*6,60+r*4,35+c*6,60+r*4,SL[4]);
+    }
+  }else{
+    R('gantry_solar_frame',60,118,168,142,INK);
+    for(let gx=62;gx<168;gx+=12)for(let gy=120;gy<141;gy+=7)R(`gantry_solar_${gx}_${gy}`,gx,gy,gx+10,gy+5,GLASS);
+    R('gantry_solar_glint',62,119,166,119,SL[4]);
+  }
   seamBand(p,'gantry_hall',16,303,144,152,{base:SL[1],lit:SL[2],shade:DARK,rivet:BRASS});
 
   // Wall, full width; the caller's door covers x128..191 afterwards.
@@ -53,6 +64,8 @@ export function gantry(p,t){
   for(const y of [70,92])R(`gantry_tank_band_${y}`,28,y,70,y+2,SL[0]);
   const cap=ellipsePoly(49,55,19,4,18);if(cap)p.poly('gantry_tank_cap',cap,COPPER);
   const capLit=ellipsePoly(38,52,6,1,12);if(capLit)p.poly('gantry_tank_cap_lit',capLit,BRASS);
+  // the tank's top plane would show as a single pixel between the lit cap and the cap at half size
+  if(half)p.src.rect('gantry_tank_cap_join',21,25,1,1,BRASS);
   R('gantry_stack',46,34,52,52,COPPER);R('gantry_stack_cap',44,32,54,34,BRASS);
 
   // Lattice mast.
