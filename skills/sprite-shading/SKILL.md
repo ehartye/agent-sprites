@@ -14,6 +14,7 @@ CLI examples use the invocation from [sprite editing](../sprite-editing/SKILL.md
 load that setup before running commands and stop on command failure.
 
 Give flat shapes visible form. Works with the `draw highlight` and `draw shadow` commands from `sprite-editing`.
+For what to aim for and how to judge the result (silhouette, value structure, outlines, clusters), see [sprite craft](../sprite-craft/SKILL.md).
 
 ## Small RPG characters
 
