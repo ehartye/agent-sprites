@@ -1,6 +1,9 @@
 import {drawHabitat} from './environment-habitat.js';
+import {MODULE_BASE_STYLES,MODULE_DRAWERS} from './environment-habitat-modules.js';
+import {hazardChevrons} from './environment-habitat-trim.js';
 
-export const HABITAT_STYLES=['cottage','workshop','kitchen','barn'];
+export const BASE_HABITAT_STYLES=['cottage','workshop','kitchen','barn'];
+export const HABITAT_STYLES=[...BASE_HABITAT_STYLES,...Object.keys(MODULE_BASE_STYLES)];
 const C={ink:'#344751',dark:'#283c44',cream:'#dfddbd',light:'#f4edcf',brass:'#a9895e',gold:'#d4b47c',glass:'#527b8b',glint:'#bce0d3',leaf:'#a7bb79'};
 const themes={
   cottage:{base:'#8c6860',shade:'#664f50',mid:'#ac7b6c',lit:'#d3a18b',wall:'#cbb18a',floor:'#b79a71'},
@@ -12,6 +15,10 @@ const themes={
 // Reuse the proven wall and doorway geometry; style changes are authored pixels,
 // never unreported collision offsets. The historical pressure-vessel stays intact.
 export function drawStyledHabitat(p,layer,seed,style){
+  // A module style reuses its base style's rooms, doorway and theme; only the exterior roof layer is its own.
+  const module=MODULE_DRAWERS[style]?style:null,base=module?MODULE_BASE_STYLES[style]:style;
+  if(module&&layer!=='habitat_roof')return drawStyledHabitat(p,layer,seed,base);
+  style=base;
   const t=themes[style];
   if(layer!=='habitat_roof'){
     const colors={'#659797':t.base,'#42646b':t.shade,'#83b5af':t.lit,'#dfddbd':t.wall,'#b79a71':t.floor,'#927958':t.shade,'#cbb18a':t.lit};
@@ -49,11 +56,15 @@ export function drawStyledHabitat(p,layer,seed,style){
   p.rect('wall_outline',16,151,288,69,C.ink);p.rect('wall_face',20,154,280,66,t.wall);
   p.rect('wall_foundation',20,209,280,11,t.shade);
   for(let x=28;x<299;x+=23){p.line(`wall_joint_${x}`,x,158,x,207,t.shade);p.line(`wall_lit_joint_${x}`,x+1,158,x+1,207,t.lit);}
-  if(style==='cottage')cottage(p,t);
-  if(style==='workshop')workshop(p,t);
-  if(style==='kitchen')kitchen(p,t);
-  if(style==='barn')barn(p,t);
+  if(module)MODULE_DRAWERS[module](p,t);
+  else{
+    if(style==='cottage')cottage(p,t);
+    if(style==='workshop')workshop(p,t);
+    if(style==='kitchen')kitchen(p,t);
+    if(style==='barn')barn(p,t);
+  }
   doorway(p,t,style);
+  if(module)hazardChevrons(p);
   // Reuse the original split foreground parapet, recolored for each material.
   drawStyledHabitat(p,'habitat_front',seed,style);
 }
