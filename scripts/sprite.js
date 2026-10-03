@@ -229,6 +229,8 @@ SESSION
 
 OFFLINE VERIFICATION (does not start or contact a server)
   build <sprite-project.json> [--json]
+  build-set <sprite-projects.json> [--check] [--json]
+                         rebuild every listed project, or report stale outputs without writing
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
@@ -359,6 +361,24 @@ async function run() {
       console.log(`Exact trace: ${report.width}×${report.height}, ${report.shapeCount} editable shapes, ${report.differingPixels} differing pixels.`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
     }
+    return;
+  }
+  if (cmd === 'build-set') {
+    if (positional.length !== 1 || Object.keys(args).some(key => !['check', 'json'].includes(key)) || Object.values(args).some(value => ![true, 'true', 'false'].includes(value))) {
+      throw new Error('Usage: agent-sprites build-set <sprite-projects.json> [--check] [--json]');
+    }
+    const { buildProjectSet } = await import('../server/build/project-set.js');
+    const report = await buildProjectSet(positional[0], { check: bool(args.check) });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(report.mode === 'check' ? `${report.total - report.stale}/${report.total} projects current; ${report.stale} need attention.` : `${report.succeeded}/${report.total} projects built; ${report.failed} failed.`);
+      for (const project of report.projects) {
+        console.log(`${project.status}: ${project.config}`);
+        for (const item of [...(project.reasons ?? []), ...(project.errors ?? [])]) console.log(`  ${item.code}: ${item.message}`);
+      }
+      for (const error of report.errors.filter(error => !error.config)) console.log(`${error.code}: ${error.message}`);
+    }
+    if (!report.ok) process.exitCode = 1;
     return;
   }
   if (cmd === 'build') {

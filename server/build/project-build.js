@@ -21,6 +21,7 @@ import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
+import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 
 const exec = promisify(execFile);
 const marker = '.agent-sprites-build.json';
@@ -95,22 +96,11 @@ export async function buildProject(configPath) {
     const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath);
     if (config.version !== 1) throw new Error('Build config requires version: 1.');
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
-    const hasInline = ['character', 'environment', 'ui'].some(key => Object.hasOwn(config, key));
-    // Legacy file recipes permit an empty unused source. Inline recipes remain
-    // strict so a malformed or mixed declaration cannot silently select another.
-    const sources = hasInline
-      ? ['ops', 'generator', 'character', 'environment', 'ui'].filter(key => Object.hasOwn(config, key))
-      : ['ops', 'generator'].filter(key => Boolean(config[key]));
-    if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, or UI recipe.');
-    const sourceKind = sources[0], inline = ['character', 'environment', 'ui'].includes(sourceKind);
-    if (config.trim && sourceKind === 'ui') throw new Error('trim is not supported for UI builds: the UI runtime composites whole glyph and skin cells.');
-    if (inline) {
-      if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
-    } else if (typeof config[sourceKind] !== 'string' || !config[sourceKind]) throw new Error(`${sourceKind} source must be a nonempty file path.`);
+    const { sourceKind, inline, source } = resolveBuildSource(configPath, config);
     assertTrimOption(config.trim);
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
-    const source = inline ? configPath : realpathSync(resolve(base, config[sourceKind]));
+    const provenance = snapshotBuildInputs(configPath, config, source);
     let output = resolve(base, config.output);
     if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
     mkdirSync(dirname(output), { recursive: true });
@@ -198,7 +188,7 @@ export async function buildProject(configPath) {
     }
     // Consumers read one portable file instead of guessing names per recipe kind.
     // Names are relative so the manifest survives copying the output directory.
-    const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind };
+    const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind, build: provenance };
     if (recipeReport?.kind) manifest.kind = recipeReport.kind;
     if (recipeReport?.pixelScale !== undefined) manifest.pixelScale = recipeReport.pixelScale;
     if (reportKey) manifest.report = artifacts[reportKey];
@@ -211,6 +201,7 @@ export async function buildProject(configPath) {
     writeFileSync(join(stage, artifacts.operations), json(operations));
     writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
     writeFileSync(join(stage, marker), json({ ...outputOwner(output, configPath), files: Object.values(artifacts) }));
+    if (JSON.stringify(snapshotBuildInputs(configPath, config, source)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
     assertOwnedOutput(output, configPath);
     const backup = stage + '.previous';
     const replacing = existsSync(output);
