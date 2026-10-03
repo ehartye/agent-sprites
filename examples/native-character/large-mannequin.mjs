@@ -29,8 +29,8 @@ export function broadenMannequin(source,tone,{bulk=0}={}){
   if(!profile){
    band(1,4,15+bob,18+bob);band(11,14,15+bob,18+bob);
    if(phase%2===0){band(0,3,19,22);band(12,15,19,22);}
-   else if(phase===1){band(1,4,19,20);band(11,14,19,22);}
-   else {band(1,4,19,22);band(11,14,19,20);}
+   else if(phase===1){band(1,4,20,21);band(11,14,21,24);}
+   else {band(1,4,21,24);band(11,14,20,21);}
   }else if(phase%2===0){
    band(2,6,15,20);band(11,14,18,20);
   }else if(phase===1){

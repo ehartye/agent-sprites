@@ -43,6 +43,7 @@ Point names include direction, material and coordinates. Each material also has 
 - Preserve all four source front/right poses and retain the repeated passing frame at phases 0 and 2. Reflect the complete right-facing body and wardrobe for left; do not mirror only a sleeve or shoe.
 - Derive each rear pose from its matching front silhouette and shift rear shading with its bob. Never carry facial pixels or a jacket opening onto the back.
 - Fit sleeves to moving arms and exclude the hands before painting garments, trousers, or a skirt. Fixed y-based clothing bands alone can paint over a swinging hand.
+- Front and rear contact poses follow the Stardew convention: the forward-swinging arm is foreshortened (three rows shorter for adults, two for children, hand tucked at the hip), the trailing arm stays full length with its hand visible, the foot on the same side as the short arm lifts one row, and the sides swap on the opposite contact. Passing poses keep both arms down.
 - Attach hair to the current head landmark. Advance separate body and wig sheets with the same named frame. Keep their full cell size, tag order, 8 fps default, and bottom-center pivot aligned.
 - Keep shoes on the source feet and all soles on y=29. Skirt motion must leave visible footwear and fit within 16×32.
 
