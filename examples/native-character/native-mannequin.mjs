@@ -4,6 +4,7 @@ import {drawNativeGear} from './native-gear.mjs';
 import {SKIN_TONES} from '../../server/engine/skin-tones.js';
 import {readFileSync} from 'node:fs';
 import {deriveBackStudy} from '../reference-grid/derive-back.mjs';
+import {armSwingPatch,applyArmSwing} from './arm-swing.mjs';
 
 export const DIRECTIONS=['front','right','back','left'];
 
@@ -41,9 +42,10 @@ export function sourceMannequin(kind='adult',tone='peach'){
     for(let col=0;col<5;col++){
       const phase=col===0?0:col-1,cell=`${row},${col}`;
       ops.push({command:'name',cell,as:col===0?dir:`${dir}_walk_${phase}`});
-      for(const op of poses[phase].filter(o=>o.cell===sourceCell&&['draw','shape-group'].includes(o.command))){
-        ops.push({...op,cell,...(dir==='left'&&op.command==='draw'?{x:15-op.x}:{})});
-      }
+      const cellOps=poses[phase].filter(o=>o.cell===sourceCell&&['draw','shape-group'].includes(o.command))
+        .map(op=>({...op,cell,...(dir==='left'&&op.command==='draw'?{x:15-op.x}:{})}));
+      // The rear treatment finishes the contact-pose arms the front silhouette starts (arm-swing.mjs).
+      ops.push(...(col===0?cellOps:applyArmSwing(cellOps,armSwingPatch(kind,dir,phase),SKIN_TONES.find(t=>t.id===tone).colors)));
     }
     ops.push({command:'group',sub:'create',name:`walk_${dir}`,cells:[1,2,3,4].map(col=>`${row},${col}`),fps:8});
   }
