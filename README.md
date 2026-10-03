@@ -131,6 +131,11 @@ port, set `$env:SPRITE_PORT = '3378'` to an unused port and use its matching URL
 A service identity mismatch fails clearly; leave the other application running.
 Different ports do not isolate the shared session database.
 
+For a separate workbench database, set `SPRITE_DB_PATH` to an absolute SQLite
+file path before starting the server. The default remains
+`~/.claude-sprites/session.db`. Tests supply a private temporary database per
+test file, inherited by CLI-spawned servers, and remove it after shutdown.
+
 For POSIX shells, run sequences with `set -e` and call `agent-sprites` directly.
 For host-specific paths and setup, see [CLI setup](skills/sprite-editing/references/cli-setup.md).
 
