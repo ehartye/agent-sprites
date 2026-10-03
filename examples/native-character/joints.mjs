@@ -5,9 +5,9 @@
 export const JOINTS = {
   adult: {
     front_0: {right:{shoulder:[4,15],wrist:[3,21],hip:[6,21]},left:{shoulder:[11,15],wrist:[12,21],hip:[9,21]}},
-    front_1: {right:{shoulder:[4,16],wrist:[4,20],hip:[6,22]},left:{shoulder:[11,16],wrist:[11,22],hip:[9,22]}},
+    front_1: {right:{shoulder:[4,16],wrist:[4,19],hip:[6,22]},left:{shoulder:[11,16],wrist:[11,23],hip:[9,22]}},
     front_2: {right:{shoulder:[4,15],wrist:[3,21],hip:[6,21]},left:{shoulder:[11,15],wrist:[12,21],hip:[9,21]}},
-    front_3: {right:{shoulder:[4,16],wrist:[4,22],hip:[6,22]},left:{shoulder:[11,16],wrist:[11,20],hip:[9,22]}},
+    front_3: {right:{shoulder:[4,16],wrist:[4,23],hip:[6,22]},left:{shoulder:[11,16],wrist:[11,19],hip:[9,22]}},
     right_0: {right:{shoulder:[8,15],wrist:[5,20],hip:[8,21]},left:{shoulder:[9,15],wrist:[10,21],hip:[9,21]}},
     right_1: {right:{shoulder:[8,16],wrist:[12,21],hip:[8,22]},left:{shoulder:[9,16],wrist:[3,21],hip:[9,22]}},
     right_2: {right:{shoulder:[8,15],wrist:[5,20],hip:[8,21]},left:{shoulder:[9,15],wrist:[10,21],hip:[9,21]}},
@@ -46,8 +46,8 @@ export const PROFILE_STEPS = { adult: [3.5, 2.5, 4.5, 3], child: [3.5, 1, 3.5, 2
 /** Hand boxes that clothing leaves exposed. Moved verbatim from dress-template.mjs. */
 export function handBoxes(kind, dir, phase) {
   const neutral=phase%2===0;
-  let hands=kind==='adult'?(dir==='right'?(neutral?[[4,20,7,21],[10,21,11,22]]:phase===1?[[2,20,4,22],[11,20,13,22]]:[[2,21,4,23],[10,20,12,22]]):(neutral?[[2,20,4,23],[11,20,13,23]]:[[3,19,5,21],[10,21,12,23]])):
-    (dir==='right'?(neutral?[[4,24,7,25]]:phase===1?[[2,24,4,25],[11,23,12,24]]:[[3,24,5,25],[10,24,11,25]]):(neutral?[[1,23,4,25],[11,23,14,25]]:[[3,23,5,25],[9,24,11,25]]));
+  let hands=kind==='adult'?(dir==='right'?(neutral?[[4,20,7,21],[10,21,11,22]]:phase===1?[[2,20,4,22],[11,20,13,22]]:[[2,21,4,23],[10,20,12,22]]):(neutral?[[2,20,4,23],[11,20,13,23]]:[[3,18,5,20],[10,22,12,24]])):
+    (dir==='right'?(neutral?[[4,24,7,25]]:phase===1?[[2,24,4,25],[11,23,12,24]]:[[3,24,5,25],[10,24,11,25]]):(neutral?[[1,23,4,25],[11,23,14,25]]:[[3,24,5,26],[9,23,11,24]]));
   if(dir!=='right'&&phase===3)hands=hands.map(([l,t,r,b])=>[15-r,t,15-l,b]);
   return hands;
 }
