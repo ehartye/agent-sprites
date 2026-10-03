@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "projects": [
+    "blink/sprite-project.json",
+    "ui/font.json",
+    "ui/skin.json"
+  ]
+}

@@ -149,6 +149,60 @@ For host-specific paths and setup, see [CLI setup](skills/sprite-editing/referen
 
 Do not publish outputs from a failed batch, even if some export operations ran.
 
+### Rebuild a project's complete asset set
+
+Keep one list of build configs, including character, suit and wardrobe variants,
+instead of separate shell loops that can miss assets after a tool update:
+
+```json
+{
+  "version": 1,
+  "projects": [
+    "asset-src/cast/sprite-project.json",
+    "asset-src/player-suit/sprite-project.json",
+    "asset-src/ui-font/sprite-project.json"
+  ]
+}
+```
+
+Save this as `sprite-projects.json`. Paths resolve relative to that list, while
+each build config retains its own relative source and output paths.
+
+```powershell
+agent-sprites build-set ./sprite-projects.json --check --json
+agent-sprites build-set ./sprite-projects.json --json
+```
+
+`--check` reads files without executing generators, starting a sprite server or
+writing outputs. It exits 1 if any project needs attention and reports why: a
+different tool version, changed inputs, missing artifacts, or legacy output
+without provenance. Successful builds now record tool/version and SHA-256 input
+hashes in `sprite-manifest.json`; existing manifest fields remain compatible.
+
+The config and its ops file or generator script are tracked automatically.
+Declare generator imports, palettes, source images and other dependencies in
+the build config's optional `inputs` list (paths relative to that config):
+
+```json
+"inputs": ["../shared/palette.json", "./character-parts.mjs"]
+```
+
+Declare every external file that affects the result; imports are not discovered
+automatically. Freshness checks compare recorded inputs and verify artifact
+presence; they do not verify artifact contents or detect unreleased tool edits
+under the same version. `verify` remains the atlas validation command.
+
+Builds run in list order, so derived sheets can follow their base sheets. Each
+project uses the existing isolated, verified publication path. A failure stops
+the list and preserves that project's previous output; earlier successful
+projects remain published and later projects are reported as skipped. Treat
+the whole set as ready only when the command exits 0. Duplicate configs and
+overlapping outputs/source directories are rejected before the first build.
+
+Try the checked-in example with
+`agent-sprites build-set examples/sprite-projects.json --json`, then run it with
+`--check --json` to inspect the blink, font and skin outputs.
+
 ### Verify exported files
 
 `Invoke-Sprite verify .\public\art\robot.atlas.json --expect-tags blink --contact-sheet review.png --report review.json --json`

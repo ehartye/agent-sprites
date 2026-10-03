@@ -49,6 +49,49 @@ test('operation builds have no recipe kind or report', async () => {
   expect(manifest).not.toHaveProperty('report');
 });
 
+test('build provenance records the tool version and declared generator inputs by content', async () => {
+  writeFileSync(join(dir, 'palette.json'), '{"ink":"#112233"}');
+  write({ ui: { name: 'font', kind: 'font', characters: 'A' }, inputs: ['palette.json'] });
+  const result = await buildProject(path);
+  expect(result.errors).toEqual([]);
+  const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
+  const version = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+  expect(manifest.build).toMatchObject({ tool: { name: 'agent-sprites', version } });
+  expect(manifest.build.inputs.map(input => input.path)).toEqual(['sprite-project.json', 'palette.json']);
+  for (const input of manifest.build.inputs) expect(input.sha256).toMatch(/^[a-f0-9]{64}$/);
+});
+
+test('a missing declared input fails before publication and preserves the previous build', async () => {
+  write({ ui: { name: 'font', kind: 'font', characters: 'A' } });
+  const good = await buildProject(path);
+  const before = readFileSync(good.artifacts.manifest);
+  write({ ui: { name: 'font', kind: 'font', characters: 'A' }, inputs: ['missing.json'] });
+  const bad = await buildProject(path);
+  expect(bad.ok).toBe(false);
+  expect(JSON.stringify(bad.errors)).toContain('missing.json');
+  expect(readFileSync(good.artifacts.manifest).equals(before)).toBe(true);
+});
+
+test.each([null, 'palette.json', [42], ['']])('rejects invalid declared inputs: %j', async inputs => {
+  write({ ui: { name: 'font', kind: 'font', characters: 'A' }, inputs });
+  const result = await buildProject(path);
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result.errors)).toContain('inputs must be an array');
+  expect(existsSync(join(dir, 'dist'))).toBe(false);
+});
+
+test('a generator that changes its declared input cannot publish misleading provenance', async () => {
+  writeFileSync(join(dir, 'input.txt'), 'before');
+  writeFileSync(join(dir, 'generate.mjs'), `import {writeFileSync} from 'node:fs';
+    writeFileSync('input.txt', 'after');
+    console.log(JSON.stringify([{command:'new',name:'dot',size:8,rows:1,cols:1}]));`);
+  write({ generator: 'generate.mjs', inputs: ['input.txt'] });
+  const result = await buildProject(path);
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result.errors)).toContain('Build inputs changed during generation');
+  expect(existsSync(join(dir, 'dist'))).toBe(false);
+});
+
 test('character and environment builds publish the portable playback runtime', async () => {
   write({ character: { people: [{ id: 'ada' }], mode: 'walk', directions: ['right'] } });
   const result = await buildProject(path);
