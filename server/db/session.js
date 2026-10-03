@@ -9,7 +9,7 @@ const Database = require('better-sqlite3');
 const DEFAULT_PATH = join(homedir(), '.claude-sprites', 'session.db');
 
 export class SessionDB {
-  constructor(dbPath = DEFAULT_PATH) {
+  constructor(dbPath = process.env.SPRITE_DB_PATH || DEFAULT_PATH) {
     mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     // WAL + synchronous=FULL ensures every commit is fsynced — force-kills

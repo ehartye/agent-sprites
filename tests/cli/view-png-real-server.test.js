@@ -39,9 +39,11 @@ describe('view --png against the real server process', () => {
     port = await pickPort();
     baseUrl = `http://localhost:${port}`;
     const env = { ...process.env, SPRITE_PORT: String(port) };
+    expect(env.SPRITE_DB_PATH).toMatch(/agent-sprites-tests-/);
     const run = (...args) => exec(process.execPath, [SPRITE_JS, ...args], { env, timeout: 20000 });
 
     await run('new', 'tmpdirtest', '--size', '8', '--rows', '1', '--cols', '1', '--palette', 'pico8');
+    expect(fs.existsSync(env.SPRITE_DB_PATH)).toBe(true);
 
     const cellOut = await run('view', '--cell', '0,0', '--png', 'true', '--scale', '4');
     const cellPath = JSON.parse(cellOut.stdout).path;
