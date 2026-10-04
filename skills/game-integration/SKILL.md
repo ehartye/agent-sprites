@@ -15,6 +15,17 @@ Patterns for taking agent-sprites exports into a real game project. Everything h
 `sprite.js` means the invocation resolved by [sprite editing](../sprite-editing/SKILL.md).
 Stop on failed CLI commands; see its PowerShell helper before running a build sequence.
 
+## Custom engine GPU effects
+
+For runtime shaders in an owned game renderer (Canvas/WebGL lighting, warps,
+color effects or trails), use `agent-engine:engine-custom-shaders` from
+[agent-engine](https://github.com/ehartye/agent-engine). Custom is an engine type;
+the shader skill owns pass integration and GPU verification. Resolve that skill
+from the available agent-engine plugin or development checkout; if unavailable,
+use the renderer's official documentation and disclose the missing guidance.
+Keep sprite PNG/atlas and playback metadata as the asset contract. For highlights
+and shadows painted into the sprite instead, use [sprite shading](../sprite-shading/SKILL.md).
+
 ## Strict pixel UI
 
 For bitmap lettering, inventory panels, dialogue and pixel controls, read the
