@@ -103,8 +103,11 @@ Omit `save` when no project JSON should enter assets; drafts persist automatical
 A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Keep one
 build config per sheet and use the managed `sprite.js build <config> --json`.
 
-For human casts start with the 16×32 native generators (primary; see
-[sprite character](../sprite-character/SKILL.md)); for expression sheets, nonhuman humanoids and fitted
+For human casts start with the inline `native` source (16×32, primary; JSON only, with motif library,
+presets and swing/water/hurt/down poses: see [sprite character](../sprite-character/SKILL.md));
+set `"omit": ["project", "operations", "preview", "contactSheet"]` when the output is
+committed into the game (those files are megabytes) and rebuild a whole directory of profiles with
+`build-set`; for expression sheets, nonhuman humanoids and fitted
 pressure suits use the built-in 40×56 [`character` recipe](../../examples/character-cast/README.md). It needs only JSON,
 exports ordinary editable shapes plus a joint report, and shares fixes across
 projects. The custom generator workflow below remains useful for other assets.

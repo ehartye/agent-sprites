@@ -24,6 +24,7 @@ import { generateUIRecipe } from '../authoring/ui.js';
 import { buildPhaserUi } from './ui-phaser.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
+import { generateNativeRecipe } from '../authoring/native-recipe.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 
 const exec = promisify(execFile);
@@ -117,7 +118,7 @@ export async function buildProject(configPath) {
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe}[sourceKind];
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, native: generateNativeRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe}[sourceKind];
       ({ operations, report: recipeReport } = generate(config[sourceKind], base));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
@@ -174,7 +175,7 @@ export async function buildProject(configPath) {
     for (const key of omit) delete artifacts[key];
     if (omit.has('contactSheet')) rmSync(join(stage, 'contact.png'), { force: true });
     // Inline recipes name their report by source; generator reports are character reports.
-    const reportKey = inline ? `${sourceKind}Report` : recipeReport ? 'characterReport' : null;
+    const reportKey = inline ? (sourceKind === 'native' ? 'characterReport' : `${sourceKind}Report`) : recipeReport ? 'characterReport' : null;
     if (reportKey) {
       artifacts[reportKey] = reportKey.replace(/Report$/, '-report.json');
       writeFileSync(join(stage, artifacts[reportKey]), json(recipeReport));

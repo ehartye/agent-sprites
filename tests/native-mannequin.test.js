@@ -4,7 +4,7 @@ import {nativeMannequin,sourceMannequin} from '../examples/native-character/nati
 import {cutOutlineCorners} from '../server/engine/outline-corners.js';
 
 for(const kind of ['adult','child'])test(`${kind} source stage preserves all source walking pixels and publishes four complete directions`,()=>{
-  const source=JSON.parse(readFileSync(new URL(`../examples/native-character/templates/${kind}.project.json`,import.meta.url)));
+  const source=JSON.parse(readFileSync(new URL(`../server/authoring/native/templates/${kind}.project.json`,import.meta.url)));
   const ops=sourceMannequin(kind),aliases=ops.filter(o=>o.command==='name');
   expect(aliases).toHaveLength(20);
   for(const direction of ['front','right','back','left']){
