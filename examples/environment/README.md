@@ -193,7 +193,7 @@ example stacks at most two layers, the two highest priorities present). The over
 neighbours are that material: the material bleeds INTO the tile across those shared edges and corners with an organic
 boundary, and is transparent elsewhere so the tile's base shows. This is the complement of the path blobs.
 
-#### `overlayEdge`: a border and rounded corners (0.71.0)
+#### `overlayEdge`: a border and rounded corners (0.74.0)
 
 By default an overlay is a ragged strip with no outline. `overlayEdge` (terrain-overlay only) styles the edge:
 
