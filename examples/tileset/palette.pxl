@@ -1,0 +1,10 @@
+% <char> #fill [#outline]. '.' is transparent. '@' and '%' are reserved. The outline column is the darker
+% ramp step used by `outline`; without it the build darkens the neighbouring colour.
+@palette
+g #6b7d3a #2f3d22
+l #a9b45a #2f3d22
+y #f0d466 #8f6f45
+T #e08a2c #5e2a1f
+H #f0d466 #8f6f45
+r #b5532f #5e2a1f
+a #ff00ff

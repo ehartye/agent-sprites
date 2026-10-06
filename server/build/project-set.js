@@ -54,7 +54,7 @@ function inspectProject({ configPath, config, output }) {
   let manifest;
   try { manifest = readJSON(path); }
   catch (error) { reason('manifest-invalid', error.message); return result; }
-  const requiredFiles = ['sheet', 'atlas', 'project', 'contactSheet', 'preview', 'verification', 'operations'];
+  const requiredFiles = ['sheet', 'atlas', 'verification']; // project, operations, preview and contactSheet may be omitted by the config
   if (manifest?.format !== 'agent-sprites-build-manifest' || manifest.version !== 1 || !manifest.files || typeof manifest.files !== 'object' || Array.isArray(manifest.files) || requiredFiles.some(key => !Object.hasOwn(manifest.files, key))) {
     reason('manifest-invalid', 'Invalid build manifest; rebuild this project.'); return result;
   }
