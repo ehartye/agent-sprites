@@ -29,6 +29,13 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
 test('skin publishes runtime and slicing metrics without a font bootstrap',async()=>{
   config.ui={name:'ui-skin',kind:'skin'};write();const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.artifacts.uiBoot).toBeUndefined();const report=JSON.parse(readFileSync(result.artifacts.uiReport));expect(report.skins.panel_dark).toBeDefined();expect(report.skins.specimen_label.textTone).toBe('ink');expect(report.skins.speech.insets.left).toBe(6);const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-report.json');expect(marker.files).toContain('ui-phaser.json');const px=JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'));expect(px).toMatchObject({kind:'skin',image:'ui-skin.png'});expect(px.frames.panel_dark.nineSlice).toEqual({leftWidth:4,rightWidth:4,topHeight:4,bottomHeight:4});expect(px.frames.icon_leaf.nineSlice).toBeUndefined();expect(px.frames.scrim.nineSlice).toBeUndefined();expect(Object.keys(px.frames).sort()).toEqual(report.frames.map(f=>f.alias).sort());for(const f of report.frames)expect(px.frames[f.alias].bounds).toEqual(f.bounds);expect(px.frames.speech.nineSlice.leftWidth).toBe(6);
 },20000);
+test('UI build emits pure pixel fit geometry usable by native engines without Canvas',async()=>{
+  write();const result=await buildProject(path);expect(result.ok).toBe(true);
+  const runtime=await import(pathToFileURL(result.artifacts.uiRuntime).href);expect(runtime.pixelFit).toBeTypeOf('function');
+  const bounds={x:3,y:5,width:19,height:10},destination={x:0,y:0,width:160,height:160};
+  expect(runtime.pixelFit(bounds,destination)).toEqual({x:4,y:40,width:152,height:80,scale:8});
+  expect(runtime.pixelFit(bounds,{...destination,width:18})).toBe(null);
+},20000);
 test.each(['ops','generator','character','environment'])('rejects mixed UI and %s before publication',async source=>{
   config[source]=null;write();const result=await buildProject(path);expect(result.ok).toBe(false);expect(result.errors[0].message).toMatch(/exactly one/);expect(existsSync(join(dir,'dist'))).toBe(false);
 });

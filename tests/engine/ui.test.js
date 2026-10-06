@@ -1,9 +1,10 @@
 import {test,expect} from 'vitest';
 import {generateUIRecipe,packGrid} from '../../server/authoring/ui.js';
-import {createBitmapFont,drawNineSlice,getOpaqueBounds,drawPixelFit} from '../../server/build/ui-runtime.mjs';
+import * as uiRuntime from '../../server/build/ui-runtime.mjs';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
+const {createBitmapFont,drawNineSlice,getOpaqueBounds,pixelFit,drawPixelFit}=uiRuntime;
 
 test('font publishes deterministic editable glyphs, metrics, game symbols, and crisp bounded raster',()=>{
   const recipe=generateUIRecipe({kind:'font'});expect(generateUIRecipe({kind:'font'})).toEqual(recipe);
@@ -101,6 +102,62 @@ test('pixel fit crops transparent padding and preserves non-square art at whole 
   expect(()=>getOpaqueBounds({data:[],width:2,height:2})).toThrow(/RGBA/);
   expect(()=>drawPixelFit(ctx,{},bounds,{x:0.5,y:0,width:20,height:20})).toThrow(/integer/);
   expect(()=>drawPixelFit(ctx,{},bounds,{x:0,y:0,width:20,height:20},{padding:-1})).toThrow(/nonnegative/);
+});
+
+test('pure pixel fit centers sparse opaque art with padding without a drawing context',()=>{
+  expect(pixelFit).toBeTypeOf('function');
+  const data=new Uint8ClampedArray(12*10*4);data[(3*12+2)*4+3]=255;data[(6*12+7)*4+3]=1;
+  const bounds=Object.freeze(getOpaqueBounds({data,width:12,height:10})),destination=Object.freeze({x:3,y:5,width:61,height:49});
+  expect(pixelFit(bounds,destination,{padding:8})).toEqual({x:12,y:15,width:42,height:28,scale:7});
+});
+
+test.each([
+  [{x:3,y:5,width:19,height:10},{x:0,y:0,width:160,height:160},0,{x:4,y:40,width:152,height:80,scale:8}],
+  [{x:2,y:1,width:7,height:3},{x:-13,y:-4,width:31,height:20},2,{x:-8,y:1,width:21,height:9,scale:3}],
+  [{x:0,y:0,width:3,height:7},{x:0,y:0,width:20,height:31},2,{x:5,y:5,width:9,height:21,scale:3}],
+  [{x:0,y:0,width:1,height:1},{x:4,y:6,width:1,height:1},0,{x:4,y:6,width:1,height:1,scale:1}],
+])('pixel fit chooses the maximal whole scale and floors odd centering %#',(bounds,destination,padding,expected)=>{
+  expect(pixelFit(bounds,destination,{padding})).toEqual(expected);
+  const image={},calls=[],ctx={imageSmoothingEnabled:true,drawImage:(...args)=>calls.push(args)};
+  expect(drawPixelFit(ctx,image,bounds,destination,{padding})).toEqual(expected);
+  expect(ctx.imageSmoothingEnabled).toBe(false);
+  expect(calls).toEqual([[image,bounds.x,bounds.y,bounds.width,bounds.height,expected.x,expected.y,expected.width,expected.height]]);
+});
+
+test.each([null,undefined,false,0])('pixel fit short-circuits empty bounds before validating destination or padding %#',bounds=>{
+  expect(pixelFit(bounds,null,{padding:-0.5})).toBe(null);
+  expect(drawPixelFit(null,null,bounds,null,{padding:-0.5})).toBe(null);
+});
+
+test.each([
+  [{x:0,y:0,width:18,height:160},0],
+  [{x:0,y:0,width:160,height:9},0],
+  [{x:0,y:0,width:160,height:160},71],
+  [{x:0,y:0,width:160,height:160},90],
+])('pixel fit returns null when either padded dimension cannot fit 1x %#',(destination,padding)=>{
+  const bounds={x:3,y:5,width:19,height:10},ctx={imageSmoothingEnabled:true,drawImage:()=>{throw Error('Undersized art must not draw.');}};
+  expect(pixelFit(bounds,destination,{padding})).toBe(null);
+  expect(drawPixelFit(ctx,{},bounds,destination,{padding})).toBe(null);
+  expect(ctx.imageSmoothingEnabled).toBe(true);
+});
+
+test.each([
+  ['Source X',{x:0.5},{},0,'Source X must be an integer.'],
+  ['Source Y',{y:0.5},{},0,'Source Y must be an integer.'],
+  ['Source width',{width:0},{},0,'Source width must be a positive integer.'],
+  ['Source height',{height:1.5},{},0,'Source height must be a positive integer.'],
+  ['Negative source X',{x:-1},{},0,'Source bounds must be nonnegative.'],
+  ['Negative source Y',{y:-1},{},0,'Source bounds must be nonnegative.'],
+  ['Destination X',{},{x:0.5},0,'Destination X must be an integer.'],
+  ['Destination Y',{},{y:0.5},0,'Destination Y must be an integer.'],
+  ['Destination width',{},{width:0},0,'Destination width must be a positive integer.'],
+  ['Destination height',{},{height:1.5},0,'Destination height must be a positive integer.'],
+  ['Fractional padding',{},{},0.5,'Padding must be an integer.'],
+  ['Negative padding',{},{},-1,'Padding must be nonnegative.'],
+])('pixel fit and Canvas adapter preserve validation for %s',(_label,source,dest,padding,message)=>{
+  const bounds={x:0,y:0,width:19,height:10,...source},destination={x:0,y:0,width:160,height:160,...dest};
+  expect(()=>pixelFit(bounds,destination,{padding})).toThrow(message);
+  expect(()=>drawPixelFit(null,null,bounds,destination,{padding})).toThrow(message);
 });
 
 test('packGrid picks the squarest sheet, so 166 skin cells are not a 2 column strip',()=>{

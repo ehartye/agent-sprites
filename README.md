@@ -383,10 +383,12 @@ Use the exported metrics for layout at your integer display scale. The separate
 `scrim_solid` frame is opaque pixel art; composite it at its reported `opacity`
 (0.48) to quiet the world behind a dialog. Historical skin frames and regular /
 compact font colors remain unchanged. A third `face: "display"` gives 2× logo and banner lettering, `kind: "logo"` builds a ready-made stacked title logotype (sun, wheat, lit lettering), every font draws symbols (heart, skull, check, star, moon, bolt, drop, wheat, lock) inline, the wasteland skin adds colour `sym_*` icons, and sheets pack near-square (`verify --max-aspect`). The portable runtime also exports
-`getOpaqueBounds(imageData)` and `drawPixelFit(ctx, image, bounds, destination,
-{padding})` to crop transparent padding and center artwork at a uniform integer
-scale. Empty art and boxes too small for 1× return `null` without drawing; no
-fractional shrinking or overflow is introduced.
+`getOpaqueBounds(imageData)` and pure `pixelFit(bounds, destination, {padding})`
+to crop transparent padding and center artwork at a uniform integer scale.
+`pixelFit` returns `{x, y, width, height, scale}` for native engines such as Phaser
+without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destination,
+{padding})` draws with the same fit. Empty art and boxes too small for 1× return
+`null`; no fractional shrinking or overflow is introduced.
 
 Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the
