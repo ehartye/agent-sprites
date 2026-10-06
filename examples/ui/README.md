@@ -42,7 +42,7 @@ Every UI build also writes `ui-phaser.json`, ready for Phaser 4 without an adapt
 
 Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, spaceAdvance, fallback, glyphs, tones}`.
 `glyphs` lists every supported character (no space). `tones.cream|muted|gold|ink` are each a
-`Phaser.Types.GameObjects.BitmapText.BitmapFontData` (`font, size, lineHeight, retroFont:false, chars[charCode]` with
+`Phaser.Types.GameObjects.BitmapText.BitmapFontData`, exactly the shape `ParseXMLBitmapFont` produces (`font, size, lineHeight, retroFont:false, chars[charCode]` with `u0,v0,u1,v1` texture coordinates (v flipped: `1 - y/height`; Phaser's renderer reads them from the glyph) and
 `x,y,width,height` = that tone's glyph cell in the font PNG, `yOffset 0`, `xAdvance` = glyph advance). `ui-boot.mjs` also exports the same object as `phaser`, for loading/error screens with no fetch. Register one font per tone
 over the already-loaded PNG, then use a normal `BitmapText` at an integer scale:
 

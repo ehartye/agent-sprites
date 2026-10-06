@@ -20,7 +20,9 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
   for(const tone of Object.keys(px.tones)){const d=px.tones[tone];expect(d).toMatchObject({retroFont:false,lineHeight:rep.lineHeight});
     for(const [ch,g] of Object.entries(rep.glyphs)){const c=d.chars[ch.codePointAt(0)];expect(c.xAdvance).toBe(g.advance);expect(c.yOffset).toBe(0);expect(c.data).toEqual({});expect(c.kerning).toEqual({});
       if(ch===' '){expect(c.width).toBe(0);expect(px.spaceAdvance).toBe(g.advance);continue;}
-      const f=atl.frames.find(x=>x.filename===g.frames[tone]).frame;expect([c.x,c.y,c.width,c.height]).toEqual([f.x,f.y,f.w,f.h]);}}
+      const f=atl.frames.find(x=>x.filename===g.frames[tone]).frame,{w:tw,h:th}=atl.meta.size;expect([c.x,c.y,c.width,c.height]).toEqual([f.x,f.y,f.w,f.h]);expect([c.u0,c.v0,c.u1,c.v1]).toEqual([f.x/tw,1-f.y/th,(f.x+f.w)/tw,1-(f.y+f.h)/th]);}
+    expect(d.chars[32]).toMatchObject({u0:0,v0:0,u1:0,v1:0});}
+  if(face==='regular'){const f=atl.frames.find(x=>x.filename===rep.glyphs.A.frames.cream).frame;expect(px.tones.cream.chars[65]).toMatchObject({x:f.x,y:f.y,width:8,height:12,u0:f.x/atl.meta.size.w,v0:1-f.y/atl.meta.size.h});}
   const previous=readFileSync(result.artifacts.sheet);expect((await buildProject(path)).ok).toBe(true);expect(readFileSync(result.artifacts.sheet)).toEqual(previous);
   config.ui.characters='🦋';write();expect((await buildProject(path)).ok).toBe(false);expect(readFileSync(result.artifacts.sheet)).toEqual(previous);
 },20000);
