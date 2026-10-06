@@ -108,5 +108,17 @@ Additional skin frames (wasteland only):
   radiation weather_clear weather_heat weather_dust weather_rain weather_acid-rain weather_rad-storm weather_night`.
   Green is reserved for radiation, violet for toxins and orange for heat.
 
+- `pad_<family>_<id>`: controller-button prompts for hint rows beside small text (`icon: true, color: true`),
+  colour pixel art at most 13 px tall, centred in the cell; read the painted `bounds`. Families `xbox ps switch deck`.
+  Ids: face buttons by position `south east west north` (Xbox/Deck A green, B red, X blue, Y yellow; PlayStation
+  cross, circle, square, triangle shapes; Switch dark discs, south=B east=A west=Y north=X), `lb rb` (flat pills; LB/RB,
+  L1/R1, L/R), `lt rt` (taller, curved; LT/RT, L2/R2, ZL/ZR), `back start` (view/menu, create/options, minus/plus),
+  `ls rs` (stick), `lsb rsb` (stick pressed: gold ring, light cap), `dpad`, `dpad_up dpad_down dpad_left dpad_right`
+  and `dpad_ud dpad_lr` (arms highlighted). Deck adds back-grips `l4 r4 l5 r5`. 88 frames; the full list is exported
+  as `PAD_ALIAS_NAMES` from `server/authoring/ui-pad.js`. Sizes: face and system discs 11x11, stick 13x13, d-pad 13x13,
+  bumper 19x9, trigger 15x13, PlayStation create/options 15x9, grips 11x13.
+- `cursor_tile` (16x16 gold corner brackets, hollow centre) and `cursor_aim` (11x11 crosshair, hollow centre pixel),
+  both with a dark outline.
+
 Panels, buttons, slots (`slot_normal`, `slot_selected` are the hotbar), tooltips and message skins are the same
 frames as `moss-brass`, painted in the new palette.
