@@ -26,6 +26,12 @@ and two identity cues such as a side fringe and short cape. Use the user's
 constraints; otherwise, for a bespoke named-shape study, begin with 32×48 cells and a front/right idle study (new cast characters start from the 16×32 native generators).
 For smaller targets, redraw to that pixel budget instead of shrinking the result.
 
+When extending or repairing a character's facings, read
+[directional consistency](references/directional-consistency.md) before drawing.
+Use the existing views as the reference: preserve head volume and facial detail
+policy. A missing-feature repair must not invent a prominent mouth, extra eyes
+or a new expression absent from the established art.
+
 Read [construction](references/construction.md) before drawing a bespoke character.
 It supplies a starting proportion map, face/profile construction, modular parts
 and specific visual checks. Treat its numbers as adjustable design coordinates,
