@@ -23,11 +23,22 @@ order. Do not mix stage labels and numbers in one scene. Captions are preserved
 in the output manifest and are not interpreted or baked into artwork.
 
 Kinds: farm, engineering, space, relay, settlement, assembly, robot, shipyard,
-orchard, inspection, evacuation, relocation, teleport, animals, network, meal.
+orchard, inspection, evacuation, relocation, teleport, animals, network, meal,
+dock, bridge, correspondence, system, robot-build, whole-grown, pressure,
+fertilizer.
 These are composition recipes, not inferred canon. A scene may use different
 kinds across its three panels. Pod recipes show fixed planted destinations;
 the network result draws all six links between four nodes without imposing a
 route or range restriction. Do not infer story facts from the recipe imagery.
+
+Use `whole-grown` for a coherent ship growing among planted ground; `orchard`
+depicts fruit trees. `robot-build` shows parts, calibration, and service beside
+people. `pressure` keeps civilian cultures visible and depicts demand, witnesses,
+and an exit without an approval tick or surrendered control. `fertilizer` keeps
+animal care, food bowls, samples, and comparison beds distinct without ranking
+sample quality. `dock`, `bridge`, `correspondence`, and `system` provide principal
+actions that a generic relay tower cannot depict. Choose kinds per panel when a
+scene changes settings or activity.
 
 Each panel writes `<id>.png` at 768×432, nearest-neighbor scaled from a 256×144
 cell. `_sources/` stores replayable named operations, the original 3-cell sheet,
