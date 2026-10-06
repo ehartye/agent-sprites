@@ -53,7 +53,7 @@ See [trace limits and alpha behavior](../../README.md#trace-a-reference-into-edi
 For a repeatable asset build, use `sprite.js build sprite-project.json --json`.
 Copy `<plugin-root>/examples/blink` into the user's project as a starting point;
 never generate build outputs in the plugin cache. The config selects an `ops` file,
-a Node `generator` or an inline `character`, `environment` or `ui` recipe, an explicit `output`, and `expectedTags`. Build isolates state
+a Node `generator` or an inline `character`, `environment`, `creature` or `ui` recipe (`creature` builds quadruped, insect, arachnid, bird and blob animals with walk, attack, hurt and down tags; see its [README](../../examples/creature/README.md)), an explicit `output`, and `expectedTags`. Build isolates state
 from live editing, verifies before publishing, and emits PNG, atlas, editable
 project, contact sheet and self-contained preview. Inspect both contact sheet and
 animation before integration. See the [build config](../../README.md#build-a-repeatable-asset-project).

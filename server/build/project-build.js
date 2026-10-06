@@ -21,6 +21,7 @@ import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
+import { generateCreatureRecipe } from '../authoring/creature.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 
 const exec = promisify(execFile);
@@ -110,7 +111,7 @@ export async function buildProject(configPath) {
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe}[sourceKind];
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe}[sourceKind];
       ({ operations, report: recipeReport } = generate(config[sourceKind]));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
@@ -168,7 +169,7 @@ export async function buildProject(configPath) {
       artifacts[reportKey] = reportKey.replace(/Report$/, '-report.json');
       writeFileSync(join(stage, artifacts[reportKey]), json(recipeReport));
     }
-    if (sourceKind === 'character' || sourceKind === 'environment' || recipeReport?.kind === 'character') {
+    if (sourceKind === 'character' || sourceKind === 'environment' || sourceKind === 'creature' || recipeReport?.kind === 'character') {
       // Report-driven ground anchoring and walking, so games do not re-derive gait conventions.
       artifacts.playbackRuntime = 'playback-runtime.mjs';
       writeFileSync(join(stage, artifacts.playbackRuntime), readFileSync(new URL('./playback-runtime.mjs', import.meta.url)));

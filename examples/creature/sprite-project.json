@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "output": "./dist",
+  "scale": 6,
+  "creature": {
+    "name": "dust-ox",
+    "plan": "quadruped",
+    "size": "large",
+    "palette": "earth",
+    "head": "bovid",
+    "tail": "tuft",
+    "paw": "hoof",
+    "proportions": { "bodyHeight": 1.15, "legLength": 0.85, "legThickness": 1.2 },
+    "features": [{ "type": "horns", "style": "curved" }, "hump", "pack"]
+  },
+  "expectedTags": ["idle_front", "walk_right", "walk_left", "attack_back", "hurt_right", "down"]
+}

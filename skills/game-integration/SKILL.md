@@ -26,6 +26,16 @@ use the renderer's official documentation and disclose the missing guidance.
 Keep sprite PNG/atlas and playback metadata as the asset contract. For highlights
 and shadows painted into the sprite instead, use [sprite shading](../sprite-shading/SKILL.md).
 
+## Creatures (animals, insects, mutants)
+
+Build non-humanoid creatures with the inline `creature` source ([README](../../examples/creature/README.md)),
+one project per creature, never a game-local generator. Load the atlas with `anims.createFromAseprite`; tags are
+`idle_<dir>`, `walk_<dir>`, `attack_<dir>`, `hurt_<dir>` for `front`, `back`, `right`, `left`, plus `down`. Place
+sprites with the report: origin is bottom centre (`groundAnchor`), collide with `footprint` (source pixels, scale by
+the game zoom), and read `animations` for fps and loop. `playback-runtime.mjs` accepts the report as-is for
+distance-driven walking. Look at the 8x contact sheet and the walk/attack previews before integrating: silhouettes
+should read at the game zoom, and a small creature (16x16) needs strong palette contrast against the ground.
+
 ## Strict pixel UI
 
 For bitmap lettering, inventory panels, dialogue and pixel controls, read the
