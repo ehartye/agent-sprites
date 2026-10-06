@@ -94,11 +94,18 @@ function contactLayout(count, maxW, maxH, scale, compact) {
   return { gap, pad, labelH, cardW, cardH, tileW, tileH, columns, w, h, fits: w * h <= CONTACT_MAX_PIXELS && w <= CONTACT_MAX_SIDE && h <= CONTACT_MAX_SIDE };
 }
 
-function contactSheet(image, frames, scale) {
+/** True when a tile has a name equal to a wanted entry, or starting with it when the entry ends in `*`. */
+const wanted = (tile, only) => tile.names.some(n => only.some(o => (o.endsWith('*') ? n.startsWith(o.slice(0, -1)) : n === o)));
+
+function contactSheet(image, frames, scale, only = []) {
   let tiles = contactTiles(frames);
+  if (only.length) {
+    tiles = tiles.filter(t => wanted(t, only));
+    if (!tiles.length) throw new Error(`No atlas frame matches --contact-frames ${only.join(',')}`);
+  }
   const total = tiles.length;
-  const maxW = Math.max(...frames.map(f => f.sourceSize.w));
-  const maxH = Math.max(...frames.map(f => f.sourceSize.h));
+  const maxW = Math.max(...tiles.map(t => t.frame.sourceSize.w));
+  const maxH = Math.max(...tiles.map(t => t.frame.sourceSize.h));
   // Each tile is a bordered card: art on top, its label band directly beneath it, a gutter between cards,
   // so a label can never be read as belonging to the art above or below it.
   let compact = false, L = contactLayout(tiles.length, maxW, maxH, scale, false);
@@ -147,7 +154,7 @@ function outlineGaps(pixels, width, height, colors) {
 }
 
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, reportPath, scale = 4 } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4 } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -198,7 +205,7 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     }
     if (contactPath) {
       if (!Number.isInteger(scale) || scale < 1 || scale > 16) throw new Error('Contact scale must be an integer from 1 to 16.');
-      const sheet = contactSheet(image, frames, scale);
+      const sheet = contactSheet(image, frames, scale, contactFrames);
       writeFileSync(contactPath, sheet.png);
       report.artifacts.contactSheet = resolve(contactPath);
       report.contactSheet = { tiles: sheet.tiles, frames: frames.length, ...(sheet.compact ? { compact: true } : {}) };
