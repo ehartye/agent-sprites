@@ -36,8 +36,29 @@ Aseprite atlas, editable project, operations, contact sheet and verification.
 Font builds also own `ui-boot.mjs`, exporting `imageDataUrl`, `atlas`, and `report`;
 this embeds the verified font for loading/failure screens without a font fetch.
 
+## Phaser
+
+Every UI build also writes `ui-phaser.json`, ready for Phaser 4 without an adapter.
+
+Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, spaceAdvance, fallback, glyphs, tones}`.
+`glyphs` lists every supported character (no space). `tones.cream|muted|gold|ink` are each a
+`Phaser.Types.GameObjects.BitmapText.BitmapFontData` (`font, size, lineHeight, retroFont:false, chars[charCode]` with
+`x,y,width,height` = that tone's glyph cell in the font PNG, `yOffset 0`, `xAdvance` = glyph advance). `ui-boot.mjs` also exports the same object as `phaser`, for loading/error screens with no fetch. Register one font per tone
+over the already-loaded PNG, then use a normal `BitmapText` at an integer scale:
+
 ```js
-import {createBitmapFont, getFrame, drawNineSlice} from './ui-runtime.mjs';
+this.load.image('ui-font', 'assets/ui-font/ui-font.png'); this.load.json('ui-font-px', 'assets/ui-font/ui-phaser.json');
+// create(): for (const [tone, data] of Object.entries(px.tones)) this.cache.bitmapFont.add(`ui-font-${tone}`, {data, texture: 'ui-font', frame: null});
+// this.add.bitmapText(x, y, 'ui-font-cream', 'Hello', px.size);   // keep the scale integer
+```
+
+Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame has `frame` (atlas frame name), `padding`, `minWidth`,
+`minHeight`, optional `textTone`, `tile`, `content`, `icon`, `color`, `hollow`, and `nineSlice:{leftWidth,rightWidth,topHeight,bottomHeight}`
+(absent for icons and tiled scrims) matching `this.add.nineslice(x, y, texture, frame, width, height, leftWidth, rightWidth, topHeight, bottomHeight)`.
+Phaser stretches nine-slice edges, so size panels in whole source pixels and place them at integer positions under an integer camera zoom.
+
+```js
+import {createBitmapFont, getFrame, drawNineSlice} from './ui-runtime.mjs';, getFrame, drawNineSlice} from './ui-runtime.mjs';
 const font = createBitmapFont({image, atlas, report});
 font.measure('A little room', {scale: 2}); // {width, height, lines: string[]}
 font.wrap('Long copy here', 160, {scale: 2}); // string[], splits long words

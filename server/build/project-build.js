@@ -21,6 +21,7 @@ import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
+import { buildPhaserUi } from './ui-phaser.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
@@ -186,6 +187,9 @@ export async function buildProject(configPath) {
     if (sourceKind === 'ui') {
       artifacts.uiRuntime = 'ui-runtime.mjs';
       writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
+      artifacts.uiPhaser = 'ui-phaser.json';
+      const phaserUi = buildPhaserUi({ report: recipeReport, atlas, name });
+      writeFileSync(join(stage, artifacts.uiPhaser), json(phaserUi));
       if (recipeReport.kind === 'font') {
         const proof = await renderFontProof(png, atlas, recipeReport);
         artifacts.fontProof = 'font-proof.png';
@@ -193,7 +197,7 @@ export async function buildProject(configPath) {
         writeFileSync(join(stage, artifacts.fontProof), proof.png);
         writeFileSync(join(stage, artifacts.fontProofReport), json(proof.report));
         artifacts.uiBoot = 'ui-boot.mjs';
-        writeFileSync(join(stage, artifacts.uiBoot), `// Generated bitmap bootstrap: no network font or platform text renderer.\nexport const imageDataUrl=${JSON.stringify('data:image/png;base64,' + png.toString('base64'))};\nexport const atlas=${JSON.stringify(atlas)};\nexport const report=${JSON.stringify(recipeReport)};\n`);
+        writeFileSync(join(stage, artifacts.uiBoot), `// Generated bitmap bootstrap: no network font or platform text renderer.\nexport const imageDataUrl=${JSON.stringify('data:image/png;base64,' + png.toString('base64'))};\nexport const atlas=${JSON.stringify(atlas)};\nexport const report=${JSON.stringify(recipeReport)};\nexport const phaser=${JSON.stringify(phaserUi)};\n`);
       }
     }
     // Consumers read one portable file instead of guessing names per recipe kind.

@@ -46,6 +46,7 @@ keep font masks and skin drawing in the tool rather than copying them into a gam
 
 Compose glyphs and skin parts at integer scales. Check the actual text repertoire
 with `missingGlyphs`, including punctuation, changing quantities and error text.
+Phaser games load `ui-phaser.json` (per-tone `BitmapFontData` and nine-slice numbers; see the UI README) instead of writing an adapter.
 Use `ui-boot.mjs` when loading/failure messages must also use the exported font.
 For a strictly pixel interface, replace visible browser lettering, native form
 art, tooltips, list markers, focus rings and world labels as well as main menus.
