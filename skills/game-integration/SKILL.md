@@ -192,6 +192,19 @@ sprite.js view --cell 0,0 --scale 16 --out icon-512.png    # 32 × 16
 
 Reference the PNGs from the web manifest (192 + 512, `"purpose": "any maskable"` — keep important detail inside the inner ~80% for maskable) and `<link rel="icon">`. Proven on two shipped PWAs.
 
+### A full brand set (Fallow Valley's recipe)
+
+When the icon is a real picture rather than a glyph, build it as a `tileset` project (a `.pxl` tile per size, see the [tileset recipe](../../examples/tileset/README.md)) and scale it in a small game-side build script, still by whole numbers only:
+
+- **Master 64×64** (drawn full-bleed: flat sky and soil along the border, the subject inside a circle of radius 34 around the centre). 192 = 3×, 512 = 8×.
+- **Maskable 512**: platforms crop to a circle of 40% of the side, so do not reuse the "any" image. Extend the master's own edge pixels to 86×86, scale 6× (516) and crop 2 px off each side; the art is then 75% of the side and everything outside it is flat bleed.
+- **apple-touch-icon 180**: iOS fills transparency with black and wants no alpha at all. Crop the master's 60×60 centre (the border is bleed, so nothing is lost) and scale 3×; write the PNG as 8-bit RGB (`pngjs`: `colorType: 2`), not RGBA.
+- **Favicons 16 / 32 / 48** are *drawn again* at 16×16 and 32×32 (a 64 px picture does not survive halving: keep only the 3 or 4 shapes that read, such as sun, roof with a lit window, one ear, a sprout); 48 = the 16 tile at 3×. `favicon.ico` is a 6-byte directory plus one 16-byte entry per size in front of the PNG bytes (PNG entries are valid in every current browser).
+- **Share card 1200×630** (`og:image`, `twitter:card` = `summary_large_image`, absolute `https://` URLs in the meta tags): 630 = 70 × 9, so compose a 134×70 scene at 9× (crop 3 px per side) with the master extended sideways by its edge pixels; a logo at 3× lines up on that grid.
+- Make the build `--check`-able by comparing **decoded pixels**, not bytes (deflate output differs between Node versions), and test the committed files: sizes, no alpha on the touch icon, the maskable safe zone, the manifest resolving under the site's base path.
+
+Look at the result at 16, 32 and 60 px (area-averaged, as an OS draws it) and on a home-screen mock, not only at 512.
+
 ## Sourcing art from image models
 
 If assets come from an image-generation model rather than the parametric
