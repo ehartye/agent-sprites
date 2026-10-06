@@ -45,3 +45,14 @@ test('wasteland fonts keep the glyph frames and tones and use the theme colours'
   const report=JSON.parse(readFileSync(result.artifacts.uiReport));expect(report.colors.cream).toBe('#f6edcf');expect(report.glyphs.A.frames.gold).toBe('glyph_0041_gold');
   expect((await build({name:'ui-font',kind:'font',theme:'sunset'})).ok).toBe(false);
 },30000);
+
+test('the wasteland skin carries the survival glyphs: hud_torch, a torch meter, split/drop hints and stepper buttons',async()=>{
+  const result=await build({name:'ui-skin',kind:'skin',theme:'wasteland'});expect(result.ok).toBe(true);
+  const report=JSON.parse(readFileSync(result.artifacts.uiReport));
+  for(const alias of ['hud_torch','meter_fill_torch','icon_split','icon_split_ink','icon_drop','icon_drop_ink','stepper_up','stepper_down','stepper_up_pressed','stepper_down_pressed'])expect(report.skins[alias],alias).toBeDefined();
+  expect(report.skins.meter_fill_torch.content).toEqual({x:0,y:10,w:24,h:4});expect(report.skins.stepper_up.color).toBe(true);expect(report.skins.icon_split.icon).toBe(true);
+  // the moss-brass skin does not gain them
+  const plain=await build({name:'ui-skin',kind:'skin',theme:'moss-brass'});
+  expect(JSON.parse(readFileSync(plain.artifacts.uiReport)).skins.icon_split).toBeUndefined();
+},30000);
+

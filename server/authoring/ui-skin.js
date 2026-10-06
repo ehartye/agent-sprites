@@ -17,10 +17,17 @@ const icons={
   sun:['0001000','0101010','0011100','1111111','0011100','0101010','0001000'],
   star:['0001000','0001000','0011100','1111111','0011100','0001000','0001000'],
 };
-export const METER_TONES=['hunger','thirst','health','stamina','warn','danger','rad'];
-const hudAliases=()=>['meter_track',...METER_TONES.map(t=>`meter_fill_${t}`),'minimap_frame','tab_normal','tab_selected','banner_boss',...HUD_ICON_NAMES.map(n=>`hud_${n}`),...SYMBOL_ICON_NAMES.map(n=>`sym_${n}`),...PAD_ALIAS_NAMES,...CURSOR_ALIAS_NAMES];
-export function skinDefinitions(theme='moss-brass'){return [...panels,...messagePanels,...Object.keys(icons).flatMap(n=>[`icon_${n}`,`icon_${n}_ink`]),...(theme==='wasteland'?hudAliases():[])].map(alias=>({alias,metrics:{insets:{left:alias==='scrim'?0:4,right:alias==='scrim'?0:4,top:alias==='scrim'?0:4,bottom:alias==='scrim'?0:4},padding:{left:6,right:6,top:5,bottom:5},minWidth:12,minHeight:12,...(alias.startsWith('icon_')?{icon:true}:{}),...(alias==='scrim'?{tile:true}:{}),...(messagePanels.includes(alias)?{insets:{left:6,right:6,top:6,bottom:6},padding:{left:12,right:12,top:12,bottom:12},minWidth:24,minHeight:24,textTone:['note','specimen_label'].includes(alias)?'ink':'cream',...(alias==='scrim_solid'?{insets:{left:0,right:0,top:0,bottom:0},padding:{left:0,right:0,top:0,bottom:0},minWidth:1,minHeight:1,opacity:0.48}:{} )}:{}),...(alias.startsWith('progress_')?{content:{x:0,y:11,w:24,h:2}}:{}),...(alias==='meter_track'||alias.startsWith('meter_fill_')?{content:{x:0,y:10,w:24,h:4}}:{}),...(alias==='minimap_frame'?{insets:{left:5,right:5,top:5,bottom:5},padding:{left:6,right:6,top:6,bottom:6},minWidth:16,minHeight:16,hollow:true}:{}),...(alias==='banner_boss'?{insets:{left:8,right:8,top:8,bottom:8},padding:{left:10,right:10,top:8,bottom:8},minWidth:24,minHeight:24}:{}),...(alias.startsWith('tab_')?{insets:{left:4,right:4,top:4,bottom:2},padding:{left:6,right:6,top:4,bottom:3},minWidth:12,minHeight:10}:{}),...(alias.startsWith('hud_')||alias.startsWith('sym_')||alias.startsWith('pad_')||alias.startsWith('cursor_')?{icon:true,color:true}:{})}}));}
-export const TONE_COLORS={hunger:['#f0d466','#e0b84a','#c58f2c'],thirst:['#8fc4b4','#5f9a8d','#3f6f68'],health:['#d98b4a','#b5532f','#8c3b25'],stamina:['#d6e08a','#a9b45a','#6b7d3a'],warn:['#f0d466','#e0b84a','#c58f2c'],danger:['#e08a2c','#c46a1a','#8c3b25'],rad:['#d6ff9a','#9dff6e','#5ac96a']};
+// Wasteland-only hint-row glyphs (9 to 11 px, `icon_<name>` and `icon_<name>_ink`): a stack cut in two, an item dropped with a down arrow.
+const wastelandIcons={
+  split:['11111000000','10001011111','10001010001','10001010001','10001010001','10001010001','10001010001','11111010001','00000011111'],
+  drop:['011111110','010000010','010000010','011111110','000010000','000010000','001010100','000111000','000010000'],
+};
+export const METER_TONES=['hunger','thirst','health','stamina','warn','danger','rad','torch'];
+// Quantity stepper buttons: a 12x10 button with a gold arrow, normal and pressed (the arrow sinks a pixel), up and down.
+export const STEPPER_ALIASES=['stepper_up','stepper_down','stepper_up_pressed','stepper_down_pressed'];
+const hudAliases=()=>['meter_track',...METER_TONES.map(t=>`meter_fill_${t}`),'minimap_frame','tab_normal','tab_selected','banner_boss',...STEPPER_ALIASES,...Object.keys(wastelandIcons).flatMap(n=>[`icon_${n}`,`icon_${n}_ink`]),...HUD_ICON_NAMES.map(n=>`hud_${n}`),...SYMBOL_ICON_NAMES.map(n=>`sym_${n}`),...PAD_ALIAS_NAMES,...CURSOR_ALIAS_NAMES];
+export function skinDefinitions(theme='moss-brass'){return [...panels,...messagePanels,...Object.keys(icons).flatMap(n=>[`icon_${n}`,`icon_${n}_ink`]),...(theme==='wasteland'?hudAliases():[])].map(alias=>({alias,metrics:{insets:{left:alias==='scrim'?0:4,right:alias==='scrim'?0:4,top:alias==='scrim'?0:4,bottom:alias==='scrim'?0:4},padding:{left:6,right:6,top:5,bottom:5},minWidth:12,minHeight:12,...(alias.startsWith('icon_')?{icon:true}:{}),...(alias==='scrim'?{tile:true}:{}),...(messagePanels.includes(alias)?{insets:{left:6,right:6,top:6,bottom:6},padding:{left:12,right:12,top:12,bottom:12},minWidth:24,minHeight:24,textTone:['note','specimen_label'].includes(alias)?'ink':'cream',...(alias==='scrim_solid'?{insets:{left:0,right:0,top:0,bottom:0},padding:{left:0,right:0,top:0,bottom:0},minWidth:1,minHeight:1,opacity:0.48}:{} )}:{}),...(alias.startsWith('progress_')?{content:{x:0,y:11,w:24,h:2}}:{}),...(alias==='meter_track'||alias.startsWith('meter_fill_')?{content:{x:0,y:10,w:24,h:4}}:{}),...(alias==='minimap_frame'?{insets:{left:5,right:5,top:5,bottom:5},padding:{left:6,right:6,top:6,bottom:6},minWidth:16,minHeight:16,hollow:true}:{}),...(alias==='banner_boss'?{insets:{left:8,right:8,top:8,bottom:8},padding:{left:10,right:10,top:8,bottom:8},minWidth:24,minHeight:24}:{}),...(alias.startsWith('tab_')?{insets:{left:4,right:4,top:4,bottom:2},padding:{left:6,right:6,top:4,bottom:3},minWidth:12,minHeight:10}:{}),...(alias.startsWith('hud_')||alias.startsWith('stepper_')||alias.startsWith('sym_')||alias.startsWith('pad_')||alias.startsWith('cursor_')?{icon:true,color:true}:{})}}));}
+export const TONE_COLORS={hunger:['#f0d466','#e0b84a','#c58f2c'],thirst:['#8fc4b4','#5f9a8d','#3f6f68'],health:['#d98b4a','#b5532f','#8c3b25'],stamina:['#d6e08a','#a9b45a','#6b7d3a'],warn:['#f0d466','#e0b84a','#c58f2c'],danger:['#e08a2c','#c46a1a','#8c3b25'],rad:['#d6ff9a','#9dff6e','#5ac96a'],torch:['#ffd08a','#f0a030','#c46a1a']};
 function drawHud(alias,rect,c){
   if(alias==='meter_track'){rect(0,10,24,4,c.shadow);rect(0,10,24,1,c.ink);rect(0,13,24,1,c.deep);return true;}
   if(alias.startsWith('meter_fill_')){const [hi,mid,lo]=TONE_COLORS[alias.slice(11)];rect(0,10,24,1,hi);rect(0,11,24,2,mid);rect(0,13,24,1,lo);return true;}
@@ -43,6 +50,15 @@ function drawHud(alias,rect,c){
     const sel=alias==='tab_selected';
     rect(2,1,20,23,c.shadow);rect(1,2,22,22,c.shadow);rect(2,2,20,22,sel?c.gold:c.edge);rect(1,3,22,21,sel?c.gold:c.edge);
     rect(3,3,18,21,sel?c.deep:c.ink);rect(2,4,20,20,sel?c.deep:c.ink);rect(4,3,16,1,sel?c.muted:c.deep);
+    return true;
+  }
+  if(alias.startsWith('stepper_')){
+    const up=alias.startsWith('stepper_up'),pressed=alias.endsWith('_pressed'),bx=6,by=7,w=12,h=10,dy=pressed?1:0;
+    rect(bx+1,by,w-2,h,c.shadow);rect(bx,by+1,w,h-2,c.shadow);
+    rect(bx+1,by+1,w-2,h-2,pressed?c.gold:c.edge);rect(bx+2,by+2,w-4,h-4,pressed?c.ink:c.deep);
+    if(!pressed)rect(bx+2,by+2,w-4,1,c.muted);
+    const widths=up?[2,4,6]:[6,4,2];
+    widths.forEach((n,i)=>rect(12-n/2,by+4+dy+i,n,1,c.gold));
     return true;
   }
   if(alias.startsWith('sym_')){
@@ -76,7 +92,7 @@ export function drawSkin(alias,rect,c){
     else rect(2,1,20,1,teal);
     return;
   }
-  if(alias.startsWith('icon_')){const pattern=icons[alias.slice(5).replace(/_ink$/,'')],left=Math.floor((24-pattern[0].length)/2),top=Math.floor((24-pattern.length)/2);for(let y=0;y<pattern.length;y++)for(let x=0;x<pattern[y].length;x++)if(pattern[y][x]==='1')rect(left+x,top+y,1,1,alias.endsWith('_ink')?c.ink:c.cream);return;}
+  if(alias.startsWith('icon_')){const name=alias.slice(5).replace(/_ink$/,''),pattern=icons[name]||wastelandIcons[name],left=Math.floor((24-pattern[0].length)/2),top=Math.floor((24-pattern.length)/2);for(let y=0;y<pattern.length;y++)for(let x=0;x<pattern[y].length;x++)if(pattern[y][x]==='1')rect(left+x,top+y,1,1,alias.endsWith('_ink')?c.ink:c.cream);return;}
   if(alias.startsWith('progress_')){rect(0,11,24,2,alias==='progress_track'?c.ink:c.moss);if(alias==='progress_fill')rect(0,11,24,1,c.gold);return;}
   if(alias==='scrim'){for(let y=0;y<24;y++)for(let x=y%2;x<24;x+=2)rect(x,y,1,1,c.shadow);return;}
   if(alias==='divider'){rect(0,11,24,1,c.edge);rect(0,12,24,1,c.shadow);return;}
