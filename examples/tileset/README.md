@@ -95,6 +95,10 @@ const frame = `wall_brick_${m}`;
 manifest and verification (the editable project of a large tileset is megabytes). The ownership marker is still
 written, and `build-set --check` treats omitted artifacts as intentionally absent.
 
+A very large tileset (a few thousand cells) no longer fails the build on the contact sheet size limit: the sheet switches to
+compact cards that keep only the cell index (`contactSheet.compact` in the report), and past about 20,000 cells it shows the
+first cells that fit and adds a `contact-sheet-truncated` warning. Every frame is still verified.
+
 Always look at the result: open the contact sheet at 4x, then compose a small map from the sheet (walls around floor,
 a fence run, crops beside props) and check that runs join and silhouettes read.
 
