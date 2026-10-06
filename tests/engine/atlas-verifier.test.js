@@ -113,3 +113,36 @@ test('contact tiles merge a rectangle shared by numeric frames and aliases, nami
     { indices: [1, 4], names: [], durations: [100] },
   ]);
 });
+
+// A grid atlas of `n` distinct 16x16 frames (a big tileset) to exercise the contact sheet size limit.
+function gridAtlas(n, cols = 128) {
+  const rows = Math.ceil(n / cols), canvas = createCanvas(cols * 16, rows * 16), ctx = canvas.getContext('2d');
+  const frames = [];
+  for (let i = 0; i < n; i++) {
+    const x = (i % cols) * 16, y = Math.floor(i / cols) * 16;
+    ctx.fillStyle = `rgb(${i % 251},${(i * 7) % 251},${(i * 13) % 251})`; ctx.fillRect(x + 2, y + 2, 12, 12);
+    frames.push({ filename: String(i), frame: { x, y, w: 16, h: 16 }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: 16, h: 16 }, sourceSize: { w: 16, h: 16 }, duration: 100 });
+  }
+  writeFileSync(join(dir, 'big.png'), canvas.toBuffer('image/png'));
+  const path = join(dir, 'big.atlas.json');
+  writeFileSync(path, JSON.stringify({ frames, meta: { app: 'test', version: '1', image: 'big.png', format: 'RGBA8888', size: { w: cols * 16, h: rows * 16 }, scale: '1', frameTags: [] } }));
+  return path;
+}
+test('a very large tileset gets a compact contact sheet instead of failing verification', async () => {
+  const path = gridAtlas(3300);
+  const contact = join(dir, 'big-contact.png');
+  const report = await verifyAtlasFile(path, { contactPath: contact });
+  expect(report.errors).toEqual([]);
+  expect(report.ok).toBe(true);
+  expect(report.contactSheet).toMatchObject({ compact: true, tiles: 3300, frames: 3300 });
+  expect(existsSync(contact)).toBe(true);
+}, 60000);
+test('a contact sheet that cannot fit even compactly is truncated with a warning, never an error', async () => {
+  const path = gridAtlas(24000, 160);
+  const contact = join(dir, 'huge-contact.png');
+  const report = await verifyAtlasFile(path, { contactPath: contact });
+  expect(report.ok).toBe(true);
+  expect(report.contactSheet.tiles).toBeLessThan(24000);
+  expect(report.warnings.map((w) => w.code)).toContain('contact-sheet-truncated');
+  expect(existsSync(contact)).toBe(true);
+}, 120000);
