@@ -335,7 +335,7 @@ overwritten on rebuild. Copy it elsewhere before making a separate hand-edited v
 For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). For non-humanoid animals, insects, arachnids,
 birds and crawlers use the [`creature` source](examples/creature/README.md). Choose exactly one source:
-`ops`, `generator`, `character`, `environment`, `creature`, or `ui`. No game-local generator is required.
+`ops`, `generator`, `character`, `environment`, `creature`, `ui`, or `tileset`. No game-local generator is required.
 Review a true idle pose before judging a paused walk frame. The character report
 includes profile shoulder/hip measurements and actual heel/ball/toe landmarks; its
 neutral standing checks do not constrain moving feet to the same vertical line.
@@ -359,6 +359,10 @@ tiles from one build) give an open-ended ground sandbox; see
 habitat kit offers cottage, workshop, kitchen and barn styles with distinct roof
 silhouettes and matching interiors, alongside the historical default pressure
 vessel. Each style keeps the same reported navigation geometry.
+
+For regular grids of tiles, props, item icons and crop growth stages, use the [`tileset` source](examples/tileset/README.md):
+plain-text `.pxl` art, recolour templates, animations and procedural 47-mask wall, floor and roof sets in selectable
+materials, with a name-to-index report.
 
 For bitmap text and reusable nine-slice controls, use the [`ui` source](examples/ui/README.md).
 Font and skin recipes export editable named pixel rectangles, tone variants, metrics,

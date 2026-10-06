@@ -4,13 +4,17 @@ import {skinDefinitions,drawSkin} from './ui-skin.js';
 import {FONT_TONES} from '../build/ui-runtime.mjs';
 
 export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eceddb',muted:'#a8bcb9',gold:'#eed09b',moss:'#98b58a',light:'#ded5b4',shadow:'#10242d',orbitalInk:'#26333f',instrumentTeal:'#528f8b',wornCopper:'#bc7858',seedGold:'#dfac59',mint:'#a4d4c4',paper:'#eedfbe',specimenWell:'#36565e'};
+// Fallow Valley ramps (docs/ART-DIRECTION.md): night backing, dust brass, oxide teal, rust copper, harvest gold.
+export const WASTELAND_COLORS={ink:'#0d1126',deep:'#1b2040',edge:'#8f6f45',cream:'#f6edcf',muted:'#a8a79e',gold:'#f0d466',moss:'#8a9a4a',light:'#e3cf93',shadow:'#07091a',orbitalInk:'#0d1126',instrumentTeal:'#5f9a8d',wornCopper:'#b5532f',seedGold:'#e0b84a',mint:'#8fc4b4',paper:'#e3cf93',specimenWell:'#2c3a6b'};
+export const UI_THEMES={'moss-brass':UI_COLORS,wasteland:WASTELAND_COLORS};
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
   for(const k of Object.keys(config))if(!['name','kind','theme','characters','face'].includes(k))throw Error(`Unknown UI field: ${k}`);
   const {kind,name=kind==='font'?'ui-font':'ui-skin',theme='moss-brass'}=config;
   if(!['font','skin'].includes(kind))throw Error('UI kind must be font or skin.');
   if(typeof name!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid UI name.');
-  if(theme!=='moss-brass')throw Error('Unsupported UI theme.');
+  if(!Object.hasOwn(UI_THEMES,theme))throw Error('Unsupported UI theme.');
+  const COLORS=UI_THEMES[theme];
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
   if(kind==='skin'&&config.face!==undefined)throw Error('Face applies only to fonts.');
   const face=config.face??'regular',compact=face==='compact';
@@ -21,7 +25,7 @@ export function generateUIRecipe(config){
   const chars=[...new Set([...characters,'?',' '])].sort((a,b)=>a.codePointAt(0)-b.codePointAt(0));
   if(kind==='font')for(const char of chars)if(char!==' '&&!FONT_GLYPHS[char])throw Error(`Unsupported font character: ${char}`);
   const tones=FONT_TONES,width=kind==='font'?(compact?6:8):24,height=kind==='font'?(compact?10:12):24;
-  const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions();
+  const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions(theme);
   const maxCols=kind==='font'?32:8;
   const fittingCols=()=>Array.from({length:maxCols},(_,i)=>maxCols-i).find(n=>entries.length%n===0);
   const cols=fittingCols();
@@ -37,10 +41,10 @@ export function generateUIRecipe(config){
     }
     if(kind==='font'){
       const glyph=masks[entry.char];
-      glyph.rows.forEach((mask,row)=>{for(let x=0;x<5;){if(!(mask&(1<<(4-x)))){x++;continue;}const start=x;while(x<5&&(mask&(1<<(4-x))))x++;rect(start,row+glyph.top,x-start,1,UI_COLORS[entry.tone]);}});
+      glyph.rows.forEach((mask,row)=>{for(let x=0;x<5;){if(!(mask&(1<<(4-x)))){x++;continue;}const start=x;while(x<5&&(mask&(1<<(4-x))))x++;rect(start,row+glyph.top,x-start,1,COLORS[entry.tone]);}});
       glyphs[entry.char].frames[entry.tone]=alias;glyphs[entry.char].bounds={...bounds};
-    }else{drawSkin(entry.alias,rect,UI_COLORS);skins[alias]=entry.metrics;}
+    }else{drawSkin(entry.alias,rect,COLORS);skins[alias]=entry.metrics;}
     operations.push({command:'shape-group',sub:'create',cell,name:kind,shapes:names});frames.push({alias,cell,bounds,...(kind==='font'?{character:entry.char,tone:entry.tone}:{})});
   }
-  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:UI_COLORS,frames,...(kind==='font'?{...(compact?{face}:{}),baseline:compact?7:9,lineHeight:height,fallback:'?',glyphs}:{skins})}};
+  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,frames,...(kind==='font'?{...(compact?{face}:{}),baseline:compact?7:9,lineHeight:height,fallback:'?',glyphs}:{skins})}};
 }

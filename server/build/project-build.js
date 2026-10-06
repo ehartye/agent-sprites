@@ -22,6 +22,7 @@ import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
+import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 
 const exec = promisify(execFile);
@@ -99,6 +100,10 @@ export async function buildProject(configPath) {
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
     const { sourceKind, inline, source } = resolveBuildSource(configPath, config);
     assertTrimOption(config.trim);
+    // Large generated sets can leave out the bulky editable and review artifacts when only the game files are published.
+    const OMITTABLE = ['project', 'operations', 'preview', 'contactSheet'];
+    if (config.omit !== undefined && (!Array.isArray(config.omit) || config.omit.some(k => !OMITTABLE.includes(k)))) throw new Error(`omit must be an array drawn from: ${OMITTABLE.join(', ')}.`);
+    const omit = new Set(config.omit ?? []);
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const provenance = snapshotBuildInputs(configPath, config, source);
@@ -111,8 +116,8 @@ export async function buildProject(configPath) {
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe}[sourceKind];
-      ({ operations, report: recipeReport } = generate(config[sourceKind]));
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe}[sourceKind];
+      ({ operations, report: recipeReport } = generate(config[sourceKind], base));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
       const generated = await exec(process.execPath, [source, ...(config.args ?? [])], { cwd: base, timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true });
@@ -161,8 +166,12 @@ export async function buildProject(configPath) {
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
     result.warnings = verified.warnings;
+    // Cells that only pad the last grid row are not art: do not ask the author to confirm they are empty.
+    if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
+    for (const key of omit) delete artifacts[key];
+    if (omit.has('contactSheet')) rmSync(join(stage, 'contact.png'), { force: true });
     // Inline recipes name their report by source; generator reports are character reports.
     const reportKey = inline ? `${sourceKind}Report` : recipeReport ? 'characterReport' : null;
     if (reportKey) {
@@ -196,11 +205,11 @@ export async function buildProject(configPath) {
     manifest.files = { ...artifacts };
     artifacts.manifest = 'sprite-manifest.json';
     writeFileSync(join(stage, artifacts.manifest), json(manifest));
-    verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, contactSheet: artifacts.contactSheet };
+    verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, ...(artifacts.contactSheet ? { contactSheet: artifacts.contactSheet } : {}) };
     writeFileSync(join(stage, artifacts.verification), json(verified));
-    writeFileSync(join(stage, artifacts.project), json(project.toJSON()));
-    writeFileSync(join(stage, artifacts.operations), json(operations));
-    writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
+    if (artifacts.project) writeFileSync(join(stage, artifacts.project), json(project.toJSON()));
+    if (artifacts.operations) writeFileSync(join(stage, artifacts.operations), json(operations));
+    if (artifacts.preview) writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
     writeFileSync(join(stage, marker), json({ ...outputOwner(output, configPath), files: Object.values(artifacts) }));
     if (JSON.stringify(snapshotBuildInputs(configPath, config, source)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
     assertOwnedOutput(output, configPath);

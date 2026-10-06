@@ -1,3 +1,4 @@
+import {HUD_ICONS,HUD_ICON_NAMES} from './ui-hud.js';
 const messagePanels=['message','speech','specimen','specimen_mount','specimen_label','note','notification','warning','scrim_solid'];
 const panels=['panel_dark','panel_light','button_normal','button_hover','button_pressed','button_disabled','button_focus','slot_normal','slot_selected','tooltip','keycap','checkbox_off','checkbox_on','divider','scrim','progress_track','progress_fill'];
 const icons={
@@ -14,8 +15,35 @@ const icons={
   sun:['0001000','0101010','0011100','1111111','0011100','0101010','0001000'],
   star:['0001000','0001000','0011100','1111111','0011100','0001000','0001000'],
 };
-export function skinDefinitions(){return [...panels,...messagePanels,...Object.keys(icons).flatMap(n=>[`icon_${n}`,`icon_${n}_ink`])].map(alias=>({alias,metrics:{insets:{left:alias==='scrim'?0:4,right:alias==='scrim'?0:4,top:alias==='scrim'?0:4,bottom:alias==='scrim'?0:4},padding:{left:6,right:6,top:5,bottom:5},minWidth:12,minHeight:12,...(alias.startsWith('icon_')?{icon:true}:{}),...(alias==='scrim'?{tile:true}:{}),...(messagePanels.includes(alias)?{insets:{left:6,right:6,top:6,bottom:6},padding:{left:12,right:12,top:12,bottom:12},minWidth:24,minHeight:24,textTone:['note','specimen_label'].includes(alias)?'ink':'cream',...(alias==='scrim_solid'?{insets:{left:0,right:0,top:0,bottom:0},padding:{left:0,right:0,top:0,bottom:0},minWidth:1,minHeight:1,opacity:0.48}:{} )}:{}),...(alias.startsWith('progress_')?{content:{x:0,y:11,w:24,h:2}}:{})}}));}
+export const METER_TONES=['hunger','thirst','health','stamina','warn','danger','rad'];
+const hudAliases=()=>['meter_track',...METER_TONES.map(t=>`meter_fill_${t}`),'minimap_frame','tab_normal','tab_selected',...HUD_ICON_NAMES.map(n=>`hud_${n}`)];
+export function skinDefinitions(theme='moss-brass'){return [...panels,...messagePanels,...Object.keys(icons).flatMap(n=>[`icon_${n}`,`icon_${n}_ink`]),...(theme==='wasteland'?hudAliases():[])].map(alias=>({alias,metrics:{insets:{left:alias==='scrim'?0:4,right:alias==='scrim'?0:4,top:alias==='scrim'?0:4,bottom:alias==='scrim'?0:4},padding:{left:6,right:6,top:5,bottom:5},minWidth:12,minHeight:12,...(alias.startsWith('icon_')?{icon:true}:{}),...(alias==='scrim'?{tile:true}:{}),...(messagePanels.includes(alias)?{insets:{left:6,right:6,top:6,bottom:6},padding:{left:12,right:12,top:12,bottom:12},minWidth:24,minHeight:24,textTone:['note','specimen_label'].includes(alias)?'ink':'cream',...(alias==='scrim_solid'?{insets:{left:0,right:0,top:0,bottom:0},padding:{left:0,right:0,top:0,bottom:0},minWidth:1,minHeight:1,opacity:0.48}:{} )}:{}),...(alias.startsWith('progress_')?{content:{x:0,y:11,w:24,h:2}}:{}),...(alias==='meter_track'||alias.startsWith('meter_fill_')?{content:{x:0,y:10,w:24,h:4}}:{}),...(alias==='minimap_frame'?{insets:{left:5,right:5,top:5,bottom:5},padding:{left:6,right:6,top:6,bottom:6},minWidth:16,minHeight:16,hollow:true}:{}),...(alias.startsWith('tab_')?{insets:{left:4,right:4,top:4,bottom:2},padding:{left:6,right:6,top:4,bottom:3},minWidth:12,minHeight:10}:{}),...(alias.startsWith('hud_')?{icon:true,color:true}:{})}}));}
+export const TONE_COLORS={hunger:['#f0d466','#e0b84a','#c58f2c'],thirst:['#8fc4b4','#5f9a8d','#3f6f68'],health:['#d98b4a','#b5532f','#8c3b25'],stamina:['#d6e08a','#a9b45a','#6b7d3a'],warn:['#f0d466','#e0b84a','#c58f2c'],danger:['#e08a2c','#c46a1a','#8c3b25'],rad:['#d6ff9a','#9dff6e','#5ac96a']};
+function drawHud(alias,rect,c){
+  if(alias==='meter_track'){rect(0,10,24,4,c.shadow);rect(0,10,24,1,c.ink);rect(0,13,24,1,c.deep);return true;}
+  if(alias.startsWith('meter_fill_')){const [hi,mid,lo]=TONE_COLORS[alias.slice(11)];rect(0,10,24,1,hi);rect(0,11,24,2,mid);rect(0,13,24,1,lo);return true;}
+  if(alias==='minimap_frame'){
+    // Hollow frame: only the five-pixel border is painted, so the map shows through the middle.
+    const ring=[c.shadow,c.edge,c.gold,c.edge,c.shadow];
+    ring.forEach((col,i)=>{const n=24-2*i,a=i+(i===0?1:0),w=n-(i===0?2:0);rect(a,i,w,1,col);rect(a,23-i,w,1,col);rect(i,i+1,1,n-2,col);rect(23-i,i+1,1,n-2,col);});
+    rect(5,5,2,2,c.gold);rect(17,5,2,2,c.gold);rect(5,17,2,2,c.gold);rect(17,17,2,2,c.gold);
+    return 'hollow';
+  }
+  if(alias==='tab_normal'||alias==='tab_selected'){
+    const sel=alias==='tab_selected';
+    rect(2,1,20,23,c.shadow);rect(1,2,22,22,c.shadow);rect(2,2,20,22,sel?c.gold:c.edge);rect(1,3,22,21,sel?c.gold:c.edge);
+    rect(3,3,18,21,sel?c.deep:c.ink);rect(2,4,20,20,sel?c.deep:c.ink);rect(4,3,16,1,sel?c.muted:c.deep);
+    return true;
+  }
+  if(alias.startsWith('hud_')){
+    const icon=HUD_ICONS[alias.slice(4)],left=6,top=6;
+    icon.rows.forEach((row,y)=>{for(let x=0;x<12;){const key=row[x];if(key==='.'){x++;continue;}const start=x;while(x<12&&row[x]===key)x++;rect(left+start,top+y,x-start,1,icon.colors[key]);}});
+    return true;
+  }
+  return false;
+}
 export function drawSkin(alias,rect,c){
+  if(drawHud(alias,rect,c))return;
   // Message families share the font palette while preserving historical skins.
   // Insets keep every corner/label notch fixed when the center is stretched.
   const {orbitalInk:ink,instrumentTeal:teal,wornCopper:copper,seedGold:gold,mint,paper}=c;

@@ -1,0 +1,40 @@
+% A hand-drawn tile with the selective outline added by the build.
+@tile sprout outline x=5 y=5 w=6 rows=7
+..l...
+.lgl..
+..gg.l
+l.gglg
+glgg..
+.ggg..
+..gg..
+% A tiny template recoloured per variant (templates never reach the sheet).
+@tile tpl_seed template outline x=5 y=5 w=6 rows=6
+..aa..
+.aaaa.
+aaaaaa
+aaaaaa
+.aaaa.
+..aa..
+@recolor seed_gold tpl_seed a=y
+@recolor seed_rust tpl_seed a=r
+% 47 connection masks per material: wall_brick_<mask>, floor_slab_<mask>, ...
+@autotile wall brick as wall_brick
+@autotile floor slab as floor_slab
+@autotile roof roof-tile as roof_tile
+@autotile fence wood as fence_wood
+@autotile door wood as door_wood
+% Animation: cells campfire_0..1 and an Aseprite tag named campfire.
+@anim campfire fps=6 outline x=4 y=4 w=8 rows=6
+...T....
+..TyT...
+.TyHyT..
+.TyHyT..
+..rrrr..
+.rrrrrr.
+---
+....T...
+...TyT..
+..TyHyT.
+.TyHHyT.
+..rrrr..
+.rrrrrr.
