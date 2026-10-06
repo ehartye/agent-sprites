@@ -161,6 +161,7 @@ sprite.js batch frame-ops.json --vars-file frames.json
 
 ## Reference
 
+- [Storyboard panels](references/storyboard-panels.md) — three-stage landscape blocking from a story-owned manifest.
 - `sprite-editing` — commands and flags.
 - `sprite-shading` — per-tier draw-order for lighting.
 - `sprite-motion` — animation cycle structures that inform grid layout.
