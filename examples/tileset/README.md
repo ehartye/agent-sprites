@@ -97,3 +97,11 @@ written, and `build-set --check` treats omitted artifacts as intentionally absen
 
 Always look at the result: open the contact sheet at 4x, then compose a small map from the sheet (walls around floor,
 a fence run, crops beside props) and check that runs join and silhouettes read.
+
+## Validation
+
+Every `.pxl` row must be exactly the cell (or `w=`) width and every tile or animation frame exactly the cell
+(or `rows=`) height. A wrong width, too few rows, or an extra row fails the build with `file:line`, the tile or
+animation name, and expected versus actual counts. To check the names a game asks for, list them in the build
+config's `expectedFrames` (and animation names in `expectedTags`); the build fails with `missing-frame` for
+each absent name. Frame names include animation frames, such as `campfire_0`.

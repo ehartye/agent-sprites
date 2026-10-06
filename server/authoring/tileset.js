@@ -53,7 +53,7 @@ export function parseTilesetSource(text, file, state) {
   if (text.length > MAX_SOURCE_BYTES) throw Error(`${file}: source is larger than ${MAX_SOURCE_BYTES} bytes.`);
   // A UTF-8 BOM and indentation are tolerated; ` % note` after any line is a comment (art rows never contain spaces).
   const lines = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().replace(/\s+%.*$/, ''));
-  let i = 0;
+  let i = 0, last = '';
   const fail = (msg, line = i) => { throw Error(`${file}:${line + 1}: ${msg}`); };
   const isDirective = line => line.startsWith('@');
   const next = () => { while (i < lines.length && (!lines[i].trim() || lines[i].startsWith('%'))) i++; return i < lines.length ? lines[i] : null; };
@@ -71,7 +71,8 @@ export function parseTilesetSource(text, file, state) {
     const rows = [];
     while (rows.length < count) {
       const line = next();
-      if (line === null || isDirective(line)) fail(`${what} needs ${count} rows, found ${rows.length}.`, Math.min(i, lines.length - 1));
+      if (line === null || isDirective(line)) fail(`${what} needs ${count} rows, found ${rows.length}; add the missing rows (cell rows are ${cellH} tall, ${cellW} wide).`, Math.min(i, lines.length - 1));
+      if (line === '---') fail(`${what} needs ${count} rows, found ${rows.length} before "---"; add the missing rows.`);
       if ([...line].length !== width) fail(`${what} row ${rows.length + 1} is ${[...line].length} wide; expected ${width}.`);
       rows.push([...line].map(ch => {
         if (ch === '.') return null;
@@ -92,9 +93,10 @@ export function parseTilesetSource(text, file, state) {
   while (true) {
     const line = next();
     if (line === null) break;
-    if (!isDirective(line)) fail('Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade).');
+    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade).${last ? ` This may be an extra row after ${last}, which already had its full row count.` : ''}`);
     const start = i, words = line.slice(1).trim().split(/\s+/), directive = words[0], rest = words.slice(1);
     i++;
+    if (directive === 'tile' || directive === 'anim') last = `${directive} ${rest[0] ?? ''}`.trim(); else last = '';
     if (directive === 'palette') {
       while (i < lines.length) {
         const entry = next();
