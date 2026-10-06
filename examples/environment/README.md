@@ -193,6 +193,25 @@ example stacks at most two layers, the two highest priorities present). The over
 neighbours are that material: the material bleeds INTO the tile across those shared edges and corners with an organic
 boundary, and is transparent elsewhere so the tile's base shows. This is the complement of the path blobs.
 
+#### `overlayEdge`: a border and rounded corners (0.71.0)
+
+By default an overlay is a ragged strip with no outline. `overlayEdge` (terrain-overlay only) styles the edge:
+
+```json
+"overlayEdge": { "rim": true, "round": 4, "soft": ["dust", "sand", "gravel"] }
+```
+
+- `rim` draws a one pixel outline on the overlay's own boundary, in the overlay material's ramp: the light step on edges
+  that face up or left (lit from the top left), the dark step one notch darker on the others. The rim never lands on a pixel
+  that touches the tile border from outside, so seams between neighbouring overlay tiles still match.
+- `round` (0 to 6) rounds the concave corners where two adjacent bands meet (an opening of the tile's own material inside a box
+  at that corner, radius shrinking until at most a quarter of that area is lost, two pixels clear of every tile border). The
+  one pixel fill that otherwise softens those corners is skipped, so outer corners stay true quarter circles of `EDGE_DEPTH`.
+- `soft` (`true` or a list of materials, needs `rim`) also exports a rimless twin `<material>-soft_<mask>_<variant>` with the
+  identical shape, for seams between two tones of one material, where an outline would only be noise.
+
+Omit `overlayEdge` and the sheet is byte-identical to before.
+
 Bits: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128. Corner rule: a diagonal bit is meaningful only when BOTH
 adjacent cardinal bits are CLEAR (otherwise the cardinal edges already cover that corner); a set diagonal next to a set
 cardinal is cleared. That leaves exactly 47 valid masks (16+16+8+2+4+1); mask 0 has nothing to draw, so 46 tiles are

@@ -70,6 +70,7 @@ this tile's neighbours that are that material (N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64
 both adjacent cardinals are clear, so 8 neighbours normalise to 85). Priority is the game's choice. Play the exported
 `water` tag for all water tiles. Read cells from `environment-report.json`, set the scale guard from `pixelScale`, and see
 `examples/environment/wasteland/compose-map.mjs` for a reference composition. Details: `examples/environment/README.md`.
+For edges that read as a border instead of a ragged strip add `overlayEdge: {rim: true, round: 4, soft: [...]}`: a 1 px rim in the overlay material's ramp (light step on top-left facing edges, a notch darker elsewhere), concave corners rounded where two bands meet, and (`soft`) a rimless `<material>-soft_<mask>_<variant>` twin for seams between two tones of one material. A flavour whose own colours differ from its parent can be a custom material too, so the neighbour wears the flavour's look.
 
 ## Tilesets, props, item icons and crop stages
 
