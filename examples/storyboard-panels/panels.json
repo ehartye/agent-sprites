@@ -1,0 +1,5 @@
+[
+  {"id":"farm-1","scene":"Cultivation","stage":1,"kind":"farm","caption":"Plant seeds in prepared beds."},
+  {"id":"farm-2","scene":"Cultivation","stage":2,"kind":"farm","caption":"Tend growing shoots."},
+  {"id":"farm-3","scene":"Cultivation","stage":3,"kind":"farm","caption":"Collect a working harvest."}
+]
