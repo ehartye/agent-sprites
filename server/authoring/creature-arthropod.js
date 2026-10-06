@@ -73,7 +73,7 @@ export function insectFrontBack(ctx) {
     for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
       const near = s > 0, off = G[near ? 'near' : 'far'][i], f = footFor(ctx, 0, off, G.duty, 0, footY - (2 - i) * (H > 20 ? 1.5 : 1));
       const hy = by + (i - 1) * bh * 0.45 + bh * 0.2, hx = cx + s * bw * 0.7, ox = bw * 0.75 + 2.2 + i * 0.4 + (f.swing ? -1 : 0);
-      drawLeg(ctx, { name: `leg_${near ? 'r' : 'l'}${i}`, hip: [hx, hy], foot: [cx + s * (bw + 1.5 + i * 0.6 + (f.swing ? -1 : 0)), f.y], l1: legLen * 0.8, l2: legLen * 0.9, hint: [s * 0.4, -1], w: lw, mat: dark(i === 1 ? pal.body : pal.far), paw: 'none' });
+      drawLeg(ctx, { name: `leg_${near ? 'r' : 'l'}${i}`, hip: [hx, hy], foot: [cx + s * (bw + W * 0.05 + i * W * 0.02 + (f.swing ? -1 : 0)), f.y], l1: legLen * 0.8, l2: legLen * 0.9, hint: [s * 0.4, -1], w: lw, mat: dark(i === 1 ? pal.body : pal.far), paw: 'none' });
       void ox;
     }
   };
@@ -201,7 +201,7 @@ export function arachnidFrontBack(ctx) {
   const legMat = i => stick(pal, i % 2 === 1);
   for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
     const near = s > 0, off = G[near ? 'near' : 'far'][i], f = footFor(ctx, 0, off, G.duty, 0, footY - (3 - i) * (H > 24 ? 1 : 0.7));
-    const hy = by + (i - 1.5) * bh * 0.3 + bh * 0.3, spread = bw + 1.8 + i * 1.1 - (i === 0 && front ? 0 : 0) + (f.swing ? -1 : 0);
+    const hy = by + (i - 1.5) * bh * 0.3 + bh * 0.3, spread = bw + W * 0.045 + i * W * 0.027 + (f.swing ? -1 : 0);
     drawLeg(ctx, { name: `leg_${near ? 'r' : 'l'}${i}`, hip: [cx + s * bw * 0.6, hy], foot: [cx + s * spread, f.y], l1: legLen * 0.7, l2: legLen * 0.8, hint: [s * 0.5, -1], w: lw, mat: legMat(i), paw: 'none' });
   }
   const open = atk === 'pincer' ? [1.4, 1.8, 0.4, 0][pose.attackFrame] ?? 0 : 0;

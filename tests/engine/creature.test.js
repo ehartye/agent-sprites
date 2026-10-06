@@ -138,3 +138,14 @@ test('the shared playback runtime walks a creature from its report alone',async(
   expect(walker.update(-1,0).alias).toMatch(/^walk_left_/);
   expect(groundAnchor(r.report,r.report.frames[0])).toEqual({x:16,y:24});
 });
+
+test('every plan fits every preset size with and without all its features (bodies shrink to fit, legs reach the ground)',()=>{
+  for(const plan of Object.keys(PLANS))for(const size of ['small','medium','large','40x28'])for(const features of [[],PLANS[plan].features.filter(f=>f!=='tail')]){
+    const r=generateCreatureRecipe({name:'t',plan,size,features});
+    for(const f of r.report.frames)expect(f.checks,`${plan} ${size} ${features.length} ${f.alias}`).toEqual([]);
+  }
+},60000);
+
+test('sizes below 16x16 are rejected',()=>{
+  expect(()=>parseSize('12x12')).toThrow(/between 16x16 and 160x128/);
+});

@@ -173,8 +173,8 @@ export function boundsOf(pixels) {
 /** Two-bone inverse kinematics. The joint bows toward `hint` (a direction vector). */
 export function ik([hx, hy], [fx, fy], l1, l2, hint) {
   let dx = fx - hx, dy = fy - hy, d = Math.hypot(dx, dy) || 0.001;
-  const maxReach = l1 + l2 - 0.01;
-  if (d > maxReach) { fx = hx + dx / d * maxReach; fy = hy + dy / d * maxReach; dx = fx - hx; dy = fy - hy; d = maxReach; }
+  // A leg that cannot reach the ground grows to reach it: feet never float.
+  if (d > l1 + l2 - 0.2) { const k = (d + 0.4) / (l1 + l2); l1 *= k; l2 *= k; }
   const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, l1 * l1 - a * a));
   const mx = hx + dx * a / d, my = hy + dy * a / d, nx = -dy / d, ny = dx / d;
   const sign = (nx * hint[0] + ny * hint[1]) >= 0 ? 1 : -1;

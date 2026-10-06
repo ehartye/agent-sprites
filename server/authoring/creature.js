@@ -15,7 +15,7 @@ export function parseSize(size = 'medium') {
   const m = typeof size === 'string' ? size.match(/^(\d{1,3})x(\d{1,3})$/i) : null;
   if (!m) throw Error(`Unsupported creature size: ${size}. Use ${Object.keys(SIZE_PRESETS).join(', ')} or WxH`);
   const [w, h] = [Number(m[1]), Number(m[2])];
-  if (w < 12 || h < 12 || w > 160 || h > 128) throw Error('Creature size must be between 12x12 and 160x128');
+  if (w < 16 || h < 16 || w > 160 || h > 128) throw Error('Creature size must be between 16x16 and 160x128');
   return [w, h];
 }
 
@@ -111,9 +111,27 @@ function place(px, pad, dx, W, H, left) {
   return { cell: left ? mirrorPixels(cell, W) : cell, clipped, where: [...where].join('/') };
 }
 
+/** True when every frame (without its lunge) fits the cell once centred, so a preset size never clips. */
+function fits(cfg, specs) {
+  const { W, H } = cfg;
+  for (const spec of specs) {
+    const { px, pad } = renderFrame(cfg, spec, 0, 0);
+    if (!px.length) return false;
+    const b = boundsOf(px);
+    if (b.right - b.left + 1 > W || b.top < 0 || b.bottom > H - 1) return false;
+  }
+  return true;
+}
+
 /** A deterministic creature recipe expands to ordinary named, editable rect operations. */
 export function generateCreatureRecipe(config) {
-  const cfg = normalise(config), { W, H } = cfg, specs = frameSpecs(cfg);
+  let cfg = normalise(config), { W, H } = cfg;
+  const specs = frameSpecs(cfg), base = cfg.P;
+  // Long bodies, big heads and tails shrink together until the whole animation fits the cell.
+  for (let k = 1; !fits(cfg, specs); k -= 0.06) {
+    if (k < 0.5) break;
+    cfg = { ...cfg, P: { ...base, bodyLength: base.bodyLength * k, tailLength: base.tailLength * k, headSize: base.headSize * Math.max(k, 0.7), bodyHeight: base.bodyHeight * Math.max(k, 0.8) } };
+  }
   // Centre each view on the standing silhouette so the ground anchor sits under the body.
   const shifts = {}, keyOf = spec => (spec.anim === 'down' ? 'down' : spec.view === 'left' ? 'right' : spec.view);
   for (const key of new Set(specs.map(keyOf))) {

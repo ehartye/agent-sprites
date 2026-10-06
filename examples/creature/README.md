@@ -21,7 +21,7 @@ cell are rejected with the field named. See [sprite-project.json](sprite-project
 | --- | --- |
 | `name` | Project and atlas name (`^[a-z][a-z0-9_-]*$`). |
 | `plan` | `quadruped`, `insect` (six legs, tripod gait), `arachnid` (eight legs, tail, pincers), `bird` (biped) or `blob` (crawler). |
-| `size` | `small` 16x16, `medium` 32x24, `large` 48x32, or any `WxH` from 12x12 up to 160x128. |
+| `size` | `small` 16x16, `medium` 32x24, `large` 48x32, or any `WxH` from 16x16 up to 160x128. |
 | `palette` | A preset (`dust`, `earth`, `rust`, `oxide`, `concrete`, `ash`, `scrub`, `toxic`) or `{ preset, body, belly, accent, cloth, metal, glow, patch }` where each role is a material name, four `#RRGGBB` steps, or `{ ramp, steps }`. Ramps are the Fallow Valley art-direction ramps (dust, rust, oxide, concrete, scrub, harvest, toxic, glow, night). |
 | `proportions` | Multipliers 0.4 to 2.5: `bodyLength`, `bodyHeight`, `legLength`, `legThickness`, `headSize`, `neckThickness`, `tailLength`. |
 | `head` / `tail` / `paw` | Quadruped only. Head `canid`, `bovid`, `swine`, `caprine`, `equine`; tail `whip`, `tuft`, `club`, `stub`; paw `paw` or `hoof`. |
