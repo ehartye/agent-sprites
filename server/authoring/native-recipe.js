@@ -7,13 +7,14 @@ import { NATIVE_PRESETS, PRESET_NAMES, SKIN_RAMPS, HAIR_RAMPS } from './native/w
 import { addActionFrames, ACTIONS, TOOLS, POSTURES } from './native/native-actions.mjs';
 import { SKIN_TONES } from '../engine/skin-tones.js';
 
-const KEYS = ['name', 'id', 'preset', 'kind', 'outfit', 'tone', 'wig', 'materials', 'colors', 'motifs', 'omit', 'gear', 'actions', 'tool', 'skin', 'hair', 'posture', 'armMaterial', 'handMaterial', 'bodyMaterial', 'replaceHead'];
+const KEYS = ['name', 'id', 'preset', 'kind', 'outfit', 'tone', 'wig', 'materials', 'colors', 'motifs', 'omit', 'gear', 'actions', 'tool', 'skin', 'hair', 'posture', 'armMaterial', 'handMaterial', 'bodyMaterial', 'replaceHead', 'only'];
 const HEX = /^#[\da-f]{6}$/i;
 const ID = /^[a-z][a-z0-9-]*$/;
 const NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 const ROLES = ['outline', 'shadow', 'base', 'highlight'];
 // Garment palette the jacket outfit starts from; '@cloth.role' motif slots follow it until overridden.
 const CLOTH_DEFAULT = { outline: '#243449', shadow: '#32576a', base: '#467f8a', highlight: '#7db4ab' };
+const TROUSERS_DEFAULT = { outline: '#283140', shadow: '#394755', base: '#526673', highlight: '#7d9098' };
 
 const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
 function check(value, label, keys) {
@@ -76,11 +77,13 @@ export function generateNativeRecipe(config) {
     if (ROLES.some(role => !HEX.test(ramp[role] ?? ''))) throw new Error(`native.materials.${material}: provide four hex colour roles (${ROLES.join(', ')}).`);
   }
   const skinRamp = c.materials.skin ?? SKIN_TONES.find(t => t.id === tone).colors;
-  const { motifs, meta } = expandMotifs(c.motifs, { materials: c.materials, kind, fallbackRamps: { cloth: CLOTH_DEFAULT, skin: skinRamp } });
+  const { motifs, meta } = expandMotifs(c.motifs, { materials: c.materials, kind, fallbackRamps: { cloth: CLOTH_DEFAULT, trousers: TROUSERS_DEFAULT, hair: HAIR_RAMPS.brown, skin: skinRamp } });
   if (c.bodyMaterial !== undefined && (typeof c.bodyMaterial !== 'string' || !ID.test(c.bodyMaterial))) throw new Error('native.bodyMaterial must be a lowercase material name such as casing.');
   const profile = {
     id, projectName: c.name, kind, outfit, tone, wig,
-    materials: c.materials, colors: { o: '#26333f', ...c.colors }, motifs,
+    // a hair ramp on a wigless body, or trousers under a dress, still colour motifs ('@hair.base') but have no body group to recolour
+    materials: Object.fromEntries(Object.entries(c.materials).filter(([m]) => !(m === 'hair' && wig === 'none') && !(m === 'trousers' && outfit !== 'jacket'))),
+    colors: { o: '#26333f', ...c.colors }, motifs,
     ...(c.replaceHead || meta.some(m => m.replaceHead) ? { replaceHead: true } : {}),
     ...(c.bodyMaterial ? { bodyMaterial: c.bodyMaterial } : {}),
   };
@@ -104,7 +107,34 @@ export function generateNativeRecipe(config) {
   }
   // Costume edge pixels use the profile's outline colour without an outline group.
   const finished = finishNative(ops, [profile.colors.o]);
-  return { operations: finished, report: nativeReport(finished, kind, { gear, actions: actionInfo }) };
+  // The report describes the whole character even when the sheet is an overlay of it.
+  const report = nativeReport(finished, kind, { gear, actions: actionInfo });
+  return { operations: c.only === undefined ? finished : overlayOnly(finished, motifs, c.only), report };
+}
+
+/**
+ * Keep only the pixels of the named motifs: the sheet becomes a transparent overlay with the same frame layout as the full
+ * character, for games that composite a body, hair, facial hair and headwear at runtime. Every other pixel and its shape
+ * group is dropped; the frames, names and poses stay, so the overlay lines up with the body built from the same recipe.
+ */
+function overlayOnly(ops, motifs, only) {
+  if (!Array.isArray(only) || !only.length || only.some(n => typeof n !== 'string')) throw new Error('native.only must be a non-empty array of motif names.');
+  const used = new Set(motifs.map(m => m.name));
+  for (const name of only) if (!used.has(name)) throw new Error(`native.only names "${name}", which is not one of the character's motifs.`);
+  const keep = motifs.map((m, index) => (only.includes(m.name) ? index : -1)).filter(index => index >= 0);
+  const kept = name => keep.some(index => name.startsWith(`costume-${index}-`));
+  const out = [];
+  for (const op of ops) {
+    if (op.command === 'draw' && !kept(op.name)) continue;
+    if (op.command === 'shape-group') {
+      const shapes = op.shapes.filter(kept);
+      if (!shapes.length) continue;
+      out.push({ ...op, shapes });
+      continue;
+    }
+    out.push(op);
+  }
+  return out;
 }
 
 export { MOTIF_NAMES, PRESET_NAMES };
