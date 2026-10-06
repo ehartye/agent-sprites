@@ -10,14 +10,14 @@ export function buildPhaserUi({ report, atlas, name }) {
   if (report.kind === 'font') {
     const chars = Object.keys(report.glyphs).filter(c => c !== ' ').join('');
     const space = report.glyphs[' ']?.advance ?? 0;
-    const tones = {};
+    const tones = {}, tw = atlas.meta.size.w, th = atlas.meta.size.h;
     for (const tone of FONT_TONES) {
       const map = {};
       for (const [ch, g] of Object.entries(report.glyphs)) {
         const code = ch.codePointAt(0);
-        if (ch === ' ' || !g.frames?.[tone]) { map[code] = { x: 0, y: 0, width: 0, height: 0, centerX: 0, centerY: 0, xOffset: 0, yOffset: 0, xAdvance: g.advance, data: {}, kerning: {} }; continue; }
+        if (ch === ' ' || !g.frames?.[tone]) { map[code] = { x: 0, y: 0, width: 0, height: 0, centerX: 0, centerY: 0, xOffset: 0, yOffset: 0, xAdvance: g.advance, data: {}, kerning: {}, u0: 0, v0: 0, u1: 0, v1: 0 }; continue; }
         const f = getFrame(atlas, g.frames[tone]);
-        map[code] = { x: f.x, y: f.y, width: f.w, height: f.h, centerX: Math.floor(f.w / 2), centerY: Math.floor(f.h / 2), xOffset: 0, yOffset: 0, xAdvance: g.advance, data: {}, kerning: {} };
+        map[code] = { x: f.x, y: f.y, width: f.w, height: f.h, centerX: Math.floor(f.w / 2), centerY: Math.floor(f.h / 2), xOffset: 0, yOffset: 0, xAdvance: g.advance, data: {}, kerning: {}, u0: f.x / tw, v0: 1 - f.y / th, u1: (f.x + f.w) / tw, v1: 1 - (f.y + f.h) / th };
       }
       tones[tone] = { font: `${name}-${tone}`, size: report.lineHeight, lineHeight: report.lineHeight, retroFont: false, chars: map };
     }
