@@ -1,0 +1,52 @@
+{
+  "muted": true,
+  "rows": [
+    {
+      "kind": "adult",
+      "facings": 8,
+      "walkFrames": 4,
+      "opaquePixels": [
+        246,
+        219,
+        246,
+        219,
+        208,
+        208,
+        208,
+        208
+      ]
+    },
+    {
+      "kind": "child",
+      "facings": 8,
+      "walkFrames": 4,
+      "opaquePixels": [
+        196,
+        161,
+        196,
+        161,
+        172,
+        172,
+        172,
+        172
+      ]
+    },
+    {
+      "kind": "large",
+      "facings": 8,
+      "walkFrames": 4,
+      "opaquePixels": [
+        308,
+        265,
+        308,
+        265,
+        240,
+        240,
+        240,
+        240
+      ]
+    }
+  ],
+  "wardrobeFacings": 4,
+  "errors": []
+}

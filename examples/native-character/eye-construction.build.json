@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "generator": "generate-eye-study.mjs",
+  "output": "dist/eye-construction",
+  "scale": 8,
+  "inputs": [
+    "../../server/authoring/native/native-eyes.mjs",
+    "../../server/authoring/native/native-head-study.mjs",
+    "../../server/authoring/native/native-diagonal-head.mjs",
+    "../../server/authoring/native/native-diagonal.mjs"
+  ],
+  "expectedFrames": [
+    "adult_front",
+    "adult_right",
+    "adult_back",
+    "adult_left",
+    "adult_front_right",
+    "adult_back_right",
+    "adult_back_left",
+    "adult_front_left",
+    "child_front",
+    "child_right",
+    "child_back",
+    "child_left",
+    "child_front_right",
+    "child_back_right",
+    "child_back_left",
+    "child_front_left",
+    "large_front",
+    "large_right",
+    "large_back",
+    "large_left",
+    "large_front_right",
+    "large_back_right",
+    "large_back_left",
+    "large_front_left"
+  ]
+}

@@ -54,7 +54,7 @@
 </head>
 <body>
 <main>
-  <header><div><h1>Mannequin walk study</h1><p>Compare the body, wardrobe, and hair through a full walking cycle.</p></div><p class="spec">16 × 32 px · 4 facings · 4 steps</p></header>
+  <header><div><h1>Mannequin walk study</h1><p>Compare the body, wardrobe, and hair through a full walking cycle.</p></div><p class="spec">16 × 32 px · <span id="facing-count">8</span> facings · 4 steps</p></header>
   <section class="controls" aria-label="Appearance and playback">
     <label>Body<select id="body"><option value="adult">Adult</option><option value="child">Child</option><option value="large">Large</option></select></label>
     <label>Clothing<select id="clothing"><option value="bare">Bare mannequin</option><option value="jacket">Jacket</option><option value="dress">Dress</option></select></label>
@@ -67,11 +67,11 @@
   <p id="status" class="status" role="status" aria-live="polite">Loading mannequin sheets…</p>
   <section id="views" class="views checker baseline" aria-label="Synchronized facings"></section>
   <div class="readout"><output id="frame-readout">Frame — / 4</output><span>Large view 8× · frame strip 2× · native pixels</span></div>
-  <footer><p><a href="cast.html">Explore the Space to Grow cast concepts →</a></p><p>Click any frame to pause all four views at the same step. The idle pose appears first in each strip.</p><p>Hair is drawn from a separate wig sheet over the body and clothing. Outfit default uses short hair with a jacket, tied hair with a dress, and no hair on the bare mannequin.</p></footer>
+  <footer><p><a href="cast.html">Explore the Space to Grow cast concepts →</a> · <a href="dist/eye-construction/preview.html">Face reference sheet</a> · <a href="FACE-CONSTRUCTION.md">Construction guide</a></p><p>Click any frame to pause all views at the same step. The idle pose appears first in each strip.</p><p>Bare mannequins have eight facings. Clothing and wig overlays currently have four; selecting either shows those four matching facings. Outfit default uses short hair with a jacket, tied hair with a dress, and no hair on the bare mannequin.</p></footer>
 </main>
 <script>
   'use strict';
-  const directions = ['front', 'right', 'back', 'left'];
+  const directions = ['front', 'right', 'back', 'left', 'front-right', 'back-right', 'back-left', 'front-left'];
   const byId = id => document.getElementById(id);
   const body = byId('body'), clothing = byId('clothing'), hair = byId('hair');
   const motion = byId('motion'), play = byId('play'), step = byId('step');
@@ -99,7 +99,7 @@
         playing = false; motion.value = index < 0 ? 'idle' : 'walk'; cursor = Math.max(0, index); elapsed = 0; render(); syncPlayback();
       });
     }
-    panel.append(title, stage, strip); views.append(panel); panels.set(direction, { canvas, frames });
+    panel.append(title, stage, strip); views.append(panel); panels.set(direction, { element:panel, canvas, frames });
   }
 
   function loadSheet(preset, name = preset) {
@@ -114,7 +114,7 @@
       ]).then(([atlas, image]) => {
         const entries = Array.isArray(atlas.frames) ? atlas.frames : Object.entries(atlas.frames).map(([filename, frame]) => ({ ...frame, filename }));
         const aliases = new Map(entries.map(frame => [frame.filename, frame]));
-        for (const direction of directions) {
+        for (const direction of directions.filter(direction => !direction.includes('-') || aliases.has(direction))) {
           for (const name of [direction, ...Array.from({length:4}, (_, i) => direction + '_walk_' + i)]) {
             const frame = aliases.get(name);
             if (!frame) throw new Error(path + ': missing frame ' + name);
@@ -139,7 +139,12 @@
   }
 
   function render(refreshStrips = false) {
+    let visible = 0;
     for (const [direction, panel] of panels) {
+      const available = sheets.length > 0 && sheets.every(sheet => sheet.aliases.has(direction));
+      panel.element.hidden = !available;
+      if (!available) continue;
+      visible++;
       paint(panel.canvas, motion.value === 'idle' ? direction : direction + '_walk_' + cursor);
       for (const cell of panel.frames) {
         if (refreshStrips) paint(cell.canvas, cell.index < 0 ? direction : direction + '_walk_' + cell.index);
@@ -147,6 +152,7 @@
         cell.button.setAttribute('aria-pressed', String(motion.value === 'idle' ? cell.index === -1 : cell.index === cursor));
       }
     }
+    byId('facing-count').textContent = visible || '—';
     byId('frame-readout').textContent = sheets.length ? (motion.value === 'idle' ? 'Idle pose' : 'Frame ' + (cursor + 1) + ' / 4') : 'Frame — / 4';
   }
 

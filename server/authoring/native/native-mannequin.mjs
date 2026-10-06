@@ -4,6 +4,8 @@ import {drawNativeGear} from './native-gear.mjs';
 import {SKIN_TONES} from '../../engine/skin-tones.js';
 import {readFileSync} from 'node:fs';
 import {deriveBackStudy} from './derive-back.mjs';
+import {prepareNativeEyes} from './native-eyes.mjs';
+import {appendNativeDiagonals} from './native-diagonal.mjs';
 
 export const DIRECTIONS=['front','right','back','left'];
 
@@ -22,15 +24,16 @@ export function finishNative(ops,extra=[]){
 // body broadens the uncut adult first, so the cut always runs on the final silhouette.
 // Held gear joins the composite before that single cut.
 export function nativeMannequin(kind='adult',tone='peach',{gear=[]}={}){
-  const body=kind==='large'?broadenMannequin(sourceMannequin('adult',tone),tone,{bulk:2}):sourceMannequin(kind,tone);
+  const cardinals=kind==='large'?broadenMannequin(sourceMannequin('adult',tone),tone,{bulk:2}):sourceMannequin(kind,tone);
+  const body=appendNativeDiagonals(cardinals,kind,tone);
   return cutOutlineCorners(drawNativeGear(body,kind,gear),SKIN_TONES.find(t=>t.id===tone).colors.outline).ops;
 }
 
-// Source poses stay editable and unchanged. Left is a reflected profile; rear
+// Source pose geometry stays editable and unchanged. Left is a reflected profile; rear
 // uses the authored rear treatment on each front pose's moving silhouette.
 export function sourceMannequin(kind='adult',tone='peach'){
   if(!['adult','child'].includes(kind))throw Error('Choose adult, child or large.');
-  const source=JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url)));
+  const source=prepareNativeEyes(JSON.parse(readFileSync(new URL(`./templates/${kind}.project.json`,import.meta.url))),kind);
   const poses=Array.from({length:4},(_,phase)=>deriveBackStudy({...source,
     cells:{'0,0':source.cells[`0,${phase}`],'1,0':source.cells[`1,${phase}`]},
     shapeGroups:{'0,0':source.shapeGroups[`0,${phase}`],'1,0':source.shapeGroups[`1,${phase}`]},

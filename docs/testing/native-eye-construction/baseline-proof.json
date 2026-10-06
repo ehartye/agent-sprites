@@ -1,0 +1,215 @@
+{
+  "base": "fe98708fbac92917b8b67d20944149cfc0584ee1",
+  "rows": [
+    {
+      "kind": "adult",
+      "tone": "rose",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "peach",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "apricot",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "terracotta",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "umber",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "plum",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "adult",
+      "tone": "espresso",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "rose",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "peach",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "apricot",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "terracotta",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "umber",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "plum",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "child",
+      "tone": "espresso",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 48,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "rose",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "peach",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "apricot",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "terracotta",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "umber",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "plum",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    },
+    {
+      "kind": "large",
+      "tone": "espresso",
+      "preservedCardinalFrames": 20,
+      "newDiagonalFrames": 20,
+      "changedCardinalEyePixels": 10,
+      "unchangedCardinalGeometry": true,
+      "unchangedCardinalBodyPixels": true,
+      "retainedCardinalAliasesTagsPivot": true
+    }
+  ]
+}

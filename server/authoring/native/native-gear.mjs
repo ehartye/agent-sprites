@@ -2,7 +2,8 @@ import {jointsFor} from './joints.mjs';
 import {bodySideRole} from '../humanoid-poses.js';
 
 export const NATIVE_GEAR=['trowel'];
-const RUNTIME={front:'down',back:'up',right:'right',left:'left'};
+const RUNTIME={front:'down',back:'up',right:'right',left:'left',
+  'front-right':'right','back-right':'right','back-left':'left','front-left':'left'};
 // Draft palette: the body's plum outline keeps the build's outline check valid.
 export const TROWEL={outline:'#673649',handle:'#8a5a3c',metal:'#c9d3d6'};
 
@@ -19,14 +20,15 @@ export function parseGear(input=[]){
   return list;
 }
 
-// Offsets from the wrist. Front/back: blade hangs down. Profile: blade points forward (f).
+// Offsets from the wrist. Front/back: blade hangs down. Profiles and diagonals:
+// blade points toward the facing's horizontal component (f).
 function trowelPixels(facing,[wx,wy]){
   if(facing==='front'||facing==='back')return [
     ['handle',wx,wy],['handle',wx,wy+1],
     ['outline',wx-1,wy+2],['outline',wx+1,wy+2],['outline',wx-1,wy+3],['outline',wx+1,wy+3],['outline',wx,wy+4],
     ['metal',wx,wy+2],['metal',wx,wy+3],
   ];
-  const f=facing==='right'?1:-1;
+  const f=RUNTIME[facing]==='right'?1:-1;
   return [
     ['handle',wx,wy],['handle',wx+f,wy],
     ['outline',wx+2*f,wy-1],['outline',wx+3*f,wy],['outline',wx+2*f,wy+2],['outline',wx+3*f,wy+1],

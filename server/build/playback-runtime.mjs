@@ -59,6 +59,17 @@ export function facingFor(dx, dy, current = 'down') {
   return current === vertical ? vertical : horizontal;
 }
 
+// Eight authored views use the nearest 45-degree sector. Older reports keep
+// dominant-axis selection, including their existing tie behavior.
+function eightWayFacing(dx, dy, current) {
+  if (!dx && !dy) return current;
+  const x = Math.abs(dx), y = Math.abs(dy), edge = Math.SQRT2 - 1;
+  const horizontal = dx > 0 ? 'right' : 'left', vertical = dy > 0 ? 'down' : 'up';
+  if (y <= x * edge) return horizontal;
+  if (x <= y * edge) return vertical;
+  return `${vertical}-${horizontal}`;
+}
+
 /**
  * Distance-driven walker over one person/outfit from one or more character
  * reports (an idle-mode report supplies true idle frames).
@@ -85,7 +96,10 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
   for (const report of [].concat(reports)) for (const frame of report.frames) frames.set(frame.alias, frame);
   const aliases = [].concat(reports).find(r => r.aliases)?.aliases ?? DEFAULT_ALIASES;
   // Reports may name facings their own way (native sheets say front/back for down/up).
-  const directions = [].concat(reports).find(r => r.directions)?.directions ?? {};
+  // A report may contain just one view. Combine maps, retaining the first
+  // report's naming when more than one report declares the same direction.
+  const directions = Object.assign({}, ...[].concat(reports).reverse().map(r => r.directions ?? {}));
+  const eightWay = ['down-right', 'up-right', 'up-left', 'down-left'].every(d => directions[d]);
   const name = (mode, direction, frame) => fill(aliases[mode], { person, outfit, direction: directions[direction] ?? direction, frame });
   let distance = 0;
   const gait = f => {
@@ -98,7 +112,7 @@ export function createWalker(reports, { person, outfit, mode, facing = 'down', s
     gait,
     frame: alias => frames.get(alias),
     update(dx, dy) {
-      const next = facingFor(dx, dy, facing);
+      const next = eightWay ? eightWayFacing(dx, dy, facing) : facingFor(dx, dy, facing);
       if (next !== facing) distance = 0;
       facing = next;
       if (!dx && !dy) {
