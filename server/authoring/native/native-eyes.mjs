@@ -8,7 +8,7 @@ export const NATIVE_CHILD_EYE_COLORS=Object.freeze({
   'iris-shadow':'#3d4f78','iris-highlight':'#8f72c6',
 });
 const SYMBOLS={b:'brow',w:'white-shadow',l:'white-highlight',i:'iris-shadow',j:'iris-highlight'};
-const PATTERNS={front:['.bb..bb.','bwi..iwb','.lj..jl.'],right:['.bb','bwi','.lj'],'front-right':['b.bb','i.wi','j.lj'],back:[]};
+const PATTERNS={front:['.bb..bb.','bwi..iwb','.lj..jl.'],right:['.bb','bwi','.lj'],'front-right':['bb.b','wi.i','lj.j'],back:[]};
 
 /** Small editable eye clusters; x/y locate the top-left of the three-row band. */
 export function nativeEyePixels(direction='front-right',{x=0,y=0,kind='adult'}={}){

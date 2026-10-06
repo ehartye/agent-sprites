@@ -13,12 +13,12 @@ The diagonal silhouette has a closed, fully opaque interior. Model the turn with
 The native eye band occupies **three rows**: a dark brow, a shaded white/iris row, then a lighter white/iris row. The narrower far eye retains that height; perspective changes width rather than deleting a row. The front-right guide is:
 
 ```text
-b.bb
-i.wi
-j.lj
+bb.b
+wi.i
+lj.j
 ```
 
-Here `b` is brow, `w` shadow white, `l` light white, `i` shadow iris, `j` light iris, and `.` leaves the underlying skin visible. This four-column band starts at x=8 and five rows below the diagonal crown. The two visible iris rows plus brow give it the same visual height as the existing front and side eyes. Do not add an expressive mouth or a heavy eyebrow beyond what the cardinal sprite establishes. Hats, goggles and masks may deliberately occlude features; they should not redefine the underlying head.
+Here `b` is brow, `w` shadow white, `l` light white, `i` shadow iris, `j` light iris, and `.` leaves the underlying skin visible. This four-column band starts at x=8 and five rows below the diagonal crown. Camera-near means the visible anatomical right side in SE: the larger eye is on the image left, with two columns beneath its two-pixel brow. Its white is outward, away from the nose, at x=8; its iris is inward at x=9. The nose gap is x=10 and the compressed far eye retains a single iris column at x=11. Mirror the complete head for SW: the larger camera-near eye is on the image right, with white at x=7, iris at x=6, nose gap at x=5 and far iris at x=4. Do not infer nearness from which eye sits farther to the screen right. The two visible iris rows plus brow give it the same visual height as the existing front and side eyes. Do not add an expressive mouth or a heavy eyebrow beyond what the cardinal sprite establishes. Hats, goggles and masks may deliberately occlude features; they should not redefine the underlying head.
 
 | Role | Adult / large | Child |
 |---|---|---|
