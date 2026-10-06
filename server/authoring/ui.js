@@ -1,4 +1,5 @@
-import {FONT_GLYPHS,FONT_CHARACTERS} from './ui-font.js';
+import {FONT_GLYPHS,FONT_CHARACTERS,FONT_SYMBOLS} from './ui-font.js';
+import {DISPLAY_CELL,displayGlyph,displayRamp} from './ui-display.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
 import {FONT_TONES} from '../build/ui-runtime.mjs';
@@ -7,6 +8,17 @@ export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eced
 // Fallow Valley ramps (docs/ART-DIRECTION.md): night backing, dust brass, oxide teal, rust copper, harvest gold.
 export const WASTELAND_COLORS={ink:'#0d1126',deep:'#1b2040',edge:'#8f6f45',cream:'#f6edcf',muted:'#a8a79e',gold:'#f0d466',moss:'#8a9a4a',light:'#e3cf93',shadow:'#07091a',orbitalInk:'#0d1126',instrumentTeal:'#5f9a8d',wornCopper:'#b5532f',seedGold:'#e0b84a',mint:'#8fc4b4',paper:'#e3cf93',specimenWell:'#2c3a6b'};
 export const UI_THEMES={'moss-brass':UI_COLORS,wasteland:WASTELAND_COLORS};
+/** Rows and columns for `count` equal cells: the squarest sheet (by pixels) within `maxWidth`, then the fewest empty cells. */
+export function packGrid(count,width,height,maxWidth=1024){
+  let best=null;
+  for(let cols=1;cols<=count;cols++){
+    const rows=Math.ceil(count/cols),W=cols*width,H=rows*height;
+    if(W>maxWidth&&cols>1)break;
+    const score=[Math.max(W,H)/Math.min(W,H),rows*cols-count];
+    if(!best||score[0]<best.score[0]-1e-9||(Math.abs(score[0]-best.score[0])<1e-9&&score[1]<best.score[1]))best={cols,rows,score};
+  }
+  return {cols:best.cols,rows:best.rows};
+}
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
   for(const k of Object.keys(config))if(!['name','kind','theme','characters','face'].includes(k))throw Error(`Unknown UI field: ${k}`);
@@ -17,20 +29,19 @@ export function generateUIRecipe(config){
   const COLORS=UI_THEMES[theme];
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
   if(kind==='skin'&&config.face!==undefined)throw Error('Face applies only to fonts.');
-  const face=config.face??'regular',compact=face==='compact';
-  if(!['regular','compact'].includes(face))throw Error('Unsupported font face.');
+  const face=config.face??'regular',compact=face==='compact',display=face==='display';
+  if(!['regular','compact','display'].includes(face))throw Error('Unsupported font face.');
   const masks=compact?COMPACT_GLYPHS:FONT_GLYPHS;
   const characters=config.characters??FONT_CHARACTERS;
   if(typeof characters!=='string'||!characters.length)throw Error('Font characters must be a nonempty string.');
   const chars=[...new Set([...characters,'?',' '])].sort((a,b)=>a.codePointAt(0)-b.codePointAt(0));
   if(kind==='font')for(const char of chars)if(char!==' '&&!FONT_GLYPHS[char])throw Error(`Unsupported font character: ${char}`);
-  const tones=FONT_TONES,width=kind==='font'?(compact?6:8):24,height=kind==='font'?(compact?10:12):24;
+  const tones=FONT_TONES,width=kind==='font'?(display?DISPLAY_CELL.width:compact?6:8):24,height=kind==='font'?(display?DISPLAY_CELL.height:compact?10:12):24;
   const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions(theme);
-  const maxCols=kind==='font'?32:8;
-  const fittingCols=()=>Array.from({length:maxCols},(_,i)=>maxCols-i).find(n=>entries.length%n===0);
-  const cols=fittingCols();
-  const operations=[{command:'new',name,size:`${width}x${height}`,cols,rows:entries.length/cols,palette:'pico8'}],frames=[],glyphs={},skins={};
-  if(kind==='font')for(const char of chars)glyphs[char]={advance:char===' '?(compact?3:4):(compact?5:6),frames:{},bounds:null};
+  // A near-square sheet; the cells that pad the last row stay empty and unnamed. Frame names never depend on the layout.
+  const {cols,rows}=packGrid(entries.length,width,height);
+  const operations=[{command:'new',name,size:`${width}x${height}`,cols,rows,palette:'pico8'}],frames=[],glyphs={},skins={};
+  if(kind==='font')for(const char of chars)glyphs[char]={advance:display?(char===' '?8:DISPLAY_CELL.advance):char===' '?(compact?3:4):(compact?5:6),frames:{},bounds:null};
   for(const [index,entry] of entries.entries()){
     const cell=`${Math.floor(index/cols)},${index%cols}`,alias=entry.alias,names=[],bounds={left:width,top:height,right:-1,bottom:-1};
     operations.push({command:'clear',cell},{command:'name',cell,as:alias});
@@ -40,11 +51,16 @@ export function generateUIRecipe(config){
       bounds.left=Math.min(bounds.left,x);bounds.top=Math.min(bounds.top,y);bounds.right=Math.max(bounds.right,x+w-1);bounds.bottom=Math.max(bounds.bottom,y+h-1);
     }
     if(kind==='font'){
+      if(display){
+        const ramp=displayRamp(entry.tone,COLORS);
+        displayGlyph(entry.char).forEach((row,y)=>{for(let x=0;x<width;){const key=row[x];if(key==='.'){x++;continue;}const start=x;while(x<width&&row[x]===key)x++;rect(start,y,x-start,1,ramp[key==='o'?'o':key]);}});
+      }else{
       const glyph=masks[entry.char];
       glyph.rows.forEach((mask,row)=>{for(let x=0;x<5;){if(!(mask&(1<<(4-x)))){x++;continue;}const start=x;while(x<5&&(mask&(1<<(4-x))))x++;rect(start,row+glyph.top,x-start,1,COLORS[entry.tone]);}});
+      }
       glyphs[entry.char].frames[entry.tone]=alias;glyphs[entry.char].bounds={...bounds};
     }else{drawSkin(entry.alias,rect,COLORS);skins[alias]=entry.metrics;}
     operations.push({command:'shape-group',sub:'create',cell,name:kind,shapes:names});frames.push({alias,cell,bounds,...(kind==='font'?{character:entry.char,tone:entry.tone}:{})});
   }
-  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,frames,...(kind==='font'?{...(compact?{face}:{}),baseline:compact?7:9,lineHeight:height,fallback:'?',glyphs}:{skins})}};
+  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,frames,...(kind==='font'?{...(compact||display?{face}:{}),baseline:display?DISPLAY_CELL.baseline:compact?7:9,lineHeight:height,fallback:'?',symbols:Object.fromEntries(Object.entries(FONT_SYMBOLS).filter(([,c])=>glyphs[c])),glyphs}:{skins})}};
 }

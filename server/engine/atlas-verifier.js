@@ -10,7 +10,7 @@ export function atlasFrames(atlas) {
 }
 
 /** Validate metadata against decoded image dimensions; aliases may reuse rectangles. */
-export function validateAtlas(atlas, { width, height, expectedTags = [], expectedFrames = [] } = {}) {
+export function validateAtlas(atlas, { width, height, expectedTags = [], expectedFrames = [], maxAspect } = {}) {
   const errors = [], warnings = [];
   const error = (code, path, message) => errors.push({ code, path, message });
   const frames = atlasFrames(atlas);
@@ -19,6 +19,12 @@ export function validateAtlas(atlas, { width, height, expectedTags = [], expecte
     error('image-size', 'image', 'Decoded image dimensions must be positive integers.');
   if (atlas?.meta?.size?.w !== width || atlas?.meta?.size?.h !== height)
     error('image-size', 'meta.size', `Atlas size must match actual PNG (${width} × ${height}).`);
+  // Opt-in: a sheet packed as one long strip wastes memory and breaks texture limits (a UI skin once came out 48 x 1992).
+  if (maxAspect !== undefined) {
+    if (!Number.isFinite(maxAspect) || maxAspect < 1) error('max-aspect', 'maxAspect', 'maxAspect must be a number of at least 1.');
+    else if (Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 && Math.max(width, height) / Math.min(width, height) > maxAspect)
+      error('atlas-shape', 'meta.size', `Atlas is ${width} x ${height}, a ${(Math.max(width, height) / Math.min(width, height)).toFixed(1)}:1 strip; the limit is ${maxAspect}:1. Pack the frames into more columns.`);
+  }
   const names = new Set();
   const rect = r => object(r) && ['x', 'y', 'w', 'h'].every(k => Number.isInteger(r[k])) && r.x >= 0 && r.y >= 0 && r.w > 0 && r.h > 0;
   frames.forEach((frame, i) => {
@@ -154,7 +160,7 @@ function outlineGaps(pixels, width, height, colors) {
 }
 
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4 } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4, maxAspect } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -182,7 +188,7 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
       if (!bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw new Error('Expected PNG file bytes.');
       image = await loadImage(bytes);
     } catch (e) { fail('image-read', `Cannot decode PNG: ${e.message}`); return report; }
-    report = { ...validateAtlas(atlas, { width: image.width, height: image.height, expectedTags, expectedFrames }), artifacts: report.artifacts };
+    report = { ...validateAtlas(atlas, { width: image.width, height: image.height, expectedTags, expectedFrames, maxAspect }), artifacts: report.artifacts };
     if (!report.ok) return report;
     const frames = atlasFrames(atlas);
     const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);

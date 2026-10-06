@@ -1,5 +1,5 @@
 import {test,expect} from 'vitest';
-import {generateUIRecipe} from '../../server/authoring/ui.js';
+import {generateUIRecipe,packGrid} from '../../server/authoring/ui.js';
 import {createBitmapFont,drawNineSlice,getOpaqueBounds,drawPixelFit} from '../../server/build/ui-runtime.mjs';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
@@ -48,10 +48,10 @@ test('runtime wraps with shared metrics, preserves explicit newlines, and draws 
   font.draw(ctx,'🦋',0,0,{scale:2});expect(calls).toHaveLength(4);
   expect(()=>font.draw(ctx,'A',0,0,{tone:'missing'})).toThrow(/tone/);
 });
-test('custom character subsets always include fallback and space without empty padding cells',()=>{
+test('custom character subsets always include fallback and space and pack near-square with only unnamed padding',()=>{
   const full=generateUIRecipe({kind:'font'}),characters=Object.keys(full.report.glyphs).slice(0,128).join('');
   const subset=generateUIRecipe({kind:'font',characters}),grid=subset.operations[0];
-  expect(grid.rows*grid.cols).toBe(subset.report.frames.length);
+  expect(grid.rows*grid.cols).toBeGreaterThanOrEqual(subset.report.frames.length);expect(grid.rows*grid.cols-subset.report.frames.length).toBeLessThan(grid.cols);
   expect(subset.report.glyphs['?']).toBeDefined();expect(subset.report.glyphs[' '].advance).toBe(4);
 });
 test('disabled button artwork is visually distinct from normal artwork',()=>{
@@ -101,4 +101,36 @@ test('pixel fit crops transparent padding and preserves non-square art at whole 
   expect(()=>getOpaqueBounds({data:[],width:2,height:2})).toThrow(/RGBA/);
   expect(()=>drawPixelFit(ctx,{},bounds,{x:0.5,y:0,width:20,height:20})).toThrow(/integer/);
   expect(()=>drawPixelFit(ctx,{},bounds,{x:0,y:0,width:20,height:20},{padding:-1})).toThrow(/nonnegative/);
+});
+
+test('packGrid picks the squarest sheet, so 166 skin cells are not a 2 column strip',()=>{
+  const {cols,rows}=packGrid(166,24,24);
+  expect(cols*rows).toBeGreaterThanOrEqual(166);expect(cols).toBeGreaterThan(8);
+  expect(Math.max(cols,rows)/Math.min(cols,rows)).toBeLessThan(1.3);
+  expect(packGrid(1,8,12)).toEqual({cols:1,rows:1});expect(packGrid(7,8,8).cols*packGrid(7,8,8).rows).toBeGreaterThanOrEqual(7);
+  const skin=generateUIRecipe({kind:'skin',theme:'wasteland'}),grid=skin.operations[0];
+  expect(grid.cols*24/(grid.rows*24)).toBeLessThan(1.5);expect(grid.rows*grid.cols-skin.report.frames.length).toBeLessThan(grid.cols);
+});
+test('every theme gets symbol glyphs, named in the report',()=>{
+  const {report}=generateUIRecipe({kind:'font'});
+  for(const name of ['heart','skull','check','star','moon','bolt','sun','drop','wheat','lock','cross'])expect(report.glyphs[report.symbols[name]],name).toBeDefined();
+  expect(report.symbols.heart).toBe('♥');
+  for(const tone of ['cream','muted','gold','ink'])expect(report.glyphs['♥'].frames[tone]).toBe('glyph_2665_'+tone);
+  expect(generateUIRecipe({kind:'font',face:'compact'}).report.symbols.skull).toBe('☠');
+});
+test('display face draws every regular glyph twice as big with outline, bevel and shadow, in whole pixels',()=>{
+  const regular=generateUIRecipe({kind:'font',theme:'wasteland'}),display=generateUIRecipe({kind:'font',theme:'wasteland',face:'display'});
+  expect(display.report).toMatchObject({face:'display',cellSize:{width:12,height:24},baseline:19,lineHeight:24});
+  expect(Object.keys(display.report.glyphs)).toEqual(Object.keys(regular.report.glyphs));
+  expect(display.report.glyphs.A.advance).toBe(12);expect(display.report.glyphs[' '].advance).toBe(8);
+  expect(generateUIRecipe({kind:'font',theme:'wasteland',face:'display'})).toEqual(display);
+  const colorsOf=tone=>new Set(display.operations.filter(o=>o.color&&o.cell===display.report.frames.find(f=>f.alias==='glyph_0041_'+tone).cell).map(o=>o.color));
+  expect(colorsOf('gold').size).toBe(4);expect(colorsOf('gold').has('#f0d466')).toBe(true);expect(colorsOf('ink').has('#e3cf93')).toBe(true);
+  for(const f of display.report.frames){expect(f.bounds.right).toBeLessThan(12);expect(f.bounds.bottom).toBeLessThan(24);}
+  for(const [char,glyph] of Object.entries(display.report.glyphs))if(char!==' ')expect(glyph.bounds.right-glyph.bounds.left,char).toBeGreaterThanOrEqual(2);
+});
+test('wasteland skin carries the colour symbol icons',()=>{
+  const {report}=generateUIRecipe({kind:'skin',theme:'wasteland'});
+  for(const n of ['skull','wheat','bolt','sun','moon','star','check','cross','lock'])expect(report.skins['sym_'+n],n).toMatchObject({icon:true,color:true});
+  expect(generateUIRecipe({kind:'skin'}).report.skins.sym_skull).toBeUndefined();
 });

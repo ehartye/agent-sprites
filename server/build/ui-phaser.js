@@ -21,7 +21,7 @@ export function buildPhaserUi({ report, atlas, name }) {
       }
       tones[tone] = { font: `${name}-${tone}`, size: report.lineHeight, lineHeight: report.lineHeight, retroFont: false, chars: map };
     }
-    return { version: 1, kind: 'font', face: report.face ?? 'regular', image, atlas: atlasName, lineHeight: report.lineHeight, baseline: report.baseline, size: report.lineHeight, spaceAdvance: space, fallback: report.fallback, glyphs: chars, tones };
+    return { version: 1, kind: 'font', face: report.face ?? 'regular', image, atlas: atlasName, lineHeight: report.lineHeight, baseline: report.baseline, size: report.lineHeight, spaceAdvance: space, fallback: report.fallback, symbols: report.symbols ?? {}, glyphs: chars, tones };
   }
   const frames = {};
   const bounds = Object.fromEntries(report.frames.map(f => [f.alias, f.bounds]));
