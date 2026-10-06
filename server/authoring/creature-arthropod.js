@@ -181,7 +181,7 @@ export function arachnidSide(ctx) {
   c.decal(body, pal.belly, () => c.ellipse(bx, by + bh * 0.95, bl * 0.9, bh * 0.45));
   if (F.has('shell')) {
     c.decal(body, pal.accent, () => c.ellipse(bx - bl * 0.1, by - bh * 0.35, bl * 0.82, bh * 0.62));
-    for (let i = 1; i < 4; i++) { const x = bx - bl * 0.85 + bl * 0.5 * i; c.begin('plate_line', pal.dark); c.line(x, by - bh * 0.95, x - 0.4, by + bh * 0.1, 1); }
+    for (let i = 1; i < 4; i++) { const x = bx - bl * 0.85 + bl * 0.5 * i; c.decal(body, pal.dark, () => c.line(x, by - bh * 0.95, x - 0.4, by + bh * 0.1, 1)); }
   }
   if (F.has('spikes')) for (let i = 0; i < 3; i++) { const x = bx - bl * 0.35 + i * bl * 0.4; c.begin('spike', pal.accent); c.poly([[x - 1, by - bh * 0.95], [x, by - bh * 1.7 - 0.5], [x + 1, by - bh * 0.95]]); }
   if (F.has('glow_patch')) c.decal(body, pal.glow, () => c.ellipse(bx - bl * 0.2, by - bh * 0.05, Math.max(1, bl * 0.25), Math.max(1, bh * 0.3)));
@@ -220,7 +220,7 @@ export function arachnidFrontBack(ctx) {
   if (front) tail();
   const body = c.begin('body', pal.body); c.ellipse(cx, by, bw, bh);
   c.decal(body, pal.belly, () => c.ellipse(cx, by + bh * 0.9, bw * 0.55, bh * 0.4));
-  if (F.has('shell')) { c.decal(body, pal.accent, () => c.ellipse(cx, by - bh * 0.35, bw * 0.85, bh * 0.6)); c.begin('plate_line', pal.dark); c.line(cx - bw * 0.7, by - bh * 0.1, cx + bw * 0.7, by - bh * 0.1, 1); }
+  if (F.has('shell')) { c.decal(body, pal.accent, () => c.ellipse(cx, by - bh * 0.35, bw * 0.85, bh * 0.6)); c.decal(body, pal.dark, () => c.line(cx - bw * 0.7, by - bh * 0.1, cx + bw * 0.7, by - bh * 0.1, 1)); }
   if (F.has('glow_patch')) c.decal(body, pal.glow, () => c.ellipse(cx, by - bh * 0.1, Math.max(1, bw * 0.25), Math.max(1, bh * 0.3)));
   if (F.has('spikes')) for (const s of [-1, 0, 1]) { c.begin('spike', pal.accent); c.poly([[cx + s * bw * 0.55 - 1, by - bh * 0.85], [cx + s * bw * 0.55, by - bh * 1.6 - 0.5], [cx + s * bw * 0.55 + 1, by - bh * 0.85]]); }
   if (!front) {

@@ -15,7 +15,7 @@ function dome(ctx, { cx, by, rx, ry, view }) {
   c.decal(body, pal.belly, () => c.ellipse(cx, fy - 0.3, sx * 0.85, sy * 0.28));
   // pseudopod bumps along the base shift with the wave
   if (pose.stepping) for (const s of [-1, 1]) { c.begin('foot', pal.far); c.ellipse(cx + s * sx * 0.55 + wave * s * 0.6, fy - 0.8, Math.max(1.4, sx * 0.25), 1.1); }
-  if (F.has('shell')) { c.decal(body, pal.accent, () => c.ellipse(cx - 0.5, cyy - sy * 0.35, sx * 0.75, sy * 0.55)); for (const k of [-0.4, 0.2]) { c.begin('plate_line', pal.dark); c.line(cx + sx * k, cyy - sy * 0.85, cx + sx * k - 0.4, cyy - sy * 0.1, 1); } }
+  if (F.has('shell')) { c.decal(body, pal.accent, () => c.ellipse(cx - 0.5, cyy - sy * 0.35, sx * 0.75, sy * 0.55)); for (const k of [-0.4, 0.2]) { c.decal(body, pal.dark, () => c.line(cx + sx * k, cyy - sy * 0.85, cx + sx * k - 0.4, cyy - sy * 0.1, 1)); } }
   if (F.has('glow_patch')) c.decal(body, pal.glow, () => c.ellipse(cx - sx * 0.15, cyy - sy * 0.1, Math.max(1.2, sx * 0.3), Math.max(1.2, sy * 0.3)));
   if (F.has('spikes')) { const n = 3; for (let i = 0; i < n; i++) { const x = cx + (i - 1) * sx * 0.5, k = Math.sqrt(Math.max(0, 1 - ((x - cx) / sx) ** 2)); c.begin('spike', pal.accent); c.poly([[x - 1.1, cyy - sy * k + 1], [x, cyy - sy * k - Math.max(1.8, sy * 0.4)], [x + 1.1, cyy - sy * k + 1]]); } }
   return { sx, sy, cyy };

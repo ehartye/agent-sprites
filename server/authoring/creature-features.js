@@ -32,8 +32,8 @@ export function drawHornsFront(ctx, head) {
 
 export function drawTusks(ctx, head, side) {
   const { c, pal, F } = ctx; if (!F.has('tusks')) return;
-  const { r } = head, w = Math.max(1, r * 0.34);
-  if (side) { const [tx, ty] = head.tip; c.begin('tusk', pal.accent); c.path([[tx - r * 0.55, ty + r * 0.35], [tx - r * 0.05, ty + r * 0.5], [tx + r * 0.3, ty - r * 0.35]], w, 1); }
+  const { r } = head, w = Math.max(1.3, r * 0.42);
+  if (side) { const [tx, ty] = head.tip; c.begin('tusk', pal.accent); c.path([[tx - r * 0.75, ty + r * 0.6], [tx - r * 0.15, ty + r * 0.75], [tx + r * 0.5, ty - r * 0.7]], w, 1); }
   else for (const s of [-1, 1]) { c.begin('tusk', pal.accent); c.path([[head.x + s * r * 0.55, head.y + r * 0.85], [head.x + s * r * 0.85, head.y + r * 0.5], [head.x + s * r * 0.8, head.y - r * 0.05]], w, 1); }
 }
 
@@ -62,8 +62,7 @@ export function drawBackFeatures(ctx, a) {
     c.decal(body, pal.accent, () => c.ellipse(bx, by - bh * 0.3, bl * 0.9, bh * 0.62));
     for (let i = 1; i < plates; i++) {
       const x = bx - bl * 0.9 + (bl * 1.8 * i) / plates;
-      c.begin('plate_line', pal.dark); if (side) c.line(x, by - bh * 0.85, x - 0.5, by + bh * 0.1, 1);
-      else c.line(bx - bl * 0.8, by - bh * 0.9 + (bh * 1.2 * i) / plates, bx + bl * 0.8, by - bh * 0.9 + (bh * 1.2 * i) / plates, 1);
+      c.decal(body, pal.dark, () => { if (side) c.line(x, by - bh * 0.85, x - 0.5, by + bh * 0.1, 1); else c.line(bx - bl * 0.8, by - bh * 0.9 + (bh * 1.2 * i) / plates, bx + bl * 0.8, by - bh * 0.9 + (bh * 1.2 * i) / plates, 1); });
     }
   }
   if (F.has('wool')) {
