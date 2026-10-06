@@ -24,8 +24,10 @@ export function buildPhaserUi({ report, atlas, name }) {
     return { version: 1, kind: 'font', face: report.face ?? 'regular', image, atlas: atlasName, lineHeight: report.lineHeight, baseline: report.baseline, size: report.lineHeight, spaceAdvance: space, fallback: report.fallback, glyphs: chars, tones };
   }
   const frames = {};
+  const bounds = Object.fromEntries(report.frames.map(f => [f.alias, f.bounds]));
   for (const [alias, s] of Object.entries(report.skins)) {
     const entry = { frame: alias };
+    if (bounds[alias]) entry.bounds = bounds[alias];
     if (!s.tile && !s.icon) entry.nineSlice = { leftWidth: s.insets.left, rightWidth: s.insets.right, topHeight: s.insets.top, bottomHeight: s.insets.bottom };
     entry.padding = s.padding; entry.minWidth = s.minWidth; entry.minHeight = s.minHeight;
     for (const k of ['textTone', 'tile', 'content', 'icon', 'color', 'hollow']) if (s[k] !== undefined) entry[k] = s[k];
