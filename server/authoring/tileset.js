@@ -1,5 +1,5 @@
 import {readFileSync, existsSync, statSync} from 'node:fs';
-import {resolve, relative, isAbsolute} from 'node:path';
+import {resolve} from 'node:path';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
 
 // Tileset recipe: a regular grid of equal cells (frame index = row-major cell index) described in
@@ -195,10 +195,10 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
     palette.set(ch, {color: color.toLowerCase(), ...(outline ? {outline: outline.toLowerCase()} : {})});
   }
   const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}};
+  // Sources may live outside the config directory (a palette shared by several sets); they are tracked as build inputs.
   const root = resolve(baseDir);
   sources.forEach((source, n) => {
-    const full = resolve(root, source), rel = relative(root, full);
-    if (rel.startsWith('..') || isAbsolute(rel)) throw Error(`tileset.sources[${n}] "${source}" must stay inside the build config directory.`);
+    const full = resolve(root, source);
     if (!existsSync(full) || !statSync(full).isFile()) throw Error(`tileset.sources[${n}] "${source}" is not a file.`);
     parseTilesetSource(readFileSync(full, 'utf8'), source, state);
   });

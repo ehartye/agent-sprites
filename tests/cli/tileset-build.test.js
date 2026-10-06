@@ -113,13 +113,14 @@ test.each([
   expect(result.errors[0].message).not.toMatch(/secret-looking/);
 });
 
-test('rejects sources outside the config directory, missing files and oversized cells',async()=>{
-  write(`${palette}@tile one x=0 y=0 w=1 rows=1\ng\n`);
-  config.tileset.sources=['../outside.pxl'];writeFileSync(path,JSON.stringify(config));writeFileSync(join(dir,'..','outside.pxl'),'@tile x\n');
-  expect((await buildProject(path)).errors[0].message).toMatch(/must stay inside the build config directory/);
+test('accepts a source shared from outside the config directory, rejects missing files and oversized cells',async()=>{
+  const shared=join(dir,'..','shared.pxl');writeFileSync(shared,palette);
+  write('@tile one x=0 y=0 w=1 rows=1\ng\n');config.tileset.sources=['../shared.pxl','a.pxl'];writeFileSync(path,JSON.stringify(config));
+  const ok=await buildProject(path);expect(ok.errors).toEqual([]);expect(ok.ok).toBe(true);
+  expect(JSON.parse(readFileSync(ok.artifacts.manifest)).build.inputs.map(i=>i.path)).toContain('../shared.pxl');
+  rmSync(shared,{force:true});
   config.tileset.sources=['nope.pxl'];writeFileSync(path,JSON.stringify(config));expect((await buildProject(path)).errors[0].message).toMatch(/tileset\.sources\[0\] "nope\.pxl" is not a file/);
   config.tileset.sources=['a.pxl'];config.tileset.cell=100000;writeFileSync(path,JSON.stringify(config));expect((await buildProject(path)).errors[0].message).toMatch(/integer from 1 to 512/);
-  rmSync(join(dir,'..','outside.pxl'),{force:true});
 });
 
 test('build-set --check accepts intentionally omitted artifacts but flags a missing one otherwise',async()=>{

@@ -52,7 +52,7 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
 Atlas note: the Aseprite atlas lists the grid frames first (numeric filenames equal to cell indices), then one run of
 frames per animation tag, then the named aliases. Animation tag ranges therefore index atlas frames, not cells; the
 report's `animations[name].frames` gives the cell indices if you want to drive a tilemap animation yourself. Trailing
-` % comment` text is allowed after any directive or palette line. Sources must live inside the config directory.
+` % comment` text is allowed after any directive or palette line. Sources may sit outside the config directory (a palette shared by several sets) and are tracked as inputs either way.
 
 ## Auto-tile sets
 
