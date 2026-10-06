@@ -57,5 +57,5 @@ test('the wasteland skin paints every pad and cursor frame inside the cell with 
 test('moss-brass output has no pad frames and is unchanged',async()=>{
   const result=await build({name:'ui-skin',kind:'skin',theme:'moss-brass'});expect(result.ok).toBe(true);
   expect(JSON.stringify(JSON.parse(readFileSync(result.artifacts.uiReport)).skins)).not.toMatch(/pad_|cursor_/);
-  expect(sha(result.artifacts.sheet)).toBe('c7cae4190ed59e13a2c1ee9dde11995ee39851bac75eb5f3c6ae97fff293bf2d');
+  expect(sha(result.artifacts.sheet)).toBe('0e6bda808ba67793e8d17e799a4b5cbd94e1d9c1a5fa67c2c3f9cafca76c45ef');
 },30000);

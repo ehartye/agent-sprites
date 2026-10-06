@@ -158,3 +158,12 @@ test('contactFrames limits the contact sheet to the named frames (exact or prefi
   expect(none.ok).toBe(false);
   expect(none.errors[0].message).toMatch(/No atlas frame matches/);
 });
+
+test('maxAspect rejects a long strip atlas and passes a squarer one, only when asked', () => {
+  const strip = { ...atlas, meta: { ...atlas.meta, size: { w: 48, h: 1992 } } };
+  expect(validateAtlas(strip, {width:48,height:1992}).errors.map(e => e.code)).not.toContain('atlas-shape');
+  const bad = validateAtlas(strip, {width:48,height:1992,maxAspect:3}).errors.find(e => e.code === 'atlas-shape');
+  expect(bad.message).toMatch(/48 x 1992.*41\.5:1/);
+  expect(validateAtlas(atlas, {width:16,height:8,maxAspect:3}).errors.map(e => e.code)).not.toContain('atlas-shape');
+  expect(validateAtlas(atlas, {width:16,height:8,maxAspect:0.5}).errors.map(e => e.code)).toContain('max-aspect');
+});

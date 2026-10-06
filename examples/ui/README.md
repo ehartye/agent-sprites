@@ -3,7 +3,12 @@
 Build `font.json` and `skin.json` through the checked managed CLI. Each selects the
 `ui` inline source, exclusively of `ops`, `generator`, `character`, and `environment`.
 Themes are `moss-brass` (default) and `wasteland`. `name`, `kind`, `theme`, and optional
-font-only `characters` and `face` are the complete recipe fields; unknown fields fail.
+font-only `characters` and `face` (`regular`, `compact`, `display`) are the complete recipe fields; unknown fields fail.
+
+Sheets are packed near-square (`packGrid`: the squarest sheet within 1024 px wide, then the fewest padding cells). Cells that pad
+the last row are unnamed and empty; every frame name is independent of the layout, so a rebuild never renames anything. UI builds
+verify the sheet shape (`atlas-shape` error above 3:1; `agent-sprites verify --max-aspect 3` checks any atlas, `maxAspect` in a
+build config overrides the UI default). A 166-cell skin used to come out 48x1992 (the only even divisor was 2); it is now 312x336.
 
 Use `face: "compact"` for secondary hints, captions and inventory descriptions.
 It has authored four-column, six-row letters in 6×10 cells, baseline 7, line height
@@ -14,6 +19,14 @@ compose both faces at integer 2×: ordinary lettering is 14 pixels high and comp
 lettering 12. Do not downscale the regular font to fake smaller type. Use matching
 advance/space metrics in semantic layouts. Keep important actions in the regular
 face and quiet supporting text in compact; use ink on light panels, cream on dark.
+
+Use `face: "display"` for logos, banners, boss names and other big type that must still obey one integer scale per layer.
+It is the regular lettering redrawn at twice the size: each 5x7 mask is smoothed with the EPX (Scale2x) rule so curves and
+diagonals get real pixel steps, lit like a bevel (highlight on top edges, shade on bottom edges), outlined, and given a one pixel
+drop shadow. Cells are 12x24, baseline 19, line height 24, advance 12, space advance 8. It covers every glyph of the regular
+face (pass `characters` to build a smaller atlas), and every tone is a ready-made ramp, never a tint: `gold` shades toward
+copper, `cream` toward brass, `muted` toward the backing, and `ink` is dark with a light outline for light panels. Draw it with
+`BitmapText` at scale 1 like the other faces, and only in short strings; its width is the only reason to prefer regular.
 
 The original 5-column font provides 8×12 cells, baseline 9, line height 12, advance
 6 and space advance 4. Lowercase descenders and common accents have reserved rows.
@@ -40,7 +53,7 @@ this embeds the verified font for loading/failure screens without a font fetch.
 
 Every UI build also writes `ui-phaser.json`, ready for Phaser 4 without an adapter.
 
-Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, spaceAdvance, fallback, glyphs, tones}`.
+Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, spaceAdvance, fallback, symbols, glyphs, tones}`.
 `glyphs` lists every supported character (no space). `tones.cream|muted|gold|ink` are each a
 `Phaser.Types.GameObjects.BitmapText.BitmapFontData`, exactly the shape `ParseXMLBitmapFont` produces (`font, size, lineHeight, retroFont:false, chars[charCode]` with `u0,v0,u1,v1` texture coordinates (v flipped: `1 - y/height`; Phaser's renderer reads them from the glyph) and
 `x,y,width,height` = that tone's glyph cell in the font PNG, `yOffset 0`, `xAdvance` = glyph advance). `ui-boot.mjs` also exports the same object as `phaser`, for loading/error screens with no fetch. Register one font per tone
@@ -93,7 +106,8 @@ and state, while all visible control artwork and text come from these atlases.
 
 `theme: "wasteland"` swaps the palette to the Fallow Valley ramps (night backing, dust brass, oxide teal, rust
 copper, harvest gold; `report.colors` lists every colour) and adds the frames a survival or farming HUD needs.
-`moss-brass` output is unchanged byte for byte. Fonts take the theme palette and keep the same glyph frames.
+Fonts take the theme palette and keep the same glyph frames. The artwork of every `moss-brass` frame is unchanged (0.70.0
+repacked the sheets, so the PNG bytes are not).
 
 Additional skin frames (wasteland only):
 
@@ -107,6 +121,18 @@ Additional skin frames (wasteland only):
   `drawPixelFit`, or the 12px region at `(6,6)`. Names: `hunger thirst health stamina weight clock exposure
   radiation weather_clear weather_heat weather_dust weather_rain weather_acid-rain weather_rad-storm weather_night`.
   Green is reserved for radiation, violet for toxins and orange for heat.
+- `sym_<name>`: colour symbol icons in the same 12x12 box (`icon: true, color: true`), outlined and bevelled with one light
+  direction: `skull wheat bolt sun moon star check cross lock`. The heart is `hud_health` and the drop is `hud_thirst`;
+  `hud_stamina` is also a bolt and `hud_weather_night` a moon, for those two meanings.
+
+## Symbols in text
+
+Every font (all faces, all themes) draws game symbols inline so they take the tone like any letter, and a message can say
+"Health ♥ 3". `report.symbols` maps a name to its character: `heart ♥ (U+2665)`, `skull ☠ (U+2620)`, `check ✓ (U+2713)`,
+`star ★ (U+2605)`, `moon ☾ (U+263E)`, `bolt ⚡ (U+26A1)`, `sun ☼ (U+263C)`, `cross ✕ (U+2715)`, the arrows `↑ ↓ ← →`, and
+three in the private-use area because Unicode has no single BMP character for them: `drop U+E000`, `wheat U+E001`,
+`lock U+E002`. They stay in the BMP because Phaser's BitmapText walks UTF-16 code units, so an astral emoji could not be drawn.
+Read the name from `symbols` (`report.symbols.heart`, and `symbols` in `ui-phaser.json`) instead of hard-coding the code point.
 
 - `pad_<family>_<id>`: controller-button prompts for hint rows beside small text (`icon: true, color: true`),
   colour pixel art at most 13 px tall, centred in the cell; read the painted `bounds`. Families `xbox ps switch deck`.

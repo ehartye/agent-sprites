@@ -382,7 +382,7 @@ insets, twelve-pixel content padding, minimum dimensions, and `textTone`.
 Use the exported metrics for layout at your integer display scale. The separate
 `scrim_solid` frame is opaque pixel art; composite it at its reported `opacity`
 (0.48) to quiet the world behind a dialog. Historical skin frames and regular /
-compact font colors remain unchanged. The portable runtime also exports
+compact font colors remain unchanged. A third `face: "display"` gives 2× logo and banner lettering, every font draws symbols (heart, skull, check, star, moon, bolt, drop, wheat, lock) inline, the wasteland skin adds colour `sym_*` icons, and sheets pack near-square (`verify --max-aspect`). The portable runtime also exports
 `getOpaqueBounds(imageData)` and `drawPixelFit(ctx, image, bounds, destination,
 {padding})` to crop transparent padding and center artwork at a uniform integer
 scale. Empty art and boxes too small for 1× return `null` without drawing; no

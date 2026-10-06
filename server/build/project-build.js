@@ -166,10 +166,12 @@ export async function buildProject(configPath) {
     if (recipeReport?.pixelScale !== undefined) atlas.meta.pixelScale = recipeReport.pixelScale;
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
-    const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
+    const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, maxAspect: config.maxAspect ?? (sourceKind === 'ui' ? 3 : undefined), contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
     result.warnings = verified.warnings;
     // Cells that only pad the last grid row are not art: do not ask the author to confirm they are empty.
     if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
+    // A near-square UI sheet pads its last row with unnamed cells; every named frame is real art.
+    if (sourceKind === 'ui') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && /^Frame \d+ /.test(w.message)));
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
     for (const key of omit) delete artifacts[key];

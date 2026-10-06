@@ -14,11 +14,11 @@ const build=async ui=>{config.ui=ui;writeFileSync(path,JSON.stringify(config));r
 const readPng=async file=>{const {data,info}=await sharp(file).ensureAlpha().raw().toBuffer({resolveWithObject:true});return {data,info};};
 const sha=file=>createHash('sha256').update(readFileSync(file)).digest('hex');
 
-test('the default moss-brass skin and fonts are byte-identical to the pre-wasteland build',async()=>{
+test('the default moss-brass skin and fonts are stable (0.70.0 repacked the sheets near-square and added symbol glyphs)',async()=>{
   const skin=await build({name:'ui-skin',kind:'skin',theme:'moss-brass'});expect(skin.ok).toBe(true);
-  expect(sha(skin.artifacts.sheet)).toBe('c7cae4190ed59e13a2c1ee9dde11995ee39851bac75eb5f3c6ae97fff293bf2d');
+  expect(sha(skin.artifacts.sheet)).toBe('0e6bda808ba67793e8d17e799a4b5cbd94e1d9c1a5fa67c2c3f9cafca76c45ef');
   const font=await build({name:'ui-font',kind:'font',theme:'moss-brass'});expect(font.ok).toBe(true);
-  expect(sha(font.artifacts.sheet)).toBe('9077002a85077dc8d1ad388d55e33f4b17f85291bfd7c9b37cd8e2970bd63bfe');
+  expect(sha(font.artifacts.sheet)).toBe('4d37ad6d4ae3b3be34bb0aa03a2f2160e838f0238774501644ef41aa7ae49caf');
 },30000);
 
 test('the wasteland skin adds meters, a hollow minimap frame, tabs and colour HUD icons with metrics',async()=>{
