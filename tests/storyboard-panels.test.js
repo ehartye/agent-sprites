@@ -31,4 +31,12 @@ describe('storyboard panel manifest', () => {
     const content=cells.map(shapes=>JSON.stringify(shapes.filter(s=>!s.name.startsWith('stage_')).map(({cell,...s})=>s)));
     expect(new Set(content).size).toBe(3);
   });
+  it('keeps mixed principal activities in numeric story order', () => {
+    const panels=scene('dock').map((p,i)=>({...p,kind:['dock','engineering','bridge'][i]})).reverse();
+    const ops=generateScene(panels);
+    expect(ops.filter(op=>op.command==='name').map(op=>op.as)).toEqual(['dock-1','dock-2','dock-3']);
+    expect(ops.some(op=>op.cell==='0,0' && op.name==='manifest_paper')).toBe(true);
+    expect(ops.some(op=>op.cell==='0,1' && op.name==='propulsion_socket')).toBe(true);
+    expect(ops.some(op=>op.cell==='0,2' && op.name==='civilian_chart')).toBe(true);
+  });
 });

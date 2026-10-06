@@ -16,3 +16,11 @@ different pixels, not an adequate story action.
 Preserve input captions in the manifest instead of drawing text into pixels.
 Keep UI/card labels in the story owner's HTML. A kind such as `teleport` or
 `evacuation` is a visual recipe, not permission to add mechanics or canon.
+
+Match the principal action before rendering: courier and manifest → `dock`,
+crew chart → `bridge`, letter/drawing exchange → `correspondence`, working
+pipes/pumps → `system`, actuator/sensor assembly → `robot-build`, entire growing
+ship → `whole-grown`, external corporate demand → `pressure`, and cared animals
+with separately collected samples/comparison beds → `fertilizer`. A crop lens
+does not stand in for external pressure, and a fruit tree does not show a ship
+growing whole. Reassign kinds per panel where activity changes within a scene.

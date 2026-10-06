@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
-export const kinds = ['farm', 'engineering', 'space', 'relay', 'settlement', 'assembly', 'robot', 'shipyard', 'orchard', 'inspection', 'evacuation', 'relocation', 'teleport', 'animals', 'network', 'meal'];
+export const kinds = ['farm', 'engineering', 'space', 'relay', 'settlement', 'assembly', 'robot', 'shipyard', 'orchard', 'inspection', 'evacuation', 'relocation', 'teleport', 'animals', 'network', 'meal', 'dock', 'bridge', 'correspondence', 'system', 'robot-build', 'whole-grown', 'pressure', 'fertilizer'];
 const safe = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 const color = { sky:'#142c3c', ground:'#45645b', dark:'#213b46', green:'#6ca967', light:'#bbdb94', gold:'#efc76a', coral:'#d88b70', teal:'#57b4b0', pale:'#e7e0c4', grey:'#91a5a6' };
 
@@ -143,6 +143,54 @@ export function generateScene(panels, name = 'storyboard') {
         rect('table_top',51,94,154,7,color.coral);rect('table_leg_l',64,101,5,18,color.dark);rect('table_leg_r',191,101,5,18,color.dark);
         person('cook',26,112,stage===1);if(stage>0)for(let i=0;i<3;i++)ellipse(`food_bowl_${i}`,87+i*39,92,10,4,color.gold);
         if(stage===2){person('guest_l',80,90,true);person('guest_m',125,90,true);person('guest_r',175,90,true);}break;
+      case 'dock':
+        rect('dock_platform',17,116,222,7,color.grey);ship('courier',77,74,.8,stage===2);
+        person('courier_crew',153,112,stage===1);person('receiving_crew',210,112,stage===2);
+        rect('cargo_crate',26,93,26,19,color.coral);rect('manifest_paper',173,77,19,25,color.pale);
+        for(let i=0;i<3;i++)rect(`manifest_line_${i}`,177,83+i*5,10+(i===stage?3:0),1,color.dark);
+        if(stage===0)line('damaged_courier_core',41,74,57,78,color.coral);break;
+      case 'bridge':
+        rect('bridge_window',15,15,226,67,color.dark);ellipse('charted_world',213,47,18,18,color.green);
+        rect('chart_console',41,82,177,29,color.grey);rect('civilian_chart',74,61,104,44,color.teal);
+        for(let i=0;i<4;i++)ellipse(`chart_destination_${i}`,89+i*24,74+(i%2)*14,3,3,color.pale);
+        line('chart_course',89,74,113+stage*24,88,color.gold);
+        person('navigator',45+stage*12,112,stage>0);person('bridge_crew',207,112,stage===2);break;
+      case 'correspondence':
+        rect('message_table',70,105,117,7,color.coral);person('sender',43,112,stage>0);person('recipient',216,112,stage===1);
+        rect('letter',stage===0?106:stage===1?78:164,stage===1?79:85,22,17,color.pale);
+        line('envelope_fold_left',stage===0?106:stage===1?78:164,stage===1?79:85,stage===0?117:stage===1?89:175,stage===1?89:95,color.dark);
+        rect('drawing_page',123,54,35,38,color.pale);ellipse('drawn_world',140,69,9,9,color.green);line('drawn_path',131,83,150,79,color.teal);
+        if(stage===2){rect('news_on_wall',23,40,42,28,color.pale);ellipse('news_portrait',43,53,7,7,color.coral);}break;
+      case 'system':
+        ellipse('pump_housing',66,84,18,18,color.teal);ellipse('pump_core',66,84,8,8,stage===0?color.dark:color.gold);
+        rect('pipe_out',84,82,83,4,color.grey);rect('pipe_down',163,82,4,31,color.grey);
+        person('system_tender',29,112,stage===1);plant('served_bed',187,112,stage===2?2:1);
+        if(stage>0){rect('tested_flow_horizontal',88,83,74,2,color.teal);rect('tested_flow_vertical',164,87,2,21,color.teal);ellipse('water_collects',170,111,15,3,color.teal);}
+        if(stage===2){rect('linked_pipe',165,88,60,3,color.grey);rect('linked_flow',169,89,55,1,color.teal);plant('second_served_bed',232,112,1);}break;
+      case 'robot-build':
+        rect('robot_bench',38,107,169,6,color.grey);
+        if(stage===0){rect('loose_actuator',86,88,23,7,color.teal);ellipse('loose_sensor',141,88,9,7,color.gold);rect('loose_limb',169,80,5,22,color.grey);person('builder',42,112);}
+        else {bot('assembled_robot',146,107,stage===1);person('calibrator',87,112,stage===1);if(stage===1){rect('calibration_screen',50,67,22,18,color.dark);rect('sensor_signal',55,73,12,3,color.gold);line('calibration_link',72,82,135,89,color.teal);}else{person('service_recipient',205,112,true);rect('carried_supply',163,91,21,14,color.gold);}}break;
+      case 'whole-grown':
+        for(let i=0;i<2;i++){rect(`orchard_trunk_${i}`,34+i*193,73,4,39,color.coral);ellipse(`orchard_canopy_${i}`,36+i*193,65,16,21,color.green);}
+        ellipse('whole_ship_planted_bed',135,113,61,6,color.dark);
+        line('ship_root_left',112,106,103,117,color.light);line('ship_root_right',150,106,168,117,color.light);
+        ship('whole_growing_ship',133,stage===0?100:stage===1?89:80,[.35,.7,1][stage],stage===2);
+        person('ship_gardener',stage===0?76:stage===1?72:65,112,stage===1);if(stage===1)rect('tending_water',94,95,9,6,color.teal);break;
+      case 'pressure':
+        poly('corporate_patrol',[[143,23],[230,23],[242,40],[139,40]],color.grey);rect('patrol_black_band',167,29,58,4,color.dark);
+        ship('civilian_ship',stage===2?170:73,stage===2?84:90,.68,stage===2);
+        rect('retained_culture_case',stage===2?167:117,stage===2?79:90,17,15,color.pale);ellipse('retained_culture',stage===2?175:125,stage===2?86:97,4,5,color.green);
+        if(stage<2){rect('corporate_demand',177,49,24,28,color.pale);for(let i=0;i<3;i++)rect(`demand_line_${i}`,182,56+i*6,14,2,color.dark);person('civilian_witness',43,112,stage===1);person('second_witness',222,112);}
+        else{person('exit_witness',53,112);arrow('surveyed_exit',214,84);}break;
+      case 'fertilizer':
+        ellipse('cared_animal',43,100,14,8,color.pale);rect('animal_head',52,89,10,13,color.pale);rect('animal_ear',56,82,3,9,color.coral);rect('animal_eye',58,93,2,2,color.dark);
+        for(let i=0;i<2;i++)rect(`animal_leg_${i}`,34+i*15,106,3,6,color.dark);
+        ellipse('food_bowl',66,111,10,4,color.gold);person('caretaker',16,112,stage===0);
+        rect('separate_sample_table',101,88,57,5,color.grey);
+        for(let i=0;i<2;i++){rect(`separate_sample_${i}`,107+i*28,69,12,18,stage===0?color.dark:color.pale);rect(`sample_lid_${i}`,106+i*28,65,14,4,color.teal);if(stage>0)rect(`sample_content_${i}`,109+i*28,79,8,6,color.coral);}
+        plant('comparison_bed_a',185,112,stage===0?0:1);plant('comparison_bed_b',232,112,stage===0?0:1);
+        if(stage===2)person('comparison_observer',166,112,true);break;
     }
   }
   return ops;
