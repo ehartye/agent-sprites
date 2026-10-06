@@ -35,7 +35,7 @@ test('UI manifests list the runtime and font bootstrap', async () => {
   expect(result.errors).toEqual([]);
   const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
   expect(manifest).toMatchObject({ source: 'ui', kind: 'font', report: 'ui-report.json' });
-  expect(manifest.files).toMatchObject({ uiRuntime: 'ui-runtime.mjs', uiBoot: 'ui-boot.mjs' });
+  expect(manifest.files).toMatchObject({ uiRuntime: 'ui-runtime.mjs', uiBoot: 'ui-boot.mjs', uiPhaser: 'ui-phaser.json' });
 }, 20000);
 
 test('operation builds have no recipe kind or report', async () => {
