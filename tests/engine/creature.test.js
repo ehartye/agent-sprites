@@ -140,7 +140,7 @@ test('the shared playback runtime walks a creature from its report alone',async(
 });
 
 test('every plan fits every preset size with and without all its features (bodies shrink to fit, legs reach the ground)',()=>{
-  for(const plan of Object.keys(PLANS))for(const size of ['small','medium','large','40x28'])for(const features of [[],PLANS[plan].features.filter(f=>f!=='tail')]){
+  for(const plan of Object.keys(PLANS))for(const size of ['small','medium','large','40x28'].filter(z=>{const [w,h]=parseSize(z);return !PLANS[plan].minSize||(w>=PLANS[plan].minSize[0]&&h>=PLANS[plan].minSize[1]);}))for(const features of [[],PLANS[plan].features.filter(f=>f!=='tail')]){
     const r=generateCreatureRecipe({name:'t',plan,size,features});
     for(const f of r.report.frames)expect(f.checks,`${plan} ${size} ${features.length} ${f.alias}`).toEqual([]);
   }
@@ -168,3 +168,21 @@ test('review regressions: bad plan names, horn styles, option types, counts, lef
   const two=generateCreatureRecipe({name:'t',plan:'arachnid',size:'40x28',attack:['stinger','pincer']});
   expect(two.report.aliases.attack2).toBe('attack2_{direction}_{frame}');
 });
+
+test('biped plan: brute and helm heads, three attack kinds, boss-sized cells and a minimum size',()=>{
+  expect(()=>generateCreatureRecipe({name:'t',plan:'biped',size:'small'})).toThrow(/at least 24x24/);
+  const feats=['hump','spikes','tusks','glow_patch','glow_eyes','pauldrons'];
+  const brute=generateCreatureRecipe({name:'t',plan:'biped',size:'72x72',features:feats,attack:['slam','sweep']});
+  expect(brute.report).toMatchObject({plan:'biped',attacks:['slam','sweep'],cellSize:{width:72,height:72}});
+  const tags=brute.operations.filter(o=>o.command==='group').map(o=>o.name);
+  for(const t of ['idle_front','walk_right','attack_back','attack2_left','hurt_front','down'])expect(tags).toContain(t);
+  const warden=generateCreatureRecipe({name:'w',plan:'biped',size:'56x64',head:'helm',features:['core','cannon','antennae','shell','glow_eyes','pauldrons'],attack:['blast','slam']});
+  expect(warden.report.attacks).toEqual(['blast','slam']);
+  // each attack kind moves the arms: strike and wind-up frames differ
+  const frames=a=>warden.report.frames.filter(f=>f.alias.startsWith(a));
+  const px=f=>warden.operations.filter(o=>o.command==='draw'&&o.cell===f.cell).map(o=>`${o.x},${o.y},${o.w},${o.h},${o.color}`).join('|');
+  const [wind,strike]=frames('attack_right_');expect(px(wind)).not.toEqual(px(strike));
+  expect(()=>generateCreatureRecipe({name:'t',plan:'biped',size:'medium',attack:'bite'})).toThrow(/attack must be/);
+  expect(()=>generateCreatureRecipe({name:'t',plan:'biped',size:'medium',head:'canid'})).toThrow(/Unsupported head/);
+  expect(brute).toEqual(generateCreatureRecipe({name:'t',plan:'biped',size:'72x72',features:feats,attack:['slam','sweep']}));
+},60000);
