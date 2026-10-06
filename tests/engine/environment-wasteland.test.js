@@ -115,7 +115,7 @@ describe('custom materials',()=>{
     ['no patterns',{...ok,patterns:[]}],['unknown pattern',{...ok,patterns:[{kind:'swirl'}]}],
     ['unknown pattern field',{...ok,patterns:[{kind:'cracks',size:'large'}]}],['density range',{...ok,patterns:[{kind:'speckle',density:2}]}],
     ['bad tone',{...ok,patterns:[{kind:'speckle',tone:'neon'}]}],['bad seed',{...ok,seed:1.5}],
-    ['animated without ripples',{...ok,animated:true}],['fps without animated',{...ok,fps:4}],['bad variants',{...ok,patterns:[{kind:'cracks',variants:[9]}]}],
+    ['animated without ripples',{...ok,animated:true}],['fps without animated',{...ok,fps:4}],['variants on panels',{...ok,patterns:[{kind:'panels',variants:[1]}]}],['variants on furrows',{...ok,patterns:[{kind:'furrows',variants:[1]}]}],['fractional fps',{...ok,animated:true,patterns:[{kind:'ripples'}],fps:.5}],['too many variants',{...ok,patterns:[{kind:'cracks',variants:[0,1,2,3,4,5,6,7,0]}]}],['bad variants',{...ok,patterns:[{kind:'cracks',variants:[9]}]}],
   ])('rejects custom material: %s',(_,def)=>expect(()=>generateEnvironmentRecipe({kind:'terrain',materials:['bone-field'],customMaterials:[def]})).toThrow());
   test('rejects duplicates, unlisted customs, non-arrays and use on other kinds',()=>{
     expect(()=>generateEnvironmentRecipe({kind:'terrain',materials:['bone-field'],customMaterials:[ok,ok]})).toThrow(/unique/);
@@ -205,6 +205,18 @@ describe('terrain-overlay',()=>{
             if(pa[ia]!==pb[ib])throw Error(`seam pixel mismatch vertical=${vertical} bits=${bits} ${av}/${bv} at ${i}`);
           }
         }
+      }
+    }
+  });
+
+  test('every built-in material overlays with matching edge colours across variants 0 to 7',()=>{
+    for(const material of ground){
+      const spec=WASTELAND_SPECS[material],ps=[];
+      for(let v=0;v<8;v++)ps.push(overlayPixels(overlayCoverage(5,v,7),materialTile(material,spec,v,7,v%4),null));
+      for(const a of ps)for(const b of ps)for(let i=0;i<GRID;i++){
+        // tile A (mask N|E) right edge top rows vs tile B (mask N|W)-style neighbours share only corner depth: compare same-mask left/right wrap
+        expect(a[i*GRID+GRID-1]===null).toBe(b[i*GRID+GRID-1]===null);
+        if(a[i*GRID+GRID-1]!==null)expect(a[i*GRID+GRID-1]).toBe(b[i*GRID+GRID-1]);
       }
     }
   });

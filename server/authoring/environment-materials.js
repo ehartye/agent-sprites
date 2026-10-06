@@ -43,13 +43,14 @@ function validatePattern(p,where){
   if(!PATTERN_KINDS.includes(p.kind))throw Error(`${where} kind must be one of ${PATTERN_KINDS.join(', ')}`);
   const allowed=['kind','variants',...PATTERN_FIELDS[p.kind]];
   for(const key of Object.keys(p))if(!allowed.includes(key))throw Error(`Unknown ${where} field for ${p.kind}: ${key}`);
+  if(p.variants!==undefined&&['panels','furrows'].includes(p.kind))throw Error(`${where} variants cannot restrict ${p.kind}: it draws the shared edge rows`);
   if(p.density!==undefined&&(typeof p.density!=='number'||!(p.density>=.05&&p.density<=1)))throw Error(`${where} density must be a number from 0.05 to 1`);
   if(p.tone!==undefined&&!TONES.includes(p.tone))throw Error(`${where} tone must be ${TONES.join(', ')}`);
   if(p.size!==undefined&&!['small','large'].includes(p.size))throw Error(`${where} size must be small or large`);
   if(p.shade!==undefined&&typeof p.shade!=='boolean')throw Error(`${where} shade must be a boolean`);
   if(p.cols!==undefined&&![1,2].includes(p.cols))throw Error(`${where} cols must be 1 or 2`);
   if(p.color!==undefined&&(typeof p.color!=='string'||!HEX.test(p.color)))throw Error(`${where} color must be a #rrggbb hex color`);
-  if(p.variants!==undefined&&(!Array.isArray(p.variants)||!p.variants.length||p.variants.some(v=>!Number.isInteger(v)||v<0||v>7)))throw Error(`${where} variants must be a nonempty array of variant numbers 0 to 7`);
+  if(p.variants!==undefined&&(!Array.isArray(p.variants)||!p.variants.length||p.variants.length>8||p.variants.some(v=>!Number.isInteger(v)||v<0||v>7)))throw Error(`${where} variants must be a nonempty array of variant numbers 0 to 7`);
 }
 
 /** Strictly validate and normalise one inline custom material. */
@@ -65,7 +66,7 @@ export function validateCustomMaterial(def,builtin){
   if(def.seed!==undefined&&!Number.isSafeInteger(def.seed))throw Error(`${where} seed must be a safe integer`);
   if(def.animated!==undefined&&typeof def.animated!=='boolean')throw Error(`${where} animated must be a boolean`);
   if(def.animated&&!def.patterns.some(p=>p.kind==='ripples'))throw Error(`${where} animated requires a ripples pattern`);
-  if(def.fps!==undefined&&(!def.animated||!Number.isFinite(def.fps)||def.fps<=0||def.fps>60))throw Error(`${where} fps must be 1 to 60 and applies only to animated materials`);
+  if(def.fps!==undefined&&(!def.animated||!Number.isFinite(def.fps)||def.fps<1||def.fps>60))throw Error(`${where} fps must be 1 to 60 and applies only to animated materials`);
   return {name:def.name,ramp:def.ramp.map(c=>c.toLowerCase()),patterns:def.patterns.map(p=>({...p,...(p.color?{color:p.color.toLowerCase()}:{})})),seed:def.seed??0,animated:!!def.animated,fps:def.fps??4};
 }
 

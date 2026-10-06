@@ -174,7 +174,7 @@ pixels do not, so water tiles remain seamless in any frame. Play one tag for the
 
 `name` is lowercase letters, digits and hyphens (no underscore, so `<material>_<mask>_<variant>` parses) and cannot
 reuse a built-in. `ramp` is four `#rrggbb` colors: base, dark, light, bright. `patterns` (1-6) are drawn in order; each
-has a `kind` and optionally `density` (0.05-1) and `variants` (restrict it to listed variant numbers):
+has a `kind` and optionally `density` (0.05-1) and `variants` (restrict it to up to 8 listed variant numbers; not allowed on `panels` or `furrows`, which draw the shared edge rows):
 `speckle` (two-pixel flecks, `tone`), `clusters` (blobs, `tone`, `size` small|large, `shade`), `cracks`, `panels`
 (slab seam, `cols` 1|2), `ripples`, `furrows`, `polygons` (cracked plates), `bubbles` (orange-glint style, uses the
 bright step), `streaks` (diagonal gloss, `tone`) and `stripe` (lane paint, `color`). `tone` is mixed, dark, light or
@@ -213,7 +213,7 @@ Aliases: `<material>_<mask>_<variant>` for overlays and `<material>_<variant>` f
 so the game and its overlays come from one atlas. The sheet is 47 cells wide; read cells from `environment-report.json`
 (each frame: `material`, `role` base|overlay, `mask`, `variant`, `neighbors`, `cell`). The report also carries `validMasks`,
 `neighbors`, `maskSemantics`, `normalizeDiagonals`, `emptyMask`, `edgeDepth` and `animations`. `variants` is 1-8
-(default 2). Overlay materials must be wasteland or custom materials (the legacy six are vector-drawn and not
+(default 2); a large set is large (15 materials x 8 variants is about 5,600 frames at 160k operations), so list only the ground you use. `edgeDepth` is in screen pixels and `edgeDepthSource` in source pixels. Overlay materials must be wasteland or custom materials (the legacy six are vector-drawn and not
 supported). An animated material's overlays are static snapshots (ripple phase = variant): stack water under land
 rather than over it. The `scale` of the project must be small enough for the contact sheet (use 1 for the full set).
 
