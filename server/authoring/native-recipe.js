@@ -24,16 +24,23 @@ const motifName = entry => (typeof entry === 'string' ? entry : entry?.name);
 
 /** Merge a named preset under the caller's fields. Caller motifs replace preset motifs of the same name. */
 function resolveConfig(config) {
-  const preset = config.preset === undefined ? {} : NATIVE_PRESETS[config.preset];
+  const preset = config.preset === undefined ? {} : (Object.hasOwn(NATIVE_PRESETS, config.preset) ? NATIVE_PRESETS[config.preset] : undefined);
   if (config.preset !== undefined && !preset) throw new Error(`Unknown native preset "${config.preset}". Choose from: ${PRESET_NAMES.join(', ')}.`);
   const own = config.motifs ?? [];
   if (!Array.isArray(own)) throw new Error('motifs must be an array');
+  if (config.omit !== undefined && (!Array.isArray(config.omit) || config.omit.some(n => typeof n !== 'string'))) throw new Error('native.omit must be an array of motif names.');
+  if (config.materials !== undefined && !isObject(config.materials)) throw new Error('native.materials must be an object of material ramps.');
+  if (config.colors !== undefined && !isObject(config.colors)) throw new Error('native.colors must be an object.');
+  if (config.gear !== undefined && !Array.isArray(config.gear)) throw new Error('native.gear must be an array.');
   const dropped = new Set([...(config.omit ?? []), ...own.map(motifName)]);
   const merged = { ...preset, ...config };
-  const named = (value, ramps, label) => (typeof value === 'string' ? ramps[value] ?? (() => { throw new Error(`Unknown ${label} ramp "${value}". Choose from: ${Object.keys(ramps).join(', ')}.`); })() : value);
+  // Overriding the body of a preset also overrides its wardrobe default (a large brute becomes a jacketed adult).
+  if (config.outfit === undefined && config.kind !== undefined && config.kind !== preset.kind) delete merged.outfit;
+  const named = (value, ramps, label) => (typeof value === 'string' ? (Object.hasOwn(ramps, value) ? ramps[value] : undefined) ?? (() => { throw new Error(`Unknown ${label} ramp "${value}". Choose from: ${Object.keys(ramps).join(', ')}.`); })() : value);
   merged.materials = { ...preset.materials, ...config.materials };
   if (config.skin !== undefined) merged.materials.skin = named(config.skin, SKIN_RAMPS, 'skin');
-  if (config.hair !== undefined) merged.materials.hair = named(config.hair, HAIR_RAMPS, 'hair');
+  // Hair only applies to a wig: a wigless character ignores a hair shorthand (so one hair choice can be set on every NPC).
+  if (config.hair !== undefined && (merged.wig ?? 'none') !== 'none') merged.materials.hair = named(config.hair, HAIR_RAMPS, 'hair');
   merged.colors = { ...preset.colors, ...config.colors };
   merged.motifs = [...(preset.motifs ?? []).filter(entry => !dropped.has(motifName(entry))), ...own];
   return merged;
@@ -60,8 +67,8 @@ export function generateNativeRecipe(config) {
   const wig = c.wig ?? 'none';
   // A preset's ramps for garments this body does not have are skipped; the caller's own must exist.
   const present = ['skin', 'cloth', 'trim', 'shoes', ...(outfit === 'jacket' ? ['trousers'] : []), ...(wig !== 'none' ? ['hair'] : [])];
-  const own = config.materials ?? {}, fromPreset = config.skin !== undefined || config.hair !== undefined;
-  for (const material of Object.keys(c.materials)) if (!present.includes(material) && !(material in own) && !(fromPreset && ['skin', 'hair'].includes(material) && config[material] !== undefined)) delete c.materials[material];
+  const own = config.materials ?? {};
+  for (const material of Object.keys(c.materials)) if (!present.includes(material) && !(material in own)) delete c.materials[material];
   if (kind === 'large') for (const material of Object.keys(c.materials)) if (material !== 'skin' && !(material in own)) delete c.materials[material];
   for (const [key, value] of Object.entries(c.colors)) if (!HEX.test(value)) throw new Error(`native.colors.${key} must be a six-digit hex.`);
   for (const [material, ramp] of Object.entries(c.materials)) {
@@ -70,12 +77,14 @@ export function generateNativeRecipe(config) {
   }
   const skinRamp = c.materials.skin ?? SKIN_TONES.find(t => t.id === tone).colors;
   const { motifs, meta } = expandMotifs(c.motifs, { materials: c.materials, kind, fallbackRamps: { cloth: CLOTH_DEFAULT, skin: skinRamp } });
+  if (c.bodyMaterial !== undefined && (typeof c.bodyMaterial !== 'string' || !ID.test(c.bodyMaterial))) throw new Error('native.bodyMaterial must be a lowercase material name such as casing.');
   const profile = {
     id, projectName: c.name, kind, outfit, tone, wig,
     materials: c.materials, colors: { o: '#26333f', ...c.colors }, motifs,
     ...(c.replaceHead || meta.some(m => m.replaceHead) ? { replaceHead: true } : {}),
     ...(c.bodyMaterial ? { bodyMaterial: c.bodyMaterial } : {}),
   };
+  if (profile.replaceHead && !motifs.some(m => m.part === 'head')) throw new Error('replaceHead needs a replacement head motif (a motif with part: "head"), for example grey-alien-head.');
   let ops = costumeTemplate(profile);
   const gear = parseGear(c.gear ?? []);
   ops = drawNativeGear(ops, kind, gear);

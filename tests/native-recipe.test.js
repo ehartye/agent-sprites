@@ -186,3 +186,21 @@ test('the recipe is deterministic', () => {
   expect(Object.keys(WASTELAND_MOTIFS)).toEqual(MOTIF_NAMES);
   expect(ACTION_TAGS).toHaveLength(3);
 });
+
+test('malformed or conflicting configuration fails with a config error, never a hang or a TypeError', () => {
+  expect(() => generateNativeRecipe({ name: 'x', replaceHead: true, actions: true })).toThrow(/replacement head motif/);
+  expect(() => generateNativeRecipe({ name: 'x', omit: 5 })).toThrow(/omit must be an array/);
+  expect(() => generateNativeRecipe({ name: 'x', materials: 'x' })).toThrow(/materials must be an object/);
+  expect(() => generateNativeRecipe({ name: 'x', gear: 'trowel' })).toThrow(/gear must be an array/);
+  expect(() => generateNativeRecipe({ name: 'x', motifs: [{ name: 'scarf', directions: 5 }] })).toThrow(/directions/);
+  expect(() => generateNativeRecipe({ name: 'x', motifs: [{ name: 'scarf', directions: ['up'] }] })).toThrow(/directions/);
+  for (const bad of ['__proto__', 'toString', 'constructor']) expect(() => generateNativeRecipe({ name: 'x', preset: bad })).toThrow(/Unknown native preset/);
+  expect(() => generateNativeRecipe({ name: 'x', skin: 'toString' })).toThrow(/Unknown skin ramp/);
+  expect(() => generateNativeRecipe({ name: 'x', kind: 'child', outfit: 'jacket', motifs: ['scarf'] })).toThrow(/adult and large/);
+  expect(() => generateNativeRecipe({ name: 'x', bodyMaterial: 'Zz Z' })).toThrow(/bodyMaterial/);
+});
+
+test('hair on a wigless preset is ignored, and a body override replaces the preset wardrobe default', () => {
+  expect(() => generateNativeRecipe({ name: 'x', preset: 'raider', hair: 'black' })).not.toThrow();
+  expect(() => generateNativeRecipe({ name: 'x', preset: 'mutant-brute', kind: 'adult', actions: false })).not.toThrow();
+});

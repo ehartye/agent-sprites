@@ -512,6 +512,8 @@ export function expandMotifs(entries, { materials = {}, kind = 'adult', fallback
     if (!lib) throw new Error(`Unknown wasteland motif "${ref.name}". Choose from: ${MOTIF_NAMES.join(', ')}.`);
     for (const key of Object.keys(ref.colors ?? {})) if (!(key in lib.slots)) throw new Error(`Motif ${ref.name} has no colour slot "${key}". Slots: ${Object.keys(lib.slots).join(', ')}.`);
     if (ref.side !== undefined && !['left', 'right'].includes(ref.side)) throw new Error('Motif side must be left or right.');
+    if (ref.directions !== undefined && (!Array.isArray(ref.directions) || ref.directions.some(d => !['front', 'right', 'back'].includes(d)))) throw new Error('Motif directions must be a list of front, right or back (left reflects right).');
+    if (kind === 'child') throw new Error(`Library motif "${ref.name}" is authored for the adult and large bodies; a child body takes custom motifs only.`);
     const slots = {};
     for (const [slot, value] of Object.entries({ ...lib.slots, ...(ref.colors ?? {}) })) {
       const resolved = slotColor(value, materials, fallbackRamps);

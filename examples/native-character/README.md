@@ -38,7 +38,7 @@ node scripts/run-managed.js build examples/native-character/child-jacket.build.j
 node scripts/run-managed.js build examples/native-character/child-dress.build.json
 ```
 
-`dress-template.mjs` is the editable wardrobe source; `templates/*.project.json` are the editable body sources. Build configs and committed `preview/*.png` images all live here. Generated project JSON, PNG, atlas and preview HTML live under `dist/<preset>/`. Open a generated project with `node scripts/run-managed.js open <path-to-project.json>` to copy/edit it in the live workbench. No Downloads files are required to rebuild.
+`dress-template.mjs` is the editable wardrobe source; `server/authoring/native/templates/*.project.json` are the editable body sources. Build configs and committed `preview/*.png` images all live here. Generated project JSON, PNG, atlas and preview HTML live under `dist/<preset>/`. Open a generated project with `node scripts/run-managed.js open <path-to-project.json>` to copy/edit it in the live workbench. No Downloads files are required to rebuild.
 
 ## Independent wigs and rear views
 
