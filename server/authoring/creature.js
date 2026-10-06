@@ -5,7 +5,7 @@ import { PLANS } from './creature-plans.js';
 
 export const SIZE_PRESETS = { small: [16, 16], medium: [32, 24], large: [48, 32] };
 const PROPORTIONS = ['bodyLength', 'bodyHeight', 'legLength', 'legThickness', 'headSize', 'neckThickness', 'tailLength'];
-const FEATURE_TYPES = ['horns', 'tusks', 'tail', 'stinger', 'pincers', 'mandibles', 'shell', 'fur', 'spikes', 'glow_eyes', 'glow_patch', 'beard', 'wool', 'saddle', 'pack', 'extra_eyes', 'extra_limbs', 'second_head', 'metal_feathers', 'comb', 'antennae', 'hump', 'wings'];
+const FEATURE_TYPES = ['horns', 'tusks', 'tail', 'stinger', 'pincers', 'mandibles', 'shell', 'fur', 'spikes', 'glow_eyes', 'glow_patch', 'beard', 'wool', 'saddle', 'pack', 'extra_eyes', 'extra_limbs', 'second_head', 'metal_feathers', 'comb', 'antennae', 'hump', 'wings', 'core', 'pauldrons', 'cannon'];
 const count = v => Number.isInteger(v) && v >= 0 && v <= 12;
 const FEATURE_OPTIONS = {
   horns: { style: v => ['curved', 'straight', 'ram', 'short'].includes(v) },
@@ -32,6 +32,7 @@ function normalise(config) {
   const plan = config.plan ?? fail('creature plan is required');
   const spec = typeof plan === 'string' && Object.hasOwn(PLANS, plan) ? PLANS[plan] : fail(`Unsupported creature plan: ${String(plan)}. Use ${Object.keys(PLANS).join(', ')}`);
   const [W, H] = parseSize(config.size);
+  if (spec.minSize && (W < spec.minSize[0] || H < spec.minSize[1])) throw Error(`The ${plan} plan needs a cell of at least ${spec.minSize.join('x')} (got ${W}x${H})`);
   const P = Object.fromEntries(PROPORTIONS.map(k => [k, 1]));
   if (config.proportions !== undefined) {
     if (!config.proportions || typeof config.proportions !== 'object' || Array.isArray(config.proportions)) throw Error('proportions must be an object');

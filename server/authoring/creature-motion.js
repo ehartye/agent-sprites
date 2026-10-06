@@ -3,7 +3,7 @@
 
 export const ANIMATIONS = ['idle', 'walk', 'attack', 'hurt', 'down'];
 export const VIEWS = ['front', 'back', 'right', 'left'];
-export const ATTACKS = ['bite', 'pincer', 'stinger', 'charge', 'peck', 'slam'];
+export const ATTACKS = ['bite', 'pincer', 'stinger', 'charge', 'peck', 'slam', 'sweep', 'blast'];
 export const ATTACK_FRAMES = 4;
 export const WALK_FRAMES = 4;
 

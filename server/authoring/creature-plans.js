@@ -1,6 +1,7 @@
 import { quadrupedSide, quadrupedFrontBack, quadrupedDown } from './creature-quadruped.js';
 import { insectSide, insectFrontBack, insectDown, arachnidSide, arachnidFrontBack, arachnidDown } from './creature-arthropod.js';
 import { birdSide, birdFrontBack, birdDown } from './creature-bird.js';
+import { bipedSide, bipedFrontBack, bipedDown } from './creature-biped.js';
 import { blobSide, blobFrontBack, blobDown } from './creature-blob.js';
 
 const pick = (side, fb, down) => ctx => ctx.pose.down ? down(ctx) : ctx.view === 'right' ? side(ctx) : fb(ctx);
@@ -38,5 +39,13 @@ export const PLANS = {
     attacks: ['slam', 'bite'],
     features: [...COMMON, 'shell'],
     defaults: {}, options: {},
+  },
+  biped: {
+    minSize: [24, 24], // two legs, two arms and a head need room: smaller cells clip
+    draw: pick(bipedSide, bipedFrontBack, bipedDown),
+    attacks: ['slam', 'sweep', 'blast'],
+    features: [...COMMON, 'horns', 'tusks', 'hump', 'shell', 'core', 'pauldrons', 'cannon', 'antennae'],
+    defaults: { head: 'brute', paw: 'fist' },
+    options: { head: ['brute', 'helm'], paw: ['fist', 'claw'] },
   },
 };
