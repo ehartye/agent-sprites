@@ -84,3 +84,99 @@ The neutral front torso/shoulders span x=2..13 (12 pixels versus the adult's 10)
 The large build also carries extra neck, jaw and shoulder mass: the jaw row (the skull base from behind) is one pixel wider each side, the neck two, with a trapezius step into shoulders squared over the arm tops; profiles bulk toward the face and the nape. Every mannequin (adult, child and large) then has its outside outline corners cut, so horizontal and vertical outline runs join diagonally (`cutOutlineCorners` in `server/engine/outline-corners.js`, one pass, never exposing skin); `sourceMannequin` returns the uncut source poses. Wardrobe, cast and pressure-suit sheets start from the uncut body and get one final pass over the finished composite, so garment, hair and costume outlines (every colour in a `*-outline` group, plus the costume outline) join diagonally too; a cut corner removes every layer at that pixel, so skin never shows through. Wigs are extracted from that finished composite. The adult face above the jaw is unchanged.
 
 Select **Large** in `review.html` to inspect it. Adult wig sheets still align: the hair covers the head, and its edges meet the new jaw and neck pixels without gaps. Existing clothing is not fitted to this body; the review page locks clothing to the bare mannequin for Large. Armor silhouettes and costume-specific padding remain a later design pass. The committed `preview/large.png` shows every authored pose.
+
+## Inline `native` build source
+
+Costume builds no longer copy scripts out of this directory. A build config declares the
+character as JSON under `native` (like `character`, `environment` and `ui`), and the managed
+runtime does the rest:
+
+```json
+{
+  "version": 1,
+  "output": "../../public/assets/wanderer-rags",
+  "omit": ["project", "operations", "preview", "contactSheet"],
+  "expectedTags": ["walk_front", "swing_right", "water_left", "hurt_back", "down"],
+  "native": {
+    "name": "wanderer-rags",
+    "preset": "scavenger-rags",
+    "skin": "tan", "hair": "black", "wig": "tied",
+    "motifs": [{ "name": "scarf", "colors": { "base": "#f0d466" } }],
+    "omit": ["canteen"]
+  }
+}
+```
+
+```powershell
+node scripts/run-managed.js build wanderer-rags/sprite-project.json
+```
+
+The library lives in `server/authoring/native/` (the whole native pipeline moved there from this
+directory so the managed runtime ships it; the files here are thin re-exports plus the existing
+command-line generators, whose output is byte-identical). Fields of `native`:
+
+| Field | Meaning |
+|---|---|
+| `name` | Required project name (output file names). `id` defaults to it. |
+| `preset` | A named starting point (below); your fields lay over it. |
+| `kind`, `outfit`, `tone`, `wig` | The body and wardrobe, as for the cast: `adult` / `child` / `large`; `jacket` / `dress` (`none` for the bare `large` body); a skin tone id; `short` / `tied` / `none`. |
+| `skin`, `hair` | A named ramp (`SKIN_RAMPS`: fair, tan, brown, dark, ghoul, zombie, grey, mutant; `HAIR_RAMPS`: brown, black, blond, red, grey, white) or a four-role ramp `{outline, shadow, base, highlight}`. |
+| `materials`, `colors` | Material ramps and motif colour symbols, exactly as in [cast/README.md](cast/README.md#repeatable-costume-source). `colors.o` is the costume outline colour. |
+| `motifs` | Library names, `{name, colors, side, directions}` objects, or custom motifs with `rows` (the cast's format). Library entries replace a preset's motif of the same name; `omit` drops preset motifs by name. |
+| `gear` | The existing held trowel, by anatomical side. |
+| `actions` | `true` or a list of `swing`, `water`, `hurt`, `down` (below). |
+| `tool` | The held tool in swing frames: `hoe`, `pick` or `club`. |
+| `posture` | `shamble`: arms forward on every idle and walk frame. |
+| `bodyMaterial`, `armMaterial`, `handMaterial`, `replaceHead` | As the cast's casing and replacement heads; the arm and hand materials say which ramps redrawn arms use (default: the cloth, and skin). |
+
+### Wasteland motif library
+
+Costumes compose from names. Each entry is authored in front, right and back (left reflects
+right), anchored to the head, shoulder, waist or ground so it bobs with its landmark, and
+widened automatically for the `large` body. Colours are named slots with defaults from the
+shared wasteland ramps; `@cloth.base`-style defaults follow the character's own material.
+
+`wide-brim-hat`, `scarf`, `bandana`, `goggles`, `respirator`, `welding-mask`, `duster-coat`,
+`ragged-cloak`, `scrap-pauldron` (`side: right|left`), `backpack`, `bedroll`, `canteen`,
+`tool-belt`, `bone-trophy`, `rag-patches`, `ragged-trousers`, `glow-eyes`, `glow-core`,
+`extra-arm`, `antennae`, `grey-alien-head` and `scrap-bot-head` (replacement heads).
+`WASTELAND_MOTIFS` in `wasteland-motifs.mjs` lists each entry's slots and `describe` text.
+The pack, bedroll and cloak drape use the `behind` layer; the shoulder plate stays on top of
+redrawn arms. Presets (`NATIVE_PRESETS`): `scavenger-rags`, `scavenger-scrap`,
+`scavenger-expedition`, `settler-farmer`, `settler-tinkerer`, `settler-elder`, `trader`,
+`raider`, `ghoul`, `zombie`, `mutant-brute`, `alien-visitor`, `scrap-bot`.
+
+### Action poses
+
+With `actions`, every direction also gets, on the same 4-row sheet (15 columns, one row per
+facing: idle, 4 walk, 4 swing, 4 water, hurt, down):
+
+| Tag | Frames | Aliases | Plays |
+|---|---|---|---|
+| `swing_<dir>` | 4 at 10 fps: gather, overhead, impact, follow-through | `<dir>_swing_0..3` | till, clear, attack with the held `tool` |
+| `water_<dir>` | 4 at 6 fps: lift, tilt, pour, long pour with falling drops | `<dir>_water_0..3` | pour from a canteen |
+| `hurt_<dir>` | 1 | `<dir>_hurt` | flinch: head thrown back, arms flung up |
+| `down_<dir>`, `down` | 1 each; `down` plays the front frame | `<dir>_down` | knocked out |
+
+The frames are derived from the finished composite: the acting arm is cleared and redrawn
+from authored joint paths in the character's own sleeve and skin ramps (forearm bare, so it
+reads against the torso), with the tool, canteen and water drawn on top. Costume motifs
+survive; only motifs marked `overArms` (the shoulder plate) stay above the new arm. Tools and
+droplets keep to rows 0-29 so `bounds.bottom` and the ground anchor still agree.
+
+Limits, stated plainly: the tool is in the **right hand**, so `swing_left` (the mirror of
+`swing_right`) holds it in the character's left hand; every action frame's report entry names
+`actingSide` and publishes the grip point as that side's `wrist`. A 16-pixel-wide cell cannot hold a
+lying 30-pixel body, so `down` is a slumped, kneeling collapse (legs folded, head dropped),
+not a prone sprawl. Actions are authored for the adult and large bodies (not child). The tool
+is drawn only in swing frames; idle and walk keep their empty hands (or the trowel).
+
+Report frames for action cells carry `action`, `actingSide` and no `locomotion`; the report's
+`aliases` gains `swing`, `water`, `hurt` and `down` patterns.
+
+### Publishing a build
+
+`"omit": ["project", "operations", "preview", "contactSheet"]` leaves only the sheet,
+atlas, manifest, verification, report and playback runtime in the output (a native sheet's
+editable project and operations are megabytes). The manifest records `omitted`, and
+`build-set --check` still reports the output current.

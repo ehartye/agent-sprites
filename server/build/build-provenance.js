@@ -5,14 +5,14 @@ import { dirname, relative, resolve, sep } from 'node:path';
 export const buildTool = Object.freeze({ name: 'agent-sprites', version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version });
 
 export function resolveBuildSource(configPath, config) {
-  const hasInline = ['character', 'environment', 'ui', 'creature', 'tileset'].some(key => Object.hasOwn(config, key));
+  const hasInline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset'].some(key => Object.hasOwn(config, key));
   // Legacy file recipes permit an empty unused source. Inline declarations
   // remain strict so malformed/mixed declarations never select another source.
   const sources = hasInline
-    ? ['ops', 'generator', 'character', 'environment', 'ui', 'creature', 'tileset'].filter(key => Object.hasOwn(config, key))
+    ? ['ops', 'generator', 'character', 'environment', 'native', 'ui', 'creature', 'tileset'].filter(key => Object.hasOwn(config, key))
     : ['ops', 'generator'].filter(key => Boolean(config[key]));
-  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, UI recipe, creature recipe, or tileset recipe.');
-  const sourceKind = sources[0], inline = ['character', 'environment', 'ui', 'creature', 'tileset'].includes(sourceKind);
+  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, native recipe, UI recipe, creature recipe, or tileset recipe.');
+  const sourceKind = sources[0], inline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset'].includes(sourceKind);
   if (config.trim && sourceKind === 'ui') throw new Error('trim is not supported for UI builds: the UI runtime composites whole glyph and skin cells.');
   if (inline) {
     if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);

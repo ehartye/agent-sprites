@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "output": "dist/native-wanderer",
+  "scale": 8,
+  "omit": ["operations"],
+  "expectedFrames": ["front", "right", "back", "left", "right_swing_2", "front_water_3", "back_hurt", "left_down"],
+  "expectedTags": ["walk_front", "swing_right", "water_left", "hurt_back", "down"],
+  "native": {
+    "name": "native-wanderer",
+    "preset": "scavenger-scrap",
+    "skin": "tan",
+    "hair": "black",
+    "wig": "tied",
+    "tool": "pick"
+  }
+}
