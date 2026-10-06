@@ -172,6 +172,8 @@ export async function buildProject(configPath) {
     if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
     // A near-square UI sheet pads its last row with unnamed cells; every named frame is real art.
     if (sourceKind === 'ui') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && /^Frame \d+ /.test(w.message)));
+    // A native overlay (native.only) is sparse by design: a back view has no facial hair, so empty frames are expected.
+    if (sourceKind === 'native' && config.native?.only) result.warnings = verified.warnings = verified.warnings.filter(w => w.code !== 'empty-frame');
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
     for (const key of omit) delete artifacts[key];

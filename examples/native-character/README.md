@@ -146,6 +146,24 @@ redrawn arms. Presets (`NATIVE_PRESETS`): `scavenger-rags`, `scavenger-scrap`,
 `scavenger-expedition`, `settler-farmer`, `settler-tinkerer`, `settler-elder`, `trader`,
 `raider`, `ghoul`, `zombie`, `mutant-brute`, `alien-visitor`, `scrap-bot`.
 
+### Wardrobe motifs and overlay sheets (modular, recolourable characters)
+
+For a character the player customises, build layers instead of one sheet per combination. Wardrobe motifs
+(`wardrobe-motifs.mjs`): hair styles `hair-cropped`, `hair-short`, `hair-tied`, `hair-long`, `hair-curls`, `hair-mohawk`;
+facial hair `facial-stubble`, `facial-moustache`, `facial-goatee`, `facial-beard`; `goggles-up` (goggles on the forehead);
+and outfit pieces `overalls`, `field-jacket`, `bandolier`. Hair and facial hair follow a `hair` ramp, given either as
+`materials.hair` (a hair ramp on a `wig: "none"` body only colours motifs) or as explicit slot `colors`
+(`outline`, `shadow`, `base`, `light`). Overalls follow `trousers`, the field jacket `cloth`.
+
+`native.only: ["motif-name", ...]` keeps just those motifs' pixels: the sheet becomes a transparent overlay with exactly the
+same frames, tags and cells as the full character (walk, swing, water, hurt and down included), because it runs the same
+recipe and filters at the end. Build a bare-headed body (`"wig": "none"`) plus one overlay sheet per hair style, facial hair
+and headwear, then composite them in the game in a fixed order (body, hair, facial hair, headwear) and recolour at runtime by
+swapping exact key colours (hard alpha, no tint, no blending). Draw the sheets in distinctive key ramps so a swap can never
+touch an unrelated pixel. Overlay builds suppress the "empty frame" warning (a back view has no beard). Fallow Valley's
+wardrobe (28 sheets cover 5 outfits x 3 gear tiers x 7 hair styles x 5 facial hairs x 4 headwear x any colours) is the
+reference: `tools/build-wardrobe.mjs` there generates the profiles.
+
 ### Action poses
 
 With `actions`, every direction also gets, on the same 4-row sheet (15 columns, one row per
