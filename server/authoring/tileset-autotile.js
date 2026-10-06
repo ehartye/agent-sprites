@@ -1,0 +1,143 @@
+// Procedural auto-tile sets for the `tileset` recipe: 47-mask blob walls, floors and roofs plus
+// 16-mask fences and door tiles, all built from selectable materials.
+//
+// Neighbour bits are clockwise from north and match the terrain-transition convention:
+// N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64 NW=128. A diagonal only matters when both adjacent
+// orthogonal neighbours are present, which leaves exactly 47 masks.
+import {TRANSITION_BITS as BITS, TERRAIN_MASKS, normalizeTerrainMask} from './environment-transition.js';
+
+export {TERRAIN_MASKS as BLOB_MASKS, normalizeTerrainMask as normalizeBlobMask};
+export const FENCE_MASKS = [0, 1, 4, 5, 16, 17, 20, 21, 64, 65, 68, 69, 80, 81, 84, 85];
+export const MASK_CONVENTION = 'clockwise from north: N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64 NW=128; a diagonal bit is kept only when both adjacent orthogonal bits are set';
+
+// Roles: a base, b light (top-left lit), c dark, d accent, s seam/mortar, o outline.
+const hash = (x, y, k = 0) => { let h = Math.imul(x + 1, 0x45d9f3b) ^ Math.imul(y + 7, 0x119de1f3) ^ Math.imul(k + 3, 0x2c1b3c6d); h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
+
+// Every pattern is periodic in 16 pixels so neighbouring tiles continue it exactly.
+const PATTERNS = {
+  // vertical corrugation with panel seams and rivets
+  corrugated: (x, y) => { if (y % 8 === 7) return 's'; if (x % 16 === 1 && y % 8 === 1) return 'd'; return ['b', 'a', 'a', 'c'][x % 4]; },
+  // horizontal corrugation (roof sheet)
+  ridged: (x, y) => { if (x % 8 === 7 && y % 4 === 1) return 's'; return ['b', 'a', 'a', 'c'][y % 4]; },
+  bricks: (x, y) => { const r = y % 8, row = (y >> 2) & 1, xx = (x + (row ? 4 : 0)) % 8; if (r % 4 === 3 || xx === 7) return 's'; if (r % 4 === 0 || xx === 0) return 'b'; return hash(x >> 1, y >> 2, 1) > .82 ? 'c' : 'a'; },
+  slabs: (x, y) => { if (x % 8 === 7 || y % 8 === 7) return 's'; if (x % 8 === 0 || y % 8 === 0) return 'b'; const h = hash(x, y, 2); return h > .93 ? 'c' : h < .05 ? 'b' : 'a'; },
+  planksV: (x, y) => { const px = x % 4; if (px === 3) return 's'; if (px === 0) return 'b'; const j = (x >> 2) * 5 % 16; if ((y + j) % 16 === 0) return 's'; return hash(x, y >> 1, 3) > .93 ? 'c' : 'a'; },
+  planksH: (x, y) => { const py = y % 4; if (py === 3) return 's'; if (py === 0) return 'b'; const j = (y >> 2) * 6 % 16; if ((x + j) % 16 === 0) return 's'; return hash(x >> 1, y, 4) > .94 ? 'c' : 'a'; },
+  tiles: (x, y) => { if (x % 8 === 7 || y % 8 === 7) return 's'; if (x % 8 === 0 && y % 8 === 0) return 'b'; return ((x >> 3) + (y >> 3)) & 1 ? 'c' : 'a'; },
+  diamond: (x, y) => { if ((x === 0 || x === 15) && (y === 0 || y === 15)) return 'd'; const u = (x + y) % 8, v = (x - y + 16) % 8; if (u === 0 || v === 0) return 'b'; if (u === 4 && v === 4) return 'c'; return 'a'; },
+  thatch: (x, y) => { const d = (x + y * 2) % 8; if (d === 0) return 'b'; if (d === 5) return 'c'; return hash(x, y, 5) > .9 ? 'd' : 'a'; },
+  scales: (x, y) => { const row = (y >> 2) & 1, xx = (x + (row ? 4 : 0)) % 8, r = y % 4; if (r === 3) return 'c'; if (r === 0) return 'b'; if (xx === 0 || xx === 7) return 's'; return 'a'; },
+  concrete: (x, y) => { if (y % 16 === 15) return 's'; if (x % 16 === 15) return 's'; const h = hash(x, y, 6); return h > .92 ? 'c' : h < .08 ? 'b' : (h > .55 && h < .6 ? 'd' : 'a'); },
+  glass: (x, y) => { if (x % 8 === 7 || y % 8 === 7) return 's'; if (x % 8 === 0 || y % 8 === 0) return 'b'; if ((x % 8 + y % 8 === 3) || (x % 8 + y % 8 === 5 && x % 8 > 0 && y % 8 > 0 && x % 8 < 4)) return 'b'; return 'a'; },
+};
+
+// Defaults follow the Fallow Valley ramps (docs/ART-DIRECTION.md) but every role is overridable per set.
+export const MATERIALS = {
+  scrap:         {pattern: 'corrugated', a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#b5532f', s: '#3c3c3a', o: '#26262a'},
+  wood:          {pattern: 'planksV',    a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#6b5033', s: '#6b5033', o: '#4a3624'},
+  brick:         {pattern: 'bricks',     a: '#b5532f', b: '#d98b4a', c: '#8c3b25', d: '#5e2a1f', s: '#a8a79e', o: '#5e2a1f'},
+  concrete:      {pattern: 'concrete',   a: '#a8a79e', b: '#c4c3ba', c: '#85847c', d: '#5f5f5a', s: '#85847c', o: '#3c3c3a'},
+  glass:         {pattern: 'glass',      a: '#5f9a8d', b: '#8fc4b4', c: '#3f6f68', d: '#d6ff9a', s: '#2a4a4a', o: '#12201f'},
+  planks:        {pattern: 'planksH',    a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#6b5033', s: '#6b5033', o: '#4a3624'},
+  slab:          {pattern: 'slabs',      a: '#a8a79e', b: '#c4c3ba', c: '#85847c', d: '#5f5f5a', s: '#85847c', o: '#5f5f5a'},
+  tile:          {pattern: 'tiles',      a: '#8fc4b4', b: '#c4c3ba', c: '#5f9a8d', d: '#3f6f68', s: '#85847c', o: '#3f6f68'},
+  'scrap-plate': {pattern: 'diamond',    a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#3c3c3a', s: '#3c3c3a', o: '#26262a'},
+  thatch:        {pattern: 'thatch',     a: '#c9a869', b: '#e3cf93', c: '#8f6f45', d: '#b08d57', s: '#6b5033', o: '#4a3624'},
+  sheet:         {pattern: 'ridged',     a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#b5532f', s: '#3c3c3a', o: '#26262a'},
+  'roof-tile':   {pattern: 'scales',     a: '#b5532f', b: '#d98b4a', c: '#8c3b25', d: '#5e2a1f', s: '#8c3b25', o: '#5e2a1f'},
+};
+export const AUTOTILE_KINDS = ['wall', 'floor', 'roof', 'fence', 'door'];
+export const AUTOTILE_ROLES = ['a', 'b', 'c', 'd', 's', 'o'];
+
+const darker = {a: 'c', b: 'a', c: 'o', d: 'c', s: 'o', o: 'o'};
+
+function material(name, overrides) {
+  const base = MATERIALS[name];
+  if (!base) throw Error(`Unknown auto-tile material "${name}". Choose one of: ${Object.keys(MATERIALS).join(', ')}.`);
+  const m = {...base};
+  for (const [k, v] of Object.entries(overrides ?? {})) {
+    if (!AUTOTILE_ROLES.includes(k)) throw Error(`Unknown material role "${k}". Roles: ${AUTOTILE_ROLES.join(' ')}.`);
+    if (!/^#[0-9a-f]{6}$/i.test(v)) throw Error(`Material role ${k} needs a #rrggbb colour.`);
+    m[k] = v.toLowerCase();
+  }
+  return m;
+}
+
+const roleGrid = (S, pattern) => Array.from({length: S}, (_, y) => Array.from({length: S}, (_, x) => pattern(x, y)));
+
+/** Blob-edged block: walls and roofs (outlined, with a front face) and floors (soft edge only). */
+function blockRoles(S, pattern, kind, mask, face) {
+  const has = bit => (mask & bit) !== 0, last = S - 1;
+  const g = roleGrid(S, pattern);
+  const open = {n: !has(BITS.n), e: !has(BITS.e), s: !has(BITS.s), w: !has(BITS.w)};
+  const concave = {ne: has(BITS.n) && has(BITS.e) && !has(BITS.ne), se: has(BITS.s) && has(BITS.e) && !has(BITS.se), sw: has(BITS.s) && has(BITS.w) && !has(BITS.sw), nw: has(BITS.n) && has(BITS.w) && !has(BITS.nw)};
+  const set = (x, y, role) => { if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = role; };
+  if (kind === 'floor') {
+    if (open.n) for (let x = 0; x < S; x++) set(x, 0, 'c');
+    if (open.w) for (let y = 0; y < S; y++) set(0, y, 'c');
+    if (open.s) for (let x = 0; x < S; x++) set(x, last, 'o');
+    if (open.e) for (let y = 0; y < S; y++) set(last, y, 'o');
+    if (concave.ne) set(last, 0, 'o'); if (concave.se) set(last, last, 'o'); if (concave.sw) set(0, last, 'o'); if (concave.nw) set(0, 0, 'c');
+    return g;
+  }
+  const top = open.s ? last - face : last; // last row of the lit top surface
+  if (open.s) {
+    for (let y = top + 1; y <= last; y++) for (let x = 0; x < S; x++) g[y][x] = y === top + 1 ? 'c' : darker[pattern(x, y)];
+    for (let x = 0; x < S; x++) g[last][x] = 'o';
+  }
+  if (open.n) { for (let x = 0; x < S; x++) { g[0][x] = 'o'; if (top >= 1) g[1][x] = 'b'; } }
+  if (open.w) { for (let y = 0; y <= (open.s ? last : top); y++) { g[y][0] = 'o'; if (y >= 1 && y <= top && !(open.n && y === 0)) g[y][1] = 'b'; } }
+  if (open.e) { for (let y = 0; y <= (open.s ? last : top); y++) { g[y][last] = 'o'; if (y >= 1 && y <= top) g[y][last - 1] = 'c'; } }
+  if (concave.ne) { set(last, 0, 'o'); set(last - 1, 1, 'c'); }
+  if (concave.nw) { set(0, 0, 'o'); set(1, 1, 'b'); }
+  if (concave.se) { set(last, last, 'o'); }
+  if (concave.sw) { set(0, last, 'o'); }
+  if (open.s && open.n) { /* corners already covered by outline rows */ }
+  return g;
+}
+
+function fenceRoles(S, mask) {
+  const has = bit => (mask & bit) !== 0, g = Array.from({length: S}, () => Array(S).fill(null));
+  const put = (x, y, r) => { if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = r; };
+  const rect = (x0, y0, x1, y1, r) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, r); };
+  // rails first so the post draws over them
+  const rail = (x0, x1) => { for (const ry of [5, 9]) { rect(x0, ry, x1, ry, 'o'); rect(x0, ry + 1, x1, ry + 1, 'b'); rect(x0, ry + 2, x1, ry + 2, 'a'); rect(x0, ry + 3, x1, ry + 3, 'o'); } };
+  if (has(BITS.e)) rail(10, S - 1);
+  if (has(BITS.w)) rail(0, 5);
+  const vert = (y0, y1) => { rect(6, y0, 6, y1, 'o'); rect(7, y0, 7, y1, 'b'); rect(8, y0, 8, y1, 'a'); rect(9, y0, 9, y1, 'o'); };
+  if (has(BITS.n)) vert(0, 4);
+  if (has(BITS.s)) vert(12, S - 1);
+  // post
+  rect(5, 3, 10, 13, 'o'); rect(6, 4, 9, 12, 'a'); rect(6, 4, 9, 4, 'b'); rect(6, 5, 6, 12, 'b'); rect(9, 5, 9, 12, 'c'); rect(7, 12, 9, 12, 'c');
+  return g;
+}
+
+function doorRoles(S, pattern, open, face) {
+  const g = blockRoles(S, pattern, 'wall', BITS.e | BITS.w, face), set = (x, y, r) => { g[y][x] = r; };
+  for (let y = 2; y <= S - 2; y++) for (let x = 3; x <= S - 4; x++) set(x, y, 'o');
+  if (!open) {
+    for (let y = 3; y <= S - 3; y++) for (let x = 4; x <= S - 5; x++) set(x, y, y % 4 === 2 ? 'ls' : (x === 4 ? 'lb' : x === S - 5 ? 'lc' : 'la'));
+    set(S - 7, 8, 'ld'); set(S - 7, 9, 'ld');
+  } else {
+    for (let y = 3; y <= S - 3; y++) for (let x = 4; x <= S - 5; x++) set(x, y, 'k');
+    for (let y = 3; y <= S - 3; y++) { set(4, y, 'la'); set(5, y, 'lc'); }
+    for (let x = 6; x <= S - 5; x++) set(x, S - 3, 'f');
+  }
+  return g;
+}
+
+const DOOR_EXTRA = {k: '#1b2040', f: '#6b5033'};
+
+/** Returns [{name, pixels}] with pixels[y][x] a #rrggbb string or null. */
+export function autotileTiles({kind, material: materialName, prefix, size = 16, overrides, face, leaf}) {
+  if (!AUTOTILE_KINDS.includes(kind)) throw Error(`Unknown auto-tile kind "${kind}". Choose one of: ${AUTOTILE_KINDS.join(', ')}.`);
+  const m = material(materialName, overrides), pattern = PATTERNS[m.pattern], S = size;
+  if (S !== 16) throw Error('Auto-tiles are authored for 16x16 cells.');
+  const leafMaterial = kind === 'door' ? material(leaf ?? materialName, undefined) : null;
+  const color = role => role === null ? null : role.length === 2 && role[0] === 'l' ? leafMaterial[role[1]] : (m[role] ?? DOOR_EXTRA[role]);
+  const paint = roles => roles.map(row => row.map(color));
+  const f = face ?? (kind === 'roof' ? 3 : 4);
+  if (kind === 'fence') return FENCE_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(fenceRoles(S, mask))}));
+  if (kind === 'door') return [{name: prefix, pixels: paint(doorRoles(S, pattern, false, f))}, {name: `${prefix}_open`, pixels: paint(doorRoles(S, pattern, true, f))}];
+  return TERRAIN_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(blockRoles(S, pattern, kind, mask, f))}));
+}

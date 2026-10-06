@@ -2,7 +2,7 @@
 
 Build `font.json` and `skin.json` through the checked managed CLI. Each selects the
 `ui` inline source, exclusively of `ops`, `generator`, `character`, and `environment`.
-The only supported theme is `moss-brass`. `name`, `kind`, `theme`, and optional
+Themes are `moss-brass` (default) and `wasteland`. `name`, `kind`, `theme`, and optional
 font-only `characters` and `face` are the complete recipe fields; unknown fields fail.
 
 Use `face: "compact"` for secondary hints, captions and inventory descriptions.
@@ -67,3 +67,25 @@ integer source pixels; the compositor does not stretch art. Icons should use
 their atlas rectangle directly, not nine-slice. Keep semantic DOM controls for
 focus, keyboard, screen readers and native file selection; the game owns layout
 and state, while all visible control artwork and text come from these atlases.
+
+## `wasteland` theme and the HUD set
+
+`theme: "wasteland"` swaps the palette to the Fallow Valley ramps (night backing, dust brass, oxide teal, rust
+copper, harvest gold; `report.colors` lists every colour) and adds the frames a survival or farming HUD needs.
+`moss-brass` output is unchanged byte for byte. Fonts take the theme palette and keep the same glyph frames.
+
+Additional skin frames (wasteland only):
+
+- `meter_track` and `meter_fill_<tone>` for `hunger thirst health stamina warn danger rad`: four-pixel bars. Both
+  publish `content: {x:0,y:10,w:24,h:4}`. Draw the track across the bar width, then draw the fill's content rect
+  cropped to `fraction * width`. `progress_*` remain the thin two-pixel bars.
+- `minimap_frame`: a hollow nine-slice (`hollow: true`, insets 5). Only the border is painted, so the map shows
+  through the middle.
+- `tab_normal`, `tab_selected`: nine-slice inventory tabs.
+- `hud_<name>`: 12x12 colour icons centred in the 24x24 cell (`icon: true, color: true`). Use `getOpaqueBounds` and
+  `drawPixelFit`, or the 12px region at `(6,6)`. Names: `hunger thirst health stamina weight clock exposure
+  radiation weather_clear weather_heat weather_dust weather_rain weather_acid-rain weather_rad-storm weather_night`.
+  Green is reserved for radiation, violet for toxins and orange for heat.
+
+Panels, buttons, slots (`slot_normal`, `slot_selected` are the hotbar), tooltips and message skins are the same
+frames as `moss-brass`, painted in the new palette.

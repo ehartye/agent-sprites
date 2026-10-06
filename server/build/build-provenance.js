@@ -5,14 +5,14 @@ import { dirname, relative, resolve, sep } from 'node:path';
 export const buildTool = Object.freeze({ name: 'agent-sprites', version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version });
 
 export function resolveBuildSource(configPath, config) {
-  const hasInline = ['character', 'environment', 'ui'].some(key => Object.hasOwn(config, key));
+  const hasInline = ['character', 'environment', 'ui', 'tileset'].some(key => Object.hasOwn(config, key));
   // Legacy file recipes permit an empty unused source. Inline declarations
   // remain strict so malformed/mixed declarations never select another source.
   const sources = hasInline
-    ? ['ops', 'generator', 'character', 'environment', 'ui'].filter(key => Object.hasOwn(config, key))
+    ? ['ops', 'generator', 'character', 'environment', 'ui', 'tileset'].filter(key => Object.hasOwn(config, key))
     : ['ops', 'generator'].filter(key => Boolean(config[key]));
-  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, or UI recipe.');
-  const sourceKind = sources[0], inline = ['character', 'environment', 'ui'].includes(sourceKind);
+  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, UI recipe, or tileset recipe.');
+  const sourceKind = sources[0], inline = ['character', 'environment', 'ui', 'tileset'].includes(sourceKind);
   if (config.trim && sourceKind === 'ui') throw new Error('trim is not supported for UI builds: the UI runtime composites whole glyph and skin cells.');
   if (inline) {
     if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
@@ -28,7 +28,9 @@ export function snapshotBuildInputs(configPath, config, source) {
     throw new Error('inputs must be an array of nonempty file paths relative to the build config.');
   }
   const base = dirname(configPath), seen = new Set(), inputs = [];
-  for (const path of [configPath, source, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
+  // A tileset's .pxl sources are its real inputs; tracking them needs no separate declaration.
+  const tilesetSources = Array.isArray(config.tileset?.sources) ? config.tileset.sources.filter(path => typeof path === 'string' && path).map(path => resolve(base, path)) : [];
+  for (const path of [configPath, source, ...tilesetSources, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
     const canonical = realpathSync(path), key = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
     if (seen.has(key)) continue;
     if (!statSync(canonical).isFile()) throw new Error(`Build input must be a file: ${path}`);
