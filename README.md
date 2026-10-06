@@ -350,7 +350,11 @@ shapes plus `environment-report.json` with floor, door, wall and furniture colli
 geometry. Games can consume that geometry alongside the atlas to keep walkable
 space aligned with the art. Terrain recipes provide deterministic variants;
 `terrain-transition` supplies 47 neighbor-aware path masks with rounded corners,
-irregular shoulders and four seam-compatible variants. The
+irregular shoulders and four seam-compatible variants. The wasteland set (dust, sand,
+gravel, rubble, concrete, asphalt, ash, mud, slag, fused-glass, salt-crust, clay, animated water, tilled-soil and
+tilled-soil-wet), inline `customMaterials`, and `terrain-overlay` (alpha-edged 47-mask encroachment overlays plus base
+tiles from one build) give an open-ended ground sandbox; see
+[wasteland terrain](examples/environment/README.md#wasteland-terrain-custom-materials-and-overlays). The
 habitat kit offers cottage, workshop, kitchen and barn styles with distinct roof
 silhouettes and matching interiors, alongside the historical default pressure
 vessel. Each style keeps the same reported navigation geometry.
