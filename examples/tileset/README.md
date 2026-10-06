@@ -47,6 +47,15 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
 - `@copy <new> <source>` duplicates a tile (used for legacy names).
 - `@anim <name> [fps=N] [outline] ...` makes cells `<name>_0`, `<name>_1`, ... and a cell group, so the Aseprite atlas
   carries a frame tag `<name>` with its durations.
+- `@shadow <name> w=N h=N [x= y=] [color=#hex]` draws one stepped contact-shadow silhouette (a lens that is widest in the
+  middle rows), centred in the cell unless `x=`/`y=` place it. Hard alpha and one flat colour (default `#1b2040`): the
+  game draws it at a single opacity (25-35%), so overlaps never double-darken and every edge stays on the pixel grid.
+  Author one per size class (creatures, props); anything larger can nine-slice a small plate frame.
+- `@shade <prefix> n=N w=N [e=N] [color=#hex]` expands to the nine edge-occlusion tiles `<prefix>_<mask>` for ground
+  beside something tall. Light is top left, so a caster to the north (mask bit N=1) paints `n` rows along the top, one to
+  the west (W=64) paints `w` columns down the left, one to the east (E=4) a thin `e`-column contact line, and a caster
+  at the north-west only (NW=128) a chamfered corner block. Masks: 1 4 5 64 65 68 69 128 132 (a diagonal is dropped
+  when N or W is set). Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
 - `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material]` expands to a full set.
 
 Atlas note: the Aseprite atlas lists the grid frames first (numeric filenames equal to cell indices), then one run of

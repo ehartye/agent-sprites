@@ -132,3 +132,22 @@ test('build-set --check accepts intentionally omitted artifacts but flags a miss
   delete config.omit;writeFileSync(path,JSON.stringify(config));
   const checked=await buildProjectSet(list,{check:true});expect(checked.projects[0].status).not.toBe('current');
 });
+
+test('@shadow and @shade build hard-alpha shadow frames and a shade mask set with a report',async()=>{
+  config.tileset.cell=16;config.tileset.columns=8;
+  write(`@shadow shadow_small w=10 h=5 color=#102030\n@shadow shadow_edge w=4 h=2 x=0 y=14\n@shade edge_wall n=3 w=2 e=1 color=#102030\n`);
+  const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));
+  expect(report.count).toBe(11);expect(report.index.shadow_small).toBe(0);
+  expect(report.autotiles.edge_wall.kind).toBe('shade');expect(report.autotiles.edge_wall.masks).toEqual([1,4,5,64,65,68,69,128,132]);
+  const png=await sheet(result);
+  // centre of the lens is opaque shadow colour, a corner is transparent, and nothing is semi-transparent
+  expect(px(png,8,8)).toEqual([0x10,0x20,0x30,255]);expect(px(png,0,0)[3]).toBe(0);
+  for(let i=3;i<png.data.length;i+=4)expect([0,255]).toContain(png.data[i]);
+});
+
+test('@shadow and @shade report mistakes with the line',()=>{
+  config.tileset.cell=16;
+  write(`@shadow big w=20 h=5\n`);expect(()=>generateTilesetRecipe(config.tileset,dir)).toThrow(/does not fit/);
+  write(`@shade s n=3\n`);expect(()=>generateTilesetRecipe(config.tileset,dir)).toThrow(/a.pxl:1/);
+});

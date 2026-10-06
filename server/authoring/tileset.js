@@ -1,5 +1,6 @@
 import {readFileSync, existsSync, statSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {shadowPixels, shadeTiles, SHADE_MASKS} from './tileset-shadow.js';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
 
 // Tileset recipe: a regular grid of equal cells (frame index = row-major cell index) described in
@@ -91,7 +92,7 @@ export function parseTilesetSource(text, file, state) {
   while (true) {
     const line = next();
     if (line === null) break;
-    if (!isDirective(line)) fail('Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile).');
+    if (!isDirective(line)) fail('Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade).');
     const start = i, words = line.slice(1).trim().split(/\s+/), directive = words[0], rest = words.slice(1);
     i++;
     if (directive === 'palette') {
@@ -175,6 +176,32 @@ export function parseTilesetSource(text, file, state) {
       if (cellW !== cellH) fail('Auto-tiles need square cells.', start);
       for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
       state.autotiles[prefix] = {kind, material: materialName, masks: set.filter(t => t.mask !== undefined).map(t => t.mask), frames: set.map(t => t.name)};
+    } else if (directive === 'shadow') {
+      // @shadow <name> w=<n> h=<n> [x= y=] [color=#hex]: a stepped contact-shadow silhouette, hard alpha, one colour.
+      const [name, ...opts] = rest;
+      if (!name) fail('@shadow needs a name.', start);
+      const o = options(opts), num = key => { const v = Number(o.values[key]); if (!Number.isInteger(v) || v < 1) fail(`@shadow ${name}: ${key}= must be a positive integer.`, start); return v; };
+      for (const k of Object.keys(o.values)) if (!['w', 'h', 'x', 'y', 'color'].includes(k)) fail(`@shadow ${name}: unknown option ${k}=.`, start);
+      const sw = num('w'), sh = num('h');
+      if (sw > cellW || sh > cellH) fail(`@shadow ${name}: a ${sw}x${sh} silhouette does not fit a ${cellW}x${cellH} cell.`, start);
+      const x = o.values.x === undefined ? Math.floor((cellW - sw) / 2) : Number(o.values.x), y = o.values.y === undefined ? Math.floor((cellH - sh) / 2) : Number(o.values.y);
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + sw > cellW || y + sh > cellH) fail(`@shadow ${name}: x= and y= must keep the silhouette inside the cell.`, start);
+      let block;
+      try { block = shadowPixels({w: sw, h: sh, color: o.values.color}); } catch (error) { fail(error.message, start); }
+      const pixels = Array.from({length: cellH}, () => Array(cellW).fill(null));
+      block.forEach((row, ry) => row.forEach((c, rx) => { pixels[y + ry][x + rx] = c; }));
+      addTile(name, pixels, start, {shadow: true});
+    } else if (directive === 'shade') {
+      // @shade <prefix> n=<rows> w=<cols> [e=<cols>] [color=#hex]: edge occlusion bands for ground beside tall things.
+      const [prefix, ...opts] = rest;
+      if (!prefix) fail('@shade needs a prefix.', start);
+      const o = options(opts);
+      for (const k of Object.keys(o.values)) if (!['n', 'w', 'e', 'color'].includes(k)) fail(`@shade ${prefix}: unknown option ${k}=.`, start);
+      if (cellW !== cellH) fail('@shade needs square cells.', start);
+      let set;
+      try { set = shadeTiles({prefix, size: cellW, n: Number(o.values.n), w: Number(o.values.w), e: o.values.e === undefined ? 0 : Number(o.values.e), color: o.values.color}); } catch (error) { fail(error.message, start); }
+      for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
+      state.autotiles[prefix] = {kind: 'shade', material: 'shadow', masks: SHADE_MASKS.slice(), frames: set.map(t => t.name), convention: 'N=1 E=4 W=64 NW=128: a set bit means that neighbour casts onto this tile; NW is dropped when N or W is set'};
     } else fail(`Unknown directive @${directive}.`, start);
   }
 }
@@ -236,7 +263,7 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
     // Frame index equals the row-major cell index; a game maps names to Phaser tileset indices with this table.
     index,
     animations: Object.fromEntries(state.animations.map(a => [a.name, {fps: a.fps, frames: a.frames.map(f => index[f])}])),
-    autotiles: Object.fromEntries(Object.entries(state.autotiles).map(([prefix, a]) => [prefix, {kind: a.kind, material: a.material, convention: MASK_CONVENTION, masks: a.masks, frames: Object.fromEntries(a.frames.map(f => [f, index[f]]))}])),
+    autotiles: Object.fromEntries(Object.entries(state.autotiles).map(([prefix, a]) => [prefix, {kind: a.kind, material: a.material, convention: a.convention ?? MASK_CONVENTION, masks: a.masks, frames: Object.fromEntries(a.frames.map(f => [f, index[f]]))}])),
     materials: Object.keys(MATERIALS),
   };
   report.paddingCells = columns * rows - tiles.length;
