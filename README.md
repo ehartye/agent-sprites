@@ -294,7 +294,7 @@ outputs before publishing: PNG, Aseprite atlas, editable `.project.json`, labele
 contact sheet, verification report, captured operations, and `preview.html`.
 
 Every build also writes `sprite-manifest.json`: `format`, `version: 1`, the project
-`name`, its `source` (`ops`, `generator`, `character`, `environment` or `ui`), the recipe
+`name`, its `source` (`ops`, `generator`, `character`, `environment`, `creature` or `ui`), the recipe
 `kind` when it has one (for example `furniture` or `font`), the recipe `report` file, and a
 `files` map using the same keys as the build's `artifacts` result (`sheet`, `atlas`,
 `environmentReport`, `uiRuntime` and so on). Every name is relative to the manifest,
@@ -333,8 +333,9 @@ The config plus ops/generator/character/environment source is canonical: edits t
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
 For shared adult/child body profiles, expressions and suits, use the built-in
-[`character` source](examples/character-cast/README.md). Choose exactly one source:
-`ops`, `generator`, `character`, `environment`, or `ui`. No game-local generator is required.
+[`character` source](examples/character-cast/README.md). For non-humanoid animals, insects, arachnids,
+birds and crawlers use the [`creature` source](examples/creature/README.md). Choose exactly one source:
+`ops`, `generator`, `character`, `environment`, `creature`, or `ui`. No game-local generator is required.
 Review a true idle pose before judging a paused walk frame. The character report
 includes profile shoulder/hip measurements and actual heel/ball/toe landmarks; its
 neutral standing checks do not constrain moving feet to the same vertical line.
