@@ -1,4 +1,5 @@
 import {FONT_GLYPHS,FONT_CHARACTERS,FONT_SYMBOLS} from './ui-font.js';
+import {logoRaster} from './ui-logo.js';
 import {DISPLAY_CELL,displayGlyph,displayRamp} from './ui-display.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
@@ -19,14 +20,27 @@ export function packGrid(count,width,height,maxWidth=1024){
   }
   return {cols:best.cols,rows:best.rows};
 }
+/** One-cell logotype frame `logo`: lettering, sun and wheat as a single raster (see ui-logo.js). */
+function generateLogoRecipe(config,{name,theme,COLORS}){
+  if(config.characters!==undefined||config.face!==undefined)throw Error('Characters and face apply only to fonts.');
+  const raster=logoRaster({text:config.text},COLORS),{width,height}=raster;
+  const operations=[{command:'new',name,size:`${width}x${height}`,cols:1,rows:1,palette:'pico8'},{command:'clear',cell:'0,0'},{command:'name',cell:'0,0',as:'logo'}],names=[],bounds={left:width,top:height,right:-1,bottom:-1};
+  raster.rows.forEach((row,y)=>{for(let x=0;x<width;){const key=row[x];if(key==='.'){x++;continue;}const start=x;while(x<width&&row[x]===key)x++;
+    const shape=`pixel_run_${names.length}`;names.push(shape);operations.push({command:'draw',cell:'0,0',type:'rect',name:shape,color:raster.palette[key],filled:true,x:start,y,w:x-start,h:1});
+    bounds.left=Math.min(bounds.left,start);bounds.top=Math.min(bounds.top,y);bounds.right=Math.max(bounds.right,x-1);bounds.bottom=Math.max(bounds.bottom,y);}});
+  operations.push({command:'shape-group',sub:'create',cell:'0,0',name:'logo',shapes:names});
+  return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??'FALLOW\nVALLEY',colors:Object.values(raster.palette)}}};
+}
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
-  for(const k of Object.keys(config))if(!['name','kind','theme','characters','face'].includes(k))throw Error(`Unknown UI field: ${k}`);
+  for(const k of Object.keys(config))if(!['name','kind','theme','characters','face','text'].includes(k))throw Error(`Unknown UI field: ${k}`);
   const {kind,name=kind==='font'?'ui-font':'ui-skin',theme='moss-brass'}=config;
-  if(!['font','skin'].includes(kind))throw Error('UI kind must be font or skin.');
+  if(!['font','skin','logo'].includes(kind))throw Error('UI kind must be font, skin or logo.');
   if(typeof name!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid UI name.');
   if(!Object.hasOwn(UI_THEMES,theme))throw Error('Unsupported UI theme.');
   const COLORS=UI_THEMES[theme];
+  if(kind==='logo')return generateLogoRecipe(config,{name:config.name??'ui-logo',theme,COLORS});
+  if(config.text!==undefined)throw Error('Text applies only to logos.');
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
   if(kind==='skin'&&config.face!==undefined)throw Error('Face applies only to fonts.');
   const face=config.face??'regular',compact=face==='compact',display=face==='display';

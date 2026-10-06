@@ -49,7 +49,7 @@ with `missingGlyphs`, including punctuation, changing quantities and error text.
 Phaser games load `ui-phaser.json` (per-tone `BitmapFontData` and nine-slice numbers; see the UI README) instead of writing an adapter.
 Use `ui-boot.mjs` when loading/failure messages must also use the exported font.
 For a logo, banner or boss name build a third font with `face: "display"` (2x lettering with outline, bevel and shadow) and draw it
-at scale 1 in the UI layer; never scale the regular face. Hearts, skulls, drops and other symbols are font glyphs
+at scale 1 in the UI layer; never scale the regular face. For a title screen build a `kind: "logo"` recipe: one `logo` frame with the lettering, sun and wheat, drawn as one image; `banner_boss` is a nine-slice plate for boss-name banners. Hearts, skulls, drops and other symbols are font glyphs
 (`report.symbols`) and `sym_*` skin icons. Skin sheets are packed near-square; `verify --max-aspect 3` catches a strip.
 For a strictly pixel interface, replace visible browser lettering, native form
 art, tooltips, list markers, focus rings and world labels as well as main menus.
