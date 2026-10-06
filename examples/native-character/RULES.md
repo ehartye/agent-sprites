@@ -20,6 +20,8 @@ These rows describe the idle/passing pose. Stride poses lower the head, shoulder
 
 ## Hair
 
+For bare eight-direction mannequins and face references, follow [face construction](FACE-CONSTRUCTION.md): preserve skull volume and the brow-plus-two-row eye band. Keep eye materials separate from skin. The fitted clothing and wig rules below currently cover the original four directions.
+
 - Separate the scalp cap, front fringe, profile side mass and rear tie logically. Use a few connected color clusters, with upper-left light and darker lower/right planes.
 - Stop the front fringe before the first eye row. Preserve every sampled eye pixel unless deliberate occlusion is part of the design. A right view exposes the eye on screen-right; the hair mass belongs behind it on screen-left.
 - Make the rear a full cap without facial pixels. Carry the same palette, crown and length across directions; show the tie in back and profile, not pasted onto the forehead.

@@ -2,6 +2,7 @@ import {test,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {nativeMannequin,sourceMannequin} from '../examples/native-character/native-mannequin.mjs';
 import {cutOutlineCorners} from '../server/engine/outline-corners.js';
+import {appendNativeDiagonals} from '../server/authoring/native/native-diagonal.mjs';
 
 for(const kind of ['adult','child'])test(`${kind} source stage preserves all source walking pixels and publishes four complete directions`,()=>{
   const source=JSON.parse(readFileSync(new URL(`../server/authoring/native/templates/${kind}.project.json`,import.meta.url)));
@@ -40,7 +41,7 @@ for(const kind of ['adult','child'])test(`${kind} source stage preserves all sou
 
 for(const kind of ['adult','child'])test(`${kind} publishes its source with outside outline corners cut and no exposed skin`,()=>{
   const outline='#673649',source=sourceMannequin(kind),published=nativeMannequin(kind);
-  const {ops:expected,removed}=cutOutlineCorners(source,outline);
+  const {ops:expected,removed}=cutOutlineCorners(appendNativeDiagonals(source,kind,'peach'),outline);
   expect(removed.length).toBeGreaterThan(0);
   expect(published).toEqual(expected);
   const byCell=new Map();for(const o of published)if(o.command==='draw'){if(!byCell.has(o.cell))byCell.set(o.cell,new Map());byCell.get(o.cell).set(o.x+','+o.y,o);}

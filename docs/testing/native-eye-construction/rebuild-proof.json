@@ -1,0 +1,20 @@
+{
+  "rows": [
+    {
+      "preset": "adult",
+      "identicalFiles": 10
+    },
+    {
+      "preset": "child",
+      "identicalFiles": 10
+    },
+    {
+      "preset": "large",
+      "identicalFiles": 10
+    },
+    {
+      "preset": "eye-construction",
+      "identicalFiles": 8
+    }
+  ]
+}

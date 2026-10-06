@@ -1,0 +1,8 @@
+{
+  "command": "npm test -- --maxWorkers=2",
+  "tests": 1694,
+  "passed": 1694,
+  "failed": 0,
+  "files": 152,
+  "success": true
+}

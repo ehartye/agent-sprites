@@ -1,3 +1,5 @@
+import {diagonalJoints} from './native-diagonal.mjs';
+
 // Authored body landmarks for the 16×32 source poses (cell pixels, bob included).
 // Front: the character's right is on the image left. Right profile: the right side
 // is near. Left, back and large are derived — never author them.
@@ -59,6 +61,7 @@ const swap=j=>({left:j.right,right:j.left});
 
 /** Landmarks for a published frame. phase null is the idle pose (phase 0 art). */
 export function jointsFor(kind, facing, phase) {
+  if(['front-right','back-right','back-left','front-left'].includes(facing))return diagonalJoints(kind,facing,phase);
   const source=kind==='large'?'adult':kind, p=phase??0;
   const row=f=>JOINTS[source][`${f}_${p}`];
   let j;
