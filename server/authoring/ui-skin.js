@@ -32,12 +32,11 @@ function drawHud(alias,rect,c){
     return 'hollow';
   }
   if(alias==='banner_boss'){
-    // Boss-name plate: rust-copper frame with gold corner studs and notches, a lit top edge, night fill.
+    // Boss-name plate: rust-copper frame with gold corner studs (the edges tile, so nothing sits mid-edge), a lit top edge, night fill.
     rect(1,0,22,24,c.shadow);rect(0,1,24,22,c.shadow);rect(1,1,22,22,c.wornCopper);rect(2,2,20,20,c.shadow);rect(3,3,18,18,c.deep);
     rect(3,3,18,1,c.edge);rect(1,1,22,1,'#d98b4a');rect(1,22,22,1,'#8c3b25');
     for(const [x,y] of [[1,1],[19,1],[1,19],[19,19]])rect(x,y,4,4,c.gold);
     for(const [x,y] of [[2,2],[20,2],[2,20],[20,20]])rect(x,y,2,2,c.shadow);
-    rect(10,0,4,2,c.gold);rect(10,22,4,2,c.gold);rect(0,10,2,4,c.gold);rect(22,10,2,4,c.gold);
     return true;
   }
   if(alias==='tab_normal'||alias==='tab_selected'){
