@@ -234,7 +234,7 @@ OFFLINE VERIFICATION (does not start or contact a server)
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
-  verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png]
+  verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
                          inspect actual PNG + metadata; optional continuous-outline check
 
@@ -401,7 +401,7 @@ async function run() {
       expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
       expectedFrames: args['expect-frames'] ? String(args['expect-frames']).split(',') : [],
       outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
-      contactPath: args['contact-sheet'], reportPath: args.report, scale: num(args.scale) ?? 4,
+      contactPath: args['contact-sheet'], contactFrames: args['contact-frames'] ? String(args['contact-frames']).split(',').map(x=>x.trim()).filter(Boolean) : [], reportPath: args.report, scale: num(args.scale) ?? 4,
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {

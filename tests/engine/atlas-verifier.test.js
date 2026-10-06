@@ -146,3 +146,15 @@ test('a contact sheet that cannot fit even compactly is truncated with a warning
   expect(report.warnings.map((w) => w.code)).toContain('contact-sheet-truncated');
   expect(existsSync(contact)).toBe(true);
 }, 120000);
+
+test('contactFrames limits the contact sheet to the named frames (exact or prefix*) and fails when nothing matches', async () => {
+  const all = join(dir, 'all.png'), one = join(dir, 'one.png');
+  const full = await verifyAtlasFile(file, { contactPath: all });
+  const some = await verifyAtlasFile(file, { contactPath: one, contactFrames: ['idle'] });
+  expect(some.ok).toBe(true);
+  expect(some.contactSheet.tiles).toBe(1);
+  expect(full.contactSheet.tiles).toBeGreaterThan(1);
+  const none = await verifyAtlasFile(file, { contactPath: join(dir, 'none.png'), contactFrames: ['nope*'] });
+  expect(none.ok).toBe(false);
+  expect(none.errors[0].message).toMatch(/No atlas frame matches/);
+});
