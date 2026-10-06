@@ -149,3 +149,22 @@ test('every plan fits every preset size with and without all its features (bodie
 test('sizes below 16x16 are rejected',()=>{
   expect(()=>parseSize('12x12')).toThrow(/between 16x16 and 160x128/);
 });
+
+test('review regressions: bad plan names, horn styles, option types, counts, left in views and down-only builds',()=>{
+  const make=extra=>generateCreatureRecipe({name:'t',plan:'quadruped',size:'medium',...extra});
+  for(const plan of ['constructor','toString','__proto__',5])expect(()=>make({plan})).toThrow(/Unsupported creature plan/);
+  for(const style of ['zzz',5,'constructor'])expect(()=>make({features:[{type:'horns',style}]})).toThrow(/Invalid horns option style/);
+  expect(()=>make({features:[{type:'fur',count:1e6}]})).toThrow(/Invalid fur option count/);
+  for(const count of [-1,NaN,'3',1.5])expect(()=>make({features:[{type:'spikes',count}]})).toThrow(/Invalid spikes option count/);
+  expect(()=>make({features:[{type:'horns',colour:'red'}]})).toThrow(/no option colour/);
+  expect(()=>make({features:'horns'})).toThrow(/features must be an array/);
+  expect(()=>make({views:['right','left']})).toThrow(/left is the mirror/);
+  expect(()=>make({attack:['bite','bite']})).toThrow(/attack must be/);
+  expect(()=>make({fps:[]})).toThrow(/fps must be an object/);
+  expect(()=>make({palette:'constructor'})).toThrow(/Unknown palette preset/);
+  const down=generateCreatureRecipe({name:'t',plan:'bird',size:'small',animations:['down']});
+  expect(down.operations.filter(o=>o.command==='group').map(o=>o.name)).toEqual(['down']);
+  expect(down.report.footprint.w).toBeGreaterThan(0);
+  const two=generateCreatureRecipe({name:'t',plan:'arachnid',size:'40x28',attack:['stinger','pincer']});
+  expect(two.report.aliases.attack2).toBe('attack2_{direction}_{frame}');
+});

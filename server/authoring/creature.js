@@ -6,6 +6,12 @@ import { PLANS } from './creature-plans.js';
 export const SIZE_PRESETS = { small: [16, 16], medium: [32, 24], large: [48, 32] };
 const PROPORTIONS = ['bodyLength', 'bodyHeight', 'legLength', 'legThickness', 'headSize', 'neckThickness', 'tailLength'];
 const FEATURE_TYPES = ['horns', 'tusks', 'tail', 'stinger', 'pincers', 'mandibles', 'shell', 'fur', 'spikes', 'glow_eyes', 'glow_patch', 'beard', 'wool', 'saddle', 'pack', 'extra_eyes', 'extra_limbs', 'second_head', 'metal_feathers', 'comb', 'antennae', 'hump', 'wings'];
+const count = v => Number.isInteger(v) && v >= 0 && v <= 12;
+const FEATURE_OPTIONS = {
+  horns: { style: v => ['curved', 'straight', 'ram', 'short'].includes(v) },
+  fur: { count }, spikes: { count }, extra_eyes: { count }, metal_feathers: { count },
+  beard: { glow: v => typeof v === 'boolean' },
+};
 const FPS = { idle: 3, walk: 8, attack: 10, hurt: 6, down: 1 };
 const identifier = (v, label) => { if (typeof v !== 'string' || !/^[a-z][a-z0-9_-]{0,47}$/.test(v)) throw Error(`Invalid ${label}`); return v; };
 const fail = msg => { throw Error(msg); };
@@ -24,7 +30,7 @@ function normalise(config) {
   for (const key of Object.keys(config)) if (!['name', 'plan', 'size', 'palette', 'proportions', 'features', 'head', 'tail', 'paw', 'views', 'animations', 'attack', 'idleFrames', 'left', 'outline', 'fps'].includes(key)) throw Error(`Unknown creature field: ${key}`);
   const name = identifier(config.name ?? 'creature', 'creature name');
   const plan = config.plan ?? fail('creature plan is required');
-  const spec = PLANS[plan] ?? fail(`Unsupported creature plan: ${plan}. Use ${Object.keys(PLANS).join(', ')}`);
+  const spec = typeof plan === 'string' && Object.hasOwn(PLANS, plan) ? PLANS[plan] : fail(`Unsupported creature plan: ${String(plan)}. Use ${Object.keys(PLANS).join(', ')}`);
   const [W, H] = parseSize(config.size);
   const P = Object.fromEntries(PROPORTIONS.map(k => [k, 1]));
   if (config.proportions !== undefined) {
@@ -36,13 +42,20 @@ function normalise(config) {
     }
   }
   const F = new Map();
+  if (config.features !== undefined && !Array.isArray(config.features)) throw Error('features must be an array');
   for (const item of config.features ?? []) {
     const f = typeof item === 'string' ? { type: item } : item;
     if (!f || typeof f !== 'object' || Array.isArray(f) || typeof f.type !== 'string') throw Error('Each feature is a type name or an object with a type');
     if (!FEATURE_TYPES.includes(f.type)) throw Error(`Unknown creature feature: ${f.type}. Use ${FEATURE_TYPES.join(', ')}`);
     if (!spec.features.includes(f.type)) throw Error(`Feature ${f.type} is not available on the ${plan} plan (supported: ${spec.features.join(', ')})`);
     if (F.has(f.type)) throw Error(`Duplicate creature feature: ${f.type}`);
-    const { type, ...opts } = f; F.set(type, opts);
+    const { type, ...fopts } = f;
+    const schema = FEATURE_OPTIONS[type] ?? {};
+    for (const [key, value] of Object.entries(fopts)) {
+      const rule = Object.hasOwn(schema, key) ? schema[key] : fail(`Feature ${type} has no option ${key}${Object.keys(schema).length ? ` (options: ${Object.keys(schema).join(', ')})` : ''}`);
+      if (!rule(value)) throw Error(`Invalid ${type} option ${key}: ${JSON.stringify(value)}`);
+    }
+    F.set(type, fopts);
   }
   const opts = { ...spec.defaults };
   for (const key of ['head', 'tail', 'paw']) if (config[key] !== undefined) {
@@ -50,21 +63,22 @@ function normalise(config) {
     opts[key] = config[key];
   }
   const views = config.views ?? ['front', 'back', 'right'];
+  if (Array.isArray(views) && views.includes('left')) throw Error('views lists front, back and right; left is the mirror of right (set left: false to omit it)');
   if (!Array.isArray(views) || !views.length || new Set(views).size !== views.length || views.some(v => !VIEWS.includes(v))) throw Error(`views must be a unique nonempty subset of ${VIEWS.join(', ')}`);
   const animations = config.animations ?? ANIMATIONS;
   if (!Array.isArray(animations) || !animations.length || new Set(animations).size !== animations.length || animations.some(a => !ANIMATIONS.includes(a))) throw Error(`animations must be a unique nonempty subset of ${ANIMATIONS.join(', ')}`);
   const left = config.left ?? true;
   if (typeof left !== 'boolean') throw Error('left must be true or false');
   const attacks = [].concat(config.attack ?? spec.attacks[0]);
-  if (!attacks.length || attacks.length > 2 || attacks.some(a => !ATTACKS.includes(a) || !spec.attacks.includes(a))) throw Error(`attack must be one or two of ${spec.attacks.join(', ')} for the ${plan} plan`);
+  if (!attacks.length || attacks.length > 2 || new Set(attacks).size !== attacks.length || attacks.some(a => !ATTACKS.includes(a) || !spec.attacks.includes(a))) throw Error(`attack must be one or two of ${spec.attacks.join(', ')} for the ${plan} plan`);
   const idleFrames = config.idleFrames ?? 2;
   if (![2, 4].includes(idleFrames)) throw Error('idleFrames must be 2 or 4');
   const outline = config.outline ?? 'selective';
   if (!['selective', 'full'].includes(outline)) throw Error('outline must be selective or full');
   const fps = { ...FPS };
   if (config.fps !== undefined) {
-    if (!config.fps || typeof config.fps !== 'object') throw Error('fps must be an object');
-    for (const [k, v] of Object.entries(config.fps)) { if (!(k in FPS) || !Number.isFinite(v) || v < 1 || v > 60) throw Error(`fps.${k} must be between 1 and 60 for idle, walk, attack, hurt or down`); fps[k] = v; }
+    if (!config.fps || typeof config.fps !== 'object' || Array.isArray(config.fps)) throw Error('fps must be an object');
+    for (const [k, v] of Object.entries(config.fps)) { if (!Object.hasOwn(FPS, k) || !Number.isFinite(v) || v < 1 || v > 60) throw Error(`fps.${k} must be between 1 and 60 for idle, walk, attack, hurt or down`); fps[k] = v; }
   }
   const palette = resolvePalette(config.palette);
   const emitViews = [...views, ...(left && views.includes('right') ? ['left'] : [])];
@@ -175,7 +189,7 @@ function buildReport(cfg, frames, tags, shifts) {
   const standing = Object.fromEntries(frames.filter(f => f.alias === `idle_${f.direction}_0` || f.alias === 'down_0').map(f => [f.alias, f]));
   const footprints = {};
   for (const view of cfg.emitViews) {
-    const f = standing[`idle_${view}_0`] ?? frames.find(fr => fr.direction === view);
+    const f = standing[`idle_${view}_0`] ?? frames.find(fr => fr.direction === view) ?? frames[0];
     const bw = f.bounds.right - f.bounds.left + 1;
     const w = Math.max(2, Math.round(bw * 0.7)), h = Math.max(2, Math.round(H * 0.22));
     footprints[view] = { x: Math.round(W / 2 - w / 2), y: H - h, w, h };
@@ -196,7 +210,7 @@ function buildReport(cfg, frames, tags, shifts) {
     footprint: base, footprints,
     features: [...cfg.F.keys()], attacks: cfg.attacks,
     directions: { down: 'front', up: 'back', left: 'left', right: 'right' },
-    aliases: { idle: 'idle_{direction}_0', walk: 'walk_{direction}_{frame}', attack: 'attack_{direction}_{frame}', hurt: 'hurt_{direction}_0', down: 'down_0' },
+    aliases: { idle: 'idle_{direction}_0', walk: 'walk_{direction}_{frame}', attack: 'attack_{direction}_{frame}', ...(cfg.attacks.length > 1 ? { attack2: 'attack2_{direction}_{frame}' } : {}), hurt: 'hurt_{direction}_0', down: 'down_0' },
     animations: Object.fromEntries([...tags].map(([name, t]) => [name, { frames: t.cells.length, fps: cfg.fps[t.anim], loop: t.anim === 'idle' || t.anim === 'walk' }])),
     frames,
   };

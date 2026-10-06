@@ -50,11 +50,11 @@ const HEX = /^#[0-9a-f]{6}$/i;
 /** One role: a material name, or four explicit hex steps, or { ramp, steps }. */
 function material(spec, role) {
   if (typeof spec === 'string') {
-    if (!MATERIALS[spec]) throw Error(`Palette role ${role}: unknown material ${spec}. Use ${MATERIAL_NAMES.join(', ')}`);
+    if (!Object.hasOwn(MATERIALS, spec)) throw Error(`Palette role ${role}: unknown material ${spec}. Use ${MATERIAL_NAMES.join(', ')}`);
     return { ...MATERIALS[spec] };
   }
   if (Array.isArray(spec) && spec.length === 4 && spec.every(c => typeof c === 'string' && HEX.test(c))) return mat(...spec);
-  if (spec && typeof spec === 'object' && RAMPS[spec.ramp] && Array.isArray(spec.steps) && spec.steps.length === 4 && spec.steps.every(i => Number.isInteger(i) && i >= 0 && i < RAMPS[spec.ramp].length)) return m(spec.ramp, spec.steps);
+  if (spec && typeof spec === 'object' && Object.hasOwn(RAMPS, spec.ramp) && Array.isArray(spec.steps) && spec.steps.length === 4 && spec.steps.every(i => Number.isInteger(i) && i >= 0 && i < RAMPS[spec.ramp].length)) return m(spec.ramp, spec.steps);
   throw Error(`Palette role ${role} must be a material name, four #RRGGBB steps, or { ramp, steps }`);
 }
 
@@ -66,7 +66,7 @@ export function resolvePalette(spec = 'dust') {
     for (const key of Object.keys(rest)) if (!['body', 'belly', 'accent', 'cloth', 'metal', 'glow', 'patch'].includes(key)) throw Error(`Unknown palette role: ${key}`);
     base = preset ?? 'dust'; roles = rest;
   } else throw Error('palette must be a preset name or an object of roles');
-  if (!PALETTES[base]) throw Error(`Unknown palette preset: ${base}. Use ${PALETTE_NAMES.join(', ')}`);
+  if (typeof base !== 'string' || !Object.hasOwn(PALETTES, base)) throw Error(`Unknown palette preset: ${base}. Use ${PALETTE_NAMES.join(', ')}`);
   const out = {};
   for (const role of ['body', 'belly', 'accent', 'cloth', 'metal', 'glow']) out[role] = material(roles[role] ?? PALETTES[base][role], role);
   out.patch = roles.patch ? material(roles.patch, 'patch') : { ...out.belly };

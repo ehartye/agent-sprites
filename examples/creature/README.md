@@ -22,13 +22,13 @@ cell are rejected with the field named. See [sprite-project.json](sprite-project
 | `name` | Project and atlas name (`^[a-z][a-z0-9_-]*$`). |
 | `plan` | `quadruped`, `insect` (six legs, tripod gait), `arachnid` (eight legs, tail, pincers), `bird` (biped) or `blob` (crawler). |
 | `size` | `small` 16x16, `medium` 32x24, `large` 48x32, or any `WxH` from 16x16 up to 160x128. |
-| `palette` | A preset (`dust`, `earth`, `rust`, `oxide`, `concrete`, `ash`, `scrub`, `toxic`) or `{ preset, body, belly, accent, cloth, metal, glow, patch }` where each role is a material name, four `#RRGGBB` steps, or `{ ramp, steps }`. Ramps are the Fallow Valley art-direction ramps (dust, rust, oxide, concrete, scrub, harvest, toxic, glow, night). |
+| `palette` | A preset (`dust`, `earth`, `rust`, `oxide`, `concrete`, `ash`, `scrub`, `toxic`) or `{ preset, body, belly, accent, cloth, metal, glow, patch }` where each role is a material name, four `#RRGGBB` steps, or `{ ramp, steps }`. Presets and ramp steps only use colours from the art-direction ramps; explicit hex steps are your own responsibility. Ramps are the Fallow Valley art-direction ramps (dust, rust, oxide, concrete, scrub, harvest, toxic, glow, night). |
 | `proportions` | Multipliers 0.4 to 2.5: `bodyLength`, `bodyHeight`, `legLength`, `legThickness`, `headSize`, `neckThickness`, `tailLength`. |
 | `head` / `tail` / `paw` | Quadruped only. Head `canid`, `bovid`, `swine`, `caprine`, `equine`; tail `whip`, `tuft`, `club`, `stub`; paw `paw` or `hoof`. |
-| `features` | Names or `{ type, ...options }`: `horns` (`style` curved, straight, ram, short), `tusks`, `tail`, `stinger`, `pincers`, `mandibles`, `shell`, `fur` (`count`), `spikes`, `glow_eyes`, `glow_patch`, `beard` (`glow: true`), `wool`, `saddle`, `pack`, `extra_eyes` (`count`), `extra_limbs`, `second_head`, `metal_feathers`, `comb`, `antennae`, `hump`, `wings`. Each plan lists what it supports in its error message. |
-| `views` | Subset of `front`, `back`, `right` (default all three). `left` mirrors `right` unless `"left": false`. |
+| `features` | Names or `{ type, ...options }`: `horns` (`style` curved, straight, ram, short), `tusks`, `tail`, `stinger`, `pincers`, `mandibles`, `shell`, `fur` (`count`), `spikes`, `glow_eyes`, `glow_patch`, `beard` (`glow: true`), `wool`, `saddle`, `pack`, `extra_eyes` (`count`), `extra_limbs`, `second_head`, `metal_feathers`, `comb`, `antennae`, `hump`, `wings`. Each plan lists what it supports in its error message. Options are validated: `horns.style` (curved, straight, ram, short), `count` (integer 0 to 12) on `fur`, `spikes`, `extra_eyes`, `metal_feathers`, and `beard.glow` (boolean). |
+| `views` | Subset of `front`, `back`, `right` (default all three); `left` is not listed, it mirrors `right` unless `"left": false`. |
 | `animations` | Subset of `idle`, `walk`, `attack`, `hurt`, `down` (default all). `idleFrames` is 2 (breathing) or 4 (adds an idle twitch). |
-| `attack` | One kind or two. Quadruped `bite`/`charge`, insect `bite`, arachnid `stinger`/`pincer`, bird `peck`, blob `slam`/`bite`. A second kind exports as `attack2_<dir>`. |
+| `attack` | One kind or two. Quadruped `bite`/`charge`, insect `bite`, arachnid `stinger`/`pincer`, bird `peck`, blob `slam`/`bite`. A second, different kind exports as `attack2_<dir>` (report alias `attack2`). |
 | `outline` | `selective` (default: lit top/left edges use the second darkest step) or `full`. |
 | `fps` | Overrides for `idle` (3), `walk` (8), `attack` (10), `hurt` (6), `down` (1). |
 
