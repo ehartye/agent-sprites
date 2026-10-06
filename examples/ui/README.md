@@ -53,7 +53,7 @@ this.load.image('ui-font', 'assets/ui-font/ui-font.png'); this.load.json('ui-fon
 ```
 
 Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame has `frame` (atlas frame name), `padding`, `minWidth`,
-`minHeight`, optional `textTone`, `tile`, `content`, `icon`, `color`, `hollow`, and `nineSlice:{leftWidth,rightWidth,topHeight,bottomHeight}`
+`minHeight`, `bounds` (painted pixel bounds, inclusive, as in the report; every report frame has an entry), optional `textTone`, `tile`, `content`, `icon`, `color`, `hollow`, and `nineSlice:{leftWidth,rightWidth,topHeight,bottomHeight}`
 (absent for icons and tiled scrims) matching `this.add.nineslice(x, y, texture, frame, width, height, leftWidth, rightWidth, topHeight, bottomHeight)`.
 Phaser stretches nine-slice edges, so size panels in whole source pixels and place them at integer positions under an integer camera zoom.
 
