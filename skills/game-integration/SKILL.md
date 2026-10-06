@@ -78,7 +78,8 @@ opacity in the game) and `@shade` for the nine edge-occlusion tiles beside walls
 `tileset-report.json`. Wrong-size `.pxl` rows or row counts fail the build with file, line, tile name and expected/actual; list the frame names the game requests in `expectedFrames` so a missing one fails the build. Masks are clockwise from north (N=1 ... NW=128) with a diagonal kept only when both adjacent
 edges are set; do not reuse an encroachment mask normaliser for them. `"omit"` in the build config keeps megabytes of
 editable project JSON out of a game repo. For a farming or survival HUD use the `wasteland` UI theme (meters,
-minimap frame, tabs, colour need and weather icons).
+minimap frame, tabs, colour need and weather icons, controller prompts `pad_<xbox|ps|switch|deck>_<id>` of at most
+13 px for hint rows beside small text, and `cursor_tile`/`cursor_aim`; list the ones you use in `expectedFrames`).
 
 ## Export layout convention
 
