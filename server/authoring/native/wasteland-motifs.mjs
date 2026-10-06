@@ -331,7 +331,7 @@ export const WASTELAND_MOTIFS = {
   },
   'ragged-trousers': {
     describe: 'Ragged trousers with a torn hem, drawn over the legs (the large body is otherwise bare).',
-    slots: { light: R.dust[3], base: R.dust[4], shade: R.dust[5], edge: '#2c2018' },
+    slots: { light: R.dust[3], base: R.dust[4], shade: R.dust[5], edge: R.concrete[5] },
     symbols: { H: 'light', B: 'base', S: 'shade', o: 'edge' },
     parts: [
       part(FB, 'waist', 4, 1, ['oHBBBBSo', 'oHBBBBSo', 'oHBBoBSo', 'oHBBoBSo', 'oBoHoBoS']),

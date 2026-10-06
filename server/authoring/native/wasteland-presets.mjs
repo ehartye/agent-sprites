@@ -13,30 +13,30 @@ export const SKIN_RAMPS = {
   ghoul: ramp('#3a4535', '#66755c', '#8a9a7a', '#a3b392'),
   zombie: ramp('#364032', '#5f7059', '#7d8f78', '#9aab94'),
   grey: ramp('#3c3c3a', '#85847c', '#a8a79e', '#c4c3ba'),
-  mutant: ramp('#3a3a1c', '#6b6a34', '#8a8a4a', '#b0b060'),
+  mutant: ramp('#2f3d22', '#6b7d3a', '#8a9a4a', '#a9b45a'),
 };
 
 /** Hair ramps. */
 export const HAIR_RAMPS = {
-  brown: ramp('#2c2018', '#4a3624', '#6b5033', '#8f6f45'),
-  black: ramp('#0d0d12', '#1b1b1f', '#26262a', '#3c3c3a'),
+  brown: ramp('#4a3624', '#6b5033', '#8f6f45', '#b08d57'),
+  black: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c'),
   blond: ramp('#4a3624', '#b08d57', '#c9a869', '#e3cf93'),
-  red: ramp('#4a2418', '#8c3b25', '#b5532f', '#d98b4a'),
-  grey: ramp('#3c3c3a', '#85847c', '#a8a79e', '#c4c3ba'),
-  white: ramp('#5f5f5a', '#a8a79e', '#c4c3ba', '#e8e7df'),
+  red: ramp('#5e2a1f', '#8c3b25', '#b5532f', '#d98b4a'),
+  grey: ramp('#3c3c3a', '#5f5f5a', '#85847c', '#a8a79e'),
+  white: ramp('#5f5f5a', '#85847c', '#a8a79e', '#c4c3ba'),
 };
 
 const dustCloth = ramp('#4a3624', '#8f6f45', '#b08d57', '#c9a869');
-const rustCloth = ramp('#4a2418', '#8c3b25', '#b5532f', '#d98b4a');
+const rustCloth = ramp('#5e2a1f', '#8c3b25', '#b5532f', '#d98b4a');
 const oxideCloth = ramp('#2a4a4a', '#3f6f68', '#5f9a8d', '#8fc4b4');
 const slateCloth = ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c');
 const scrubCloth = ramp('#2f3d22', '#4a5c2f', '#6b7d3a', '#8a9a4a');
 const trouserDust = ramp('#26262a', '#4a3624', '#6b5033', '#8f6f45');
-const trouserSlate = ramp('#1b1b1f', '#26262a', '#3c3c3a', '#5f5f5a');
+const trouserSlate = ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c');
 const trimDust = ramp('#4a3624', '#8f6f45', '#b08d57', '#e3cf93');
-const shoeDark = ramp('#1b1b1f', '#26262a', '#4a3624', '#6b5033');
+const shoeDark = ramp('#26262a', '#4a3624', '#6b5033', '#8f6f45');
 
-const O_HUMAN = '#3a2a26'; // edge colour for costume pixels (a darker dust step)
+const O_HUMAN = '#4a3624'; // edge colour for costume pixels (the darkest dust step)
 
 export const NATIVE_PRESETS = {
   'scavenger-rags': {
@@ -91,7 +91,7 @@ export const NATIVE_PRESETS = {
   raider: {
     describe: 'Raider: respirator, scrap shoulder plate, bone trophies, ragged cloak; swings a club.',
     kind: 'adult', outfit: 'jacket', wig: 'none', actions: true, tool: 'club',
-    colors: { o: '#1b1b1f' },
+    colors: { o: '#26262a' },
     materials: { skin: SKIN_RAMPS.tan, hair: HAIR_RAMPS.black, cloth: slateCloth, trousers: trouserSlate, trim: ramp('#26262a', '#5e2a1f', '#8c3b25', '#b5532f'), shoes: shoeDark },
     motifs: ['ragged-cloak', 'scrap-pauldron', 'respirator', 'bone-trophy', 'tool-belt', { name: 'bandana', colors: { light: '#d98b4a', base: '#b5532f', shade: '#8c3b25', edge: '#5e2a1f' } }],
   },
@@ -99,20 +99,20 @@ export const NATIVE_PRESETS = {
     describe: 'Ghoul: grey-green skin, ragged clothes and glowing eyes.',
     kind: 'adult', outfit: 'jacket', wig: 'none', actions: true, tool: 'club',
     colors: { o: '#2a3328' },
-    materials: { skin: SKIN_RAMPS.ghoul, cloth: ramp('#2c2018', '#4a3624', '#6b5033', '#8f6f45'), trousers: trouserSlate, trim: ramp('#2c2018', '#4a3624', '#6b5033', '#8f6f45'), shoes: shoeDark },
+    materials: { skin: SKIN_RAMPS.ghoul, cloth: ramp('#4a3624', '#6b5033', '#8f6f45', '#b08d57'), trousers: trouserSlate, trim: ramp('#4a3624', '#6b5033', '#8f6f45', '#b08d57'), shoes: shoeDark },
     motifs: ['rag-patches', 'glow-eyes'],
   },
   zombie: {
     describe: 'Zombie: sallow skin, torn clothes and a shambling arms-forward walk.',
     kind: 'adult', outfit: 'jacket', wig: 'short', actions: true, tool: 'club', posture: 'shamble',
     colors: { o: '#2a3328' },
-    materials: { skin: SKIN_RAMPS.zombie, hair: ramp('#1b1b1f', '#26262a', '#3c3c3a', '#5f5f5a'), cloth: ramp('#2a4a4a', '#3f6f68', '#5f9a8d', '#8fc4b4'), trousers: trouserDust, trim: trimDust, shoes: shoeDark },
+    materials: { skin: SKIN_RAMPS.zombie, hair: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c'), cloth: ramp('#2a4a4a', '#3f6f68', '#5f9a8d', '#8fc4b4'), trousers: trouserDust, trim: trimDust, shoes: shoeDark },
     motifs: ['rag-patches'],
   },
   'mutant-brute': {
     describe: 'Mutant brute: the large body, an extra arm, one scrap shoulder plate and glowing eyes.',
     kind: 'large', outfit: 'none', actions: true, tool: 'club',
-    colors: { o: '#2a2a14' },
+    colors: { o: '#2f3d22' },
     materials: { skin: SKIN_RAMPS.mutant },
     motifs: ['extra-arm', 'ragged-trousers', 'scrap-pauldron', 'glow-eyes'],
   },
@@ -120,14 +120,14 @@ export const NATIVE_PRESETS = {
     describe: 'Alien visitor: a smooth grey head with black eyes, antennae and a glowing chest gem.',
     kind: 'adult', outfit: 'jacket', wig: 'none', actions: true, tool: 'club',
     colors: { o: '#26262a' },
-    materials: { skin: SKIN_RAMPS.grey, cloth: oxideCloth, trousers: ramp('#1b2040', '#2a4a4a', '#3f6f68', '#5f9a8d'), trim: ramp('#26262a', '#3f6f68', '#5f9a8d', '#8fc4b4'), shoes: ramp('#1b1b1f', '#26262a', '#3c3c3a', '#5f5f5a') },
+    materials: { skin: SKIN_RAMPS.grey, cloth: oxideCloth, trousers: ramp('#2a4a4a', '#3f6f68', '#5f9a8d', '#8fc4b4'), trim: ramp('#26262a', '#3f6f68', '#5f9a8d', '#8fc4b4'), shoes: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c') },
     motifs: ['grey-alien-head', 'antennae', 'glow-core'],
   },
   'scrap-bot': {
     describe: 'Scrap-bot: a boxy scrap-metal frame with a glowing visor and power core.',
     kind: 'adult', outfit: 'jacket', wig: 'none', actions: true, tool: 'club', bodyMaterial: 'casing', armMaterial: 'casing', handMaterial: 'casing',
     colors: { o: '#26262a' },
-    materials: { skin: ramp('#3c3c3a', '#85847c', '#a8a79e', '#c4c3ba'), cloth: ramp('#26262a', '#5f5f5a', '#85847c', '#a8a79e'), trousers: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c'), trim: ramp('#5e2a1f', '#8c3b25', '#b5532f', '#d98b4a'), shoes: ramp('#1b1b1f', '#26262a', '#3c3c3a', '#5f5f5a') },
+    materials: { skin: ramp('#3c3c3a', '#85847c', '#a8a79e', '#c4c3ba'), cloth: ramp('#26262a', '#5f5f5a', '#85847c', '#a8a79e'), trousers: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c'), trim: ramp('#5e2a1f', '#8c3b25', '#b5532f', '#d98b4a'), shoes: ramp('#26262a', '#3c3c3a', '#5f5f5a', '#85847c') },
     motifs: ['scrap-bot-head', 'glow-core', 'rag-patches'],
   },
 };
