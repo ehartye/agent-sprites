@@ -84,22 +84,28 @@ function contactSheet(image, frames, scale) {
   const tiles = contactTiles(frames);
   const maxW = Math.max(...frames.map(f => f.sourceSize.w));
   const maxH = Math.max(...frames.map(f => f.sourceSize.h));
-  const tileW = Math.max(160, maxW * scale + 16), tileH = maxH * scale + 48;
+  // Each tile is a bordered card: art on top, its label band directly beneath it, a gutter between cards,
+  // so a label can never be read as belonging to the art above or below it.
+  const gap = 6, labelH = 40, pad = 8;
+  const cardW = Math.max(160, maxW * scale + 2 * pad), cardH = pad + maxH * scale + pad + labelH;
+  const tileW = cardW + gap, tileH = cardH + gap;
   // Roughly square sheets instead of a fixed six columns.
   const columns = Math.max(1, Math.min(tiles.length, 12, Math.round(Math.sqrt(tiles.length * tileH / tileW)) || 1));
-  const w = columns * tileW, h = Math.ceil(tiles.length / columns) * tileH;
+  const w = columns * tileW + gap, h = Math.ceil(tiles.length / columns) * tileH + gap;
   if (w * h > 32_000_000 || w > 32767 || h > 32767) throw new Error('Contact sheet exceeds 32 megapixels; use a smaller scale or split the atlas.');
   const canvas = createCanvas(w, h), ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#858585'; ctx.fillRect(0, 0, w, h); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#5a5a5a'; ctx.fillRect(0, 0, w, h); ctx.imageSmoothingEnabled = false;
   tiles.forEach((t, i) => {
-    const f = t.frame, x = (i % columns) * tileW, y = Math.floor(i / columns) * tileH;
-    ctx.fillStyle = '#252525'; ctx.fillRect(x, y, tileW, 40);
+    const f = t.frame, x = gap + (i % columns) * tileW, y = gap + Math.floor(i / columns) * tileH;
+    ctx.fillStyle = '#858585'; ctx.fillRect(x, y, cardW, cardH - labelH);
+    ctx.fillStyle = '#252525'; ctx.fillRect(x, y + cardH - labelH, cardW, labelH);
     ctx.fillStyle = '#ffffff'; ctx.font = '12px sans-serif';
     const extra = t.names.length > 1 ? ` +${t.names.length - 1}` : '';
-    ctx.fillText(`${t.names[0] ?? f.filename}${extra}`, x + 6, y + 16, tileW - 12);
-    ctx.fillText(`#${t.indices.join(',')} · ${[...t.durations].join('/')} ms`, x + 6, y + 32, tileW - 12);
+    ctx.fillText(`${t.names[0] ?? f.filename}${extra}`, x + 6, y + cardH - labelH + 16, cardW - 12);
+    ctx.fillText(`#${t.indices.join(',')} · ${[...t.durations].join('/')} ms`, x + 6, y + cardH - labelH + 32, cardW - 12);
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, cardW - 1, cardH - 1);
     const r = f.frame, s = f.spriteSourceSize;
-    ctx.save(); ctx.translate(x + 8 + s.x * scale, y + 44 + s.y * scale);
+    ctx.save(); ctx.translate(x + pad + s.x * scale, y + pad + s.y * scale);
     if (f.rotated) { ctx.translate(0, r.w * scale); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(image, r.x, r.y, r.w, r.h, 0, 0, r.w * scale, r.h * scale); ctx.restore();
   });

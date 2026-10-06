@@ -73,6 +73,9 @@ test('omit leaves out the bulky review and editable artifacts and still publishe
 
 test.each([
   ['a row of the wrong width',`${palette}@tile one\n${Array(16).fill(row(15)).join('\n')}\n`,/a\.pxl:\d+: Tile one row 1 is 15 wide/],
+  ['too few rows before the next directive',`${palette}@tile one\n${Array(10).fill(row(16)).join('\n')}\n@tile two x=0 y=0 w=1 rows=1\ng\n`,/a\.pxl:\d+: Tile one needs 16 rows, found 10/],
+  ['an extra row after a full tile',`${palette}@tile one\n${Array(17).fill(row(16)).join('\n')}\n`,/Expected a directive.*extra row after tile one/],
+  ['an animation frame cut short by ---',`${palette}@anim a fps=2 x=0 y=0 w=2 rows=2\ngg\n---\ngg\ngg\n`,/Animation a frame 0 needs 2 rows, found 1 before "---"/],
   ['a character with no palette entry',`${palette}@tile one x=0 y=0 w=1 rows=1\nq\n`,/palette has no entry for "q"/],
   ['a duplicate name',`${palette}@tile one x=0 y=0 w=1 rows=1\ng\n@tile one x=0 y=0 w=1 rows=1\ng\n`,/Duplicate tile name "one"/],
   ['a block that does not fit',`${palette}@tile one x=15 y=0 w=2 rows=1\ngg\n`,/does not fit/],
@@ -150,4 +153,28 @@ test('@shadow and @shade report mistakes with the line',()=>{
   config.tileset.cell=16;
   write(`@shadow big w=20 h=5\n`);expect(()=>generateTilesetRecipe(config.tileset,dir)).toThrow(/does not fit/);
   write(`@shade s n=3\n`);expect(()=>generateTilesetRecipe(config.tileset,dir)).toThrow(/a.pxl:1/);
+});
+
+test('expectedFrames fails the build naming each missing tile frame',async()=>{
+  config.expectedFrames=['one','nope'];config.expectedTags=['flame'];
+  write(`${palette}@tile one x=0 y=0 w=1 rows=1\ng\n`);
+  const result=await buildProject(path);expect(result.ok).toBe(false);
+  const text=JSON.stringify(result.errors);expect(text).toContain('Required frame is missing: nope');expect(text).not.toContain('missing: one');expect(text).toMatch(/flame/);
+  config.expectedFrames=['one'];delete config.expectedTags;write(`${palette}@tile one x=0 y=0 w=1 rows=1\ng\n`);expect((await buildProject(path)).ok).toBe(true);
+});
+
+test('contact sheet puts each label directly beneath its own art in every row',async()=>{
+  write(`${palette}@tile one\n${Array(16).fill(row(16)).join('\n')}\n@tile two\n${Array(16).fill(row(16)).join('\n')}\n`);
+  config.tileset.columns=1;config.scale=4;writeFileSync(path,JSON.stringify(config));
+  const result=await buildProject(path);expect(result.ok).toBe(true);
+  const {data,info}=await sharp(result.artifacts.contactSheet).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const at=(x,y)=>{const i=(y*info.width+x)*4;return [...data.slice(i,i+3)].join(',');};
+  // card: gap 6, pad 8, art 16*4 tall, pad 8, label band 40; cards one gutter apart
+  const cardH=8+64+8+40, top=card=>6+card*(cardH+6);
+  for(const card of [0,1]){
+    expect(at(30,top(card)+8+2)).toBe('107,125,58');
+    expect(at(info.width-10,top(card)+8+64+8+20)).toBe('37,37,37');
+    expect(at(info.width-10,top(card)+cardH+2)).toBe('90,90,90');
+  }
+  expect(info.height).toBe(6+2*(cardH+6));
 });

@@ -229,8 +229,9 @@ This offline command reads the actual PNG and atlas without contacting a sprite
 server. It checks image dimensions, frame and trim bounds, unique names, positive
 durations, animation ranges/directions, and required tags. It accepts repeated
 rectangles. The nearest-neighbor contact sheet shows each unique source rectangle
-once, labeled with its name (`+N` for further aliases) and every atlas index that
-uses it (`#0,8,16`), in a roughly square grid; the report's `contactSheet` records
+once as a bordered card: the art on top and its label band directly beneath it
+(name, `+N` for further aliases, and every atlas index that uses it, `#0,8,16`),
+with a gutter between cards so a label always belongs to the art above it, in a roughly square grid; the report's `contactSheet` records
 `tiles` and `frames`. Every frame is still validated.
 Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
