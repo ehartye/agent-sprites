@@ -14,4 +14,4 @@ This single qualitative plan exercise supports the specificity of the added guid
 
 ## Verification
 
-All local links in the two affected skills and new reference resolve, and package/plugin/lock versions agree at 0.72.1. Existing managed-runtime, managed-invocation and build-manifest tests pass **32/32**. Runtime code and character recipes are unchanged.
+All local links in the two affected skills and new reference resolve, and package/plugin/lock/local-marketplace versions agree at 0.72.1. Existing managed-runtime, managed-invocation and build-manifest tests pass **32/32**. Runtime code and character recipes are unchanged.
