@@ -134,3 +134,21 @@ test('wasteland skin carries the colour symbol icons',()=>{
   for(const n of ['skull','wheat','bolt','sun','moon','star','check','cross','lock'])expect(report.skins['sym_'+n],n).toMatchObject({icon:true,color:true});
   expect(generateUIRecipe({kind:'skin'}).report.skins.sym_skull).toBeUndefined();
 });
+
+test('logo kind draws one deterministic stacked logotype frame with sun and wheat',()=>{
+  const a=generateUIRecipe({kind:'logo',theme:'wasteland'}),b=generateUIRecipe({kind:'logo',theme:'wasteland'});
+  expect(a).toEqual(b);
+  expect(a.report.kind).toBe('logo');expect(a.report.frames.map(f=>f.alias)).toEqual(['logo']);
+  const {width,height}=a.report.cellSize;expect(width).toBeGreaterThan(120);expect(height).toBeGreaterThan(80);expect(a.operations[0]).toMatchObject({cols:1,rows:1,size:`${width}x${height}`});
+  expect(a.report.frames[0].bounds).toMatchObject({left:0,top:expect.any(Number),right:width-1,bottom:height-1});
+  expect(new Set(a.operations.filter(o=>o.color).map(o=>o.color)).size).toBeGreaterThan(10);
+  expect(generateUIRecipe({kind:'logo',text:'GREEN ACRES'}).report.cellSize.width).toBeGreaterThan(width);
+  expect(()=>generateUIRecipe({kind:'logo',text:'aé'})).toThrow(/Logo text/);
+  expect(()=>generateUIRecipe({kind:'skin',text:'X'})).toThrow(/logos/);
+  expect(()=>generateUIRecipe({kind:'logo',face:'display'})).toThrow(/fonts/);
+});
+test('wasteland skin has the boss banner plate with wide insets',()=>{
+  const {report}=generateUIRecipe({kind:'skin',theme:'wasteland'});
+  expect(report.skins.banner_boss).toMatchObject({insets:{left:8,right:8,top:8,bottom:8},minWidth:24});
+  expect(generateUIRecipe({kind:'skin'}).report.skins.banner_boss).toBeUndefined();
+});

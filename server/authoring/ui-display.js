@@ -20,8 +20,8 @@ function sourceGrid(glyph){
   const rows=[...Array(glyph.top).fill(0),...glyph.rows];
   return rows.map(mask=>Array.from({length:5},(_,x)=>Boolean(mask&(1<<(4-x)))));
 }
-function epx(grid){
-  const h=grid.length,w=5,at=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&grid[y][x];
+export function epx(grid){
+  const h=grid.length,w=grid[0].length,at=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&grid[y][x];
   const out=Array.from({length:h*2},()=>Array(w*2).fill(false));
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const p=at(x,y),a=at(x,y-1),b=at(x+1,y),c=at(x-1,y),d=at(x,y+1);
