@@ -49,6 +49,11 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
   carries a frame tag `<name>` with its durations.
 - `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material]` expands to a full set.
 
+Atlas note: the Aseprite atlas lists the grid frames first (numeric filenames equal to cell indices), then one run of
+frames per animation tag, then the named aliases. Animation tag ranges therefore index atlas frames, not cells; the
+report's `animations[name].frames` gives the cell indices if you want to drive a tilemap animation yourself. Trailing
+` % comment` text is allowed after any directive or palette line. Sources must live inside the config directory.
+
 ## Auto-tile sets
 
 | kind | tiles | notes |

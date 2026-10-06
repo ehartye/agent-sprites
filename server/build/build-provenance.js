@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 
 export const buildTool = Object.freeze({ name: 'agent-sprites', version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version });
@@ -29,7 +29,11 @@ export function snapshotBuildInputs(configPath, config, source) {
   }
   const base = dirname(configPath), seen = new Set(), inputs = [];
   // A tileset's .pxl sources are its real inputs; tracking them needs no separate declaration.
-  const tilesetSources = Array.isArray(config.tileset?.sources) ? config.tileset.sources.filter(path => typeof path === 'string' && path).map(path => resolve(base, path)) : [];
+  const tilesetSources = Array.isArray(config.tileset?.sources) ? config.tileset.sources.filter(path => typeof path === 'string' && path).map((path, n) => {
+    const full = resolve(base, path);
+    if (!existsSync(full) || !statSync(full).isFile()) throw new Error(`tileset.sources[${n}] "${path}" is not a file.`);
+    return full;
+  }) : [];
   for (const path of [configPath, source, ...tilesetSources, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
     const canonical = realpathSync(path), key = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
     if (seen.has(key)) continue;

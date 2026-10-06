@@ -93,3 +93,41 @@ test('generateTilesetRecipe is pure for the same sources',()=>{
   const a=generateTilesetRecipe(config.tileset,dir),b=generateTilesetRecipe(config.tileset,dir);
   expect(createHash('sha256').update(JSON.stringify(a)).digest('hex')).toBe(createHash('sha256').update(JSON.stringify(b)).digest('hex'));
 });
+
+test('tolerates a BOM, CRLF, indentation, tabs, trailing comments and non-ASCII palette characters',async()=>{
+  const text=`﻿@palette\r\n  é\t#6b7d3a\t#2f3d22   % accent\r\ny #e0b84a\r\n@tile one x=0 y=0 w=2 rows=1 % note\r\néy\r\n`;
+  write(text);const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const png=await sheet(result);expect(px(png,0,0)).toEqual([0x6b,0x7d,0x3a,255]);expect(px(png,1,0)).toEqual([0xe0,0xb8,0x4a,255]);
+});
+
+test.each([
+  ['face on a floor',`${palette}@autotile floor slab as f face=2\n`,/face= applies to wall, roof and door/],
+  ['a non-numeric face',`${palette}@autotile wall brick as w face=abc\n`,/face= must be an integer from 1 to 8/],
+  ['an oversized face',`${palette}@autotile wall brick as w face=40\n`,/face= must be an integer from 1 to 8/],
+  ['leaf on a fence',`${palette}@autotile fence wood as f leaf=wood\n`,/leaf= applies only to door sets/],
+  ['a recolor that matches no pixels',`${palette}@tile t template x=0 y=0 w=1 rows=1\ng\n@recolor u t y=r\n`,/has no "y" pixels to replace/],
+  ['a whitespace palette character',`@palette\n\t #112233\n`,/Palette lines start with one character/],
+  ['a stray line without echoing it',`${palette}@tile one x=0 y=0 w=1 rows=1\ng\nsecret-looking text\n`,/Expected a directive/],
+])('rejects %s with a file and line',async(_,text,message)=>{
+  write(text);const result=await buildProject(path);expect(result.ok).toBe(false);expect(result.errors[0].message).toMatch(message);
+  expect(result.errors[0].message).not.toMatch(/secret-looking/);
+});
+
+test('rejects sources outside the config directory, missing files and oversized cells',async()=>{
+  write(`${palette}@tile one x=0 y=0 w=1 rows=1\ng\n`);
+  config.tileset.sources=['../outside.pxl'];writeFileSync(path,JSON.stringify(config));writeFileSync(join(dir,'..','outside.pxl'),'@tile x\n');
+  expect((await buildProject(path)).errors[0].message).toMatch(/must stay inside the build config directory/);
+  config.tileset.sources=['nope.pxl'];writeFileSync(path,JSON.stringify(config));expect((await buildProject(path)).errors[0].message).toMatch(/tileset\.sources\[0\] "nope\.pxl" is not a file/);
+  config.tileset.sources=['a.pxl'];config.tileset.cell=100000;writeFileSync(path,JSON.stringify(config));expect((await buildProject(path)).errors[0].message).toMatch(/integer from 1 to 512/);
+  rmSync(join(dir,'..','outside.pxl'),{force:true});
+});
+
+test('build-set --check accepts intentionally omitted artifacts but flags a missing one otherwise',async()=>{
+  const {buildProjectSet}=await import('../../server/build/project-set.js');
+  const list=join(dir,'sprite-projects.json');writeFileSync(list,JSON.stringify({version:1,projects:['sprite-project.json']}));
+  config.omit=['project','operations','preview','contactSheet'];write(`${palette}@tile one\n${Array(16).fill(row(16)).join('\n')}\n`);
+  expect((await buildProjectSet(list)).ok).toBe(true);expect((await buildProjectSet(list,{check:true})).projects[0].status).toBe('current');
+  // without omit the same manifest shape is invalid
+  delete config.omit;writeFileSync(path,JSON.stringify(config));
+  const checked=await buildProjectSet(list,{check:true});expect(checked.projects[0].status).not.toBe('current');
+});

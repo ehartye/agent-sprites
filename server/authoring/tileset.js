@@ -1,5 +1,5 @@
-import {readFileSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {readFileSync, existsSync, statSync} from 'node:fs';
+import {resolve, relative, isAbsolute} from 'node:path';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
 
 // Tileset recipe: a regular grid of equal cells (frame index = row-major cell index) described in
@@ -7,6 +7,7 @@ import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FE
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 const FIELDS = ['name', 'kind', 'cell', 'columns', 'sources', 'palette'];
+const MAX_CELL = 512, MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 
 const luminance = hex => { const n = parseInt(hex.slice(1), 16); return .2126 * (n >> 16) + .7152 * ((n >> 8) & 255) + .0722 * (n & 255); };
 /** A darker, slightly cooler step of a colour, used when a palette entry names no outline. */
@@ -48,7 +49,9 @@ const toColors = pixels => pixels.map(row => row.map(p => p ? p.color : null));
 /** Parse source text into tile definitions, resolving palette characters as it goes. */
 export function parseTilesetSource(text, file, state) {
   const {cellW, cellH, palette, tiles} = state;
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  if (text.length > MAX_SOURCE_BYTES) throw Error(`${file}: source is larger than ${MAX_SOURCE_BYTES} bytes.`);
+  // A UTF-8 BOM and indentation are tolerated; ` % note` after any line is a comment (art rows never contain spaces).
+  const lines = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().replace(/\s+%.*$/, ''));
   let i = 0;
   const fail = (msg, line = i) => { throw Error(`${file}:${line + 1}: ${msg}`); };
   const isDirective = line => line.startsWith('@');
@@ -88,7 +91,7 @@ export function parseTilesetSource(text, file, state) {
   while (true) {
     const line = next();
     if (line === null) break;
-    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @copy, @autotile); found "${line.slice(0, 20)}".`);
+    if (!isDirective(line)) fail('Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile).');
     const start = i, words = line.slice(1).trim().split(/\s+/), directive = words[0], rest = words.slice(1);
     i++;
     if (directive === 'palette') {
@@ -97,7 +100,7 @@ export function parseTilesetSource(text, file, state) {
         if (entry === null || isDirective(entry)) break;
         const parts = entry.trim().split(/\s+/);
         const [ch, color, outline] = parts;
-        if ([...ch].length !== 1 || ch === '.' || ch === '@' || ch === '%') fail(`Palette character "${ch}" is reserved or not a single character.`);
+        if ([...ch].length !== 1 || ch === '.' || ch === '@' || ch === '%' || /\s/.test(ch)) fail(`Palette lines start with one character that is not ".", "@", "%" or whitespace.`);
         if (!HEX.test(color ?? '') || (outline !== undefined && !HEX.test(outline)) || parts.length > 3) fail('Palette lines are: <char> #rrggbb [#outline].');
         palette.set(ch, {color: color.toLowerCase(), ...(outline ? {outline: outline.toLowerCase()} : {})});
         i++;
@@ -141,6 +144,7 @@ export function parseTilesetSource(text, file, state) {
         const [a, b] = pair.split('=');
         if ([...(a ?? '')].length !== 1 || [...(b ?? '')].length !== 1) fail(`Recolor pairs are single characters, like a=K (got "${pair}").`, start);
         if (!palette.has(b)) fail(`Recolor target "${b}" has no palette entry.`, start);
+        if (!src.raw.some(row => row.some(p => p && p.ch === a))) fail(`@recolor ${name}: ${from} has no "${a}" pixels to replace.`, start);
         map.set(a, {...palette.get(b), ch: b});
       }
       if (!map.size) fail('@recolor needs at least one A=B pair.', start);
@@ -159,6 +163,12 @@ export function parseTilesetSource(text, file, state) {
       if (!AUTOTILE_KINDS.includes(kind)) fail(`Unknown auto-tile kind "${kind}" (${AUTOTILE_KINDS.join(', ')}).`, start);
       const o = options(opts), overrides = {};
       for (const [k, v] of Object.entries(o.values)) if (AUTOTILE_ROLES.includes(k)) overrides[k] = v; else if (k !== 'face' && k !== 'leaf') fail(`Unknown auto-tile option "${k}".`, start);
+      if (o.values.face !== undefined) {
+        const face = Number(o.values.face);
+        if (!['wall', 'roof', 'door'].includes(kind)) fail(`face= applies to wall, roof and door sets, not ${kind}.`, start);
+        if (!Number.isInteger(face) || face < 1 || face > 8) fail('face= must be an integer from 1 to 8.', start);
+      }
+      if (o.values.leaf !== undefined && kind !== 'door') fail('leaf= applies only to door sets.', start);
       let set;
       try { set = autotileTiles({kind, material: materialName, prefix, size: cellW, overrides, face: o.values.face === undefined ? undefined : Number(o.values.face), leaf: o.values.leaf}); }
       catch (error) { fail(error.message, start); }
@@ -176,16 +186,22 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
   if (config.kind !== undefined && config.kind !== 'tileset') throw Error('Tileset kind must be "tileset".');
   if (typeof name !== 'string' || !NAME.test(name)) throw Error('Invalid tileset name.');
   const [cellW, cellH] = Array.isArray(cell) ? cell : [cell, cell];
-  if (![cellW, cellH].every(n => Number.isInteger(n) && n >= 1)) throw Error('Tileset cell must be a positive integer or [width, height].');
+  if (![cellW, cellH].every(n => Number.isInteger(n) && n >= 1 && n <= MAX_CELL)) throw Error(`Tileset cell must be an integer from 1 to ${MAX_CELL}, or [width, height].`);
   if (!Array.isArray(sources) || !sources.length || sources.some(s => typeof s !== 'string' || !s)) throw Error('Tileset sources must be a nonempty array of .pxl file paths relative to the build config.');
   const palette = new Map();
   for (const [ch, value] of Object.entries(inlinePalette)) {
     const color = typeof value === 'string' ? value : value?.color, outline = typeof value === 'string' ? undefined : value?.outline;
-    if ([...ch].length !== 1 || ch === '.' || !HEX.test(color ?? '')) throw Error(`Invalid inline palette entry "${ch}".`);
+    if ([...ch].length !== 1 || ch === '.' || ch === '@' || ch === '%' || /\s/.test(ch) || !HEX.test(color ?? '')) throw Error(`Invalid inline palette entry "${ch}".`);
     palette.set(ch, {color: color.toLowerCase(), ...(outline ? {outline: outline.toLowerCase()} : {})});
   }
   const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}};
-  for (const source of sources) parseTilesetSource(readFileSync(resolve(baseDir, source), 'utf8'), source, state);
+  const root = resolve(baseDir);
+  sources.forEach((source, n) => {
+    const full = resolve(root, source), rel = relative(root, full);
+    if (rel.startsWith('..') || isAbsolute(rel)) throw Error(`tileset.sources[${n}] "${source}" must stay inside the build config directory.`);
+    if (!existsSync(full) || !statSync(full).isFile()) throw Error(`tileset.sources[${n}] "${source}" is not a file.`);
+    parseTilesetSource(readFileSync(full, 'utf8'), source, state);
+  });
   // Template tiles exist only to be recoloured; they never reach the sheet.
   const tiles = state.tiles.filter(t => !t.template);
   for (const a of state.animations) if (a.frames.some(f => !tiles.find(t => t.name === f))) throw Error(`Animation ${a.name} uses a template tile.`);
