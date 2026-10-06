@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "output": "./dist",
+  "scale": 2,
+  "environment": {
+    "name": "wasteland",
+    "kind": "terrain-overlay",
+    "seed": 7,
+    "pixelScale": 2,
+    "variants": 3
+  }
+}

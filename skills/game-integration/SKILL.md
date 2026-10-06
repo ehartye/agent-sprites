@@ -47,6 +47,16 @@ Verify long dialogue wrapping, scrolled/clipped content, focus and disabled stat
 modal layering and phone hit targets in the running game. A loaded atlas or a
 successful build does not establish that every visible UI pixel comes from it.
 
+## Open-ended terrain (wasteland materials and overlays)
+
+For a ground sandbox where any 1x1 tile can be any material, use an `environment` recipe with `kind: "terrain-overlay"`
+(add `customMaterials` for game-specific ground; no code change). Draw every tile as its base `<material>_<variant>`,
+then for each neighbour material of HIGHER priority stack `<material>_<mask>_<variant>` where the mask is the bit set of
+this tile's neighbours that are that material (N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64 NW=128; a diagonal counts only when
+both adjacent cardinals are clear, so 8 neighbours normalise to 85). Priority is the game's choice. Play the exported
+`water` tag for all water tiles. Read cells from `environment-report.json`, set the scale guard from `pixelScale`, and see
+`examples/environment/wasteland/compose-map.mjs` for a reference composition. Details: `examples/environment/README.md`.
+
 ## Export layout convention
 
 One sheet per character family / tileset / UI set, exported into the game repo:

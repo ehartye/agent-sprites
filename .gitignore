@@ -5,3 +5,4 @@ node_modules/
 .playwright-mcp/
 /*.png
 examples/*/dist/
+examples/environment/*/dist/

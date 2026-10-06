@@ -89,3 +89,17 @@ test('an environment build without pixelScale leaves the atlas and manifest unch
   expect(JSON.parse(readFileSync(result.artifacts.atlas,'utf8')).meta.pixelScale).toBeUndefined();
   expect(JSON.parse(readFileSync(result.artifacts.manifest,'utf8')).pixelScale).toBeUndefined();
 },20000);
+
+test('wasteland overlay source builds through the verified pipeline with a water animation tag and pixelScale 2',async()=>{
+  config.environment={name:'wasteland',kind:'terrain-overlay',materials:['water','dust','concrete'],variants:1,pixelScale:2,seed:7};
+  config.expectedFrames=['water_0','water_3','dust_0','dust_5_0','concrete_85_0'];config.expectedTags=['water'];write();
+  const result=await buildProject(path);
+  expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const atlas=JSON.parse(readFileSync(result.artifacts.atlas,'utf8'));
+  expect(atlas.meta.pixelScale).toBe(2);
+  const tag=atlas.meta.frameTags.find(t=>t.name==='water');
+  expect(tag.to-tag.from).toBe(3);
+  const report=JSON.parse(readFileSync(result.artifacts.environmentReport,'utf8'));
+  expect(report.animations[0]).toMatchObject({name:'water',fps:4});
+  expect(report.frames.filter(f=>f.role==='overlay')).toHaveLength(3*46);
+},60000);

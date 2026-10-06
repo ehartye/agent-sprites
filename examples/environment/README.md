@@ -18,7 +18,7 @@ return to its deterministic source. No external raster artwork is required.
 }
 ```
 
-`kind` is `terrain`, `terrain-transition`, `habitat`, or `furniture`. `seed` defaults to 7 and must be a
+`kind` is `terrain`, `terrain-transition`, `terrain-overlay`, `habitat`, or `furniture`. `seed` defaults to 7 and must be a
 safe integer. `pixelScale` is 1 (default) or 2; see [Pixel scale](#pixel-scale). Terrain defaults to all six materials and four variants; a subset
 can request 1–4 variants. Unknown fields are rejected. `materials` applies only
 to `terrain`; `variants` also applies to `terrain-transition`, with any positive
@@ -98,7 +98,7 @@ furniture `collision` and `ground`, and every frame's `bounds`. So collision, na
 either scale. The report adds `pixelScale`, `screenCellSize`, and per frame `sourceBounds` (and `sourceGround` for furniture,
 the pivot in source pixels). The atlas JSON records `meta.pixelScale` (and the build manifest `pixelScale`) so a game can assert
 the scale it draws at; a recipe that omits `pixelScale` writes none of these and is byte-identical to before.
-Terrain transitions do not support it yet and reject the option.
+`terrain-transition` (the legacy path blobs) does not support it and rejects the option; `terrain-overlay` does.
 
 This is a redraw, not a resample. Shapes are filled on the half grid by pixel cover (a screen pixel belongs to the source
 pixel that contains it), so rectangles that tile still tile, and hand-set trim is authored in source pixels: line weight is one
@@ -136,3 +136,91 @@ to interrupt long straight runs as well as varying the tile artwork.
 Place trees using their complete visible cell or opaque bounds, not just trunk
 coordinates. Reserve that envelope against building roofs, walls, door
 approaches, and paths, then depth-sort by the trunk's ground anchor.
+
+## Wasteland terrain, custom materials and overlays
+
+An open-ended ground sandbox: every 1x1 tile can be any ground type, with organic blends between ANY neighbouring
+types. Example: [`examples/environment/wasteland`](wasteland/) builds every material plus overlays and composes a
+procedural map the way a game would (`node compose-map.mjs`; committed proof images in `wasteland/preview/`).
+
+### Wasteland materials
+
+`terrain` (and `terrain-overlay`) accept `dust`, `sand`, `gravel`, `rubble`, `concrete` (expansion seam and cracks),
+`asphalt` (variants 1-2 cracked, variant 3 carries faded lane paint), `ash`, `mud`, `slag` (dark, bubbled, orange
+glints), `fused-glass` (glossy streaks), `salt-crust` (polygonal cracked plates), `clay` (cracked red-brown), `water`,
+`tilled-soil` (furrow rows) and `tilled-soil-wet` (darker, glints). They use the Fallow Valley palette ramps and are
+authored on a 16x16 source grid (a 32x32 screen tile at `pixelScale: 2`; at `pixelScale: 1` each source pixel is
+2x2). Opposite edge pixels match and every variant of a material shares the same edge pixels, so any variant tiles
+beside any other; natural surfaces use sparse low-contrast clusters, hard surfaces keep seams; no dither, hard alpha,
+no outlines. The six legacy materials are unchanged and remain the default for `terrain`.
+
+`water` is a four-frame ripple animation: `water_0`..`water_3`, always four frames whatever `variants` says, exported
+as the Aseprite animation tag `water` (4 fps) and listed in the report's `animations`. Ripples move; the shared edge
+pixels do not, so water tiles remain seamless in any frame. Play one tag for the whole map so neighbours stay in step.
+
+### Custom materials
+
+`customMaterials` defines extra materials inline, with no code change. Every custom material must be listed in
+`materials`. Unknown fields are rejected.
+
+```json
+{ "kind": "terrain-overlay", "materials": ["dust", "bone-field"],
+  "customMaterials": [{
+    "name": "bone-field",
+    "ramp": ["#c8c0a8", "#a8a088", "#e0d8c0", "#f4eed8"],
+    "patterns": [{"kind": "speckle", "density": 0.4}, {"kind": "cracks", "density": 0.5}],
+    "seed": 3 }] }
+```
+
+`name` is lowercase letters, digits and hyphens (no underscore, so `<material>_<mask>_<variant>` parses) and cannot
+reuse a built-in. `ramp` is four `#rrggbb` colors: base, dark, light, bright. `patterns` (1-6) are drawn in order; each
+has a `kind` and optionally `density` (0.05-1) and `variants` (restrict it to listed variant numbers):
+`speckle` (two-pixel flecks, `tone`), `clusters` (blobs, `tone`, `size` small|large, `shade`), `cracks`, `panels`
+(slab seam, `cols` 1|2), `ripples`, `furrows`, `polygons` (cracked plates), `bubbles` (orange-glint style, uses the
+bright step), `streaks` (diagonal gloss, `tone`) and `stripe` (lane paint, `color`). `tone` is mixed, dark, light or
+bright. `animated: true` (needs a `ripples` pattern, optional `fps`) makes a four-frame tagged animation like water.
+The built-in wasteland materials are specs of exactly this shape.
+
+### `terrain-overlay`: arbitrary-pair transitions
+
+Why a new kind: `terrain-transition` means "my own cell is path" (packed earth on moss), has a frozen alias scheme
+and report, and cannot take materials. Overlays have inverted semantics and a material list, so they get their own
+kind and the legacy output stays byte-identical.
+
+The game draws EVERY tile as its own base material tile, then for each of its 8 neighbours whose material has HIGHER
+priority than the tile's own, stacks an overlay of that neighbour material (priority order is the game's concern; the
+example stacks at most two layers, the two highest priorities present). The overlay's mask says which of THIS tile's
+neighbours are that material: the material bleeds INTO the tile across those shared edges and corners with an organic
+boundary, and is transparent elsewhere so the tile's base shows. This is the complement of the path blobs.
+
+Bits: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128. Corner rule: a diagonal bit is meaningful only when BOTH
+adjacent cardinal bits are CLEAR (otherwise the cardinal edges already cover that corner); a set diagonal next to a set
+cardinal is cleared. That leaves exactly 47 valid masks (16+16+8+2+4+1); mask 0 has nothing to draw, so 46 tiles are
+exported per material and variant. Note that "all eight neighbours" normalises to 85 (N|E|S|W), not 255.
+
+```json
+{
+  "version": 1, "output": "./dist", "scale": 1,
+  "environment": {
+    "name": "fallow-terrain", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 4,
+    "materials": ["dust","sand","gravel","rubble","concrete","asphalt","ash","mud","slag","fused-glass",
+                  "water","salt-crust","clay","tilled-soil","tilled-soil-wet"]
+  }
+}
+```
+
+Aliases: `<material>_<mask>_<variant>` for overlays and `<material>_<variant>` for base tiles (`base: false` omits them),
+so the game and its overlays come from one atlas. The sheet is 47 cells wide; read cells from `environment-report.json`
+(each frame: `material`, `role` base|overlay, `mask`, `variant`, `neighbors`, `cell`). The report also carries `validMasks`,
+`neighbors`, `maskSemantics`, `normalizeDiagonals`, `emptyMask`, `edgeDepth` and `animations`. `variants` is 1-8
+(default 2). Overlay materials must be wasteland or custom materials (the legacy six are vector-drawn and not
+supported). An animated material's overlays are static snapshots (ripple phase = variant): stack water under land
+rather than over it. The `scale` of the project must be small enough for the contact sheet (use 1 for the full set).
+
+Seams: along a tile edge the covered pixels depend only on the two corners at its ends. Every band that reaches a
+corner and every outer-corner blob covers exactly `edgeDepth` pixels along that edge, so any two adjacent overlay tiles
+of a material agree pixel for pixel in every neighbourhood and for any variant pairing (an outer corner from a
+diagonal-only neighbour bleeds along both neighbours' edges the same way). Variation changes only the interior contour.
+The boundary is an irregular wave (no 1-pixel spikes; adjacent columns differ by at most one) with rounded outer corners.
+Because the neighbouring cell stays a full tile of its own material, regions still follow the 1x1 grid; the overlay
+adds the organic fringe on the lower-priority side.
