@@ -2,6 +2,9 @@ import { test, expect } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateUIRecipe } from '../../server/authoring/ui.js';
+import { displayRamp } from '../../server/authoring/ui-display.js';
+import { createCanvas, loadImage } from 'canvas';
 import { buildProject } from '../../server/build/project-build.js';
 
 const font = () => {
@@ -92,4 +95,13 @@ test('generated skin preserves the accepted prototype-spelled alias as its own e
 test('default display font preserves the authored multicolor display-ramp contract', async () => fixture(async ({ config }) => {
   const project = JSON.parse(readFileSync(config)); delete project.generator; project.trim = false; project.ui = { name: 'display-control', kind: 'font', face: 'display', characters: 'A?' }; writeFileSync(config, JSON.stringify(project));
   const result = await buildProject(config); expect(result.errors).toEqual([]); expect(result.ok).toBe(true); const report = JSON.parse(readFileSync(result.artifacts.uiReport)), data = JSON.parse(readFileSync(result.artifacts.uiPhaser)); expect(report.face).toBe('display'); expect(report.tones).toBeUndefined(); expect(data.colors.cream).toBe(report.colors.cream); expect(Object.keys(data.tones)).toEqual(['cream', 'muted', 'gold', 'ink']);
+}), 20000);
+
+test('generated display glyphs use their declared multicolor ramp and reject outside-ramp pixels before publication', async () => fixture(async ({ config, write, dir }) => {
+  const generated = generateUIRecipe({ name: 'display-palette', kind: 'font', face: 'display', characters: 'A?' }); write(generated); const first = await buildProject(config); expect(first.ok).toBe(true);
+  const atlas = JSON.parse(readFileSync(first.artifacts.atlas)), frame = atlas.frames.find(frame => frame.filename === generated.report.glyphs.A.frames.cream).frame, image = await loadImage(first.artifacts.sheet), cv = createCanvas(image.width, image.height), ctx = cv.getContext('2d'); ctx.drawImage(image, 0, 0); const pixels = ctx.getImageData(frame.x, frame.y, frame.w, frame.h).data, colors = new Set();
+  for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 3]) colors.add('#' + [...pixels.slice(i, i + 3)].map(v => v.toString(16).padStart(2, '0')).join(''));
+  expect(colors.size).toBeGreaterThan(1); expect([...colors].sort()).toEqual(Object.values(displayRamp('cream', generated.report.colors)).sort());
+  const previous = ownedFiles(dir), bad = structuredClone(generated), cell = generated.report.frames.find(frame => frame.alias === generated.report.glyphs.A.frames.cream).cell, operation = bad.operations.find(op => op.command === 'draw' && op.cell === cell && op.color === '#10242d'); expect(operation).toBeDefined(); operation.color = '#ff00ff';
+  write(bad); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/tone pixels differ: cream/); expect(ownedFiles(dir)).toEqual(previous);
 }), 20000);

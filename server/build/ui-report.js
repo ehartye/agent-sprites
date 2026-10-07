@@ -1,4 +1,5 @@
 import { createCanvas, loadImage } from 'canvas';
+import { displayRamp } from '../authoring/ui-display.js';
 import { fontToneNames } from './ui-runtime.mjs';
 
 export const isUiReport = report => ['font', 'skin', 'logo'].includes(report?.kind);
@@ -44,13 +45,13 @@ export async function validateUiReport(report, atlas, png) {
         if (!record) throw Error(`UI missing font tone frame: ${tone} for ${char}`);
         if (['left', 'top', 'right', 'bottom'].some(key => record.bounds[key] !== glyph.bounds?.[key])) throw Error(`UI glyph bounds differ from frame: ${char}`);
         if (record.bounds.right >= glyph.advance) throw Error(`UI glyph advance clips ink: ${char}`);
-        // The authored display face intentionally carries highlight, shade and outline pixels.
-        if (report.tones || report.face !== 'display') {
-          const rgb = palette[tone].slice(1).match(/../g).map(n => parseInt(n, 16)), f = record.entry.frame;
-          for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
-            const i = ((f.y + y) * image.width + f.x + x) * 4;
-            if (pixels[i + 3] && rgb.some((n, channel) => pixels[i + channel] !== n)) throw Error(`UI font tone pixels differ: ${tone}`);
-          }
+        // Validate the existing authored display ramp rather than exempting a caller-supplied face.
+        const colors = !report.tones && report.face === 'display' ? Object.values(displayRamp(tone, report.colors)) : [palette[tone]];
+        if (colors.some(color => !/^#[\da-f]{6}$/i.test(color))) throw Error('UI font tone colors must be RGB hex.');
+        const allowed = colors.map(color => color.slice(1).match(/../g).map(n => parseInt(n, 16))), f = record.entry.frame;
+        for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
+          const i = ((f.y + y) * image.width + f.x + x) * 4;
+          if (pixels[i + 3] && !allowed.some(rgb => rgb.every((n, channel) => pixels[i + channel] === n))) throw Error(`UI font tone pixels differ: ${tone}`);
         }
       }
     }
