@@ -375,7 +375,9 @@ Font and skin recipes export editable named pixel rectangles, tone variants, met
 without platform fonts. Font builds also publish `font-proof.png` (every glyph in all
 four tones at 3×, then wrapped multiline sample text, drawn through the portable
 runtime) with `font-proof.json` glyph boxes, and an embedded `ui-boot.mjs` for
-loading/error UI. Message skin families include `message` (utility), `speech`, `specimen`,
+loading/error UI. For Phaser `BitmapText`, `resolveFontText` maps unsupported display
+characters to the exported fallback; keep the original string for storage and game
+semantics. Message skin families include `message` (utility), `speech`, `specimen`,
 `specimen_mount`, `specimen_label` (mint label with ink text), `note` (paper),
 `notification`, and `warning`. Their report metrics include six-pixel fixed
 insets, twelve-pixel content padding, minimum dimensions, and `textTone`.

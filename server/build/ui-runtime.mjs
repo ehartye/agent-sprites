@@ -4,6 +4,19 @@ const integer=(value,name)=>{if(!Number.isInteger(value))throw Error(`${name} mu
 /** The four tones every font glyph carries. */
 export const FONT_TONES=['cream','muted','gold','ink'];
 const frameMaps=new WeakMap();
+const normalizeFontText=text=>String(text).replace(/\r\n?/g,'\n').replace(/\t/g,'    ');
+function fontGlyphLookup(font){
+  const glyphs=typeof font.glyphs==='string'?new Set(font.glyphs):font.glyphs;
+  return char=>typeof glyphs.has==='function'?char===' '||glyphs.has(char):Object.hasOwn(glyphs,char);
+}
+function missingFontGlyphs(font,text){const hasGlyph=fontGlyphLookup(font);return [...new Set([...normalizeFontText(text)].filter(char=>char!=='\n'&&!hasGlyph(char)))];}
+/** Resolve unsupported display characters to the font's exported fallback without changing source text. */
+export function resolveFontText(font,text){
+  if(!font||!(typeof font.glyphs==='string'||(font.glyphs&&typeof font.glyphs==='object'))||typeof font.fallback!=='string'||[...font.fallback].length!==1)throw Error('Invalid bitmap font glyph metadata.');
+  const hasGlyph=fontGlyphLookup(font);
+  if(!hasGlyph(font.fallback))throw Error('Invalid bitmap font glyph metadata.');
+  return [...normalizeFontText(text)].map(char=>char==='\n'||hasGlyph(char)?char:font.fallback).join('');
+}
 export function getFrame(atlas,name){
   if(!frameMaps.has(atlas))frameMaps.set(atlas,Array.isArray(atlas.frames)?new Map(atlas.frames.map(f=>[f.filename,f])):new Map(Object.entries(atlas.frames||{})));
   const entry=frameMaps.get(atlas).get(name);
@@ -15,13 +28,12 @@ export function createBitmapFont({image,atlas,report}){
     positiveInteger(g.advance,`Advance for ${char}`);
     if(char!==' ')for(const tone of FONT_TONES){if(typeof g.frames?.[tone]!=='string')throw Error(`Missing font tone: ${tone} for ${char}`);getFrame(atlas,g.frames[tone]);}
   }
-  const glyph=char=>report.glyphs[char]||report.glyphs[report.fallback];
+  const hasGlyph=fontGlyphLookup(report),glyph=char=>hasGlyph(char)?report.glyphs[char]:report.glyphs[report.fallback];
   const lineWidth=line=>[...line].reduce((n,char)=>n+glyph(char).advance,0);
-  const normalize=text=>String(text).replace(/\r\n?/g,'\n').replace(/\t/g,'    ');
   function wrap(text,maxWidth,{scale=2}={}){
     positiveInteger(scale,'Scale');positiveInteger(maxWidth,'Max width');
     const limit=maxWidth/scale,lines=[];
-    for(const paragraph of normalize(text).split('\n')){
+    for(const paragraph of normalizeFontText(text).split('\n')){
       if(!paragraph){lines.push('');continue;}
       let line='';
       for(const word of paragraph.split(/ +/)){
@@ -38,7 +50,7 @@ export function createBitmapFont({image,atlas,report}){
     return lines;
   }
   function measure(text,{scale=2,maxWidth}={}){
-    positiveInteger(scale,'Scale');const lines=maxWidth===undefined?normalize(text).split('\n'):wrap(text,maxWidth,{scale});
+    positiveInteger(scale,'Scale');const lines=maxWidth===undefined?normalizeFontText(text).split('\n'):wrap(text,maxWidth,{scale});
     return {width:Math.max(0,...lines.map(line=>lineWidth(line)*scale)),height:lines.length*report.lineHeight*scale,lines};
   }
   function draw(ctx,text,x,y,{scale=2,tone='cream',maxWidth,align='left'}={}){
@@ -56,7 +68,7 @@ export function createBitmapFont({image,atlas,report}){
     }
     return result;
   }
-  return {measure,wrap,draw,missingGlyphs:text=>[...new Set([...normalize(text)].filter(c=>c!=='\n'&&!report.glyphs[c]))]};
+  return {measure,wrap,draw,missingGlyphs:text=>missingFontGlyphs(report,text)};
 }
 export function drawNineSlice(ctx,{image,atlas,report},name,x,y,width,height,{scale=2}={}){
   integer(x,'X');integer(y,'Y');positiveInteger(scale,'Scale');positiveInteger(width,'Width');positiveInteger(height,'Height');

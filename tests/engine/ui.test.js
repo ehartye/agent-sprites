@@ -4,7 +4,7 @@ import * as uiRuntime from '../../server/build/ui-runtime.mjs';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
-const {createBitmapFont,drawNineSlice,getOpaqueBounds,pixelFit,drawPixelFit}=uiRuntime;
+const {createBitmapFont,resolveFontText,drawNineSlice,getOpaqueBounds,pixelFit,drawPixelFit}=uiRuntime;
 
 test('font publishes deterministic editable glyphs, metrics, game symbols, and crisp bounded raster',()=>{
   const recipe=generateUIRecipe({kind:'font'});expect(generateUIRecipe({kind:'font'})).toEqual(recipe);
@@ -48,6 +48,22 @@ test('runtime wraps with shared metrics, preserves explicit newlines, and draws 
   expect(()=>font.draw(ctx,'A',0,0,{scale:1.5})).toThrow(/integer/);
   font.draw(ctx,'🦋',0,0,{scale:2});expect(calls).toHaveLength(4);
   expect(()=>font.draw(ctx,'A',0,0,{tone:'missing'})).toThrow(/tone/);
+});
+test.each(['regular','compact'])('%s font resolves display text by Unicode code point without changing source text',face=>{
+  const {report}=generateUIRecipe({kind:'font',face}),input='é猫😀☃\r\nA\tB';
+  expect(resolveFontText(report,input)).toBe('é???\nA    B');
+  expect(input).toBe('é猫😀☃\r\nA\tB');
+  expect(resolveFontText(report,'é\ud800😀')).toBe('é??');
+  expect(resolveFontText(report,'e\u0301')).toBe('e?');
+});
+test('font text resolver accepts Phaser repertoire metadata and custom fallback glyphs',()=>{
+  const report=generateUIRecipe({kind:'font',characters:' ABC?'}).report;
+  const phaserFont={glyphs:Object.keys(report.glyphs).filter(char=>char!==' ').join(''),fallback:report.fallback};
+  expect(resolveFontText(phaserFont,'A B\nC')).toBe('A B\nC');
+  expect(resolveFontText(phaserFont,'A猫😀')).toBe('A??');
+  const glyphs=Object.freeze({'A':{},'!':{},' ':{} }),custom=Object.freeze({glyphs,fallback:'!'});
+  expect(resolveFontText(custom,'A猫\tB')).toBe('A!    !');
+  expect(Object.keys(custom.glyphs)).toEqual(['A','!',' ']);
 });
 test('custom character subsets always include fallback and space and pack near-square with only unnamed padding',()=>{
   const full=generateUIRecipe({kind:'font'}),characters=Object.keys(full.report.glyphs).slice(0,128).join('');
