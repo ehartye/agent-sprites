@@ -330,6 +330,12 @@ The same bounded retry covers moving the previous output aside and restoring it
 if publication fails. Other errors fail immediately. No destination is deleted
 to force a rename; if restoration also fails, the error identifies the retained
 backup directory so the previous build remains recoverable.
+On Windows, build before starting the game dev server when possible. If these
+retries exhaust, the previous output remains intact; the error identifies paths,
+not the process holding them. Pause only a positively identified, authorized
+related reader, rerun the build once, then resume it regardless of the result.
+Preserve unknown shared services. If the retry still fails, inspect the path and
+its handle owner; do not retry indefinitely or copy generated files into place.
 The config plus ops/generator/character/environment source is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
