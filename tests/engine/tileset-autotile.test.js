@@ -65,3 +65,41 @@ test('role overrides recolour a material and bad input is a clear error',()=>{
   expect(()=>autotileTiles({kind:'moat',material:'brick',prefix:'w'})).toThrow(/Unknown auto-tile kind/);
   expect(AUTOTILE_KINDS).toEqual(['wall','floor','roof','fence','door']);
 });
+
+const NEW_MATERIALS=['adobe','rammed','timber','shingle','cinder','flags','plate','tread','lapped','ceramic','panel','glasshouse'];
+const FENCE_STYLES=['wattle','paling','lowblock','mesh','slimrail'];
+
+test.each(['wall','floor','roof'])('new %s presets are 47 full hard-alpha tiles',kind=>{
+  for(const material of NEW_MATERIALS){
+    const set=tiles(kind,material);expect(set.map(t=>t.mask)).toEqual(BLOB_MASKS);
+    for(const t of set)for(const r of t.pixels)for(const c of r)expect(c).toMatch(/^#[0-9a-f]{6}$/);
+    expect(byMask(set)[255].flat().filter(Boolean).length).toBe(256);
+  }
+});
+
+test('new patterns differ from each other and from the originals',()=>{
+  const sig=material=>byMask(tiles('wall',material))[255].flat().join();
+  const names=[...NEW_MATERIALS,'scrap','wood','brick','concrete'];
+  expect(new Set(names.map(sig)).size).toBe(names.length);
+});
+
+test('fence styles keep the 16 edge masks, connect on the mask sides and draw a post',()=>{
+  for(const material of FENCE_STYLES){
+    const fence=byMask(tiles('fence',material)),filled=(p,x,y)=>p[y][x]!==null;
+    expect(Object.keys(fence).length).toBe(16);
+    expect(filled(fence[E],15,8)||filled(fence[E],15,6)).toBe(true);expect(filled(fence[E],0,7)).toBe(false);
+    expect(filled(fence[W],0,8)||filled(fence[W],0,6)).toBe(true);expect(filled(fence[N],7,0)).toBe(true);expect(filled(fence[S],7,15)).toBe(true);
+    expect(fence[0].flat().some(c=>c!==null)).toBe(true);
+    expect(new Set(Object.values(fence).map(p=>p.flat().join())).size).toBe(16);
+  }
+});
+
+test('door leaf presets colour the leaf while the frame follows the wall material',()=>{
+  const door=autotileTiles({kind:'door',material:'plate',prefix:'d',leaf:'leaf-steel'});
+  expect(door[0].pixels.flat()).toContain(MATERIALS['leaf-steel'].a);expect(door[0].pixels.flat()).toContain(MATERIALS.plate.a);
+});
+
+test('the original presets keep their order and colours',()=>{
+  expect(Object.keys(MATERIALS).slice(0,12)).toEqual(['scrap','wood','brick','concrete','glass','planks','slab','tile','scrap-plate','thatch','sheet','roof-tile']);
+  expect(MATERIALS.scrap.a).toBe('#85847c');
+});

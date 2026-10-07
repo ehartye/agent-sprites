@@ -73,7 +73,14 @@ report's `animations[name].frames` gives the cell indices if you want to drive a
 | `fence` | 16 `<prefix>_<mask>` | post plus rails toward the four edge neighbours |
 | `door` | `<prefix>`, `<prefix>_open` | a wall segment with a door leaf (`leaf=wood` picks the leaf material) |
 
-Materials: `scrap wood brick concrete glass planks slab tile scrap-plate thatch sheet roof-tile`. Override any of
+Materials: `scrap wood brick concrete glass planks slab tile scrap-plate thatch sheet roof-tile`, and a second family in
+the Fallow Valley building-tier ramps: `adobe` (mud brick) `rammed` (rammed earth) `timber` (vertical planks) `shingle`
+`cinder` (16x8 blocks with rust rebar flecks) `flags` (flagstones) `plate` (riveted plate) `tread` (diamond tread plate)
+`lapped` (lapped sheet roof) `ceramic` (seamless glaze) `panel` (tall panels with an accent light) `glasshouse`
+(long panes with glints). Fence presets set a drawing as well as colours: `wattle` (woven stakes) `paling` (pickets)
+`lowblock` (a low masonry course) `mesh` (wire between rails) `slimrail` (thin bright rails); the default `scrap`,
+`wood` and friends keep the post-and-rails fence. Door leaves can use any preset's colours (`leaf=`); `leaf-adobe`
+`leaf-timber` `leaf-masonry` `leaf-steel` `leaf-alloy` are colour-only presets made for it. Override any of
 the roles `a` (base) `b` (light) `c` (dark) `d` (accent) `s` (seam) `o` (outline) with `role=#rrggbb`.
 
 Masks are clockwise from north: `N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64 NW=128`. This is the **connection** convention: a
