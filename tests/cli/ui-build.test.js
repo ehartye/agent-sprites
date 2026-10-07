@@ -15,6 +15,8 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
   const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-runtime.mjs');expect(marker.files).toContain('ui-boot.mjs');
   const boot=await import(pathToFileURL(result.artifacts.uiBoot).href);expect(boot.imageDataUrl).toMatch(/^data:image\/png;base64,/);expect(boot.report.kind).toBe('font');expect(boot.atlas.frames.length).toBeGreaterThan(0);expect(boot.phaser).toEqual(JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8')));
   const px=JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'));expect(px).toMatchObject({version:1,kind:'font',face,image:'ui-font.png',atlas:'ui-font.atlas.json',fallback:'?'});
+  const runtime=await import(pathToFileURL(result.artifacts.uiRuntime).href);
+  expect(runtime.resolveFontText(px,'é猫😀☃\r\nA\tB')).toBe('é???\nA    ?');
   expect(Object.keys(px.tones)).toEqual(['cream','muted','gold','ink']);expect(px.glyphs).toBe([...px.glyphs].filter((c,i,a)=>a.indexOf(c)===i).join(''));expect(px.glyphs).not.toContain(' ');
   const rep=JSON.parse(readFileSync(result.artifacts.uiReport,'utf8')),atl=JSON.parse(readFileSync(result.artifacts.atlas,'utf8'));
   for(const tone of Object.keys(px.tones)){const d=px.tones[tone];expect(d).toMatchObject({retroFont:false,lineHeight:rep.lineHeight});

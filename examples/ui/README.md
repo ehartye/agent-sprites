@@ -50,7 +50,12 @@ Every glyph has exported `cream`, `muted`, `gold`, and `ink` frames. The report'
 `glyphs[character]` contains `advance`, pixel `bounds`, and `frames[tone]`. Use a
 positive integer scale; 2× or larger is recommended for screen text. Source 1×
 labels can follow an integer-scaled game camera. No kerning or platform shaping
-is applied. Normalize copy to the supported repertoire and check `missingGlyphs`.
+is applied. For native text renderers, pass display copy through `resolveFontText`
+with the font report or `ui-phaser.json` font metadata; it preserves supported
+characters and replaces each unsupported Unicode code point with the exported
+fallback. Keep the original text for storage and game semantics. The portable
+compositor already draws unsupported characters with that fallback; use
+`missingGlyphs` to inspect which literal characters are unsupported.
 
 Both builds own `ui-report.json` and `ui-runtime.mjs` alongside the usual PNG,
 Aseprite atlas, editable project, operations, contact sheet and verification.
@@ -79,8 +84,10 @@ Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame ha
 Phaser stretches nine-slice edges, so size panels in whole source pixels and place them at integer positions under an integer camera zoom.
 
 ```js
-import {createBitmapFont, getFrame, drawNineSlice} from './ui-runtime.mjs';, getFrame, drawNineSlice} from './ui-runtime.mjs';
+import {createBitmapFont, resolveFontText, getFrame, drawNineSlice} from './ui-runtime.mjs';
 const font = createBitmapFont({image, atlas, report});
+const displayText = resolveFontText(px, 'Hello 🦋'); // 'Hello ?' for Phaser BitmapText
+this.add.bitmapText(x, y, 'ui-font-cream', displayText, px.size);
 font.measure('A little room', {scale: 2}); // {width, height, lines: string[]}
 font.wrap('Long copy here', 160, {scale: 2}); // string[], splits long words
 font.draw(ctx, 'A little room', 10, 20, {scale: 2, tone: 'cream', maxWidth: 160});
