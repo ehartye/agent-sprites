@@ -123,7 +123,13 @@ projects. The custom generator workflow below remains useful for other assets.
 2. Create `sprite-project.json` with `version: 1`, `generator: "generate.mjs"`,
    explicit `output`, and `expectedTags` for the game animations.
 3. Run the managed build; stop on nonzero exit. It isolates the session, stages and
-   verifies artifacts, and preserves previous output on failure.
+   verifies artifacts, and preserves previous output on failure. On Windows, build
+   before starting the game dev server when possible. If publication retries for
+   `EPERM`, `EACCES`, or `EBUSY` exhaust, the previous output remains intact; the
+   error identifies paths, not their owner. Pause only a positively identified,
+   authorized related reader, rerun once, then resume it regardless of the result.
+   Preserve unknown shared services. If it still fails, inspect the path and handle
+   owner; never retry indefinitely or copy staged files into generated output.
 4. Inspect the emitted contact sheet and play `preview.html`. Load its PNG and
    atlas in the engine through `sprite-manifest.json` (`files.sheet`, `files.atlas`,
    `report`), resolved relative to the manifest; never derive paths from the recipe kind.
