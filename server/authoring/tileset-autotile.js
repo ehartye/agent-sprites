@@ -28,6 +28,24 @@ const PATTERNS = {
   thatch: (x, y) => { const d = (x + y * 2) % 8; if (d === 0) return 'b'; if (d === 5) return 'c'; return hash(x, y, 5) > .9 ? 'd' : 'a'; },
   scales: (x, y) => { const row = (y >> 2) & 1, xx = (x + (row ? 4 : 0)) % 8, r = y % 4; if (r === 3) return 'c'; if (r === 0) return 'b'; if (xx === 0 || xx === 7) return 's'; return 'a'; },
   concrete: (x, y) => { if (y % 16 === 15) return 's'; if (x % 16 === 15) return 's'; const h = hash(x, y, 6); return h > .92 ? 'c' : h < .08 ? 'b' : (h > .55 && h < .6 ? 'd' : 'a'); },
+  // 16x8 cinder blocks in running bond, with an occasional rust fleck of exposed rebar
+  cinder: (x, y) => { const r = y % 8, course = (y >> 3) & 1, sx = x + (course ? 8 : 0), xx = sx % 16; if (r === 7 || xx === 15) return 's'; if (r === 0 || xx === 0) return 'b'; if (hash(sx >> 4, y >> 3, 9) > .62 && ((r === 3 && (xx === 9 || xx === 10)) || (r === 4 && xx === 10))) return 'd'; const h = hash(x, y, 10); return h > .9 ? 'c' : h < .05 ? 'b' : 'a'; },
+  // smooth plate in 16x8 panels with corner rivets and a faint brushed grain
+  plate: (x, y) => { const r = y % 8, xx = x % 16; if (r === 7 || xx === 15) return 's'; if (r === 0 || xx === 0) return 'b'; if ((xx === 2 || xx === 13) && (r === 2 || r === 5)) return 'd'; if ((xx === 3 || xx === 14) && (r === 3 || r === 6)) return 'c'; return hash(x >> 2, y, 11) > .93 ? 'c' : 'a'; },
+  // flat sheets lapped in rows, offset joints and bolts (a steel roof)
+  lapped: (x, y) => { const r = y % 8, course = (y >> 3) & 1, xx = (x + (course ? 8 : 0)) % 16; if (r === 7) return 's'; if (r === 0) return 'b'; if (xx === 15) return 'c'; if ((xx === 4 || xx === 12) && r === 3) return 'd'; return r === 6 ? 'c' : 'a'; },
+  // irregular flagstones, one mortar line, three courses of different heights
+  flags: (x, y) => { const rows = [[0, 4, [-1, 5, 10, 15]], [5, 10, [-1, 3, 9, 15]], [11, 15, [-1, 4, 10, 15]]]; const [y0, y1, cuts] = rows.find(r => y >= r[0] && y <= r[1]); let i = 0; while (x > cuts[i + 1]) i++; const x0 = cuts[i] + 1, x1 = cuts[i + 1]; if (y === y1 || x === x1) return 's'; if (y === y0 || x === x0) return 'b'; const h = hash(x, y, 12 + i); return h > .9 || (h > .62 && i === 1) ? 'c' : h < .04 ? 'b' : 'a'; },
+  // raised tread bars (diamond plate): short diagonals alternating direction in 4x4 cells
+  tread: (x, y) => { const lx = x % 4, ly = y % 4, up = ((x >> 2) + (y >> 2)) & 1; if ((x === 0 || x === 15) && (y === 0 || y === 15)) return 'd'; if (up ? lx + ly === 3 : lx === ly) return 'b'; if (up ? lx + ly === 4 : lx === ly + 1) return 'c'; return 'a'; },
+  // rammed earth: compacted layers and a few pale grains
+  rammed: (x, y) => { const h = hash(x >> 1, y, 7); if (y % 8 === 3 && h > .5) return 'c'; if (y % 8 === 4 && hash(x >> 1, y, 8) > .72) return 'b'; return h > .94 ? 'c' : h < .06 ? 'b' : 'a'; },
+  // seamless ceramic: a smooth glaze with pale flecks and one small inlay per tile
+  ceramic: (x, y) => { if ((x === 7 || x === 8) && (y === 7 || y === 8)) return (x + y) % 2 ? 'd' : 'b'; const h = hash(x, y, 13); return h > .975 ? 'c' : h < .035 ? 'b' : 'a'; },
+  // tall panels 8 px wide, each with a small accent light under its lit top edge
+  panel: (x, y) => { const xx = x % 8, yy = y % 16; if (xx === 7 || yy === 15) return 's'; if (yy === 0 || xx === 0) return 'b'; if (yy === 5 && xx >= 2 && xx <= 5) return 'd'; if (yy === 6 && xx >= 2 && xx <= 5) return 'c'; return 'a'; },
+  // glasshouse: long 8x16 panes between dark bars, each with diagonal glint streaks (offset on alternate panes)
+  glasshouse: (x, y) => { const xx = x % 8, yy = y % 16, k = (xx + yy + (((x >> 3) & 1) ? 5 : 0)) % 16; if (xx === 7 || yy === 15) return 's'; if (xx === 0) return 'c'; if (xx >= 2 && xx <= 5 && (k === 9 || k === 10)) return 'b'; if (xx >= 3 && xx <= 5 && k === 13) return 'b'; return yy >= 13 ? 'c' : 'a'; },
   glass: (x, y) => { if (x % 8 === 7 || y % 8 === 7) return 's'; if (x % 8 === 0 || y % 8 === 0) return 'b'; if ((x % 8 + y % 8 === 3) || (x % 8 + y % 8 === 5 && x % 8 > 0 && y % 8 > 0 && x % 8 < 4)) return 'b'; return 'a'; },
 };
 
@@ -45,6 +63,31 @@ export const MATERIALS = {
   thatch:        {pattern: 'thatch',     a: '#c9a869', b: '#e3cf93', c: '#8f6f45', d: '#b08d57', s: '#6b5033', o: '#4a3624'},
   sheet:         {pattern: 'ridged',     a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#b5532f', s: '#3c3c3a', o: '#26262a'},
   'roof-tile':   {pattern: 'scales',     a: '#b5532f', b: '#d98b4a', c: '#8c3b25', d: '#5e2a1f', s: '#8c3b25', o: '#5e2a1f'},
+  // Fallow Valley building tiers (adobe, timber, masonry, steel, alloy). Wall, floor and roof presets share a tier's ramp steps.
+  adobe:         {pattern: 'bricks',     a: '#c9a869', b: '#e3cf93', c: '#b08d57', d: '#b08d57', s: '#b08d57', o: '#6b5033'},
+  rammed:        {pattern: 'rammed',     a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#c9a869', s: '#b08d57', o: '#6b5033'},
+  timber:        {pattern: 'planksV',    a: '#b08d57', b: '#c9a869', c: '#6b5033', d: '#6b5033', s: '#6b5033', o: '#4a3624'},
+  shingle:       {pattern: 'scales',     a: '#8f6f45', b: '#b08d57', c: '#6b5033', d: '#4a3624', s: '#6b5033', o: '#4a3624'},
+  cinder:        {pattern: 'cinder',     a: '#a8a79e', b: '#c4c3ba', c: '#5f5f5a', d: '#b5532f', s: '#5f5f5a', o: '#3c3c3a'},
+  flags:         {pattern: 'flags',      a: '#a8a79e', b: '#c4c3ba', c: '#85847c', d: '#85847c', s: '#5f5f5a', o: '#5f5f5a'},
+  plate:         {pattern: 'plate',      a: '#5f5f5a', b: '#a8a79e', c: '#2a4a4a', d: '#c4c3ba', s: '#26262a', o: '#12201f'},
+  tread:         {pattern: 'tread',      a: '#5f5f5a', b: '#a8a79e', c: '#2a4a4a', d: '#c4c3ba', s: '#26262a', o: '#12201f'},
+  lapped:        {pattern: 'lapped',     a: '#3c3c3a', b: '#85847c', c: '#2a4a4a', d: '#a8a79e', s: '#26262a', o: '#12201f'},
+  ceramic:       {pattern: 'ceramic',    a: '#8fc4b4', b: '#c4c3ba', c: '#5f9a8d', d: '#5f9a8d', s: '#5f9a8d', o: '#3f6f68'},
+  panel:         {pattern: 'panel',      a: '#3f6f68', b: '#5f9a8d', c: '#2a4a4a', d: '#8fc4b4', s: '#2a4a4a', o: '#12201f'},
+  glasshouse:    {pattern: 'glasshouse', a: '#5f9a8d', b: '#8fc4b4', c: '#3f6f68', d: '#8fc4b4', s: '#2a4a4a', o: '#12201f'},
+  // Fence styles: `fence` picks the drawing, the colours are the roles a (face) b (lit) c (shade) o (outline).
+  wattle:        {pattern: 'planksV',    fence: 'wattle',   a: '#c9a869', b: '#e3cf93', c: '#8f6f45', d: '#b08d57', s: '#8f6f45', o: '#6b5033'},
+  paling:        {pattern: 'planksV',    fence: 'paling',   a: '#b08d57', b: '#c9a869', c: '#6b5033', d: '#6b5033', s: '#6b5033', o: '#4a3624'},
+  lowblock:      {pattern: 'cinder',     fence: 'lowblock', a: '#a8a79e', b: '#c4c3ba', c: '#5f5f5a', d: '#b5532f', s: '#5f5f5a', o: '#3c3c3a'},
+  mesh:          {pattern: 'plate',      fence: 'mesh',     a: '#5f5f5a', b: '#a8a79e', c: '#2a4a4a', d: '#c4c3ba', s: '#26262a', o: '#12201f'},
+  slimrail:      {pattern: 'panel',      fence: 'slimrail', a: '#3f6f68', b: '#8fc4b4', c: '#2a4a4a', d: '#8fc4b4', s: '#2a4a4a', o: '#12201f'},
+  // Door leaves: only the colours matter (leaf=<name>); la base, lb lit edge, lc shade, ls plank line, ld latch.
+  'leaf-adobe':  {pattern: 'planksV',    a: '#8f6f45', b: '#c9a869', c: '#6b5033', d: '#c9a869', s: '#4a3624', o: '#4a3624'},
+  'leaf-timber': {pattern: 'planksV',    a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#b5532f', s: '#6b5033', o: '#4a3624'},
+  'leaf-masonry': {pattern: 'planksV',   a: '#6b5033', b: '#8f6f45', c: '#4a3624', d: '#b5532f', s: '#4a3624', o: '#2a1e14'},
+  'leaf-steel':  {pattern: 'plate',      a: '#85847c', b: '#c4c3ba', c: '#5f5f5a', d: '#c4c3ba', s: '#2a4a4a', o: '#12201f'},
+  'leaf-alloy':  {pattern: 'panel',      a: '#5f9a8d', b: '#8fc4b4', c: '#3f6f68', d: '#f0d466', s: '#2a4a4a', o: '#12201f'},
 };
 export const AUTOTILE_KINDS = ['wall', 'floor', 'roof', 'fence', 'door'];
 export const AUTOTILE_ROLES = ['a', 'b', 'c', 'd', 's', 'o'];
@@ -112,6 +155,53 @@ function fenceRoles(S, mask) {
   return g;
 }
 
+/** Fence styles beyond the default post-and-rails: `wattle` woven stakes, `paling` pickets, `lowblock` a low masonry course,
+ *  `mesh` wire between rails, `slimrail` thin bright rails on slender posts. Same footprint, same 16 edge masks. */
+function styledFenceRoles(S, mask, style) {
+  const has = bit => (mask & bit) !== 0, g = Array.from({length: S}, () => Array(S).fill(null));
+  const put = (x, y, r) => { if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = r; };
+  const rect = (x0, y0, x1, y1, r) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, r); };
+  const hRun = (x0, x1, fn) => { for (let x = x0; x <= x1; x++) fn(x); };
+  const vRun = (y0, y1, fn) => { for (let y = y0; y <= y1; y++) fn(y); };
+  // the outline goes round everything drawn so far (4-neighbourhood, inside the tile only)
+  const outline = () => { const add = []; for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (!g[y][x] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => g[y + dy]?.[x + dx] && g[y + dy][x + dx] !== 'o')) add.push([x, y]); for (const [x, y] of add) g[y][x] = 'o'; };
+  const runs = (hx, vy) => { if (has(BITS.e)) hRun(10, S - 1, x => hx(x)); if (has(BITS.w)) hRun(0, 5, x => hx(x)); if (has(BITS.n)) vRun(0, 4, y => vy(y)); if (has(BITS.s)) vRun(12, S - 1, y => vy(y)); };
+  const post = (x0, y0, x1, y1, cap) => { rect(x0, y0, x1, y1, 'a'); rect(x0, y0, x1, y0, cap ?? 'b'); rect(x0, y0 + 1, x0, y1, 'b'); rect(x1, y0 + 1, x1, y1, 'c'); rect(x0 + 1, y1, x1, y1, 'c'); };
+  if (style === 'wattle') {
+    // stakes 2 px wide every 4 px, a weave band that passes over and under alternate stakes; thick stake-bundle post
+    runs(x => { const stake = x % 4 === 1 || x % 4 === 2; if (stake) { rect(x, 5, x, 12, x % 4 === 1 ? 'a' : 'c'); put(x, 4, 'b'); }
+      for (const [y0, k] of [[6, 0], [10, 1]]) { const over = (((x >> 2) + k) & 1) === 0; if (over || !stake) { put(x, y0, 'b'); put(x, y0 + 1, 'a'); } else { put(x, y0, x % 4 === 1 ? 'a' : 'c'); put(x, y0 + 1, x % 4 === 1 ? 'a' : 'c'); } } },
+      y => { rect(6, y, 9, y, y % 4 === 0 ? 'b' : y % 4 === 2 ? 'c' : 'a'); });
+    post(5, 3, 10, 13, 'b'); rect(6, 7, 9, 7, 'c'); rect(6, 10, 9, 10, 'c'); outline();
+  } else if (style === 'paling') {
+    // pickets three wide with a pointed top; a one-pixel gap shows as the outline between boards
+    runs(x => { const k = x % 4; if (k === 3) return; rect(x, 4, x, 13, k === 0 ? 'b' : k === 1 ? 'a' : 'c'); if (k === 1) put(x, 3, 'b'); put(x, 8, k === 1 ? 'c' : g[8][x]); put(x, 9, k === 0 ? 'b' : g[9][x]); },
+      y => { rect(6, y, 9, y, y % 4 === 3 ? 'c' : 'a'); rect(6, y, 6, y, y % 4 === 3 ? 'c' : 'b'); });
+    post(5, 3, 10, 13, 'b'); outline();
+  } else if (style === 'lowblock') {
+    // a low masonry course: cap, two block rows with a running-bond joint, a pier at the post
+    runs(x => { rect(x, 7, x, 7, 'b'); rect(x, 8, x, 12, 'a'); put(x, 10, 'c'); if (x % 8 === 7) rect(x, 8, x, 9, 'c'); if (x % 8 === 3) rect(x, 11, x, 12, 'c'); put(x, 13, 'c'); },
+      y => { rect(6, y, 9, y, 'a'); put(6, y, 'b'); put(9, y, 'c'); if (y % 4 === 3) rect(6, y, 9, y, 'c'); });
+    post(4, 4, 11, 13, 'b'); rect(5, 8, 10, 8, 'c'); rect(5, 11, 10, 11, 'c'); outline();
+  } else if (style === 'mesh') {
+    // two rails and a diagonal wire lattice between them (the holes show the ground); slim posts
+    const frame = () => { runs(x => { rect(x, 4, x, 4, 'b'); rect(x, 5, x, 5, 'a'); rect(x, 12, x, 12, 'a'); rect(x, 13, x, 13, 'c'); },
+      y => { rect(6, y, 6, y, 'b'); rect(7, y, 8, y, 'a'); rect(9, y, 9, y, 'c'); }); rect(7, 2, 8, 14, 'a'); rect(7, 2, 7, 14, 'b'); rect(8, 3, 8, 14, 'c'); rect(7, 2, 8, 2, 'b'); };
+    frame(); outline();
+    const wire = (x, y) => { if (g[y][x] !== null) return; if ((x + y) % 4 === 0) g[y][x] = 'b'; else if ((x - y + 16) % 4 === 0) g[y][x] = 'a'; };
+    if (has(BITS.e)) for (let y = 6; y <= 11; y++) for (let x = 9; x < S; x++) wire(x, y);
+    if (has(BITS.w)) for (let y = 6; y <= 11; y++) for (let x = 0; x <= 6; x++) wire(x, y);
+    if (has(BITS.n)) for (let y = 0; y <= 4; y++) for (let x = 7; x <= 8; x++) if (!g[y][x]) g[y][x] = (x + y) % 2 ? 'b' : 'a';
+    if (has(BITS.s)) for (let y = 14; y < S; y++) for (let x = 7; x <= 8; x++) if (!g[y][x]) g[y][x] = (x + y) % 2 ? 'b' : 'a';
+  } else if (style === 'slimrail') {
+    // two thin bright rails (lit over shade) and slender posts with a light on top
+    runs(x => { rect(x, 5, x, 5, 'b'); rect(x, 6, x, 6, 'c'); rect(x, 10, x, 10, 'b'); rect(x, 11, x, 11, 'c'); },
+      y => { rect(7, y, 7, y, 'b'); rect(8, y, 8, y, 'c'); });
+    rect(6, 3, 9, 13, 'a'); rect(6, 3, 6, 13, 'b'); rect(9, 4, 9, 13, 'c'); rect(7, 3, 8, 3, 'b'); rect(7, 4, 8, 4, 'd'); rect(6, 13, 9, 13, 'c'); outline();
+  } else throw Error(`Unknown fence style "${style}".`);
+  return g;
+}
+
 function doorRoles(S, pattern, open, face) {
   const g = blockRoles(S, pattern, 'wall', BITS.e | BITS.w, face), set = (x, y, r) => { g[y][x] = r; };
   for (let y = 2; y <= S - 2; y++) for (let x = 3; x <= S - 4; x++) set(x, y, 'o');
@@ -137,7 +227,7 @@ export function autotileTiles({kind, material: materialName, prefix, size = 16, 
   const color = role => role === null ? null : role.length === 2 && role[0] === 'l' ? leafMaterial[role[1]] : (m[role] ?? DOOR_EXTRA[role]);
   const paint = roles => roles.map(row => row.map(color));
   const f = face ?? (kind === 'roof' ? 3 : 4);
-  if (kind === 'fence') return FENCE_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(fenceRoles(S, mask))}));
+  if (kind === 'fence') return FENCE_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(m.fence ? styledFenceRoles(S, mask, m.fence) : fenceRoles(S, mask))}));
   if (kind === 'door') return [{name: prefix, pixels: paint(doorRoles(S, pattern, false, f))}, {name: `${prefix}_open`, pixels: paint(doorRoles(S, pattern, true, f))}];
   return TERRAIN_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(blockRoles(S, pattern, kind, mask, f))}));
 }
