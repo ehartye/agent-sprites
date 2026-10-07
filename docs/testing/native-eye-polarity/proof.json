@@ -1,0 +1,209 @@
+{
+  "baseline": "79102f3577f5135534dd3425f5f4abaebb9420db",
+  "version": "0.73.1",
+  "managedRoot": "C:/Users/ehart/.agent-sprites/releases/0.73.1-b8ba1880b34b9862-win32-x64-137",
+  "pattern": [
+    "bb.b",
+    "wi.i",
+    "lj.j"
+  ],
+  "bodyChangedPixels": 240,
+  "bodyChangedFrames": 30,
+  "headStudyChangedPixels": 48,
+  "headStudyChangedFrames": 6,
+  "cases": [
+    {
+      "kind": "adult",
+      "frames": 40,
+      "changedFrames": 10,
+      "changedPixels": 80,
+      "sourcePngDifferences": 0,
+      "opaqueMasksUnchanged": true,
+      "changes": [
+        {
+          "alias": "front-right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_3",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_3",
+          "changedPixels": 8
+        }
+      ],
+      "pngSha256": "23435a862d20f94b472666e7a8b083713665fd319e86e6be26554ef7631916ad",
+      "previewSha256": "31a2bff1429256b6568526397ae68e9f0e31ab8569617e591fc24d1295c4b77c"
+    },
+    {
+      "kind": "child",
+      "frames": 40,
+      "changedFrames": 10,
+      "changedPixels": 80,
+      "sourcePngDifferences": 0,
+      "opaqueMasksUnchanged": true,
+      "changes": [
+        {
+          "alias": "front-right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_3",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_3",
+          "changedPixels": 8
+        }
+      ],
+      "pngSha256": "b9524b5c499b7e6609554fde895e8b6a85e24b4b48b3f189f42d8924172c1354",
+      "previewSha256": "73fa629777f80ae8c382f8832519c32818807e11daf537dbf4018b1ee5ec1491"
+    },
+    {
+      "kind": "large",
+      "frames": 40,
+      "changedFrames": 10,
+      "changedPixels": 80,
+      "sourcePngDifferences": 0,
+      "opaqueMasksUnchanged": true,
+      "changes": [
+        {
+          "alias": "front-right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-right_walk_3",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_0",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_1",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_2",
+          "changedPixels": 8
+        },
+        {
+          "alias": "front-left_walk_3",
+          "changedPixels": 8
+        }
+      ],
+      "pngSha256": "2f12735de1601df4f518a2eddf6fe1b9f9a3f4cc466f914265ca3fe653c9de73",
+      "previewSha256": "5e7bce737e6b92e3b09ac181b038c4a18ca4a64a00c2ee83366763a1b5029b68"
+    },
+    {
+      "kind": "eye-construction",
+      "frames": 24,
+      "changedFrames": 6,
+      "changedPixels": 48,
+      "sourcePngDifferences": 0,
+      "opaqueMasksUnchanged": true,
+      "changes": [
+        {
+          "alias": "adult_front_right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "adult_front_left",
+          "changedPixels": 8
+        },
+        {
+          "alias": "child_front_right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "child_front_left",
+          "changedPixels": 8
+        },
+        {
+          "alias": "large_front_right",
+          "changedPixels": 8
+        },
+        {
+          "alias": "large_front_left",
+          "changedPixels": 8
+        }
+      ],
+      "pngSha256": "c293c061d3984f092bea2a14a2c044e80b065f169ccae0796020e958fab229f6",
+      "previewSha256": "8719eba428eca976bdc22c1cc5f59a1851374034908cc852f998cbf95c7d2110"
+    }
+  ],
+  "sourceSha256": "a6994de65164806b95a7b5e67b69e9d163e36d07cd9031234137eed4b31a7a02"
+}

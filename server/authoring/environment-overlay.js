@@ -39,8 +39,35 @@ function profile(random){
   return depth;
 }
 
-/** Boolean coverage (GRID*GRID) of the neighbour material for a normalised mask and variant. */
-export function overlayCoverage(mask,variant=0,seed=7){
+/** Round concave corners: where two adjacent cardinal bands meet, the tile's own material would end in a right angle. */
+const CORNER_PAIRS=[[1,4,GRID-1,0],[4,16,GRID-1,GRID-1],[16,64,0,GRID-1],[64,1,0,0]];
+const discOffsets=r=>{const o=[];for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(dx*dx+dy*dy<=r*r+1)o.push([dx,dy]);return o;};
+export const MAX_ROUND=6;
+/**
+ * Morphological opening of the tile's own material (the uncovered pixels) inside a box at each corner where two adjacent cardinal
+ * bands meet: its convex corners become arcs of radius `round`. The box keeps two pixels clear of every tile border, so the seam
+ * rule (the edge pixels depend only on the corners at the ends) still holds. The radius shrinks until at most a fifth of the own
+ * material in the boxes is lost, so a tile that is almost surrounded keeps a small rounded island instead of vanishing.
+ */
+function roundInnerCorners(cover,mask,round){
+  const boxes=CORNER_PAIRS.filter(([a,b])=>(mask&a)&&(mask&b));
+  if(!boxes.length)return;
+  const inBox=(x,y)=>boxes.some(([,,cx,cy])=>{const dx=Math.abs(x-cx),dy=Math.abs(y-cy);return dx>=2&&dy>=2&&dx<=10&&dy<=10;});
+  const own=(x,y)=>!cover[Math.min(GRID-1,Math.max(0,y))*GRID+Math.min(GRID-1,Math.max(0,x))];
+  const boxOwn=[];for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++)if(inBox(x,y)&&own(x,y))boxOwn.push([x,y]);
+  for(let r=Math.min(MAX_ROUND,round);r>=1;r--){
+    const disc=discOffsets(r),eroded=new Array(GRID*GRID).fill(false);
+    for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++)eroded[y*GRID+x]=disc.every(([dx,dy])=>own(x+dx,y+dy));
+    const opened=(x,y)=>disc.some(([dx,dy])=>{const qx=x+dx,qy=y+dy;return qx>=0&&qy>=0&&qx<GRID&&qy<GRID&&eroded[qy*GRID+qx];});
+    const lost=boxOwn.filter(([x,y])=>!opened(x,y));
+    if(lost.length>Math.max(12,boxOwn.length*.25))continue;
+    for(const [x,y] of lost)cover[y*GRID+x]=true;
+    return;
+  }
+}
+
+/** Boolean coverage (GRID*GRID) of the neighbour material for a normalised mask and variant. `options.round` (0 to 6) rounds concave corners. */
+export function overlayCoverage(mask,variant=0,seed=7,options={}){
   mask=normalizeOverlayMask(mask);
   if(!Number.isSafeInteger(variant)||variant<0)throw Error('Overlay variant must be a nonnegative safe integer');
   if(!Number.isSafeInteger(seed))throw Error('Overlay seed must be a safe integer');
@@ -62,28 +89,35 @@ export function overlayCoverage(mask,variant=0,seed=7){
     }
     cover[y*GRID+x]=on;
   }
-  // soften sharp base-colour corners where two bands meet, away from the tile border so seams stay exact
-  const before=cover.slice();
-  for(let y=1;y<last;y++)for(let x=1;x<last;x++){
-    if(before[y*GRID+x])continue;
-    const up=before[(y-1)*GRID+x],down=before[(y+1)*GRID+x],left=before[y*GRID+x-1],right=before[y*GRID+x+1];
-    if((up||down)&&(left||right))cover[y*GRID+x]=true;
+  // soften sharp base-colour corners where two bands meet, away from the tile border so seams stay exact. With `round` the arcs do this
+  // job properly, and the one pixel fill would also square off the quarter circle of an outer corner, so it is skipped.
+  if(options.round>0)roundInnerCorners(cover,mask,options.round);
+  else{
+    const before=cover.slice();
+    for(let y=1;y<last;y++)for(let x=1;x<last;x++){
+      if(before[y*GRID+x])continue;
+      const up=before[(y-1)*GRID+x],down=before[(y+1)*GRID+x],left=before[y*GRID+x-1],right=before[y*GRID+x+1];
+      if((up||down)&&(left||right))cover[y*GRID+x]=true;
+    }
   }
   return cover;
 }
 
 /**
- * Overlay pixels: the neighbour material's own tile, cut to the coverage, with a one pixel dark edge where it meets
- * the tile's own material. Uncovered pixels are null. Out-of-tile neighbours count as covered like their own pixel so
- * the rim never depends on the next tile.
+ * Overlay pixels: the neighbour material's own tile, cut to the coverage, with a one pixel rim where it meets the tile's own
+ * material. `rim` is a colour, or `{light,dark}` for a rim lit from the top left: an edge facing up or left takes `light`, the
+ * rest `dark`. Uncovered pixels are null. Out-of-tile neighbours count as covered like their own pixel so the rim never
+ * depends on the next tile.
  */
 export function overlayPixels(coverage,tile,rim){
   const px=Array(GRID*GRID).fill(null);
   const at=(x,y)=>coverage[Math.min(GRID-1,Math.max(0,y))*GRID+Math.min(GRID-1,Math.max(0,x))];
   for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++){
     if(!coverage[y*GRID+x])continue;
-    const edge=!at(x-1,y)||!at(x+1,y)||!at(x,y-1)||!at(x,y+1);
-    px[y*GRID+x]=edge&&rim?rim:tile[y*GRID+x];
+    const n=!at(x,y-1),w=!at(x-1,y),s=!at(x,y+1),e=!at(x+1,y);
+    let color=tile[y*GRID+x];
+    if(rim&&(n||w||s||e))color=typeof rim==='string'?rim:((n?1:0)+(w?1:0)-(s?1:0)-(e?1:0))>0?rim.light:rim.dark;
+    px[y*GRID+x]=color;
   }
   return px;
 }

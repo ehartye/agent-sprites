@@ -23,6 +23,7 @@ export function buildPhaserUi({ report, atlas, name }) {
     }
     return { version: 1, kind: 'font', face: report.face ?? 'regular', image, atlas: atlasName, lineHeight: report.lineHeight, baseline: report.baseline, size: report.lineHeight, spaceAdvance: space, fallback: report.fallback, symbols: report.symbols ?? {}, glyphs: chars, tones };
   }
+  if (report.kind === 'logo') return { version: 1, kind: 'logo', image, atlas: atlasName, frame: 'logo', size: report.cellSize, bounds: report.frames[0].bounds };
   const frames = {};
   const bounds = Object.fromEntries(report.frames.map(f => [f.alias, f.bounds]));
   for (const [alias, s] of Object.entries(report.skins)) {

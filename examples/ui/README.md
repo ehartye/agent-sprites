@@ -20,6 +20,14 @@ lettering 12. Do not downscale the regular font to fake smaller type. Use matchi
 advance/space metrics in semantic layouts. Keep important actions in the regular
 face and quiet supporting text in compact; use ink on light panels, cream on dark.
 
+Use `kind: "logo"` for a title logotype: one frame named `logo`, stacked capital lettering at 4x (`text`, default
+`"FALLOW
+VALLEY"`, letters and digits only; one line per `
+`), a lit gold-to-copper gradient, brass and dark outlines, a hard
+drop shadow, a striped sun behind and a horizon of wheat. Wasteland theme colours; about 167x111 for the default text. It is
+one atlas frame, so draw it as one image at the layer's integer scale (`ui-phaser.json` is `{kind:'logo', frame, size, bounds}`).
+The wasteland skin also has `banner_boss`, a nine-slice plate (insets 8, padding 10x8) with copper frame and gold corner studs, for boss-name and event banners.
+
 Use `face: "display"` for logos, banners, boss names and other big type that must still obey one integer scale per layer.
 It is the regular lettering redrawn at twice the size: each 5x7 mask is smoothed with the EPX (Scale2x) rule so curves and
 diagonals get real pixel steps, lit like a bevel (highlight on top edges, shade on bottom edges), outlined, and given a one pixel

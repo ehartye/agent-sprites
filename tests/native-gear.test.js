@@ -1,6 +1,8 @@
 import {test,expect} from 'vitest';
-import {nativeMannequin} from '../examples/native-character/native-mannequin.mjs';
-import {parseGear} from '../examples/native-character/native-gear.mjs';
+import {nativeMannequin,sourceMannequin} from '../examples/native-character/native-mannequin.mjs';
+import {parseGear,drawNativeGear} from '../examples/native-character/native-gear.mjs';
+import {appendNativeDiagonals,diagonalJoints} from '../server/authoring/native/native-diagonal.mjs';
+import {broadenMannequin} from '../server/authoring/native/large-mannequin.mjs';
 import {nativeReport} from '../examples/native-character/native-report.mjs';
 import {dressTemplate} from '../examples/native-character/dress-template.mjs';
 import {castTemplate,cast} from '../examples/native-character/generate-cast.mjs';
@@ -11,6 +13,26 @@ const top=(ops,cell)=>{const m=new Map();for(const o of ops)if(o.command==='draw
 const cellOf=(ops,as)=>ops.find(o=>o.command==='name'&&o.as===as).cell;
 function gearPixels(ops,as){return [...top(ops,cellOf(ops,as)).values()].filter(p=>p.name.startsWith('gear_trowel_'));}
 const ALIASES=f=>[f,`${f}_walk_0`,`${f}_walk_1`,`${f}_walk_2`,`${f}_walk_3`];
+
+for(const kind of ['adult','child','large'])test(`${kind}: diagonal gear points toward the facing and clips only the far hand behind the body`,()=>{
+  const cardinal=kind==='large'?broadenMannequin(sourceMannequin('adult'),'peach',{bulk:2}):sourceMannequin(kind);
+  const plain=appendNativeDiagonals(cardinal,kind,'peach');
+  for(const facing of ['front-right','back-right','back-left','front-left']){
+    const near=facing.endsWith('-right')?'right':'left',far=near==='right'?'left':'right',sign=near==='right'?1:-1;
+    const gearList=[{item:'trowel',side:near},{item:'trowel',side:far}];
+    const held=drawNativeGear(plain,kind,gearList),report=nativeReport(held,kind,{gear:gearList});
+    for(const [index,alias] of ALIASES(facing).entries()){
+      const cell=cellOf(plain,alias),body=top(plain,cell),j=diagonalJoints(kind,facing,index===0?null:index-1);
+      const gear=held.filter(o=>o.command==='draw'&&o.cell===cell&&o.name.startsWith('gear_trowel_'));
+      const nearPixels=gear.filter(p=>p.name.startsWith(`gear_trowel_${near}_`));
+      expect(nearPixels.some(p=>p.x===j[near].wrist[0]&&p.y===j[near].wrist[1]),`${kind} ${alias} wrist`).toBe(true);
+      expect(nearPixels.some(p=>sign*(p.x-j[near].wrist[0])>0),`${kind} ${alias} blade facing`).toBe(true);
+      expect(gear.filter(p=>p.name.startsWith(`gear_trowel_${far}_`)&&body.has(p.x+','+p.y)),`${kind} ${alias} far clipping`).toEqual([]);
+      expect(gear.every(p=>p.x>=0&&p.x<16&&p.y>=0&&p.y<32)).toBe(true);
+      expect(report.frames.find(f=>f.alias===alias).gear).toEqual([{item:'trowel',side:near,role:'near'},{item:'trowel',side:far,role:'far'}]);
+    }
+  }
+});
 
 for(const kind of ['adult','child'])test(`${kind}: a right-hand trowel follows the body side in every facing`,()=>{
   const plain=nativeMannequin(kind),held=nativeMannequin(kind,'peach',{gear:RIGHT});

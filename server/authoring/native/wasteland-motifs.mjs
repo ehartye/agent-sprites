@@ -9,6 +9,8 @@
 // wasteland ramps, or '@material.role' which follows the character's own material
 // (so a duster's coat matches its sleeves). Callers override any slot by name.
 
+import { WARDROBE_MOTIFS } from './wardrobe-motifs.mjs';
+
 const R = { // shared ramps (light to dark); see the game's palette docs
   dust: ['#e3cf93', '#c9a869', '#b08d57', '#8f6f45', '#6b5033', '#4a3624'],
   rust: ['#d98b4a', '#b5532f', '#8c3b25', '#5e2a1f'],
@@ -27,7 +29,7 @@ const part = (directions, anchor, x, y, rows, extra = {}) => ({ directions, anch
  * name -> {slots, symbols, parts, ...}. `symbols` maps a pixel-row character to a slot.
  * `side` entries (pauldron) are authored for the character's right and mirror for 'left'.
  */
-export const WASTELAND_MOTIFS = {
+const BASE_MOTIFS = {
   'wide-brim-hat': {
     describe: 'Wide-brim sun hat: crown, band and a brim that shades the forehead.',
     slots: { light: R.dust[0], base: R.dust[1], shade: R.dust[2], band: R.rust[1], edge: R.dust[5] },
@@ -448,7 +450,9 @@ export const WASTELAND_MOTIFS = {
   },
 };
 
-const HEX = /^#[\da-f]{6}$/i;
+export const WASTELAND_MOTIFS = { ...BASE_MOTIFS, ...WARDROBE_MOTIFS };
+
+const HEX =/^#[\da-f]{6}$/i;
 
 /** Material ramp lookup used by '@material.role' slot defaults. */
 function ramp(materials, name) {

@@ -29,7 +29,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 ## Highlights
 
 - **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
-- **Native 16×32 mannequins** — editable adult/child studies with four-direction walk cycles, pose-fitted jackets and dresses, independent animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
+- **Native 16×32 mannequins** — editable adult/child/large mannequins with eight-direction walk cycles and face-construction references, four-direction fitted wardrobes and animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
 
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
 - **Pattern fills** — any filled rect/circle/ellipse/polygon takes `--pattern checker|stripes|sparse|scatter --color2 <hex>` for two-color dither fills in one op (pointillism, texture, gradients by band); `recolor --color2` swaps the second color later
@@ -359,7 +359,7 @@ space aligned with the art. Terrain recipes provide deterministic variants;
 irregular shoulders and four seam-compatible variants. The wasteland set (dust, sand,
 gravel, rubble, concrete, asphalt, ash, mud, slag, fused-glass, salt-crust, clay, animated water, tilled-soil and
 tilled-soil-wet), inline `customMaterials`, and `terrain-overlay` (alpha-edged 47-mask encroachment overlays plus base
-tiles from one build) give an open-ended ground sandbox; see
+tiles from one build, optionally with a 1 px lit rim, rounded concave corners and rimless `-soft` twins via `overlayEdge`) give an open-ended ground sandbox; see
 [wasteland terrain](examples/environment/README.md#wasteland-terrain-custom-materials-and-overlays). The
 habitat kit offers cottage, workshop, kitchen and barn styles with distinct roof
 silhouettes and matching interiors, alongside the historical default pressure
@@ -382,11 +382,13 @@ insets, twelve-pixel content padding, minimum dimensions, and `textTone`.
 Use the exported metrics for layout at your integer display scale. The separate
 `scrim_solid` frame is opaque pixel art; composite it at its reported `opacity`
 (0.48) to quiet the world behind a dialog. Historical skin frames and regular /
-compact font colors remain unchanged. A third `face: "display"` gives 2× logo and banner lettering, every font draws symbols (heart, skull, check, star, moon, bolt, drop, wheat, lock) inline, the wasteland skin adds colour `sym_*` icons, and sheets pack near-square (`verify --max-aspect`). The portable runtime also exports
-`getOpaqueBounds(imageData)` and `drawPixelFit(ctx, image, bounds, destination,
-{padding})` to crop transparent padding and center artwork at a uniform integer
-scale. Empty art and boxes too small for 1× return `null` without drawing; no
-fractional shrinking or overflow is introduced.
+compact font colors remain unchanged. A third `face: "display"` gives 2× logo and banner lettering, `kind: "logo"` builds a ready-made stacked title logotype (sun, wheat, lit lettering), every font draws symbols (heart, skull, check, star, moon, bolt, drop, wheat, lock) inline, the wasteland skin adds colour `sym_*` icons, and sheets pack near-square (`verify --max-aspect`). The portable runtime also exports
+`getOpaqueBounds(imageData)` and pure `pixelFit(bounds, destination, {padding})`
+to crop transparent padding and center artwork at a uniform integer scale.
+`pixelFit` returns `{x, y, width, height, scale}` for native engines such as Phaser
+without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destination,
+{padding})` draws with the same fit. Empty art and boxes too small for 1× return
+`null`; no fractional shrinking or overflow is introduced.
 
 Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the

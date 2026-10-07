@@ -51,7 +51,7 @@ const widths=(ops,cell,y)=>{const xs=ops.filter(o=>o.command==='draw'&&o.cell===
 
 test('large shoulders, neck and jaw are broader than the adult in front and back views',()=>{
  const adult=nativeMannequin('adult'),large=nativeMannequin('large');
- for(const {cell,as} of adult.filter(o=>o.command==='name'&&/^(front|back)/.test(o.as))){
+ for(const {cell,as} of adult.filter(o=>o.command==='name'&&/^(front|back)(_|$)/.test(o.as))){
   const head=new Set(adult.find(o=>o.command==='shape-group'&&o.cell===cell&&o.name==='head').shapes);
   const jaw=Math.min(...adult.filter(o=>o.command==='draw'&&o.cell===cell&&head.has(o.name)).map(p=>p.y))+9;
   expect(widths(large,cell,jaw),as+' jaw').toBeGreaterThan(widths(adult,cell,jaw));

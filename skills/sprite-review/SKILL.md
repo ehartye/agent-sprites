@@ -61,6 +61,11 @@ For places, terrain and scenes, also apply [world rules](../sprite-craft/referen
 recipe, solid-looking is solid) and size things with [scale and proportion](../sprite-craft/references/scale-and-proportion.md).
 For lettering (logos, titles, signage, UI text, app icons) use [branding and text](references/branding-and-text.md);
 for ships, vehicles and establishing shots use [vehicles and reveals](references/vehicles-and-reveals.md).
+For a character's alternate facings, apply
+[directional consistency](../sprite-character/references/directional-consistency.md):
+compare head volume, feature prominence and head opacity against the established
+views. These belong to silhouette, detail and set consistency; atlas validity
+does not establish a style match.
 Add **Motion** (timing, stable clusters between frames) only for animated art, using
 [small-sprite motion](../sprite-craft/references/small-sprite-motion.md). Tag each score
 **measured**, **viewed** or **inferred**; keep inferred scores out of the overall figure.

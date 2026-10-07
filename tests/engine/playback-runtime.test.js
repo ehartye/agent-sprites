@@ -11,6 +11,18 @@ const CAST = [
 ];
 const reportsFor = (person, outfit) => ['idle', 'walk'].map(mode => generateCharacterRecipe({ people: [person], outfits: [outfit], mode, directions: ['down', 'right', 'up', 'left'] }).report);
 
+const eightDirectionReport = () => {
+  const vectors = { down: [0, 1], right: [1, 0], up: [0, -1], left: [-1, 0],
+    'down-right': [Math.SQRT1_2, Math.SQRT1_2], 'up-right': [Math.SQRT1_2, -Math.SQRT1_2],
+    'up-left': [-Math.SQRT1_2, -Math.SQRT1_2], 'down-left': [-Math.SQRT1_2, Math.SQRT1_2] };
+  return { aliases: { idle: '{direction}', walk: '{direction}_walk_{frame}' },
+    directions: Object.fromEntries(Object.keys(vectors).map(d => [d, d])),
+    frames: Object.entries(vectors).flatMap(([direction, vector]) => [
+      { alias: direction }, ...Array.from({ length: 4 }, (_, frame) => ({ alias: `${direction}_walk_${frame}`,
+        locomotion: { direction: vector, frameDistance: 3, cycleDistance: 12, frameCount: 4,
+          contactCalibration: 'none', rootCompensation: 'none' } }))]) };
+};
+
 describe('grounded playback adapter', () => {
   test('facing follows dominant actual displacement; a diagonal tie keeps the current facing', () => {
     expect(facingFor(3, 1, 'down')).toBe('right');
@@ -70,6 +82,34 @@ describe('grounded playback adapter', () => {
     for (let i = 0; i < fd * 3; i++) s = walker.update(1, 0.9);
     expect(s.alias).toBe('ada_casual_right_walk_3');
     expect(s.distance).toBeCloseTo(fd * 3);
+  });
+
+  test('eight-direction reports select all diagonal sectors and retain a true diagonal idle', () => {
+    for (const [dx, dy, facing] of [[1, 1, 'down-right'], [1, -1, 'up-right'], [-1, -1, 'up-left'], [-1, 1, 'down-left']]) {
+      const walker = createWalker(eightDirectionReport(), { mode: 'authored-contact' });
+      expect(walker.update(dx, dy)).toMatchObject({ facing, alias: `${facing}_walk_0`, offset: [0, 0], contactsCalibrated: false });
+      expect(walker.update(dx, dy).distance).toBeCloseTo(2 * Math.SQRT2);
+      expect(walker.update(0, 0)).toMatchObject({ facing, alias: facing, moving: false, distance: 0 });
+      expect(walker.update(3, 1)).toMatchObject({ facing: 'right', distance: 3 });
+      expect(walker.update(1, -3)).toMatchObject({ facing: 'up', distance: 3 });
+    }
+  });
+
+  test('a cardinal report does not claim diagonals from unrelated frame aliases', () => {
+    const report = eightDirectionReport();
+    report.directions = Object.fromEntries(['down', 'right', 'up', 'left'].map(d => [d, d]));
+    expect(createWalker(report, { mode: 'continuous-root' }).update(1, 1).facing).toBe('down');
+  });
+
+  test('direction maps combine across reports that supply separate views', () => {
+    const report = eightDirectionReport();
+    const reports = Object.entries(report.directions).map(([facing, direction]) => ({
+      ...report, directions: { [facing]: direction },
+      frames: report.frames.filter(f => f.alias === direction || f.alias.startsWith(`${direction}_walk_`)),
+    }));
+    const walker = createWalker(reports, { mode: 'continuous-root' });
+    expect(walker.update(-1, -1)).toMatchObject({ facing: 'up-left', alias: 'up-left_walk_0' });
+    expect(walker.update(0, 0).alias).toBe('up-left');
   });
 
   test('collision-resolved displacement drives the walk: a blocked axis slides, a full block idles, turning resets phase', () => {

@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "kind": "adult",
+      "frames": 40,
+      "walkTags": 8,
+      "sourcePngExact": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "kind": "child",
+      "frames": 40,
+      "walkTags": 8,
+      "sourcePngExact": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "kind": "large",
+      "frames": 40,
+      "walkTags": 8,
+      "sourcePngExact": true,
+      "errors": 0,
+      "warnings": 0
+    }
+  ]
+}

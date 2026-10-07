@@ -92,7 +92,7 @@ export function getOpaqueBounds({data,width,height}){
   }
   return right<0?null:{x:left,y:top,width:right-left+1,height:bottom-top+1};
 }
-export function drawPixelFit(ctx,image,bounds,destination,{padding=0}={}){
+export function pixelFit(bounds,destination,{padding=0}={}){
   if(!bounds)return null;
   for(const [label,rect] of [['Source',bounds],['Destination',destination]]){
     integer(rect.x,`${label} X`);integer(rect.y,`${label} Y`);positiveInteger(rect.width,`${label} width`);positiveInteger(rect.height,`${label} height`);
@@ -104,6 +104,10 @@ export function drawPixelFit(ctx,image,bounds,destination,{padding=0}={}){
   if(scale<1)return null;
   const width=bounds.width*scale,height=bounds.height*scale;
   const x=destination.x+Math.floor((destination.width-width)/2),y=destination.y+Math.floor((destination.height-height)/2);
-  ctx.imageSmoothingEnabled=false;ctx.drawImage(image,bounds.x,bounds.y,bounds.width,bounds.height,x,y,width,height);
   return {x,y,width,height,scale};
+}
+export function drawPixelFit(ctx,image,bounds,destination,{padding=0}={}){
+  const fit=pixelFit(bounds,destination,{padding});if(!fit)return null;
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(image,bounds.x,bounds.y,bounds.width,bounds.height,fit.x,fit.y,fit.width,fit.height);
+  return fit;
 }

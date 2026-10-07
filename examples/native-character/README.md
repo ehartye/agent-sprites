@@ -2,7 +2,7 @@
 
 These Stardew-style 16×32 characters are the **primary** agent-sprites character system: new characters and character features start here. The 40×56 [`character` recipe](../character-cast/README.md) remains maintained for joint data, held gear and report-driven walking.
 
-Editable adult and child templates use 16×32 cells, ten-pixel bare heads centered at x=3..12, and soles at y=29. **Walking poses are present:** each source template retains four front and four right poses with semantic skin groups. The builder exports four-direction walk cycles, including reflected left poses and authored rear shading. These are reference-derived studies; rear art is an inference, not a traced reference.
+Editable adult and child templates use 16×32 cells, ten-pixel bare heads centered at x=3..12, and soles at y=29. **Walking poses are present:** each source template retains four front and four right poses with semantic skin groups. Bare adult, child and large mannequins export eight-direction walk cycles, including authored diagonal bodies and rear shading. The four-direction wardrobe and costume pipeline retains its existing poses. These are reference-derived studies; rear art is an inference, not a traced reference.
 
 From the repository root:
 
@@ -11,17 +11,23 @@ node scripts/run-managed.js build examples/native-character/adult.build.json
 node scripts/run-managed.js build examples/native-character/child.build.json
 ```
 
-The generated projects in `dist/adult` and `dist/child` are named `native-adult` and `native-child`. Each has 20 physical cells: four rows (front, right, back, left), each containing an idle pose followed by four walk frames. Open their `*.project.json` files in the workbench to edit or copy them. Skin tones remain selectable. Regenerate from source to preserve repeatability; save interactive changes to a new source before rebuilding.
+The generated projects in `dist/adult` and `dist/child` are named `native-adult` and `native-child`. Each bare mannequin has 40 physical cells: eight rows (front, right, back, left, front-right, back-right, back-left, front-left), each containing an idle pose followed by four walk frames. Open their `*.project.json` files in the workbench to edit or copy them. Skin tones remain selectable. Regenerate from source to preserve repeatability; save interactive changes to a new source before rebuilding.
 
-Idle aliases remain `front`, `right`, `back`, and `left`. Walk aliases use `<direction>_walk_0` through `_3`; animation tags `walk_front`, `walk_right`, `walk_back`, and `walk_left` play at 8 fps. Source frames 0 and 2 share a passing pose, alternating with the two strides; these are four timed frames, not four unique silhouettes. The bottom-center pivot is shared by body, clothing, and wigs.
+The original idle aliases remain `front`, `right`, `back`, and `left`; new diagonals use `front-right`, `back-right`, `back-left`, and `front-left`. Walk aliases use `<direction>_walk_0` through `_3`; each `walk_<direction>` tag plays at 8 fps. Cardinal source frames 0 and 2 share a passing pose, alternating with the two strides; four timed frames need not mean four unique silhouettes. The bottom-center pivot is shared by body, clothing, and wigs.
 
 `native-mannequin.mjs` preserves every source front/right point. Left reflects right across the cell. Each rear frame shares the corresponding front silhouette and ground, replaces facial colors with skin, and moves rear skull, neck, shoulder, arm and heel shading with the pose's bob. The original enlarged references stay outside this repository. See [reference-grid](../reference-grid/README.md) for reconstruction and tone normalization.
+
+## Face structure and diagonal construction
+
+See [FACE-CONSTRUCTION.md](FACE-CONSTRUCTION.md) for the reusable brow-and-iris construction, native head volume, palettes, and rear-view rules. Build `eye-construction.build.json` for a 24-cell head reference sheet: all eight facings for adult, child and large. Its named `head`, `eyes`, `eyes-*` and `skin-*` groups remain editable. `native-diagonal-head.mjs` supplies the same head geometry to both the references and actual diagonal walking bodies.
+
+`native-diagonal.mjs` authors the four added body directions with matching arm/leg swings and anatomical attachment points. The first four mannequin rows retain their original silhouettes and body colors; eye colors are normalized into explicit material groups. `sourceMannequin` remains the four-direction foundation used by existing fitted wardrobes and costumes. Those garments and wigs need a separate diagonal fitting pass before they can cover all eight facings.
 
 ## Character report and body sides
 
 Body, wardrobe, cast and pressure-suit builds publish `character-report.json` beside the sheet, plus `playback-runtime.mjs`, both listed in `sprite-manifest.json`. Wig overlays have no report. The report uses the 40×56 recipe's contract with native names: `kind: 'character'`, `system: 'native'`, `cellSize` 16×32, `ground: 29`, `aliases` (`{direction}` and `{direction}_walk_{frame}`), `directions` mapping the runtime's down/up to front/back, and per-frame `alias`, `direction`, `frame`, `sides`, `gear` and `bounds`.
 
-`sides.left` and `sides.right` give each anatomical side's `role` (near/far in profile, front/back otherwise) and its `shoulder`, `wrist` and `hip`. They come from the authored table in `joints.mjs` (eight source poses per body); left, back and the large body are derived from it, and clothing reads its exposed hand boxes from the same file. Use `attachmentFor(frame, side, joint, groundAnchor(report, frame), x, y, {scale})` to place one-sided items. Walk frames also carry `locomotion`, so `createWalker` drives native walks (four frames at 8 fps). Right and left walks plant the support foot: each frame travels its measured step (`PROFILE_STEPS` in `joints.mjs`, from the sole centres on row 29: adult 3.5, 2.5, 4.5, 3; child 3.5, 1, 3.5, 2; large 4, 3, 5.5, 4 source pixels), published as `frameDistances` with `contactCalibration: 'profile'` and `rootCompensation: 'subtract-phase-remainder'`. In `authored-contact` mode the draw offset holds the body still within a frame and steps it between frames, so `contactsCalibrated` is true and the planted sole keeps its world position (to half a source pixel once the host rounds). Front and back walks use one uniform stride (`STRIDE`: adult 3.5, child 2.5, large 4) and claim no planting, like the 40×56 recipe's projected facings.
+`sides.left` and `sides.right` give each anatomical side's `role` (near/far in profile, front/back otherwise) and its `shoulder`, `wrist` and `hip`. They come from the authored table in `joints.mjs` (eight source poses per body); left, back and the large body are derived from it, and clothing reads its exposed hand boxes from the same file. Use `attachmentFor(frame, side, joint, groundAnchor(report, frame), x, y, {scale})` to place one-sided items. Walk frames also carry `locomotion`, so `createWalker` drives native walks (four frames at 8 fps). Right and left walks plant the support foot: each frame travels its measured step (`PROFILE_STEPS` in `joints.mjs`, from the sole centres on row 29: adult 3.5, 2.5, 4.5, 3; child 3.5, 1, 3.5, 2; large 4, 3, 5.5, 4 source pixels), published as `frameDistances` with `contactCalibration: 'profile'` and `rootCompensation: 'subtract-phase-remainder'`. In `authored-contact` mode the draw offset holds the body still within a frame and steps it between frames, so `contactsCalibrated` is true and the planted sole keeps its world position (to half a source pixel once the host rounds). Front, back and diagonal walks use one uniform stride (`STRIDE`: adult 3.5, child 2.5, large 4) and claim no planting, like the 40×56 recipe's projected facings.
 
 ### Held trowel
 
@@ -65,7 +71,7 @@ Get-ChildItem examples/native-character/*.build.json | ForEach-Object {
 }
 ```
 
-The review page shows synchronized front/right/back/left views, adult/child bodies, independent clothing and hair selectors, playback speed, idle mode, and clickable frame strips. Its large canvases display native pixels at 8×. This is an asset inspection page, not a game character replacement or a full customization system. Generated `dist` files must be rebuilt after source changes; refresh the page after rebuilding.
+The review page shows eight synchronized views for bare adult/child/large bodies, independent clothing and hair selectors, playback speed, idle mode, and clickable frame strips. Selecting clothing or a wig shows the four facings those overlays currently support. Its large canvases display native pixels at 8×. This is an asset inspection page, not a game character replacement or a full customization system. Generated `dist` files must be rebuilt after source changes; refresh the page after rebuilding.
 
 ## Space to Grow cast concepts
 
@@ -73,7 +79,7 @@ The [cast example](cast/README.md) applies the new format to eight residents: th
 
 ## Large-build mannequin
 
-`large.build.json` creates `dist/large/native-large.project.json` and matching PNG/atlas/preview. It uses the same 16×32 cells, four directions, 20 frames, walk tags, adult head pixels, bob and bottom-center pivot. `large-mannequin.mjs` is the editable construction source, applied to the adult's source poses by `native-mannequin.mjs`.
+`large.build.json` creates `dist/large/native-large.project.json` and matching PNG/atlas/preview. It uses the same 16×32 cells, eight directions, 40 frames, walk tags, adult eye palette, bob and bottom-center pivot. `large-mannequin.mjs` is the editable construction source, applied to the adult's source poses by `native-mannequin.mjs`.
 
 ```powershell
 node scripts/run-managed.js build examples/native-character/large.build.json
@@ -145,6 +151,24 @@ The pack, bedroll and cloak drape use the `behind` layer; the shoulder plate sta
 redrawn arms. Presets (`NATIVE_PRESETS`): `scavenger-rags`, `scavenger-scrap`,
 `scavenger-expedition`, `settler-farmer`, `settler-tinkerer`, `settler-elder`, `trader`,
 `raider`, `ghoul`, `zombie`, `mutant-brute`, `alien-visitor`, `scrap-bot`.
+
+### Wardrobe motifs and overlay sheets (modular, recolourable characters)
+
+For a character the player customises, build layers instead of one sheet per combination. Wardrobe motifs
+(`wardrobe-motifs.mjs`): hair styles `hair-cropped`, `hair-short`, `hair-tied`, `hair-long`, `hair-curls`, `hair-mohawk`;
+facial hair `facial-stubble`, `facial-moustache`, `facial-goatee`, `facial-beard`; `goggles-up` (goggles on the forehead);
+and outfit pieces `overalls`, `field-jacket`, `bandolier`. Hair and facial hair follow a `hair` ramp, given either as
+`materials.hair` (a hair ramp on a `wig: "none"` body only colours motifs) or as explicit slot `colors`
+(`outline`, `shadow`, `base`, `light`). Overalls follow `trousers`, the field jacket `cloth`.
+
+`native.only: ["motif-name", ...]` keeps just those motifs' pixels: the sheet becomes a transparent overlay with exactly the
+same frames, tags and cells as the full character (walk, swing, water, hurt and down included), because it runs the same
+recipe and filters at the end. Build a bare-headed body (`"wig": "none"`) plus one overlay sheet per hair style, facial hair
+and headwear, then composite them in the game in a fixed order (body, hair, facial hair, headwear) and recolour at runtime by
+swapping exact key colours (hard alpha, no tint, no blending). Draw the sheets in distinctive key ramps so a swap can never
+touch an unrelated pixel. Overlay builds suppress the "empty frame" warning (a back view has no beard). Fallow Valley's
+wardrobe (28 sheets cover 5 outfits x 3 gear tiers x 7 hair styles x 5 facial hairs x 4 headwear x any colours) is the
+reference: `tools/build-wardrobe.mjs` there generates the profiles.
 
 ### Action poses
 

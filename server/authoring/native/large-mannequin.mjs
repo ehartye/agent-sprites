@@ -72,7 +72,8 @@ export function broadenMannequin(source,tone,{bulk=0}={}){
    if(bulk>1&&!profile)widen(neckLow,1,0);
   }
   const mask=new Set([...body.keys(),...points.filter(p=>head.has(p.name)).map(p=>`${p.x},${p.y}`)]);
-  const grouped={head:[],body:[],arms:[...arms],'skin-highlight':[],'skin-base':[],'skin-shadow':[],'skin-outline':[]};
+  const grouped={head:[],body:[],arms:[...arms],'skin-highlight':[],'skin-base':[],'skin-shadow':[],'skin-outline':[],
+    ...Object.fromEntries(Object.entries(groups).filter(([name])=>name==='eyes'||name.startsWith('eyes-')).map(([name,names])=>[name,names.filter(n=>head.has(n))]))};
   // A jaw outline pixel that bulk now encloses becomes under-jaw shading.
   const enclosed=(p,any)=>[[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>mask.has((p.x+dx)+','+(p.y+dy)))&&(any||[[-1,0],[1,0]].some(([dx])=>added.has((p.x+dx)+','+p.y)));
   const armAt=new Set([...body.values()].filter(q=>arms.has(q.name)).map(q=>q.x+','+q.y));

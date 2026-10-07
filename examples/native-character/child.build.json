@@ -13,12 +13,20 @@
     "front",
     "right",
     "back",
-    "left"
+    "left",
+    "front-right",
+    "back-right",
+    "back-left",
+    "front-left"
   ],
   "expectedTags": [
     "walk_front",
     "walk_right",
     "walk_back",
-    "walk_left"
+    "walk_left",
+    "walk_front-right",
+    "walk_back-right",
+    "walk_back-left",
+    "walk_front-left"
   ]
 }

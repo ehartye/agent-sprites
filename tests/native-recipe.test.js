@@ -23,7 +23,8 @@ test('an inline native recipe reproduces every checked-in cast costume byte for 
 
 test('every library motif expands for adult and large bodies, stays inside the cell and keeps rows rectangular', () => {
   for (const kind of ['adult', 'large']) for (const name of MOTIF_NAMES) {
-    const { motifs } = expandMotifs([name], { kind, materials: {}, fallbackRamps: { cloth: { outline: '#000000', shadow: '#111111', base: '#222222', highlight: '#333333' }, skin: { outline: '#000000', shadow: '#111111', base: '#222222', highlight: '#333333' } } });
+    const ramp = { outline: '#000000', shadow: '#111111', base: '#222222', highlight: '#333333' };
+    const { motifs } = expandMotifs([name], { kind, materials: {}, fallbackRamps: { cloth: ramp, trousers: ramp, hair: ramp, skin: ramp } });
     expect(motifs.length, name).toBeGreaterThan(0);
     for (const m of motifs) {
       const width = Math.max(...m.rows.map(r => r.length));

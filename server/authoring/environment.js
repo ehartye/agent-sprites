@@ -3,7 +3,7 @@ import {drawTerrainTransition,TERRAIN_MASKS,TRANSITION_BITS} from './environment
 import {drawHabitat, drawFurniture, HABITAT_LAYOUT, FURNITURE_COLLISIONS} from './environment-habitat.js';
 import {drawStyledHabitat,HABITAT_STYLES} from './environment-habitat-styles.js';
 import {GRID,WASTELAND_SPECS,WASTELAND_MATERIALS,ANIMATION_FRAMES,materialTile,validateCustomMaterial} from './environment-materials.js';
-import {EDGE_DEPTH,OVERLAY_BITS,OVERLAY_MASKS,overlayCoverage,overlayPixels} from './environment-overlay.js';
+import {EDGE_DEPTH,MAX_ROUND,OVERLAY_BITS,OVERLAY_MASKS,overlayCoverage,overlayPixels} from './environment-overlay.js';
 import {readPixelScale,scaleShape,screenBounds,sourceBounds,sourcePen} from './environment-pixel-scale.js';
 
 const hashName=s=>[...s].reduce((h,ch)=>(Math.imul(h,31)+ch.charCodeAt(0))>>>0,7);
@@ -26,11 +26,26 @@ function drawPixelTile(p,pixels){
   for(const r of done)q.rect(`tile_${r.y}_${r.x}`,r.x*k,r.y*k,r.w*k,r.h*k,r.c);
 }
 const fallback=(value,other)=>value===undefined?other:value;
+const shade=(hex,k)=>'#'+[1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*k).toString(16).padStart(2,'0')).join('');
+/** Rim colours from a material ramp [base, dark, light, bright]: the light step on top-left facing edges, the dark step a notch darker elsewhere. */
+const rimColors=ramp=>({light:ramp[2],dark:shade(ramp[1],.8)});
+/** terrain-overlay edge style: `soft` also emits a rimless twin of the overlays (`<material>-soft_<mask>_<variant>`, all materials or the named ones) for seams between two looks of one material, where an outline would be noise; `rim` draws a one pixel outline in the overlay material's own ramp (light on top-left facing edges, dark elsewhere); `round` (0 to 6) rounds the concave corners. */
+function validateOverlayEdge(edge,kind){
+  if(edge===undefined)return {round:0,rim:false,soft:null};
+  if(kind!=='terrain-overlay')throw Error('overlayEdge applies only to terrain-overlay');
+  if(!edge||typeof edge!=='object'||Array.isArray(edge))throw Error('overlayEdge must be an object');
+  for(const key of Object.keys(edge))if(!['rim','round','soft'].includes(key))throw Error(`Unknown overlayEdge field: ${key}`);
+  if(edge.rim!==undefined&&typeof edge.rim!=='boolean')throw Error('overlayEdge rim must be a boolean');
+  if(edge.round!==undefined&&(!Number.isInteger(edge.round)||edge.round<0||edge.round>MAX_ROUND))throw Error(`overlayEdge round must be an integer from 0 to ${MAX_ROUND}`);
+  if(edge.soft!==undefined&&edge.soft!==true&&(!Array.isArray(edge.soft)||!edge.soft.length||edge.soft.some(m=>typeof m!=='string')))throw Error('overlayEdge soft must be true or a nonempty array of material names');
+  if(edge.soft&&!edge.rim)throw Error('overlayEdge soft needs rim: soft sets are the rimless twins of the rimmed overlays');
+  return {round:edge.round??0,rim:!!edge.rim,soft:edge.soft===true?true:edge.soft??null};
+}
 
 /** Expand a reusable environment recipe into ordinary named, editable vector shapes. */
 export function generateEnvironmentRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Environment must be an object');
-  for(const key of Object.keys(config))if(!['name','kind','seed','materials','variants','style','pixelScale','customMaterials','base'].includes(key))throw Error(`Unknown environment field: ${key}`);
+  for(const key of Object.keys(config))if(!['name','kind','seed','materials','variants','style','pixelScale','customMaterials','base','overlayEdge'].includes(key))throw Error(`Unknown environment field: ${key}`);
   const kind=config.kind,name=fallback(config.name,'environment'),seed=fallback(config.seed,7);
   const scale=readPixelScale(config);
   if(!['terrain','terrain-transition','terrain-overlay','habitat','furniture'].includes(kind))throw Error(`Unsupported environment kind: ${kind}`);
@@ -42,6 +57,7 @@ export function generateEnvironmentRecipe(config){
   if(!pixelKinds.includes(kind)&&config.customMaterials!==undefined)throw Error('customMaterials apply only to terrain and terrain-overlay');
   if(kind!=='terrain-overlay'&&config.base!==undefined)throw Error('base applies only to terrain-overlay');
   if(config.base!==undefined&&typeof config.base!=='boolean')throw Error('base must be a boolean');
+  const edge=validateOverlayEdge(config.overlayEdge,kind);
   if(!['terrain','terrain-transition','terrain-overlay'].includes(kind)&&config.variants!==undefined)throw Error('Variants apply only to terrain, terrain-transition and terrain-overlay');
   const builtinNames=[...TERRAIN_MATERIALS,...WASTELAND_MATERIALS];
   let custom=[];
@@ -68,6 +84,11 @@ export function generateEnvironmentRecipe(config){
   else if(kind==='terrain-overlay'){
     if(config.base!==false)for(const m of materials)for(let v=0;v<frameCount(m);v++)entries.push({alias:`${m}_${v}`,material:m,variant:v,role:'base'});
     for(const m of materials)for(let v=0;v<variants;v++)for(const mask of OVERLAY_MASKS)if(mask)entries.push({alias:`${m}_${mask}_${v}`,material:m,variant:v,role:'overlay',mask});
+    if(edge.soft){
+      const names=edge.soft===true?materials:edge.soft;
+      for(const m of names)if(!materials.includes(m))throw Error(`overlayEdge soft names ${m}, which is not in materials`);
+      for(const m of names)for(let v=0;v<variants;v++)for(const mask of OVERLAY_MASKS)if(mask)entries.push({alias:`${m}-soft_${mask}_${v}`,material:m,variant:v,role:'overlay',mask,soft:true});
+    }
   }else for(const alias of kind==='habitat'?['habitat_floor','habitat_back','habitat_front','habitat_roof']:Object.keys(FURNITURE_COLLISIONS))entries.push({alias});
   const aliases=entries.map(e=>e.alias);
   const screenWidth=kind==='habitat'?320:kind.startsWith('terrain')?32:64,screenHeight=kind==='habitat'?256:screenWidth,width=screenWidth/scale,height=screenHeight/scale,cols=kind==='terrain-overlay'?Math.min(OVERLAY_MASKS.length,aliases.length):kind.startsWith('terrain')?variants:kind==='habitat'?2:3;
@@ -106,7 +127,7 @@ export function generateEnvironmentRecipe(config){
       }else{
         // an animated material overlays with the ripple phase of its variant: overlays are static snapshots
         const tile=materialTile(entry.material,spec,entry.variant,seed,entry.variant%ANIMATION_FRAMES);
-        drawPixelTile(pen,overlayPixels(overlayCoverage(entry.mask,entry.variant,seed^(hashName(entry.material)>>>0)),tile,null));
+        drawPixelTile(pen,overlayPixels(overlayCoverage(entry.mask,entry.variant,seed^(hashName(entry.material)>>>0),{round:edge.round}),tile,edge.rim&&!entry.soft?rimColors(spec.ramp):null));
         details={material:entry.material,role:'overlay',mask:entry.mask,variant:entry.variant,neighbors:Object.entries(OVERLAY_BITS).filter(([,bit])=>entry.mask&bit).map(([k])=>k)};
       }
     }else if(kind==='terrain'){
