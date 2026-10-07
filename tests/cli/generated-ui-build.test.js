@@ -50,3 +50,28 @@ test('generated skin exports trimmed painted size and tiled source insets', asyn
   const result = await buildProject(config); expect(result.errors).toEqual([]); expect(result.ok).toBe(true);
   expect(JSON.parse(readFileSync(result.artifacts.uiPhaser)).frames.panel).toMatchObject({ source: { width: 8, height: 8, xOffset: 0, yOffset: 0 }, nineSlice: { leftWidth: 3, rightWidth: 3, topHeight: 3, bottomHeight: 3 } });
 }), 20000);
+
+test.each(['missing-baseline', 'negative-baseline', 'past-cell-baseline'])('rejects impossible authored %s and preserves output', async flaw => fixture(async ({ config, write }) => {
+  write(font()); const first = await buildProject(config); expect(first.ok).toBe(true); const previous = Object.fromEntries(Object.values(first.artifacts).map(path => [path, readFileSync(path)])), bad = font();
+  if (flaw === 'missing-baseline') delete bad.report.baseline;
+  else bad.report.baseline = flaw === 'negative-baseline' ? -999 : 12;
+  write(bad); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/baseline/i); for (const [path, bytes] of Object.entries(previous)) expect(readFileSync(path)).toEqual(bytes);
+}), 20000);
+const skin = () => ({ operations: [{ command: 'new', name: 'offset-skin', size: '12x12', rows: 1, cols: 1, palette: 'pico8' }, { command: 'draw', type: 'rect', cell: '0,0', x: 2, y: 1, w: 8, h: 8, color: '#123456', filled: true, name: 'body' }, { command: 'name', cell: '0,0', as: 'panel' }], report: { kind: 'skin', cellSize: { width: 12, height: 12 }, frames: [{ alias: 'panel', bounds: { left: 2, top: 1, right: 9, bottom: 8 } }], skins: { panel: { insets: { left: 3, right: 3, top: 3, bottom: 3 }, padding: { left: 3, right: 3, top: 3, bottom: 3 }, minWidth: 8, minHeight: 8, content: { x: 1, y: 1, w: 6, h: 6 } } } } });
+test.each(['crop', 'minimum', 'insets', 'cap', 'unknown-content'])('rejects inconsistent generated skin %s with trimmed offsets and preserves all published files', async flaw => fixture(async ({ config, write, dir }) => {
+  write(skin()); const first = await buildProject(config); expect(first.ok).toBe(true);
+  const data = JSON.parse(readFileSync(first.artifacts.uiPhaser)); expect(data.frames.panel.source).toEqual({ width: 8, height: 8, xOffset: 2, yOffset: 1 }); expect(data.frames.panel.content).toEqual({ x: 1, y: 1, w: 6, h: 6 });
+  const previous = Object.fromEntries(Object.values(first.artifacts).map(path => [path, readFileSync(path)])), bad = skin();
+  if (flaw === 'crop') bad.report.skins.panel.content = { x: 99, y: -5, w: 400, h: 0 };
+  if (flaw === 'minimum') bad.report.skins.panel.minWidth = bad.report.skins.panel.minHeight = 1;
+  if (flaw === 'insets') bad.report.skins.panel.content = { left: 2, right: 8, top: 1, bottom: 1, capWidth: 3 };
+  if (flaw === 'cap') bad.report.skins.panel.content = { left: 1, right: 1, top: 1, bottom: 1, capWidth: 5 };
+  if (flaw === 'unknown-content') bad.report.skins.panel.content = { value: 2 };
+  write(bad); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/content|minimum/i);
+  for (const [path, bytes] of Object.entries(previous)) expect(readFileSync(path)).toEqual(bytes);
+}), 20000);
+test('generated logo keeps the single named logo contract and rejects dangling aliases before replacing output', async () => fixture(async ({ config, write }) => {
+  const generated = skin(); generated.report.kind = 'logo'; delete generated.report.skins; generated.report.frames[0].alias = 'logo'; generated.operations.at(-1).as = 'logo';
+  write(generated); const first = await buildProject(config); expect(first.ok).toBe(true); expect(JSON.parse(readFileSync(first.artifacts.uiPhaser)).frame).toBe('logo'); const previous = Object.fromEntries(Object.values(first.artifacts).map(path => [path, readFileSync(path)]));
+  generated.report.frames[0].alias = 'title'; generated.operations.at(-1).as = 'title'; write(generated); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/logo/i); for (const [path, bytes] of Object.entries(previous)) expect(readFileSync(path)).toEqual(bytes);
+}), 20000);

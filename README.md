@@ -418,6 +418,12 @@ validated. Omit `tones` to retain the standard four tones. Phaser exports also
 carry `cell`, pure per-character `metrics`, and `colors`, so consumers share
 measurement data without estimating ink from texture cells. Layout policies
 such as trailing spacing and shadow padding remain the game's responsibility.
+Font `baseline` must be an integer inside both the source cell and line height.
+Skin `content` is optional: either a positive `{x,y,w,h}` rectangle relative to
+the cropped atlas frame, or nonnegative `{left,right,top,bottom}` interior insets
+with an optional positive `capWidth` leaving a repeatable middle. Unknown content
+shapes reject. Panel minima must leave room between the fixed border insets.
+Logo reports contain exactly one named `logo` frame.
 
 Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the

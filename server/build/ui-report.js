@@ -29,6 +29,7 @@ export async function validateUiReport(report, atlas, png) {
   }
   if (report.kind === 'font') {
     positive(report.lineHeight, 'font line height');
+    if (!Number.isInteger(report.baseline) || report.baseline < 0 || report.baseline >= report.cellSize.height || report.baseline >= report.lineHeight) throw Error('UI font baseline must be inside the source cell and line height.');
     if (typeof report.fallback !== 'string' || [...report.fallback].length !== 1 || !report.glyphs?.[report.fallback]) throw Error('UI font requires a supported fallback.');
     const tones = fontToneNames(report);
     if (!tones.length || tones.some(t => !/^[a-z][a-z0-9_-]*$/.test(t))) throw Error('UI font tone names must be nonempty identifiers.');
@@ -60,7 +61,20 @@ export async function validateUiReport(report, atlas, png) {
       if (!skin.tile && !skin.icon) {
         for (const side of ['left', 'right', 'top', 'bottom']) if (!Number.isInteger(skin.insets?.[side]) || skin.insets[side] < 0) throw Error(`UI skin insets are invalid: ${alias}`);
         if (skin.insets.left + skin.insets.right >= record.entry.frame.w || skin.insets.top + skin.insets.bottom >= record.entry.frame.h) throw Error(`UI skin insets leave no tile: ${alias}`);
+        if (skin.minWidth <= skin.insets.left + skin.insets.right || skin.minHeight <= skin.insets.top + skin.insets.bottom) throw Error(`UI skin minimum leaves no center between fixed borders: ${alias}`);
+      }
+      if (skin.content !== undefined) {
+        const content = skin.content, width = record.entry.frame.w, height = record.entry.frame.h;
+        if (!content || typeof content !== 'object' || Array.isArray(content)) throw Error(`UI skin content must be a rectangle or insets: ${alias}`);
+        if (Object.keys(content).every(key => ['x', 'y', 'w', 'h'].includes(key))) {
+          if (!['x', 'y', 'w', 'h'].every(key => Number.isInteger(content[key])) || content.x < 0 || content.y < 0 || content.w < 1 || content.h < 1 || content.x + content.w > width || content.y + content.h > height) throw Error(`UI skin content crop leaves the trimmed source: ${alias}`);
+        } else if (Object.keys(content).every(key => ['left', 'right', 'top', 'bottom', 'capWidth'].includes(key))) {
+          if (!['left', 'right', 'top', 'bottom'].every(key => Number.isInteger(content[key]) && content[key] >= 0) || content.left + content.right >= width || content.top + content.bottom >= height) throw Error(`UI skin content insets leave no interior: ${alias}`);
+          if (content.capWidth !== undefined && (!Number.isInteger(content.capWidth) || content.capWidth < 1 || content.capWidth * 2 >= width)) throw Error(`UI skin content capWidth leaves no tile: ${alias}`);
+        } else throw Error(`UI skin content shape is unsupported: ${alias}`);
       }
     }
+  } else if (report.frames.length !== 1 || report.frames[0].alias !== 'logo') {
+    throw Error('UI logo report requires exactly one named logo frame.');
   }
 }
