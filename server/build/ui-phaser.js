@@ -26,7 +26,7 @@ export function buildPhaserUi({ report, atlas, name }) {
     return { version: 1, kind: 'font', face: report.face ?? 'regular', image, atlas: atlasName, lineHeight: report.lineHeight, baseline: report.baseline, size: report.lineHeight, cell: report.cellSize, metrics, colors: report.tones ?? Object.fromEntries(FONT_TONES.map(t => [t, report.colors[t]])), spaceAdvance: space, fallback: report.fallback, symbols: report.symbols ?? {}, glyphs: chars, tones };
   }
   if (report.kind === 'logo') return { version: 1, kind: 'logo', image, atlas: atlasName, frame: 'logo', size: report.cellSize, bounds: report.frames[0].bounds };
-  const frames = {};
+  const frames = Object.create(null);
   const bounds = Object.fromEntries(report.frames.map(f => [f.alias, f.bounds]));
   for (const [alias, s] of Object.entries(report.skins)) {
     const atlasFrame = atlas.frames.find(frame => frame.filename === alias), f = atlasFrame.frame;

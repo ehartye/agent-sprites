@@ -33,7 +33,8 @@ export async function validateUiReport(report, atlas, png) {
     if (typeof report.fallback !== 'string' || [...report.fallback].length !== 1 || !report.glyphs?.[report.fallback]) throw Error('UI font requires a supported fallback.');
     const tones = fontToneNames(report);
     if (!tones.length || tones.some(t => !/^[a-z][a-z0-9_-]*$/.test(t))) throw Error('UI font tone names must be nonempty identifiers.');
-    if (report.tones && Object.values(report.tones).some(color => !/^#[\da-f]{6}$/i.test(color))) throw Error('UI font tone colors must be RGB hex.');
+    const palette = report.tones ?? Object.fromEntries(tones.map(tone => [tone, report.colors?.[tone]]));
+    if (Object.values(palette).some(color => typeof color !== 'string' || !/^#[\da-f]{6}$/i.test(color))) throw Error('UI font tone colors must be RGB hex.');
     for (const [char, glyph] of Object.entries(report.glyphs)) {
       if ([...char].length !== 1 || char.codePointAt(0) > 65535) throw Error('UI native bitmap glyphs require one BMP character.');
       positive(glyph.advance, 'font glyph advance');
@@ -43,8 +44,9 @@ export async function validateUiReport(report, atlas, png) {
         if (!record) throw Error(`UI missing font tone frame: ${tone} for ${char}`);
         if (['left', 'top', 'right', 'bottom'].some(key => record.bounds[key] !== glyph.bounds?.[key])) throw Error(`UI glyph bounds differ from frame: ${char}`);
         if (record.bounds.right >= glyph.advance) throw Error(`UI glyph advance clips ink: ${char}`);
-        if (report.tones) {
-          const rgb = report.tones[tone].slice(1).match(/../g).map(n => parseInt(n, 16)), f = record.entry.frame;
+        // The authored display face intentionally carries highlight, shade and outline pixels.
+        if (report.tones || report.face !== 'display') {
+          const rgb = palette[tone].slice(1).match(/../g).map(n => parseInt(n, 16)), f = record.entry.frame;
           for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
             const i = ((f.y + y) * image.width + f.x + x) * 4;
             if (pixels[i + 3] && rgb.some((n, channel) => pixels[i + channel] !== n)) throw Error(`UI font tone pixels differ: ${tone}`);

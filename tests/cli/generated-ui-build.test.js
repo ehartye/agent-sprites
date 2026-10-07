@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildProject } from '../../server/build/project-build.js';
@@ -74,4 +74,22 @@ test('generated logo keeps the single named logo contract and rejects dangling a
   const generated = skin(); generated.report.kind = 'logo'; delete generated.report.skins; generated.report.frames[0].alias = 'logo'; generated.operations.at(-1).as = 'logo';
   write(generated); const first = await buildProject(config); expect(first.ok).toBe(true); expect(JSON.parse(readFileSync(first.artifacts.uiPhaser)).frame).toBe('logo'); const previous = Object.fromEntries(Object.values(first.artifacts).map(path => [path, readFileSync(path)]));
   generated.report.frames[0].alias = 'title'; generated.operations.at(-1).as = 'title'; write(generated); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/logo/i); for (const [path, bytes] of Object.entries(previous)) expect(readFileSync(path)).toEqual(bytes);
+}), 20000);
+
+const ownedFiles = dir => Object.fromEntries(readdirSync(join(dir, 'dist')).sort().map(name => [name, readFileSync(join(dir, 'dist', name))]));
+const standardFont = () => { const generated = font(); delete generated.report.tones; return generated; };
+test.each(['mismatch', 'invalid-color'])('default regular font rejects %s palette and preserves every owned filename and byte', async flaw => fixture(async ({ config, write, dir }) => {
+  write(standardFont()); const first = await buildProject(config); expect(first.ok).toBe(true);
+  expect(JSON.parse(readFileSync(first.artifacts.uiPhaser)).colors.cream).toBe('#eceddb');
+  const previous = ownedFiles(dir), bad = standardFont(); bad.report.colors.cream = flaw === 'mismatch' ? '#ff00ff' : 'bad-color';
+  write(bad); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/tone (pixels|colors)/i); expect(ownedFiles(dir)).toEqual(previous);
+}), 20000);
+test('generated skin preserves the accepted prototype-spelled alias as its own exported key', async () => fixture(async ({ config, write }) => {
+  const generated = skin(), metrics = generated.report.skins.panel; generated.operations.at(-1).as = '__proto__'; generated.report.frames[0].alias = '__proto__'; generated.report.skins = Object.fromEntries([['__proto__', metrics]]);
+  write(generated); const result = await buildProject(config); expect(result.ok).toBe(true);
+  const data = JSON.parse(readFileSync(result.artifacts.uiPhaser)); expect(Object.keys(data.frames)).toEqual(['__proto__']); expect(Object.hasOwn(data.frames, '__proto__')).toBe(true); expect(data.frames.__proto__).toMatchObject({ frame: '__proto__', source: { width: 8, height: 8, xOffset: 2, yOffset: 1 }, content: { x: 1, y: 1, w: 6, h: 6 } });
+}), 20000);
+test('default display font preserves the authored multicolor display-ramp contract', async () => fixture(async ({ config }) => {
+  const project = JSON.parse(readFileSync(config)); delete project.generator; project.trim = false; project.ui = { name: 'display-control', kind: 'font', face: 'display', characters: 'A?' }; writeFileSync(config, JSON.stringify(project));
+  const result = await buildProject(config); expect(result.errors).toEqual([]); expect(result.ok).toBe(true); const report = JSON.parse(readFileSync(result.artifacts.uiReport)), data = JSON.parse(readFileSync(result.artifacts.uiPhaser)); expect(report.face).toBe('display'); expect(report.tones).toBeUndefined(); expect(data.colors.cream).toBe(report.colors.cream); expect(Object.keys(data.tones)).toEqual(['cream', 'muted', 'gold', 'ink']);
 }), 20000);
