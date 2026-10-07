@@ -62,6 +62,35 @@ Aseprite atlas, editable project, operations, contact sheet and verification.
 Font builds also own `ui-boot.mjs`, exporting `imageDataUrl`, `atlas`, and `report`;
 this embeds the verified font for loading/failure screens without a font fetch.
 
+## Bundlers and public assets
+
+Exporting a UI build into a game's `public/` directory is valid: the PNG, atlas,
+reports and generated modules stay together. Treat those files as URL-served
+assets. In [Vite](https://vite.dev/guide/assets#the-public-directory), public files
+are copied unchanged and should not be imported as bundled source modules.
+Such imports can produce notices or fail. Load public JSON through Phaser's
+loader/cache (or `fetch`), and include the deployment base in asset URLs, as below.
+
+If bundled game code uses runtime helpers, vendor one complete, unchanged
+generated `ui-runtime.mjs` outside `public/`, for example at
+`src/vendor/agent-sprites/ui-runtime.mjs`. Add a deterministic copy to the existing
+asset-build script, after a checked managed UI build succeeds. With the script
+running from the game project root:
+
+```js
+import {copyFileSync, mkdirSync} from 'node:fs';
+mkdirSync('src/vendor/agent-sprites', {recursive: true});
+copyFileSync('public/assets/ui-font/ui-runtime.mjs',
+             'src/vendor/agent-sprites/ui-runtime.mjs');
+```
+
+Import that source copy normally and refresh it with asset builds from the same
+tool version. Every font face and skin emits the same runtime; keep one vendor
+copy, without hand edits, copied helper logic or copies per face.
+`resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure helpers and need no
+Canvas context. Phaser's visible UI still uses native `BitmapText` and `NineSlice`;
+using these helpers does not require the portable compositor.
+
 ## Phaser
 
 Every UI build also writes `ui-phaser.json`, ready for Phaser 4 without an adapter.
@@ -73,9 +102,18 @@ Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, sp
 over the already-loaded PNG, then use a normal `BitmapText` at an integer scale:
 
 ```js
-this.load.image('ui-font', 'assets/ui-font/ui-font.png'); this.load.json('ui-font-px', 'assets/ui-font/ui-phaser.json');
-// create(): for (const [tone, data] of Object.entries(px.tones)) this.cache.bitmapFont.add(`ui-font-${tone}`, {data, texture: 'ui-font', frame: null});
-// this.add.bitmapText(x, y, 'ui-font-cream', 'Hello', px.size);   // keep the scale integer
+import {resolveFontText} from './vendor/agent-sprites/ui-runtime.mjs'; // from src/
+// preload(): public/assets/... is served at <base>/assets/...
+const assets = `${import.meta.env.BASE_URL}assets/`;
+this.load.image('ui-font', `${assets}ui-font/ui-font.png`);
+this.load.json('ui-font-px', `${assets}ui-font/ui-phaser.json`);
+// create(): read loaded metadata, rather than importing public JSON as source
+const px = this.cache.json.get('ui-font-px');
+for (const [tone, data] of Object.entries(px.tones)) {
+  this.cache.bitmapFont.add(`ui-font-${tone}`, {data, texture: 'ui-font', frame: null});
+}
+this.add.bitmapText(x, y, 'ui-font-cream', resolveFontText(px, 'Hello 🦋'), px.size);
+// Keep the scale integer; the unsupported butterfly displays as the exported ?.
 ```
 
 Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame has `frame` (atlas frame name), `padding`, `minWidth`,
@@ -84,10 +122,30 @@ Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame ha
 Phaser stretches nine-slice edges, so size panels in whole source pixels and place them at integer positions under an integer camera zoom.
 
 ```js
-import {createBitmapFont, resolveFontText, getFrame, drawNineSlice} from './ui-runtime.mjs';
+// preload(): use the same deployment-base URL prefix as the font
+this.load.atlas('ui-skin', `${assets}ui-skin/ui-skin.png`,
+                          `${assets}ui-skin/ui-skin.atlas.json`);
+this.load.json('ui-skin-px', `${assets}ui-skin/ui-phaser.json`);
+this.load.json('ui-skin-report', `${assets}ui-skin/ui-report.json`);
+// create(): aliases and layout metadata are already exported for Phaser
+const skin = this.cache.json.get('ui-skin-px');
+const panel = skin.frames.panel_dark;
+const n = panel.nineSlice;
+this.add.nineslice(x, y, 'ui-skin', panel.frame, width, height,
+                  n.leftWidth, n.rightWidth, n.topHeight, n.bottomHeight);
+const content = skin.frames.progress_fill.content; // local {x, y, w, h} crop rectangle
+```
+
+Use `ui-phaser.json`'s `frames[alias].content` for bar crops; use the loaded report
+when other report metadata is needed. Neither requires a static JSON source import.
+
+## Portable compositor
+
+For a Canvas consumer, the same runtime also draws glyphs and skin parts directly:
+
+```js
+import {createBitmapFont, getFrame, drawNineSlice} from './ui-runtime.mjs';
 const font = createBitmapFont({image, atlas, report});
-const displayText = resolveFontText(px, 'Hello 🦋'); // 'Hello ?' for Phaser BitmapText
-this.add.bitmapText(x, y, 'ui-font-cream', displayText, px.size);
 font.measure('A little room', {scale: 2}); // {width, height, lines: string[]}
 font.wrap('Long copy here', 160, {scale: 2}); // string[], splits long words
 font.draw(ctx, 'A little room', 10, 20, {scale: 2, tone: 'cream', maxWidth: 160});
