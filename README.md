@@ -405,6 +405,20 @@ asset-build script. `resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure
 helpers; native Phaser `BitmapText` and `NineSlice` remain the visible UI renderer.
 See the [bundler layout and Phaser cache examples](examples/ui/README.md#bundlers-and-public-assets).
 
+Custom Node generators can return `{operations, report}` with a UI `kind` of
+`font`, `skin`, or `logo`, using the same report shape as the inline recipe. They
+publish `uiReport`, `uiRuntime`, `uiPhaser`, and (for fonts) proof/bootstrap artifacts.
+Reports declare `cellSize` and named `frames` with source-cell ink `bounds`
+(`left,top,right,bottom`). The build checks those bounds against actual atlas pixels
+before replacing owned output. `trim:true` preserves source offsets in native font
+data; skins export the cropped `source` size/offset beside their insets.
+Font reports can declare `tones:{name:'#rrggbb'}` and a frame for every tone of
+every non-space glyph. Names, advances, aliases, bounds and palette pixels are
+validated. Omit `tones` to retain the standard four tones. Phaser exports also
+carry `cell`, pure per-character `metrics`, and `colors`, so consumers share
+measurement data without estimating ink from texture cells. Layout policies
+such as trailing spacing and shadow padding remain the game's responsibility.
+
 Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the
 underlying image renderer determine which sheets can actually be allocated.
