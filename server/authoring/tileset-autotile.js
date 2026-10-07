@@ -1,5 +1,5 @@
 // Procedural auto-tile sets for the `tileset` recipe: 47-mask blob walls, floors and roofs plus
-// 16-mask fences and door tiles, all built from selectable materials.
+// 16-mask fences, door tiles and fence gates, all built from selectable materials.
 //
 // Neighbour bits are clockwise from north and match the terrain-transition convention:
 // N=1 NE=2 E=4 SE=8 S=16 SW=32 W=64 NW=128. A diagonal only matters when both adjacent
@@ -89,7 +89,7 @@ export const MATERIALS = {
   'leaf-steel':  {pattern: 'plate',      a: '#85847c', b: '#c4c3ba', c: '#5f5f5a', d: '#c4c3ba', s: '#2a4a4a', o: '#12201f'},
   'leaf-alloy':  {pattern: 'panel',      a: '#5f9a8d', b: '#8fc4b4', c: '#3f6f68', d: '#f0d466', s: '#2a4a4a', o: '#12201f'},
 };
-export const AUTOTILE_KINDS = ['wall', 'floor', 'roof', 'fence', 'door'];
+export const AUTOTILE_KINDS = ['wall', 'floor', 'roof', 'fence', 'door', 'gate'];
 export const AUTOTILE_ROLES = ['a', 'b', 'c', 'd', 's', 'o'];
 
 const darker = {a: 'c', b: 'a', c: 'o', d: 'c', s: 'o', o: 'o'};
@@ -202,6 +202,52 @@ function styledFenceRoles(S, mask, style) {
   return g;
 }
 
+/**
+ * Fence gates: one tile that stands in a fence line, shut (`<prefix>`) and open (`<prefix>_open`), drawn in the material's fence style
+ * (the same `fence=` presets as fences: wattle, paling, lowblock, mesh, slimrail, or the default post and rails). Two posts at the tile's
+ * east and west edges so it joins a fence run on both sides; shut, the leaf spans between them; open, the leaf stands swung against the
+ * hinge (west) post, edge-on, and the opening between the posts is clear.
+ */
+function gateRoles(S, style, open) {
+  const g = Array.from({length: S}, () => Array(S).fill(null));
+  const put = (x, y, r) => { if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = r; };
+  const rect = (x0, y0, x1, y1, r) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, r); };
+  const outline = () => { const add = []; for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (!g[y][x] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => g[y + dy]?.[x + dx] && g[y + dy][x + dx] !== 'o')) add.push([x, y]); for (const [x, y] of add) g[y][x] = 'o'; };
+  // posts: a hinge post on the west edge and a latch post on the east, each 3 px wide, standing a little above the leaf
+  const post = (x0, cap) => { rect(x0, 3, x0 + 2, 13, 'a'); rect(x0, 3, x0 + 2, 3, cap); rect(x0, 4, x0, 13, 'b'); rect(x0 + 2, 4, x0 + 2, 13, 'c'); rect(x0, 13, x0 + 2, 13, 'c'); };
+  const cap = style === 'slimrail' ? 'd' : 'b';
+  post(0, cap); post(S - 3, cap);
+  if (!open) {
+    const x0 = 3, x1 = S - 4; // the leaf between the posts
+    const h = (y, r) => rect(x0, y, x1, y, r);
+    if (style === 'wattle') {
+      for (let x = x0; x <= x1; x++) { const stake = x % 4 === 1 || x % 4 === 2; if (stake) { rect(x, 5, x, 12, x % 4 === 1 ? 'a' : 'c'); put(x, 4, 'b'); }
+        for (const [y0, k] of [[6, 0], [10, 1]]) { const over = (((x >> 2) + k) & 1) === 0; if (over || !stake) { put(x, y0, 'b'); put(x, y0 + 1, 'a'); } else { put(x, y0, x % 4 === 1 ? 'a' : 'c'); put(x, y0 + 1, x % 4 === 1 ? 'a' : 'c'); } } }
+    } else if (style === 'paling') {
+      for (let x = x0; x <= x1; x++) { const k = x % 4; if (k === 3) continue; rect(x, 4, x, 12, k === 0 ? 'b' : k === 1 ? 'a' : 'c'); if (k === 1) put(x, 3, 'b'); put(x, 7, 'c'); put(x, 10, 'c'); }
+    } else if (style === 'lowblock') {
+      h(7, 'b'); rect(x0, 8, x1, 12, 'a'); h(10, 'c'); for (const x of [x0 + 3, x0 + 8]) rect(x, 8, x, 9, 'c'); for (const x of [x0 + 1, x0 + 6]) rect(x, 11, x, 12, 'c'); h(13, 'c');
+    } else if (style === 'mesh') {
+      h(4, 'b'); h(5, 'a'); h(12, 'a'); h(13, 'c');
+      for (let y = 6; y <= 11; y++) for (let x = x0; x <= x1; x++) { if ((x + y) % 4 === 0) put(x, y, 'b'); else if ((x - y + 16) % 4 === 0) put(x, y, 'a'); }
+    } else if (style === 'slimrail') {
+      h(5, 'b'); h(6, 'c'); h(10, 'b'); h(11, 'c'); rect(7, 6, 8, 10, 'a'); rect(7, 6, 7, 10, 'b');
+    } else {
+      // post-and-rail: two rails and a diagonal brace
+      for (const y of [5, 10]) { h(y, 'b'); h(y + 1, 'a'); }
+      for (let k = 0; k <= x1 - x0; k++) put(x0 + k, 10 - Math.round(k * 4 / (x1 - x0)), 'c');
+    }
+    put(x1, 8, 'd'); put(x1, 9, 'd'); // the latch
+  } else {
+    // swung open against the hinge post: a thin leaf standing edge-on, its rails showing as ticks
+    rect(3, 4, 4, 12, 'a'); rect(3, 4, 3, 12, 'b'); rect(4, 5, 4, 12, 'c'); rect(3, 4, 4, 4, 'b');
+    for (const y of [6, 10]) { put(5, y, 'b'); put(5, y + 1, 'a'); }
+    put(4, 8, 'd');
+  }
+  outline();
+  return g;
+}
+
 function doorRoles(S, pattern, open, face) {
   const g = blockRoles(S, pattern, 'wall', BITS.e | BITS.w, face), set = (x, y, r) => { g[y][x] = r; };
   for (let y = 2; y <= S - 2; y++) for (let x = 3; x <= S - 4; x++) set(x, y, 'o');
@@ -228,6 +274,7 @@ export function autotileTiles({kind, material: materialName, prefix, size = 16, 
   const paint = roles => roles.map(row => row.map(color));
   const f = face ?? (kind === 'roof' ? 3 : 4);
   if (kind === 'fence') return FENCE_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(m.fence ? styledFenceRoles(S, mask, m.fence) : fenceRoles(S, mask))}));
+  if (kind === 'gate') return [{name: prefix, pixels: paint(gateRoles(S, m.fence, false))}, {name: `${prefix}_open`, pixels: paint(gateRoles(S, m.fence, true))}];
   if (kind === 'door') return [{name: prefix, pixels: paint(doorRoles(S, pattern, false, f))}, {name: `${prefix}_open`, pixels: paint(doorRoles(S, pattern, true, f))}];
   return TERRAIN_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(blockRoles(S, pattern, kind, mask, f))}));
 }
