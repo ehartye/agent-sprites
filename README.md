@@ -398,6 +398,13 @@ without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destinatio
 {padding})` draws with the same fit. Empty art and boxes too small for 1× return
 `null`; no fractional shrinking or overflow is introduced.
 
+UI output may live in a game's `public/` directory as URL-served assets. Bundled
+source should load its JSON/reports through Phaser's loader/cache and import one
+unchanged generated `ui-runtime.mjs` vendored outside `public/` by the checked
+asset-build script. `resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure
+helpers; native Phaser `BitmapText` and `NineSlice` remain the visible UI renderer.
+See the [bundler layout and Phaser cache examples](examples/ui/README.md#bundlers-and-public-assets).
+
 Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the
 underlying image renderer determine which sheets can actually be allocated.
