@@ -22,6 +22,7 @@ import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
 import { buildPhaserUi } from './ui-phaser.js';
+import { isUiReport, validateUiReport } from './ui-report.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { generateNativeRecipe } from '../authoring/native-recipe.js';
@@ -126,9 +127,9 @@ export async function buildProject(configPath) {
       const generatedOut = JSON.parse(generated.stdout);
       if (Array.isArray(generatedOut)) operations = generatedOut;
       else {
-        // Generators may publish a character report beside their operations.
+        // Generators may publish the same UI or character report as a recipe.
         if (!generatedOut || !Array.isArray(generatedOut.operations)) throw new Error('Generator output must be an operations array or { operations, report }.');
-        if (generatedOut.report !== undefined && (generatedOut.report?.kind !== 'character' || !Array.isArray(generatedOut.report.frames))) throw new Error('Generator report must be a character report with frames.');
+        if (generatedOut.report !== undefined && ((!isUiReport(generatedOut.report) && generatedOut.report?.kind !== 'character') || !Array.isArray(generatedOut.report.frames))) throw new Error('Generator report must be a character or UI report with frames.');
         operations = generatedOut.operations;
         recipeReport = generatedOut.report;
       }
@@ -162,6 +163,7 @@ export async function buildProject(configPath) {
     const { png, atlas } = config.trim
       ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
       : { png: renderer.renderSheet(project.cells, { gap: 0 }), atlas: project.exportAseprite({ imageName: `${name}.png` }) };
+    if (isUiReport(recipeReport)) await validateUiReport(recipeReport, atlas, png);
     // An environment drawn on a coarser source grid tells the game how far to scale the atlas.
     if (recipeReport?.pixelScale !== undefined) atlas.meta.pixelScale = recipeReport.pixelScale;
     writeFileSync(join(stage, `${name}.png`), png);
@@ -179,7 +181,7 @@ export async function buildProject(configPath) {
     for (const key of omit) delete artifacts[key];
     if (omit.has('contactSheet')) rmSync(join(stage, 'contact.png'), { force: true });
     // Inline recipes name their report by source; generator reports are character reports.
-    const reportKey = inline ? (sourceKind === 'native' ? 'characterReport' : `${sourceKind}Report`) : recipeReport ? 'characterReport' : null;
+    const reportKey = inline ? (sourceKind === 'native' ? 'characterReport' : `${sourceKind}Report`) : isUiReport(recipeReport) ? 'uiReport' : recipeReport ? 'characterReport' : null;
     if (reportKey) {
       artifacts[reportKey] = reportKey.replace(/Report$/, '-report.json');
       writeFileSync(join(stage, artifacts[reportKey]), json(recipeReport));
@@ -189,7 +191,7 @@ export async function buildProject(configPath) {
       artifacts.playbackRuntime = 'playback-runtime.mjs';
       writeFileSync(join(stage, artifacts.playbackRuntime), readFileSync(new URL('./playback-runtime.mjs', import.meta.url)));
     }
-    if (sourceKind === 'ui') {
+    if (isUiReport(recipeReport)) {
       artifacts.uiRuntime = 'ui-runtime.mjs';
       writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
       artifacts.uiPhaser = 'ui-phaser.json';

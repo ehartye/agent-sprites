@@ -3,6 +3,7 @@ const positiveInteger=(value,name)=>{if(!Number.isInteger(value)||value<1)throw 
 const integer=(value,name)=>{if(!Number.isInteger(value))throw Error(`${name} must be an integer.`);return value;};
 /** The four tones every font glyph carries. */
 export const FONT_TONES=['cream','muted','gold','ink'];
+export const fontToneNames=report=>report.tones?Object.keys(report.tones):FONT_TONES;
 const frameMaps=new WeakMap();
 const normalizeFontText=text=>String(text).replace(/\r\n?/g,'\n').replace(/\t/g,'    ');
 function fontGlyphLookup(font){
@@ -26,7 +27,7 @@ export function createBitmapFont({image,atlas,report}){
   if(report?.kind!=='font'||!report.glyphs?.[report.fallback]||!Number.isInteger(report.lineHeight)||report.lineHeight<1)throw Error('Invalid bitmap font report.');
   for(const [char,g] of Object.entries(report.glyphs)){
     positiveInteger(g.advance,`Advance for ${char}`);
-    if(char!==' ')for(const tone of FONT_TONES){if(typeof g.frames?.[tone]!=='string')throw Error(`Missing font tone: ${tone} for ${char}`);getFrame(atlas,g.frames[tone]);}
+    if(char!==' ')for(const tone of fontToneNames(report)){if(typeof g.frames?.[tone]!=='string')throw Error(`Missing font tone: ${tone} for ${char}`);getFrame(atlas,g.frames[tone]);}
   }
   const hasGlyph=fontGlyphLookup(report),glyph=char=>hasGlyph(char)?report.glyphs[char]:report.glyphs[report.fallback];
   const lineWidth=line=>[...line].reduce((n,char)=>n+glyph(char).advance,0);
@@ -62,7 +63,7 @@ export function createBitmapFont({image,atlas,report}){
       let cursor=x+(align==='center'?Math.floor((box-width)/2):align==='right'?box-width:0);
       for(const char of line){
         const g=glyph(char),alias=g.frames[tone];
-        if(char!==' '){if(!alias)throw Error(`Missing font tone: ${tone}`);const f=getFrame(atlas,alias);ctx.drawImage(image,f.x,f.y,f.w,f.h,cursor,y+row*report.lineHeight*scale,f.w*scale,f.h*scale);}
+        if(char!==' '){if(!alias)throw Error(`Missing font tone: ${tone}`);const f=getFrame(atlas,alias),entry=Array.isArray(atlas.frames)?atlas.frames.find(frame=>frame.filename===alias):atlas.frames[alias],offset=entry.spriteSourceSize??{x:0,y:0};ctx.drawImage(image,f.x,f.y,f.w,f.h,cursor+offset.x*scale,y+(row*report.lineHeight+offset.y)*scale,f.w*scale,f.h*scale);}
         cursor+=g.advance*scale;
       }
     }

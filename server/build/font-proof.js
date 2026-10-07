@@ -1,5 +1,5 @@
 import { createCanvas, loadImage } from 'canvas';
-import { createBitmapFont, FONT_TONES as TONES } from './ui-runtime.mjs';
+import { createBitmapFont, fontToneNames } from './ui-runtime.mjs';
 const PANGRAM = 'The quick brown fox jumps over the lazy dog.\n0123456789 Sphinx of black quartz, judge my vow!';
 
 /**
@@ -8,6 +8,7 @@ const PANGRAM = 'The quick brown fox jumps over the lazy dog.\n0123456789 Sphinx
  * use. Light tones sit on the deep panel color, ink on paper.
  */
 export async function renderFontProof(png, atlas, report) {
+  const TONES = fontToneNames(report);
   const image = await loadImage(png), font = createBitmapFont({ image, atlas, report });
   const glyphs = Object.keys(report.glyphs).filter(c => c !== ' ').sort((a, b) => a.codePointAt(0) - b.codePointAt(0));
   const scale = 3, pad = 4, cols = Math.min(16, glyphs.length);
@@ -33,7 +34,7 @@ export async function renderFontProof(png, atlas, report) {
       cells[i].boxes[tone] = { x, y, w: cw, h: ch };
     });
   });
-  ['cream', 'ink'].forEach((tone, i) => {
+  [TONES[0], TONES.includes('ink') ? 'ink' : TONES.at(-1)].forEach((tone, i) => {
     const top = TONES.length * blockH + i * sampleH;
     ctx.fillStyle = background(tone); ctx.fillRect(0, top, width, sampleH);
     font.draw(ctx, text, pad, top + pad, { scale: sampleScale, tone, maxWidth: sampleWidth });
