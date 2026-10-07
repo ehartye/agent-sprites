@@ -72,6 +72,7 @@ report's `animations[name].frames` gives the cell indices if you want to drive a
 | `roof` | 47 | like a wall with a shallow eave |
 | `fence` | 16 `<prefix>_<mask>` | post plus rails toward the four edge neighbours |
 | `door` | `<prefix>`, `<prefix>_open` | a wall segment with a door leaf (`leaf=wood` picks the leaf material) |
+| `gate` | `<prefix>`, `<prefix>_open` | a fence-line gate in the material's fence style: a post each side and a leaf between them; open, the leaf stands edge-on against the west post |
 
 Materials: `scrap wood brick concrete glass planks slab tile scrap-plate thatch sheet roof-tile`, and a second family in
 the Fallow Valley building-tier ramps: `adobe` (mud brick) `rammed` (rammed earth) `timber` (vertical planks) `shingle`

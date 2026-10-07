@@ -63,7 +63,7 @@ test('role overrides recolour a material and bad input is a clear error',()=>{
   expect(()=>autotileTiles({kind:'wall',material:'brick',prefix:'w',overrides:{z:'#123456'}})).toThrow(/Unknown material role/);
   expect(()=>autotileTiles({kind:'wall',material:'brick',prefix:'w',overrides:{a:'red'}})).toThrow(/#rrggbb/);
   expect(()=>autotileTiles({kind:'moat',material:'brick',prefix:'w'})).toThrow(/Unknown auto-tile kind/);
-  expect(AUTOTILE_KINDS).toEqual(['wall','floor','roof','fence','door']);
+  expect(AUTOTILE_KINDS).toEqual(['wall','floor','roof','fence','door','gate']);
 });
 
 const NEW_MATERIALS=['adobe','rammed','timber','shingle','cinder','flags','plate','tread','lapped','ceramic','panel','glasshouse'];
@@ -102,4 +102,25 @@ test('door leaf presets colour the leaf while the frame follows the wall materia
 test('the original presets keep their order and colours',()=>{
   expect(Object.keys(MATERIALS).slice(0,12)).toEqual(['scrap','wood','brick','concrete','glass','planks','slab','tile','scrap-plate','thatch','sheet','roof-tile']);
   expect(MATERIALS.scrap.a).toBe('#85847c');
+});
+
+test('gates come in shut and open, with a post each side, in every fence style and the default',()=>{
+  for(const material of ['scrap',...FENCE_STYLES]){
+    const set=autotileTiles({kind:'gate',material,prefix:'g'});expect(set.map(t=>t.name)).toEqual(['g','g_open']);
+    const [shut,open]=set.map(t=>t.pixels),filled=(p,x,y)=>p[y][x]!==null;
+    for(const p of [shut,open]){
+      for(const row of p)for(const c of row)if(c!==null)expect(c).toMatch(/^#[0-9a-f]{6}$/);
+      // a post at the hinge edge and at the latch edge, so the gate joins a fence line on both sides
+      expect(filled(p,1,8),`${material} hinge post`).toBe(true);expect(filled(p,14,8),`${material} latch post`).toBe(true);
+      // the corners above the posts stay clear
+      expect(filled(p,0,0)).toBe(false);expect(filled(p,15,0)).toBe(false);
+    }
+    // shut: the leaf crosses the middle of the tile; open: the way between the posts is clear
+    expect(filled(shut,7,5)||filled(shut,7,6)||filled(shut,7,7),`${material} leaf`).toBe(true);
+    for(let x=7;x<=11;x++)for(let y=0;y<16;y++)expect(filled(open,x,y),`${material} open way ${x},${y}`).toBe(false);
+    expect(shut.flat().join()).not.toEqual(open.flat().join());
+  }
+  // a gate is its fence style: the styles differ from each other
+  const sig=m=>autotileTiles({kind:'gate',material:m,prefix:'g'})[0].pixels.flat().join();
+  expect(new Set(['scrap',...FENCE_STYLES].map(sig)).size).toBe(6);
 });
