@@ -1,5 +1,6 @@
 import {readFileSync, existsSync, statSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {resolve, dirname} from 'node:path';
+import {decodePng} from '../engine/png-decode.js';
 import {shadowPixels, shadeTiles} from './tileset-shadow.js';
 import {pipFrames, crackFrames} from './tileset-marks.js';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
@@ -8,7 +9,7 @@ import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FE
 // plain-text `.pxl` sources. See examples/tileset/README.md for the grammar.
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
-const FIELDS = ['name', 'kind', 'cell', 'columns', 'sources', 'palette'];
+const FIELDS = ['name', 'kind', 'cell', 'columns', 'sources', 'palette', 'imports'];
 const MAX_CELL = 512, MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 
 const luminance = hex => { const n = parseInt(hex.slice(1), 16); return .2126 * (n >> 16) + .7152 * ((n >> 8) & 255) + .0722 * (n & 255); };
@@ -47,6 +48,31 @@ function applyOutline(pixels, outline) {
 }
 
 const toColors = pixels => pixels.map(row => row.map(p => p ? p.color : null));
+
+/**
+ * Read the built sheets a tileset may crop from: `imports` maps a name to another set's Aseprite atlas (a path relative to the
+ * build config). Returns Map(name -> {frames: Map(filename -> rect), png: {width, height, data}}).
+ */
+export function loadTilesetImports(imports, baseDir) {
+  const out = new Map();
+  if (imports === undefined) return out;
+  if (!imports || typeof imports !== 'object' || Array.isArray(imports)) throw Error('tileset.imports must be an object mapping a name to a built atlas path.');
+  for (const [name, path] of Object.entries(imports)) {
+    if (!NAME.test(name)) throw Error(`Invalid import name "${name}".`);
+    if (typeof path !== 'string' || !path) throw Error(`tileset.imports.${name} must be the path of a built .atlas.json.`);
+    const atlasPath = resolve(baseDir, path);
+    if (!existsSync(atlasPath) || !statSync(atlasPath).isFile()) throw Error(`tileset.imports.${name} "${path}" is not a file; build that set first (build-set orders it before this one).`);
+    let atlas;
+    try { atlas = JSON.parse(readFileSync(atlasPath, 'utf8')); } catch (error) { throw Error(`tileset.imports.${name}: ${error.message}`); }
+    if (!Array.isArray(atlas?.frames) || typeof atlas.meta?.image !== 'string') throw Error(`tileset.imports.${name} is not an Aseprite atlas (frames array and meta.image).`);
+    const pngPath = resolve(dirname(atlasPath), atlas.meta.image);
+    if (!existsSync(pngPath)) throw Error(`tileset.imports.${name}: sheet ${atlas.meta.image} is missing next to the atlas.`);
+    let png;
+    try { png = decodePng(readFileSync(pngPath)); } catch (error) { throw Error(`tileset.imports.${name}: ${error.message}`); }
+    out.set(name, {frames: new Map(atlas.frames.map(f => [f.filename, f.frame])), png});
+  }
+  return out;
+}
 
 /** Parse source text into tile definitions, resolving palette characters as it goes. */
 export function parseTilesetSource(text, file, state) {
@@ -103,7 +129,7 @@ export function parseTilesetSource(text, file, state) {
   while (true) {
     const line = next();
     if (line === null) break;
-    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade, @pips, @cracks).${last ? ` This may be an extra row after ${last}, which already had its full row count.` : ''}`);
+    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade, @pips, @cracks, @crop).${last ? ` This may be an extra row after ${last}, which already had its full row count.` : ''}`);
     const start = i, words = line.slice(1).trim().split(/\s+/), directive = words[0], rest = words.slice(1);
     i++;
     if (directive === 'tile' || directive === 'anim') last = `${directive} ${rest[0] ?? ''}`.trim(); else last = '';
@@ -234,6 +260,53 @@ export function parseTilesetSource(text, file, state) {
       try { set = shadeTiles({prefix, size: cellW, n: Number(o.values.n), w: Number(o.values.w), e: o.values.e === undefined ? 0 : Number(o.values.e), s: o.values.s === undefined ? 0 : Number(o.values.s), color: o.values.color}); } catch (error) { fail(error.message, start); }
       for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
       state.autotiles[prefix] = {kind: 'shade', material: 'shadow', masks: set.map(t => t.mask), frames: set.map(t => t.name), convention: Number(o.values.s) > 0 ? 'N=1 E=4 SE=8 S=16 SW=32 W=64 NW=128: a set bit means that neighbour casts onto this tile (S: the wall below, a contact line along the bottom); a diagonal bit is dropped when either adjacent cardinal is set' : 'N=1 E=4 W=64 NW=128: a set bit means that neighbour casts onto this tile; NW is dropped when N or W is set'};
+    } else if (directive === 'crop') {
+      // @crop <name> from=<import>:<frame> [src=X,Y] [size=WxH] [x= y=] [outline|outline=#hex] [template] [unknown=error|drop|keep] [trim=#hex,...]:
+      // a region of another set's built frame, mapped back to palette entries, placed like a @tile block. The icon is then always the very art it shows.
+      const [name, ...opts] = rest;
+      if (!name) fail('@crop needs a name.', start);
+      const o = options(opts);
+      for (const k of Object.keys(o.values)) if (!['from', 'src', 'size', 'x', 'y', 'outline', 'unknown', 'trim'].includes(k)) fail(`@crop ${name}: unknown option ${k}=.`, start);
+      for (const f of o.flags) if (!['outline', 'template'].includes(f)) fail(`@crop ${name}: unknown option ${f}.`, start);
+      const [importName, frameName] = (o.values.from ?? '').split(':');
+      if (!importName || !frameName) fail(`@crop ${name}: from= is <import>:<frame>, like from=objects:wall_adobe_255.`, start);
+      const source = state.imports.get(importName);
+      if (!source) fail(`@crop ${name}: no import "${importName}" (declare it in tileset.imports${state.imports.size ? `; have ${[...state.imports.keys()].join(', ')}` : ''}).`, start);
+      const rect = source.frames.get(frameName);
+      if (!rect) fail(`@crop ${name}: import "${importName}" has no frame "${frameName}".`, start);
+      const pair = (key, dflt, sep) => { const v = o.values[key] === undefined ? dflt : o.values[key].split(sep).map(Number); if (v.length !== 2 || v.some(n => !Number.isInteger(n) || n < 0)) fail(`@crop ${name}: ${key}= is two non-negative integers separated by "${sep}".`, start); return v; };
+      const [sx, sy] = pair('src', [0, 0], ','), [cw, ch] = pair('size', [rect.w - sx, rect.h - sy], 'x');
+      if (cw < 1 || ch < 1 || sx + cw > rect.w || sy + ch > rect.h) fail(`@crop ${name}: a ${cw}x${ch} region at ${sx},${sy} does not fit the ${rect.w}x${rect.h} frame ${frameName}.`, start);
+      const dx = o.values.x === undefined ? sx : Number(o.values.x), dy = o.values.y === undefined ? sy : Number(o.values.y);
+      if (!Number.isInteger(dx) || !Number.isInteger(dy) || dx < 0 || dy < 0 || dx + cw > cellW || dy + ch > cellH) fail(`@crop ${name}: a ${cw}x${ch} block at ${dx},${dy} does not fit a ${cellW}x${cellH} cell.`, start);
+      const unknown = o.values.unknown ?? 'error';
+      if (!['error', 'drop', 'keep'].includes(unknown)) fail('unknown= is error, drop or keep.', start);
+      const trim = new Set((o.values.trim ?? '').split(',').filter(Boolean).map(c => c.toLowerCase()));
+      for (const c of trim) if (!HEX.test(c)) fail('trim= is a comma list of #rrggbb colours.', start);
+      if (o.values.outline !== undefined && !HEX.test(o.values.outline)) fail('outline=#rrggbb needs a six digit colour.', start);
+      // colour -> palette entry; when two characters share a fill the later line wins
+      const byColor = new Map();
+      for (const [c, entry] of palette) byColor.set(entry.color, {...entry, ch: c});
+      const block = Array.from({length: ch}, (_, y) => Array.from({length: cw}, (_, x) => {
+        const i = ((rect.y + sy + y) * source.png.width + rect.x + sx + x) * 4, d = source.png.data;
+        if (d[i + 3] === 0) return null;
+        const hex = '#' + [0, 1, 2].map(k => d[i + k].toString(16).padStart(2, '0')).join('');
+        const entry = byColor.get(hex);
+        if (entry) return {...entry};
+        if (unknown === 'keep') return {color: hex};
+        if (unknown === 'drop') return null;
+        return fail(`@crop ${name}: ${importName}:${frameName} (${sx + x},${sy + y}) is ${hex}, which is not in the palette (unknown=drop or keep, or add it).`, start);
+      }));
+      if (trim.size) {
+        const clear = (x, y) => !block[y]?.[x];
+        const doomed = [];
+        block.forEach((row, y) => row.forEach((p, x) => { if (p && trim.has(p.color) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ax, ay]) => clear(x + ax, y + ay))) doomed.push([x, y]); }));
+        for (const [x, y] of doomed) block[y][x] = null;
+      }
+      const raw = Array.from({length: cellH}, () => Array(cellW).fill(null));
+      block.forEach((row, y) => row.forEach((p, x) => { raw[dy + y][dx + x] = p; }));
+      const pixels = o.flags.has('outline') || o.values.outline ? applyOutline(raw, o.values.outline) : raw;
+      addTile(name, toColors(pixels), start, {raw, outlineOption: o, template: o.flags.has('template')});
     } else if (directive === 'pips' || directive === 'cracks') {
       // @pips <prefix> count=N pip=WxH [gap=N] [x= y=] lit=<ch|#hex> empty=<ch|#hex> [outline]: <prefix>_0 .. <prefix>_N, n pips lit.
       // @cracks <prefix> stages=N [seed=N] dark=<ch|#hex> light=<ch|#hex>: cumulative damage overlays <prefix>_1 .. <prefix>_N.
@@ -290,7 +363,7 @@ export function generateTilesetRecipe(config, baseDir = process.cwd(), {check = 
     if ([...ch].length !== 1 || ch === '.' || ch === '@' || ch === '%' || /\s/.test(ch) || !HEX.test(color ?? '')) throw Error(`Invalid inline palette entry "${ch}".`);
     palette.set(ch, {color: color.toLowerCase(), ...(outline ? {outline: outline.toLowerCase()} : {})});
   }
-  const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}, diagnostics: check ? [] : undefined};
+  const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}, imports: loadTilesetImports(config.imports, baseDir), diagnostics: check ? [] : undefined};
   // Sources may live outside the config directory (a palette shared by several sets); they are tracked as build inputs.
   const root = resolve(baseDir);
   sources.forEach((source, n) => {

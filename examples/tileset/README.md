@@ -65,6 +65,17 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
   south-west (SW=32, `w` wide) and, with `e`, the south-east (SE=8, `e` wide); a diagonal is dropped when either
   adjacent side is set. The set grows to 25 masks (33 with `e`) and `tileset-report.json` lists them under
   `autotiles.<prefix>.masks`; without `s=` it stays the nine masks. Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
+- `@crop <name> from=<import>:<frame> [src=X,Y] [size=WxH] [x= y=] [outline|outline=#hex] [template] [unknown=error|drop|keep] [trim=#hex,...]`
+  copies a region of a frame from ANOTHER built set, so an item icon is always the very art it shows (a wall icon cropped
+  from the wall tile). Declare the other set in the config: `"imports": {"objects": "../../public/assets/objects/objects.atlas.json"}`
+  (an Aseprite atlas beside its sheet; build-set must list that set first). The cropped pixels are matched back to your
+  palette by colour (the later palette line wins when two share a fill), so `outline` and `@recolor` behave exactly as on a
+  hand-drawn tile. `src` is the region's top left inside the source frame and `size` its extent (default: the rest of the
+  frame); `x`/`y` place it in this cell (default: the same position). A colour that is not in the palette is an error
+  (`unknown=error`), becomes transparent (`drop`, the source tile's own outline colours) or is kept as is (`keep`).
+  `trim=#12201f,#26262a` removes pixels of those colours that touch transparency, which strips a tile's own silhouette
+  outline before the icon gets its own. The imported atlas and sheet are build inputs, so rebuilding the source set makes
+  this one stale.
 - `@pips <prefix> count=N pip=WxH [gap=N] [x= y=] lit=<char|#hex> empty=<char|#hex> [outline|outline=#hex]` makes
   `<prefix>_0` .. `<prefix>_N`: a row of N pips with 0 to N lit from the left (a trough reserve, a battery, a stamina
   bar drawn over a prop). The row is centred unless `x=` places it; `lit=`/`empty=` are palette characters or hex, and
