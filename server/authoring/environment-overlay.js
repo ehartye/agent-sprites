@@ -103,6 +103,27 @@ export function overlayCoverage(mask,variant=0,seed=7,options={}){
   return cover;
 }
 
+export const DEFAULT_EDGE_SHADE_COLOR='#1b2040';
+export const MAX_EDGE_SHADE_WIDTH=3;
+/**
+ * Edge-shade pixels for the SAME coverage an overlay uses (same mask, variant and seed), so the contact band follows the ragged
+ * encroachment edge instead of a straight tile edge. Only pixels of the tile's own material (uncovered) are shaded: those within
+ * `width` pixels, in a straight line, of a covered pixel. `dir: 'light'` (default) takes only covered pixels above or to the left,
+ * so the band falls to the south and east of the overlay material (light from the top left, like the overlay rim); `'all'` takes
+ * all four directions (an occlusion band all round). One flat colour, hard alpha: the game draws it at a single opacity. Pixels
+ * outside the tile count as uncovered, so a band never depends on the next tile and stays on the tile's own pixels.
+ */
+export function edgeShadePixels(coverage,{width=1,color=DEFAULT_EDGE_SHADE_COLOR,dir='light'}={}){
+  const px=Array(GRID*GRID).fill(null);
+  const covered=(x,y)=>x>=0&&y>=0&&x<GRID&&y<GRID&&coverage[y*GRID+x];
+  const steps=dir==='all'?[[0,-1],[-1,0],[1,0],[0,1]]:[[0,-1],[-1,0]];
+  for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++){
+    if(coverage[y*GRID+x])continue;
+    if(steps.some(([dx,dy])=>{for(let k=1;k<=width;k++)if(covered(x+dx*k,y+dy*k))return true;return false;}))px[y*GRID+x]=color;
+  }
+  return px;
+}
+
 /**
  * Overlay pixels: the neighbour material's own tile, cut to the coverage, with a one pixel rim where it meets the tile's own
  * material. `rim` is a colour, or `{light,dark}` for a rim lit from the top left: an edge facing up or left takes `light`, the

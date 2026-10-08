@@ -3,7 +3,7 @@ import {drawTerrainTransition,TERRAIN_MASKS,TRANSITION_BITS} from './environment
 import {drawHabitat, drawFurniture, HABITAT_LAYOUT, FURNITURE_COLLISIONS} from './environment-habitat.js';
 import {drawStyledHabitat,HABITAT_STYLES} from './environment-habitat-styles.js';
 import {GRID,WASTELAND_SPECS,WASTELAND_MATERIALS,ANIMATION_FRAMES,materialTile,validateCustomMaterial} from './environment-materials.js';
-import {EDGE_DEPTH,MAX_ROUND,OVERLAY_BITS,OVERLAY_MASKS,overlayCoverage,overlayPixels} from './environment-overlay.js';
+import {DEFAULT_EDGE_SHADE_COLOR,EDGE_DEPTH,MAX_EDGE_SHADE_WIDTH,MAX_ROUND,OVERLAY_BITS,OVERLAY_MASKS,edgeShadePixels,overlayCoverage,overlayPixels} from './environment-overlay.js';
 import {readPixelScale,scaleShape,screenBounds,sourceBounds,sourcePen} from './environment-pixel-scale.js';
 
 const hashName=s=>[...s].reduce((h,ch)=>(Math.imul(h,31)+ch.charCodeAt(0))>>>0,7);
@@ -29,17 +29,28 @@ const fallback=(value,other)=>value===undefined?other:value;
 const shade=(hex,k)=>'#'+[1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*k).toString(16).padStart(2,'0')).join('');
 /** Rim colours from a material ramp [base, dark, light, bright]: the light step on top-left facing edges, the dark step a notch darker elsewhere. */
 const rimColors=ramp=>({light:ramp[2],dark:shade(ramp[1],.8)});
-/** terrain-overlay edge style: `soft` also emits a rimless twin of the overlays (`<material>-soft_<mask>_<variant>`, all materials or the named ones) for seams between two looks of one material, where an outline would be noise; `rim` draws a one pixel outline in the overlay material's own ramp (light on top-left facing edges, dark elsewhere); `round` (0 to 6) rounds the concave corners. */
+/** terrain-overlay edge style: `soft` also emits a rimless twin of the overlays (`<material>-soft_<mask>_<variant>`, all materials or the named ones) for seams between two looks of one material, where an outline would be noise; `rim` draws a one pixel outline in the overlay material's own ramp (light on top-left facing edges, dark elsewhere); `round` (0 to 6) rounds the concave corners; `shade` also emits `<material>-shade_<mask>_<variant>` contact bands generated from the same coverage as the overlays, so they follow the ragged edge. */
+function validateEdgeShade(shade){
+  if(shade===undefined||shade===false)return null;
+  const o=shade===true?{}:shade;
+  if(!o||typeof o!=='object'||Array.isArray(o))throw Error('overlayEdge shade must be true or an object');
+  for(const key of Object.keys(o))if(!['width','color','dir','materials'].includes(key))throw Error(`Unknown overlayEdge shade field: ${key}`);
+  if(o.width!==undefined&&(!Number.isInteger(o.width)||o.width<1||o.width>MAX_EDGE_SHADE_WIDTH))throw Error(`overlayEdge shade width must be an integer from 1 to ${MAX_EDGE_SHADE_WIDTH}`);
+  if(o.color!==undefined&&!/^#[0-9a-fA-F]{6}$/.test(o.color))throw Error('overlayEdge shade color must be #rrggbb');
+  if(o.dir!==undefined&&!['light','all'].includes(o.dir))throw Error('overlayEdge shade dir must be "light" or "all"');
+  if(o.materials!==undefined&&(!Array.isArray(o.materials)||!o.materials.length||new Set(o.materials).size!==o.materials.length||o.materials.some(m=>typeof m!=='string')))throw Error('overlayEdge shade materials must be a nonempty array of unique material names');
+  return {width:o.width??1,color:(o.color??DEFAULT_EDGE_SHADE_COLOR).toLowerCase(),dir:o.dir??'light',materials:o.materials??null};
+}
 function validateOverlayEdge(edge,kind){
-  if(edge===undefined)return {round:0,rim:false,soft:null};
+  if(edge===undefined)return {round:0,rim:false,soft:null,shade:null};
   if(kind!=='terrain-overlay')throw Error('overlayEdge applies only to terrain-overlay');
   if(!edge||typeof edge!=='object'||Array.isArray(edge))throw Error('overlayEdge must be an object');
-  for(const key of Object.keys(edge))if(!['rim','round','soft'].includes(key))throw Error(`Unknown overlayEdge field: ${key}`);
+  for(const key of Object.keys(edge))if(!['rim','round','soft','shade'].includes(key))throw Error(`Unknown overlayEdge field: ${key}`);
   if(edge.rim!==undefined&&typeof edge.rim!=='boolean')throw Error('overlayEdge rim must be a boolean');
   if(edge.round!==undefined&&(!Number.isInteger(edge.round)||edge.round<0||edge.round>MAX_ROUND))throw Error(`overlayEdge round must be an integer from 0 to ${MAX_ROUND}`);
   if(edge.soft!==undefined&&edge.soft!==true&&(!Array.isArray(edge.soft)||!edge.soft.length||edge.soft.some(m=>typeof m!=='string')))throw Error('overlayEdge soft must be true or a nonempty array of material names');
   if(edge.soft&&!edge.rim)throw Error('overlayEdge soft needs rim: soft sets are the rimless twins of the rimmed overlays');
-  return {round:edge.round??0,rim:!!edge.rim,soft:edge.soft===true?true:edge.soft??null};
+  return {round:edge.round??0,rim:!!edge.rim,soft:edge.soft===true?true:edge.soft??null,shade:validateEdgeShade(edge.shade)};
 }
 
 /** Expand a reusable environment recipe into ordinary named, editable vector shapes. */
@@ -89,6 +100,11 @@ export function generateEnvironmentRecipe(config){
       for(const m of names)if(!materials.includes(m))throw Error(`overlayEdge soft names ${m}, which is not in materials`);
       for(const m of names)for(let v=0;v<variants;v++)for(const mask of OVERLAY_MASKS)if(mask)entries.push({alias:`${m}-soft_${mask}_${v}`,material:m,variant:v,role:'overlay',mask,soft:true});
     }
+    if(edge.shade){
+      const names=edge.shade.materials??materials;
+      for(const m of names)if(!materials.includes(m))throw Error(`overlayEdge shade names ${m}, which is not in materials`);
+      for(const m of names)for(let v=0;v<variants;v++)for(const mask of OVERLAY_MASKS)if(mask)entries.push({alias:`${m}-shade_${mask}_${v}`,material:m,variant:v,role:'edge-shade',mask});
+    }
   }else for(const alias of kind==='habitat'?['habitat_floor','habitat_back','habitat_front','habitat_roof']:Object.keys(FURNITURE_COLLISIONS))entries.push({alias});
   const aliases=entries.map(e=>e.alias);
   const screenWidth=kind==='habitat'?320:kind.startsWith('terrain')?32:64,screenHeight=kind==='habitat'?256:screenWidth,width=screenWidth/scale,height=screenHeight/scale,cols=kind==='terrain-overlay'?Math.min(OVERLAY_MASKS.length,aliases.length):kind.startsWith('terrain')?variants:kind==='habitat'?2:3;
@@ -124,6 +140,11 @@ export function generateEnvironmentRecipe(config){
       if(entry.role==='base'){
         drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.variant));
         details={material:entry.material,role:'base',variant:entry.variant,seamless:true,...(spec.animated?{animation:entry.material}:{})};
+      }else if(entry.role==='edge-shade'){
+        // the band is cut from the very coverage the overlay of this material, mask and variant uses, so it hugs the same ragged edge
+        const coverage=overlayCoverage(entry.mask,entry.variant,seed^(hashName(entry.material)>>>0),{round:edge.round});
+        drawPixelTile(pen,edgeShadePixels(coverage,edge.shade));
+        details={material:entry.material,role:'edge-shade',mask:entry.mask,variant:entry.variant,neighbors:Object.entries(OVERLAY_BITS).filter(([,bit])=>entry.mask&bit).map(([k])=>k)};
       }else{
         // an animated material overlays with the ripple phase of its variant: overlays are static snapshots
         const tile=materialTile(entry.material,spec,entry.variant,seed,entry.variant%ANIMATION_FRAMES);
@@ -149,5 +170,5 @@ export function generateEnvironmentRecipe(config){
     animations.push({name:m,fps:specs[m].fps,frames:own.map(f=>f.alias),cells:own.map(f=>f.cell)});
   }
   operations.push(kind==='furniture'?{command:'pivot',x:32/scale,y:62/scale}:{command:'pivot',x:0,y:0});
-  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
+  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'}:{}),...(edge.shade?{edgeShade:{width:edge.shade.width,widthUnits:'source pixels of the cell',color:edge.shade.color,dir:edge.shade.dir,materials:edge.shade.materials??materials,aliasPattern:'<material>-shade_<mask>_<variant>',semantics:'Same mask and variant as the overlay of that material: the band lies on the uncovered pixels within width of the overlay edge (dir light: below and right of it; all: every side). Draw it over the tile base and under the overlay, at one opacity.'}}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
 }

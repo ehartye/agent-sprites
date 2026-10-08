@@ -210,6 +210,15 @@ By default an overlay is a ragged strip with no outline. `overlayEdge` (terrain-
 - `soft` (`true` or a list of materials, needs `rim`) also exports a rimless twin `<material>-soft_<mask>_<variant>` with the
   identical shape, for seams between two tones of one material, where an outline would only be noise.
 
+- `shade` (`true` or `{width: 1 to 3, color, dir, materials}`) also exports `<material>-shade_<mask>_<variant>`: a contact
+  band generated from the very same coverage as that material's overlay (same mask, variant, seed and `round`), so it follows
+  the ragged encroachment edge instead of a straight tile edge. It lies on the tile's own, uncovered pixels within `width`
+  pixels of the overlay edge, one flat `color` (default `#1b2040`) with hard alpha, so the game draws it at one opacity over
+  the base and under the overlay. `dir: "light"` (default) shades only below and to the right of the overlay (light from the
+  top left, like the rim), `"all"` every side. Name the `materials` that need it (a shore, a slab on dust): each adds 46 masks
+  times the variants. Bands are computed inside the tile, so they never depend on a neighbour; the report lists them under
+  `edgeShade`.
+
 Omit `overlayEdge` and the sheet is byte-identical to before.
 
 Bits: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128. Corner rule: a diagonal bit is meaningful only when BOTH
