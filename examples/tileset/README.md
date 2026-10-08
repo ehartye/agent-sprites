@@ -19,6 +19,11 @@ which is what a game engine's tileset import expects. `tileset-report.json` carr
 automatically. The last grid row may be padded with empty cells; the report lists `paddingCells` and the build does
 not warn about them.
 
+Check the sources without building: `agent-sprites build sprite-project.json --check` parses every `.pxl` file,
+prints each row of the wrong width (file, line, tile, expected and actual) and each unknown palette character, writes
+no output and exits 1 on any problem, so it runs fast in CI. `agent-sprites build-set projects.json --check` does the
+same for tileset projects and reports `source-invalid` reasons with file and line.
+
 ## The `.pxl` format
 
 Blank lines and lines starting with `%` are ignored. Directives start with `@`. Art rows use one character per

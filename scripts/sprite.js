@@ -228,7 +228,9 @@ SESSION
   restart                graceful shutdown + respawn of sprite server
 
 OFFLINE VERIFICATION (does not start or contact a server)
-  build <sprite-project.json> [--json]
+  build <sprite-project.json> [--check] [--json]
+                         --check only parses a tileset's .pxl sources (no output written, exit 1 on any
+                         mistyped row, naming file, line and expected width); usable in CI
   build-set <sprite-projects.json> [--check] [--json]
                          rebuild every listed project, or report stale outputs without writing
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
@@ -377,6 +379,18 @@ async function run() {
         for (const item of [...(project.reasons ?? []), ...(project.errors ?? [])]) console.log(`  ${item.code}: ${item.message}`);
       }
       for (const error of report.errors.filter(error => !error.config)) console.log(`${error.code}: ${error.message}`);
+    }
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+  if (cmd === 'build' && bool(args.check)) {
+    if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> --check [--json]');
+    const { checkBuildSources } = await import('../server/build/source-check.js');
+    const report = checkBuildSources(positional[0]);
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(report.ok ? `Sources parse: ${report.tiles} tiles` : `${report.errors.length} source problem${report.errors.length === 1 ? '' : 's'}`);
+      for (const item of report.errors) console.log(`${item.code}: ${item.message}`);
     }
     if (!report.ok) process.exitCode = 1;
     return;

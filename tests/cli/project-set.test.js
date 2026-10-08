@@ -145,3 +145,28 @@ test('CLI JSON checks fail on stale sets, then build and check succeed without a
   expect(built).toMatchObject({ ok: true, succeeded: 2 });
   expect(JSON.parse((await exec(process.execPath, [cli, 'build-set', list, '--check', '--json'], options)).stdout).ok).toBe(true);
 }, 20000);
+
+test('check names a mistyped tileset row by file and line before any rebuild', async () => {
+  const root = join(dir, 'tiles'); mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'a.pxl'), '@palette\ng #6b7d3a\n@tile one\n' + ['ggg', 'gggg', 'gggg', 'gggg'].join('\n') + '\n');
+  writeFileSync(join(root, 'sprite-project.json'), JSON.stringify({ version: 1, output: '../../out/tiles', scale: 1, tileset: { name: 'tiles', cell: 4, sources: ['a.pxl'] } }));
+  writeFileSync(list, JSON.stringify({ version: 1, projects: ['tiles/sprite-project.json'] }));
+  const report = await buildSet(list, { check: true });
+  expect(report).toMatchObject({ ok: false, stale: 1 });
+  expect(report.projects[0]).toMatchObject({ status: 'invalid' });
+  expect(report.projects[0].reasons[0]).toMatchObject({ code: 'source-invalid', file: 'a.pxl', line: 4 });
+  expect(report.projects[0].reasons[0].message).toContain('expected 4');
+});
+
+test('build --check exits nonzero on a short row and zero on a clean set', async () => {
+  const cli = fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
+  const root = join(dir, 'tiles'); mkdirSync(root, { recursive: true });
+  const config = join(root, 'sprite-project.json');
+  writeFileSync(config, JSON.stringify({ version: 1, output: '../../out/tiles', scale: 1, tileset: { name: 'tiles', cell: 4, sources: ['a.pxl'] } }));
+  writeFileSync(join(root, 'a.pxl'), '@palette\ng #6b7d3a\n@tile one\ngggg\nggg\ngggg\ngggg\n');
+  await expect(exec(process.execPath, [cli, 'build', config, '--check'])).rejects.toMatchObject({ code: 1, stdout: expect.stringContaining('a.pxl:5') });
+  writeFileSync(join(root, 'a.pxl'), '@palette\ng #6b7d3a\n@tile one\ngggg\ngggg\ngggg\ngggg\n');
+  const ok = await exec(process.execPath, [cli, 'build', config, '--check', '--json']);
+  expect(JSON.parse(ok.stdout)).toMatchObject({ ok: true, tiles: 1 });
+  expect(existsSync(join(dir, '..', 'out'))).toBe(false);
+});

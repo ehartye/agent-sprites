@@ -55,6 +55,11 @@ export function parseTilesetSource(text, file, state) {
   const lines = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().replace(/\s+%.*$/, ''));
   let i = 0, last = '';
   const fail = (msg, line = i) => { throw Error(`${file}:${line + 1}: ${msg}`); };
+  // Check mode records recoverable row problems (wrong width, unknown palette character) and keeps parsing so one run lists them all.
+  const problem = (code, message, extra) => {
+    if (!state.diagnostics) fail(message);
+    state.diagnostics.push({code, file, line: i + 1, message: `${file}:${i + 1}: ${message}`, ...extra});
+  };
   const isDirective = line => line.startsWith('@');
   const next = () => { while (i < lines.length && (!lines[i].trim() || lines[i].startsWith('%'))) i++; return i < lines.length ? lines[i] : null; };
   // Art may be smaller than the cell: x=, y=, w= and rows= place a w-by-rows block inside it.
@@ -73,11 +78,15 @@ export function parseTilesetSource(text, file, state) {
       const line = next();
       if (line === null || isDirective(line)) fail(`${what} needs ${count} rows, found ${rows.length}; add the missing rows (cell rows are ${cellH} tall, ${cellW} wide).`, Math.min(i, lines.length - 1));
       if (line === '---') fail(`${what} needs ${count} rows, found ${rows.length} before "---"; add the missing rows.`);
-      if ([...line].length !== width) fail(`${what} row ${rows.length + 1} is ${[...line].length} wide; expected ${width}.`);
-      rows.push([...line].map(ch => {
+      let chars = [...line];
+      if (chars.length !== width) {
+        problem('row-width', `${what} row ${rows.length + 1} is ${chars.length} wide; expected ${width}.`, {tile: what, row: rows.length + 1, expected: width, actual: chars.length});
+        chars = Array.from({length: width}, (_, k) => chars[k] ?? '.');
+      }
+      rows.push(chars.map(ch => {
         if (ch === '.') return null;
         const entry = palette.get(ch);
-        if (!entry) fail(`${what}: palette has no entry for "${ch}".`);
+        if (!entry) { problem('palette', `${what}: palette has no entry for "${ch}".`, {tile: what, char: ch}); return null; }
         return {...entry, ch};
       }));
       i++;
@@ -208,7 +217,7 @@ export function parseTilesetSource(text, file, state) {
   }
 }
 
-export function generateTilesetRecipe(config, baseDir = process.cwd()) {
+export function generateTilesetRecipe(config, baseDir = process.cwd(), {check = false} = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw Error('Tileset recipe must be an object.');
   for (const k of Object.keys(config)) if (!FIELDS.includes(k)) throw Error(`Unknown tileset field: ${k}`);
   const {name = 'tileset', cell = 16, sources, palette: inlinePalette = {}} = config;
@@ -223,7 +232,7 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
     if ([...ch].length !== 1 || ch === '.' || ch === '@' || ch === '%' || /\s/.test(ch) || !HEX.test(color ?? '')) throw Error(`Invalid inline palette entry "${ch}".`);
     palette.set(ch, {color: color.toLowerCase(), ...(outline ? {outline: outline.toLowerCase()} : {})});
   }
-  const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}};
+  const state = {cellW, cellH, palette, tiles: [], names: new Set(), animations: [], autotiles: {}, diagnostics: check ? [] : undefined};
   // Sources may live outside the config directory (a palette shared by several sets); they are tracked as build inputs.
   const root = resolve(baseDir);
   sources.forEach((source, n) => {
@@ -231,6 +240,7 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
     if (!existsSync(full) || !statSync(full).isFile()) throw Error(`tileset.sources[${n}] "${source}" is not a file.`);
     parseTilesetSource(readFileSync(full, 'utf8'), source, state);
   });
+  if (check && state.diagnostics.length) return {operations: [], report: null, diagnostics: state.diagnostics};
   // Template tiles exist only to be recoloured; they never reach the sheet.
   const tiles = state.tiles.filter(t => !t.template);
   for (const a of state.animations) if (a.frames.some(f => !tiles.find(t => t.name === f))) throw Error(`Animation ${a.name} uses a template tile.`);
@@ -269,7 +279,24 @@ export function generateTilesetRecipe(config, baseDir = process.cwd()) {
     materials: Object.keys(MATERIALS),
   };
   report.paddingCells = columns * rows - tiles.length;
-  return {operations, report};
+  return check ? {operations, report, diagnostics: []} : {operations, report};
+}
+
+/**
+ * Parse-only check of a tileset recipe: reads every `.pxl` source, rasterises nothing and writes nothing.
+ * Row-width and palette mistakes are all listed; any other error stops the parse at its file and line.
+ */
+export function checkTilesetRecipe(config, baseDir = process.cwd()) {
+  let diagnostics, tiles = 0;
+  try {
+    const result = generateTilesetRecipe(config, baseDir, {check: true});
+    diagnostics = result.diagnostics;
+    tiles = result.report?.count ?? 0;
+  } catch (error) {
+    const m = /^(.+?):(\d+): ([\s\S]*)$/.exec(error.message);
+    diagnostics = [m ? {code: 'parse', file: m[1], line: Number(m[2]), message: error.message} : {code: 'recipe', message: error.message}];
+  }
+  return {ok: diagnostics.length === 0, tiles, diagnostics};
 }
 
 export {BLOB_MASKS, FENCE_MASKS};

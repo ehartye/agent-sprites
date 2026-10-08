@@ -79,7 +79,7 @@ growth stages, use the `tileset` recipe: [tileset recipe](../../examples/tileset
 text, recolour templates for tool tiers or seed packets, and let `@autotile` generate 47-mask wall, floor and roof
 sets and 16-mask fences in selectable materials, `@shadow` for stepped contact-shadow silhouettes (draw them at one
 opacity in the game) and `@shade` for the nine edge-occlusion tiles beside walls, fences and roofs. Load the PNG as a tileset image and map names to indices with
-`tileset-report.json`. Wrong-size `.pxl` rows or row counts fail the build with file, line, tile name and expected/actual; list the frame names the game requests in `expectedFrames` so a missing one fails the build. Masks are clockwise from north (N=1 ... NW=128) with a diagonal kept only when both adjacent
+`tileset-report.json`. Wrong-size `.pxl` rows or row counts fail the build with file, line, tile name and expected/actual; `agent-sprites build <config> --check` (and `build-set --check`) parses the sources alone, lists every bad row and exits 1, so run it in CI and before long builds; list the frame names the game requests in `expectedFrames` so a missing one fails the build. Masks are clockwise from north (N=1 ... NW=128) with a diagonal kept only when both adjacent
 edges are set; do not reuse an encroachment mask normaliser for them. `"omit"` in the build config keeps megabytes of
 editable project JSON out of a game repo. For a farming or survival HUD use the `wasteland` UI theme (meters,
 minimap frame, tabs, colour need and weather icons, controller prompts `pad_<xbox|ps|switch|deck>_<id>` of at most

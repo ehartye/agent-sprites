@@ -33,7 +33,7 @@ test('a plain operations array builds exactly as before',async()=>{
 
 test.each([
   [{report:REPORT},/operations array or \{ operations, report \}/],
-  [{operations:OPS,report:{kind:'terrain'}},/character report with frames/],
+  [{operations:OPS,report:{kind:'terrain'}},/character or UI report with frames/],
 ])('malformed generator output fails before publication: %j',async(output,error)=>{
   const r=await build(output);
   expect(r.ok).toBe(false);
