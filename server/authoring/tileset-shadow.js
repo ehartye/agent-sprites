@@ -12,8 +12,20 @@
 //       (diagonal) leaves a chamfered corner block.
 //       Frames: <prefix>_<mask>, mask bits N=1 E=4 W=64 NW=128 (a set bit means that neighbour casts), so there are
 //       nine masks (the NW bit is dropped when N or W is set, as the shadow is already there).
-export const SHADE_BITS = {n: 1, e: 4, w: 64, nw: 128};
+//       s=<rows> adds the south contact line: ground directly north of a wall gets s rows along its bottom edge so the
+//       wall's base reads seated, not floating. That adds the bits S=16, SW=32 (a w-by-s corner block) and SE=8 (an
+//       e-by-s corner block, only with e>0); a diagonal bit is dropped when either adjacent cardinal is already set.
+//       Without s= the set is the nine masks above, unchanged.
+export const SHADE_BITS = {n: 1, se: 8, s: 16, sw: 32, e: 4, w: 64, nw: 128};
 export const SHADE_MASKS = [1, 4, 5, 64, 65, 68, 69, 128, 132];
+
+/** The normalised mask set for a shade recipe: nine masks, or with a south contact line every N/E/S/W combination plus its legal corner blocks. */
+export function shadeMasks({south = false, east = false} = {}) {
+  if (!south) return SHADE_MASKS.slice();
+  const out = [];
+  for (let m = 1; m < 256; m++) if (normalizeShadeMask(m, {south: true, east}) === m) out.push(m);
+  return out;
+}
 export const DEFAULT_SHADOW_COLOR = '#1b2040';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -35,24 +47,30 @@ export function shadowPixels({w, h, color = DEFAULT_SHADOW_COLOR}) {
   return rows.map(width => { const left = (w - width) / 2; return Array.from({length: w}, (_, x) => (x >= left && x < left + width ? color.toLowerCase() : null)); });
 }
 
-export function normalizeShadeMask(mask) {
-  let m = mask & (SHADE_BITS.n | SHADE_BITS.e | SHADE_BITS.w | SHADE_BITS.nw);
-  if (m & (SHADE_BITS.n | SHADE_BITS.w)) m &= ~SHADE_BITS.nw;
+export function normalizeShadeMask(mask, {south = false, east = false} = {}) {
+  const {n, e, w, nw, s, sw, se} = SHADE_BITS;
+  let m = mask & (n | e | w | nw | (south ? s | sw | (east ? se : 0) : 0));
+  if (m & (n | w)) m &= ~nw;
+  if (m & (s | w)) m &= ~sw;
+  if (m & (s | e)) m &= ~se;
   return m;
 }
 
 /** [{name, mask, pixels}] for the nine shade masks on a size x size tile. */
-export function shadeTiles({prefix, size = 16, n, w, e = 0, color = DEFAULT_SHADOW_COLOR}) {
+export function shadeTiles({prefix, size = 16, n, w, e = 0, s = 0, color = DEFAULT_SHADOW_COLOR}) {
   if (!HEX.test(color)) throw Error('A shade colour is #rrggbb.');
-  for (const [k, v] of Object.entries({n, w, e})) if (!Number.isInteger(v) || v < 0 || v > size / 2) throw Error(`Shade ${k}= must be an integer from 0 to ${size / 2}.`);
+  for (const [k, v] of Object.entries({n, w, e, s})) if (!Number.isInteger(v) || v < 0 || v > size / 2) throw Error(`Shade ${k}= must be an integer from 0 to ${size / 2}.`);
   if (n < 1 || w < 1) throw Error('Shade n= and w= must be at least 1.');
   const c = color.toLowerCase();
-  return SHADE_MASKS.map(mask => {
+  return shadeMasks({south: s > 0, east: e > 0}).map(mask => {
     const g = Array.from({length: size}, () => Array(size).fill(null));
     const rect = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) g[y][x] = c; };
     if (mask & SHADE_BITS.n) rect(0, 0, size - 1, n - 1);
     if (mask & SHADE_BITS.w) rect(0, 0, w - 1, size - 1);
     if (mask & SHADE_BITS.e && e > 0) rect(size - e, 0, size - 1, size - 1);
+    if (mask & SHADE_BITS.s) rect(0, size - s, size - 1, size - 1);
+    if (mask & SHADE_BITS.sw) { rect(0, size - s, w - 1, size - 1); if (w > 1 && s > 1) g[size - s][w - 1] = null; }
+    if (mask & SHADE_BITS.se) { rect(size - e, size - s, size - 1, size - 1); if (e > 1 && s > 1) g[size - s][size - e] = null; }
     if (mask & SHADE_BITS.nw) { rect(0, 0, w - 1, n - 1); if (w > 1 && n > 1) g[n - 1][w - 1] = null; }
     return {name: `${prefix}_${mask}`, mask, pixels: g};
   });

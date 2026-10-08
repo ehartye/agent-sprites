@@ -203,3 +203,11 @@ test('check refuses a build config that has no tileset source',async()=>{
   const {checkBuildSources}=await import('../../server/build/source-check.js');
   expect(checkBuildSources(path)).toMatchObject({ok:false,errors:[{code:'check-input'}]});
 });
+
+test('the shipped tileset example builds and publishes its south-lined shade set',async()=>{
+  const {cpSync}=await import('node:fs');
+  cpSync(new URL('../../examples/tileset',import.meta.url),join(dir,'ex'),{recursive:true});
+  const result=await buildProject(join(dir,'ex','sprite-project.json'));expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));
+  expect(report.autotiles.wall_shade.masks).toContain(16);expect(report.index.wall_shade_16).toBeGreaterThan(0);
+});

@@ -56,11 +56,15 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
   middle rows), centred in the cell unless `x=`/`y=` place it. Hard alpha and one flat colour (default `#1b2040`): the
   game draws it at a single opacity (25-35%), so overlaps never double-darken and every edge stays on the pixel grid.
   Author one per size class (creatures, props); anything larger can nine-slice a small plate frame.
-- `@shade <prefix> n=N w=N [e=N] [color=#hex]` expands to the nine edge-occlusion tiles `<prefix>_<mask>` for ground
+- `@shade <prefix> n=N w=N [e=N] [s=N] [color=#hex]` expands to the nine edge-occlusion tiles `<prefix>_<mask>` for ground
   beside something tall. Light is top left, so a caster to the north (mask bit N=1) paints `n` rows along the top, one to
   the west (W=64) paints `w` columns down the left, one to the east (E=4) a thin `e`-column contact line, and a caster
   at the north-west only (NW=128) a chamfered corner block. Masks: 1 4 5 64 65 68 69 128 132 (a diagonal is dropped
-  when N or W is set). Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
+  when N or W is set). `s=N` adds the south contact line: ground directly north of a wall gets `N` rows along its
+  bottom edge (S=16) so the wall base reads seated rather than floating, plus corner blocks for a wall at the
+  south-west (SW=32, `w` wide) and, with `e`, the south-east (SE=8, `e` wide); a diagonal is dropped when either
+  adjacent side is set. The set grows to 25 masks (33 with `e`) and `tileset-report.json` lists them under
+  `autotiles.<prefix>.masks`; without `s=` it stays the nine masks. Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
 - `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material]` expands to a full set.
 
 Atlas note: the Aseprite atlas lists the grid frames first (numeric filenames equal to cell indices), then one run of
