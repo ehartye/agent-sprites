@@ -1,5 +1,5 @@
 import {test,expect} from 'vitest';
-import {lensRows,shadowPixels,shadeTiles,normalizeShadeMask,SHADE_MASKS,SHADE_BITS} from '../../server/authoring/tileset-shadow.js';
+import {lensRows,shadowPixels,shadeTiles,normalizeShadeMask,shadeMasks,SHADE_MASKS,SHADE_BITS} from '../../server/authoring/tileset-shadow.js';
 
 const {n:N,e:E,w:W,nw:NW}=SHADE_BITS;
 const solid=p=>p.map(r=>r.map(c=>c?1:0));
@@ -48,4 +48,33 @@ test('neighbouring tiles join: the band meets the edge in the same rows on every
 
 test('invalid shade depth is rejected',()=>{
   expect(()=>shadeTiles({prefix:'p',n:0,w:1})).toThrow();expect(()=>shadeTiles({prefix:'p',n:9,w:1})).toThrow();expect(()=>shadeTiles({prefix:'p',n:1,w:1,color:'x'})).toThrow();
+});
+
+const {s:S,sw:SW,se:SE}=SHADE_BITS;
+
+test('without s= the set is exactly the nine masks and the pixels do not change',()=>{
+  const plain=shadeTiles({prefix:'p',n:3,w:2,e:1});
+  expect(plain.map(t=>t.mask)).toEqual(SHADE_MASKS);
+  expect(plain.map(t=>t.mask)).toEqual(shadeTiles({prefix:'p',n:3,w:2,e:1,s:0}).map(t=>t.mask));
+  expect(normalizeShadeMask(S|SW|SE|N)).toBe(N); // south bits are ignored when the recipe has no south line
+});
+
+test('s= adds a contact line along the bottom edge for a wall to the south, with chamfered corner blocks',()=>{
+  const set=shadeTiles({prefix:'p',n:3,w:2,e:1,s:2}),m=by(set);
+  const masks=set.map(t=>t.mask);
+  expect(new Set(masks).size).toBe(masks.length);
+  for(const mask of masks)expect(normalizeShadeMask(mask,{south:true,east:true})).toBe(mask);
+  const south=m[S];for(let x=0;x<16;x++){expect(south[15][x]).toBe(1);expect(south[14][x]).toBe(1);expect(south[13][x]).toBe(0);expect(south[0][x]).toBe(0);}
+  const sw=m[SW];expect(sw[15][0]).toBe(1);expect(sw[15][1]).toBe(1);expect(sw[14][0]).toBe(1);expect(sw[14][1]).toBe(0);expect(sw[15][2]).toBe(0);expect(sw[13][0]).toBe(0);
+  const se=m[SE];expect(se[15][15]).toBe(1);expect(se[14][15]).toBe(1);expect(se[15][14]).toBe(0);
+  // the bottom rows meet the edge so the band of the tile below joins the wall's own outline
+  expect(m[S|N][0].every(Boolean)).toBe(true);expect(m[S|N][15].every(Boolean)).toBe(true);expect(m[S|N][8].every(c=>!c)).toBe(true);
+});
+
+test('south diagonals are dropped when S, W or E already shadow that corner, and SE needs e>0',()=>{
+  expect(normalizeShadeMask(S|SW|SE,{south:true,east:true})).toBe(S);
+  expect(normalizeShadeMask(W|SW,{south:true})).toBe(W);expect(normalizeShadeMask(E|SE,{south:true,east:true})).toBe(E);
+  expect(normalizeShadeMask(SE,{south:true,east:false})).toBe(0);
+  expect(shadeMasks({south:true,east:true}).length).toBe(33);expect(shadeMasks({south:true}).length).toBe(25);
+  expect(()=>shadeTiles({prefix:'p',n:1,w:1,s:9})).toThrow();
 });

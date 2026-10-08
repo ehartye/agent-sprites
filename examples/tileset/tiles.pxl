@@ -23,6 +23,8 @@ aaaaaa
 @autotile roof roof-tile as roof_tile
 @autotile fence wood as fence_wood
 @autotile door wood as door_wood
+% Edge occlusion beside walls: n rows on top, w columns left, e right, and s rows along the bottom so a wall base reads seated.
+@shade wall_shade n=3 w=2 e=1 s=2
 % Animation: cells campfire_0..1 and an Aseprite tag named campfire.
 @anim campfire fps=6 outline x=4 y=4 w=8 rows=6
 ...T....

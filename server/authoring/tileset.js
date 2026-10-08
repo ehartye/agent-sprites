@@ -1,6 +1,6 @@
 import {readFileSync, existsSync, statSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {shadowPixels, shadeTiles, SHADE_MASKS} from './tileset-shadow.js';
+import {shadowPixels, shadeTiles} from './tileset-shadow.js';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
 
 // Tileset recipe: a regular grid of equal cells (frame index = row-major cell index) described in
@@ -203,16 +203,16 @@ export function parseTilesetSource(text, file, state) {
       block.forEach((row, ry) => row.forEach((c, rx) => { pixels[y + ry][x + rx] = c; }));
       addTile(name, pixels, start, {shadow: true});
     } else if (directive === 'shade') {
-      // @shade <prefix> n=<rows> w=<cols> [e=<cols>] [color=#hex]: edge occlusion bands for ground beside tall things.
+      // @shade <prefix> n=<rows> w=<cols> [e=<cols>] [s=<rows>] [color=#hex]: edge occlusion bands for ground beside tall things.
       const [prefix, ...opts] = rest;
       if (!prefix) fail('@shade needs a prefix.', start);
       const o = options(opts);
-      for (const k of Object.keys(o.values)) if (!['n', 'w', 'e', 'color'].includes(k)) fail(`@shade ${prefix}: unknown option ${k}=.`, start);
+      for (const k of Object.keys(o.values)) if (!['n', 'w', 'e', 's', 'color'].includes(k)) fail(`@shade ${prefix}: unknown option ${k}=.`, start);
       if (cellW !== cellH) fail('@shade needs square cells.', start);
       let set;
-      try { set = shadeTiles({prefix, size: cellW, n: Number(o.values.n), w: Number(o.values.w), e: o.values.e === undefined ? 0 : Number(o.values.e), color: o.values.color}); } catch (error) { fail(error.message, start); }
+      try { set = shadeTiles({prefix, size: cellW, n: Number(o.values.n), w: Number(o.values.w), e: o.values.e === undefined ? 0 : Number(o.values.e), s: o.values.s === undefined ? 0 : Number(o.values.s), color: o.values.color}); } catch (error) { fail(error.message, start); }
       for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
-      state.autotiles[prefix] = {kind: 'shade', material: 'shadow', masks: SHADE_MASKS.slice(), frames: set.map(t => t.name), convention: 'N=1 E=4 W=64 NW=128: a set bit means that neighbour casts onto this tile; NW is dropped when N or W is set'};
+      state.autotiles[prefix] = {kind: 'shade', material: 'shadow', masks: set.map(t => t.mask), frames: set.map(t => t.name), convention: Number(o.values.s) > 0 ? 'N=1 E=4 SE=8 S=16 SW=32 W=64 NW=128: a set bit means that neighbour casts onto this tile (S: the wall below, a contact line along the bottom); a diagonal bit is dropped when either adjacent cardinal is set' : 'N=1 E=4 W=64 NW=128: a set bit means that neighbour casts onto this tile; NW is dropped when N or W is set'};
     } else fail(`Unknown directive @${directive}.`, start);
   }
 }
