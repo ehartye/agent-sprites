@@ -7,6 +7,7 @@
     "kind": "terrain-overlay",
     "seed": 7,
     "pixelScale": 2,
-    "variants": 3
+    "variants": 3,
+    "overlayEdge": { "shade": { "materials": ["water", "concrete"], "width": 1 } }
   }
 }
