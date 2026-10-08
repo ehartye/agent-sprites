@@ -4,5 +4,5 @@
   "scale": 4,
   "omit": ["project", "operations", "preview"],
   "tileset": { "name": "tiles", "cell": 16, "columns": 16, "sources": ["palette.pxl", "tiles.pxl"] },
-  "expectedFrames": ["sprout", "wall_brick_0", "wall_brick_255", "campfire_0", "seed_gold"]
+  "expectedFrames": ["sprout", "wall_brick_0", "wall_brick_255", "ruin_brick_0", "campfire_0", "seed_gold"]
 }

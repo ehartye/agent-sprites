@@ -124,3 +124,46 @@ test('gates come in shut and open, with a post each side, in every fence style a
   const sig=m=>autotileTiles({kind:'gate',material:m,prefix:'g'})[0].pixels.flat().join();
   expect(new Set(['scrap',...FENCE_STYLES].map(sig)).size).toBe(6);
 });
+
+const mk=(extra={})=>byMask(autotileTiles({kind:'wall',material:'brick',prefix:'r',...extra}));
+const cells=p=>p.flat().filter(c=>c!==null).length;
+
+test('ragged crumbles open top and side edges with hard alpha and leaves the base flush',()=>{
+  const plain=mk(),rag=mk({ragged:3,seed:2});
+  expect(cells(rag[0])).toBeLessThan(cells(plain[0]));
+  for(const px of Object.values(rag))for(const c of px.flat())expect(c===null||/^#[0-9a-f]{6}$/.test(c)).toBe(true); // no partial alpha
+  for(let x=0;x<16;x++){expect(rag[0][15][x]).toBe(plain[0][15][x]);expect(rag[0][14][x]).not.toBeNull();} // the base stays on the ground
+  // depth never exceeds ragged=N
+  for(let x=3;x<13;x++){let d=0;while(d<16&&rag[0][d][x]===null)d++;expect(d).toBeLessThanOrEqual(3);}
+  // the new boundary is outlined
+  const o=MATERIALS.brick.o;for(let x=3;x<13;x++){const y=rag[0].findIndex(r=>r[x]!==null);expect(rag[0][y][x]).toBe(o);}
+});
+
+test('ragged leaves joined sides alone, and a run of tiles crumbles continuously across the seam',()=>{
+  const plain=mk(),rag=mk({ragged:4,seed:1});
+  const joined=N|E|S|W|NE|SE|SW|NW;expect(rag[joined]).toEqual(plain[joined]);
+  // an open north edge has the same profile whichever sides are joined: E|W and E|W|S tiles share their top silhouette
+  const top=p=>Array.from({length:16},(_,x)=>p.findIndex(r=>r[x]!==null));
+  expect(top(rag[E|W])).toEqual(top(rag[E|W|S]));
+  // vertical runs: the west profile is the same for a tile with the north joined
+  const left=p=>Array.from({length:12},(_,y)=>p[y].findIndex(c=>c!==null));
+  expect(left(rag[N|S|E])).toEqual(left(rag[N|S|E|SE]));
+});
+
+test('ragged is deterministic, depends on the seed and keeps the 47 masks',()=>{
+  const a=autotileTiles({kind:'wall',material:'concrete',prefix:'r',ragged:3,seed:5}),b=autotileTiles({kind:'wall',material:'concrete',prefix:'r',ragged:3,seed:5});
+  expect(a).toEqual(b);expect(a.map(t=>t.mask)).toEqual(BLOB_MASKS);
+  const c=autotileTiles({kind:'wall',material:'concrete',prefix:'r',ragged:3,seed:6});expect(c).not.toEqual(a);
+  const r=autotileTiles({kind:'roof',material:'thatch',prefix:'r',ragged:2});expect(r.length).toBe(47);
+});
+
+test('without ragged or offset the tiles are unchanged, and offset shifts only the pattern',()=>{
+  const plain=mk(),zero=mk({ragged:0,seed:0,offset:[0,0]});expect(zero).toEqual(plain);
+  const shifted=mk({offset:[8,4]});
+  const outline=p=>p.map(r=>r.map(c=>(c===null?0:1)));
+  expect(outline(shifted[0])).toEqual(outline(plain[0])); // same silhouette
+  expect(shifted[0]).not.toEqual(plain[0]);expect(shifted[N|E|S|W|NE|SE|SW|NW]).not.toEqual(plain[N|E|S|W|NE|SE|SW|NW]);
+  // two variants of one material differ in pattern but remain periodic on their own seams
+  expect(shifted[E|W][5][15]).toBe(shifted[E|W|N][5][15]);
+  const flags=autotileTiles({kind:'wall',material:'flags',prefix:'f',offset:[15,15]});expect(flags.length).toBe(47); // wraps, never indexes past the pattern
+});

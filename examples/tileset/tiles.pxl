@@ -21,6 +21,9 @@ aaaaaa
 @autotile wall brick as wall_brick
 @autotile floor slab as floor_slab
 @autotile roof roof-tile as roof_tile
+% A crumbled twin of a wall: ragged=N carves up to N px from open top and side edges (hard alpha, base flush), seed= picks the profile,
+% offset=x,y starts the brick pattern elsewhere so the ruin does not tile identically to the intact wall.
+@autotile wall brick as ruin_brick ragged=3 seed=2 offset=8,4
 @autotile fence wood as fence_wood
 @autotile door wood as door_wood
 % Edge occlusion beside walls: n rows on top, w columns left, e right, and s rows along the bottom so a wall base reads seated.

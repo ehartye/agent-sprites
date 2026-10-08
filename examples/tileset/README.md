@@ -65,7 +65,15 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
   south-west (SW=32, `w` wide) and, with `e`, the south-east (SE=8, `e` wide); a diagonal is dropped when either
   adjacent side is set. The set grows to 25 masks (33 with `e`) and `tileset-report.json` lists them under
   `autotiles.<prefix>.masks`; without `s=` it stays the nine masks. Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
-- `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material]` expands to a full set.
+- `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material] [ragged=N seed=N offset=X,Y]` expands to a full set.
+  `ragged=N` (wall and roof, 1 to 4) crumbles the silhouette: up to N px are carved from the open north, east and west
+  edges along a smooth, deterministic profile (`seed=` 0 to 255 picks it), hard alpha, with the new boundary outlined.
+  The profile depends only on the position along the edge, so a run of tiles crumbles continuously across seams, and
+  the base (south edge) stays flush so a ruin still stands on the ground and takes an `@shade ... s=` contact line.
+  Joined sides are never carved. `offset=X,Y` (wall, floor and roof, 0 to 15 each) starts the material's pattern at
+  another origin, so a ruined twin or a second variant does not repeat the intact wall's brick courses. Author the
+  variants as separate sets (`wall_brick`, `ruin_brick` ragged=3 seed=2 offset=8,4, `ruin_brick_b` seed=5 offset=3,12) and
+  choose per placed tile; the report lists the options under `autotiles.<prefix>.options`.
 
 Atlas note: the Aseprite atlas lists the grid frames first (numeric filenames equal to cell indices), then one run of
 frames per animation tag, then the named aliases. Animation tag ranges therefore index atlas frames, not cells; the

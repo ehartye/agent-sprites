@@ -171,10 +171,30 @@ export function parseTilesetSource(text, file, state) {
       addTile(name, src.pixels.map(row => row.slice()), start, {copyOf: from});
     } else if (directive === 'autotile') {
       const [kind, materialName, as, prefix, ...opts] = rest;
-      if (!kind || !materialName || as !== 'as' || !prefix) fail('@autotile is: @autotile <kind> <material> as <prefix> [role=#hex ...] [face=N].', start);
+      if (!kind || !materialName || as !== 'as' || !prefix) fail('@autotile is: @autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [ragged=N seed=N offset=X,Y].', start);
       if (!AUTOTILE_KINDS.includes(kind)) fail(`Unknown auto-tile kind "${kind}" (${AUTOTILE_KINDS.join(', ')}).`, start);
       const o = options(opts), overrides = {};
-      for (const [k, v] of Object.entries(o.values)) if (AUTOTILE_ROLES.includes(k)) overrides[k] = v; else if (k !== 'face' && k !== 'leaf') fail(`Unknown auto-tile option "${k}".`, start);
+      for (const [k, v] of Object.entries(o.values)) if (AUTOTILE_ROLES.includes(k)) overrides[k] = v; else if (!['face', 'leaf', 'ragged', 'seed', 'offset'].includes(k)) fail(`Unknown auto-tile option "${k}".`, start);
+      const shape = {};
+      if (o.values.ragged !== undefined) {
+        const ragged = Number(o.values.ragged);
+        if (!['wall', 'roof'].includes(kind)) fail(`ragged= applies to wall and roof sets, not ${kind}.`, start);
+        if (!Number.isInteger(ragged) || ragged < 1 || ragged > 4) fail('ragged= must be an integer from 1 to 4 (the deepest crumble, in pixels).', start);
+        shape.ragged = ragged;
+      }
+      if (o.values.seed !== undefined) {
+        const seed = Number(o.values.seed);
+        if (!['wall', 'roof'].includes(kind)) fail(`seed= applies to ragged wall and roof sets, not ${kind}.`, start);
+        if (o.values.ragged === undefined) fail('seed= needs ragged= (it picks the crumble profile).', start);
+        if (!Number.isInteger(seed) || seed < 0 || seed > 255) fail('seed= must be an integer from 0 to 255.', start);
+        shape.seed = seed;
+      }
+      if (o.values.offset !== undefined) {
+        const parts = o.values.offset.split(',').map(Number);
+        if (!['wall', 'floor', 'roof'].includes(kind)) fail(`offset= applies to wall, floor and roof sets, not ${kind}.`, start);
+        if (parts.length !== 2 || parts.some(v => !Number.isInteger(v) || v < 0 || v > 15)) fail('offset= is x,y with each an integer from 0 to 15 (the pattern origin).', start);
+        shape.offset = parts;
+      }
       if (o.values.face !== undefined) {
         const face = Number(o.values.face);
         if (!['wall', 'roof', 'door'].includes(kind)) fail(`face= applies to wall, roof and door sets, not ${kind}.`, start);
@@ -182,11 +202,11 @@ export function parseTilesetSource(text, file, state) {
       }
       if (o.values.leaf !== undefined && kind !== 'door') fail('leaf= applies only to door sets.', start);
       let set;
-      try { set = autotileTiles({kind, material: materialName, prefix, size: cellW, overrides, face: o.values.face === undefined ? undefined : Number(o.values.face), leaf: o.values.leaf}); }
+      try { set = autotileTiles({kind, material: materialName, prefix, size: cellW, overrides, face: o.values.face === undefined ? undefined : Number(o.values.face), leaf: o.values.leaf, ...shape}); }
       catch (error) { fail(error.message, start); }
       if (cellW !== cellH) fail('Auto-tiles need square cells.', start);
       for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
-      state.autotiles[prefix] = {kind, material: materialName, masks: set.filter(t => t.mask !== undefined).map(t => t.mask), frames: set.map(t => t.name)};
+      state.autotiles[prefix] = {kind, material: materialName, ...(Object.keys(shape).length ? {options: shape} : {}), masks: set.filter(t => t.mask !== undefined).map(t => t.mask), frames: set.map(t => t.name)};
     } else if (directive === 'shadow') {
       // @shadow <name> w=<n> h=<n> [x= y=] [color=#hex]: a stepped contact-shadow silhouette, hard alpha, one colour.
       const [name, ...opts] = rest;
@@ -275,7 +295,7 @@ export function generateTilesetRecipe(config, baseDir = process.cwd(), {check = 
     // Frame index equals the row-major cell index; a game maps names to Phaser tileset indices with this table.
     index,
     animations: Object.fromEntries(state.animations.map(a => [a.name, {fps: a.fps, frames: a.frames.map(f => index[f])}])),
-    autotiles: Object.fromEntries(Object.entries(state.autotiles).map(([prefix, a]) => [prefix, {kind: a.kind, material: a.material, convention: a.convention ?? MASK_CONVENTION, masks: a.masks, frames: Object.fromEntries(a.frames.map(f => [f, index[f]]))}])),
+    autotiles: Object.fromEntries(Object.entries(state.autotiles).map(([prefix, a]) => [prefix, {kind: a.kind, material: a.material, ...(a.options ? {options: a.options} : {}), convention: a.convention ?? MASK_CONVENTION, masks: a.masks, frames: Object.fromEntries(a.frames.map(f => [f, index[f]]))}])),
     materials: Object.keys(MATERIALS),
   };
   report.paddingCells = columns * rows - tiles.length;
