@@ -233,6 +233,10 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          mistyped row, naming file, line and expected width); usable in CI
   build-set <sprite-projects.json> [--check] [--json]
                          rebuild every listed project, or report stale outputs without writing
+  tileset-preview <layout.json> --out <directory> [--scale N] [--night] [--json]
+                         compose built frames into contact sheets (rooms, fence runs, icon boards) from a JSON layout,
+                         using the same neighbour-mask rules as a game: autotile glyphs pick <prefix>_<mask>;
+                         whole-number nearest-neighbour scale, optional night tint; no server needed
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
@@ -363,6 +367,21 @@ async function run() {
       console.log(`Exact trace: ${report.width}×${report.height}, ${report.shapeCount} editable shapes, ${report.differingPixels} differing pixels.`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
     }
+    return;
+  }
+  if (cmd === 'tileset-preview') {
+    if (positional.length !== 1 || !args.out || Object.keys(args).some(key => !['out', 'scale', 'night', 'json'].includes(key))) {
+      throw new Error('Usage: agent-sprites tileset-preview <layout.json> --out <directory> [--scale N] [--night] [--json]');
+    }
+    const { renderTilesetPreview } = await import('../server/build/tileset-preview.js');
+    const report = await renderTilesetPreview(positional[0], { outDir: String(args.out), scale: args.scale === undefined ? undefined : Number(args.scale), night: bool(args.night) });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(report.ok ? `${report.sheets.length} sheets written` : 'Preview failed');
+      for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
+      for (const sheet of report.sheets) console.log(`${sheet.name}: ${sheet.file} (${sheet.width}x${sheet.height})`);
+    }
+    if (!report.ok) process.exitCode = 1;
     return;
   }
   if (cmd === 'build-set') {

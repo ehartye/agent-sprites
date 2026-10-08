@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "atlases": { "tiles": "dist/tiles.atlas.json" },
+  "cell": 16,
+  "background": "#c9a869",
+  "scale": 4,
+  "sheets": {
+    "room": {
+      "size": [18, 7],
+      "layers": [
+        { "at": [0, 0], "rows": [".......", ".fffff.", ".fffff.", ".fffff.", ".fffff.", "......."], "glyphs": { "f": { "autotile": "floor_slab" } } },
+        { "at": [0, 0], "rows": ["#######", "#.....#", "#.....#", "#.....#", "#.....#", "###D###"], "glyphs": { "#": { "autotile": "wall_brick", "joins": "#D" }, "D": { "frame": "door_wood" } } },
+        { "at": [8, 0], "rows": ["rrrrrrr", "rrrrrrr", "rrrrrrr", "rrrrrrr", "rrrrrrr", "rrrrrrr"], "glyphs": { "r": { "autotile": "roof_tile" } } },
+        { "at": [16, 0], "rows": ["f", "f", "f", "f"], "glyphs": { "f": { "autotile": "fence_wood", "mode": "fence" } } }
+      ]
+    },
+    "ruins": {
+      "size": [8, 3],
+      "layers": [
+        { "at": [0, 0], "rows": ["#####", "#...#"], "glyphs": { "#": { "autotile": "ruin_brick" } } },
+        { "at": [0, 2], "frame": "meter_demo_3" },
+        { "at": [1, 2], "frame": "wall_crack_2" }
+      ]
+    }
+  }
+}
