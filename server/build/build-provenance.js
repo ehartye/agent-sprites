@@ -34,7 +34,14 @@ export function snapshotBuildInputs(configPath, config, source) {
     if (!existsSync(full) || !statSync(full).isFile()) throw new Error(`tileset.sources[${n}] "${path}" is not a file.`);
     return full;
   }) : [];
-  for (const path of [configPath, source, ...tilesetSources, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
+  // Another set's built atlas and sheet are inputs too, so a rebuilt source set makes this one stale.
+  const tilesetImports = config.tileset?.imports && typeof config.tileset.imports === 'object' ? Object.entries(config.tileset.imports).flatMap(([name, path]) => {
+    const atlas = resolve(base, String(path));
+    if (!existsSync(atlas) || !statSync(atlas).isFile()) throw new Error(`tileset.imports.${name} "${path}" is not a file; build that set first.`);
+    const image = JSON.parse(readFileSync(atlas, 'utf8'))?.meta?.image;
+    return typeof image === 'string' ? [atlas, resolve(dirname(atlas), image)] : [atlas];
+  }) : [];
+  for (const path of [configPath, source, ...tilesetSources, ...tilesetImports, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
     const canonical = realpathSync(path), key = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
     if (seen.has(key)) continue;
     if (!statSync(canonical).isFile()) throw new Error(`Build input must be a file: ${path}`);
