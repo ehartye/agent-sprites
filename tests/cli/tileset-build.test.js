@@ -224,3 +224,41 @@ test('ragged and offset options parse, are validated, and are listed in the repo
   }
   write(`${palette}@autotile floor slab as bad ragged=2\n`);expect(checkBuildSources(path).errors[0].message).toContain('wall and roof');
 });
+
+test('@pips makes a frame per fill level, lit from the left, with the selective outline between pips',async()=>{
+  write(`${palette}@pips meter count=3 pip=2x2 gap=1 x=1 y=2 lit=y empty=r outline\n@pips plain count=2 pip=1x1 lit=#112233 empty=g\n`);
+  const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));
+  expect(Object.keys(report.index)).toEqual(['meter_0','meter_1','meter_2','meter_3','plain_0','plain_1','plain_2']);
+  const png=await sheet(result),Y=[0xe0,0xb8,0x4a,255],R=[0xb5,0x53,0x2f,255];
+  const cell=n=>[(n%4)*16,Math.floor(n/4)*16];
+  const [x2,y2]=cell(2);expect(px(png,x2+1,y2+2)).toEqual(Y);expect(px(png,x2+4,y2+2)).toEqual(Y);expect(px(png,x2+7,y2+2)).toEqual(R); // two lit, third empty
+  const [x0,y0]=cell(0);expect(px(png,x0+1,y0+2)).toEqual(R);
+  expect(px(png,x2+3,y2+2)[3]).toBe(255);expect(px(png,x2+3,y2+2)).not.toEqual(Y); // the gap between pips is filled by the outline
+  expect(px(png,x2+0,y2+2)[3]).toBe(255); // and a pip is outlined on its open sides
+  const [xp,yp]=cell(5);expect(px(png,xp+6,yp+1)).toEqual([0x11,0x22,0x33,255]);
+});
+
+test('@cracks stages are cumulative, deterministic per seed, hard-alpha and transparent elsewhere',async()=>{
+  write(`${palette}@cracks crack stages=3 seed=4 dark=r light=y\n@cracks other stages=2 seed=9 dark=r light=y\n`);
+  const result=await buildProject(path);expect(result.errors).toEqual([]);const png=await sheet(result);
+  const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));expect(Object.keys(report.index)).toEqual(['crack_1','crack_2','crack_3','other_1','other_2']);
+  const cell=n=>[(n%4)*16,Math.floor(n/4)*16];
+  const solid=n=>{const [cx,cy]=cell(n),s=new Set();for(let y=0;y<16;y++)for(let x=0;x<16;x++){const p=px(png,cx+x,cy+y);expect([0,255]).toContain(p[3]);if(p[3])s.add(`${x},${y}`);}return s;};
+  const [a,b,c]=[solid(0),solid(1),solid(2)];
+  expect(a.size).toBeGreaterThan(4);expect(c.size).toBeGreaterThan(b.size);expect(b.size).toBeGreaterThan(a.size);
+  const dark=n=>{const [cx,cy]=cell(n),s=new Set();for(let y=0;y<16;y++)for(let x=0;x<16;x++)if(px(png,cx+x,cy+y).join()==='181,83,47,255')s.add(`${x},${y}`);return s;};
+  for(const p of dark(0))expect(dark(1).has(p)&&dark(2).has(p)).toBe(true); // each stage keeps the last stage's cracks
+  expect([...dark(3)].join()).not.toBe([...dark(0)].join());
+  expect(solid(0).size).toBe(a.size);
+  const again=await buildProject(path);expect(readFileSync(again.artifacts.sheet)).toEqual(readFileSync(result.artifacts.sheet));
+});
+
+test('@pips and @cracks validate their options with the line of the directive',async()=>{
+  const {checkBuildSources}=await import('../../server/build/source-check.js');
+  for(const [text,message] of [
+    ['@pips m count=3 pip=2 lit=y empty=r','pip= is <w>x<h>'],['@pips m count=0 pip=2x2 lit=y empty=r','count='],['@pips m count=9 pip=2x2 lit=y empty=r','does not fit'],
+    ['@pips m count=3 pip=2x2 lit=y','empty= is required'],['@pips m count=3 pip=2x2 lit=Q empty=r','neither a palette character'],['@pips m count=3 pip=2x2 lit=y empty=r bogus=1','unknown option bogus'],
+    ['@cracks c stages=9 dark=r light=y','stages='],['@cracks c dark=r light=y','stages='],['@cracks c stages=2 dark=r','light= is required'],
+  ]){write(`${palette}${text}\n`);const e=checkBuildSources(path).errors[0];expect(e?.message,text).toContain(message);expect(e.line,text).toBe(6);}
+});

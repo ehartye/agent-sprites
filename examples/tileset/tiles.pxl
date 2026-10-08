@@ -26,6 +26,9 @@ aaaaaa
 @autotile wall brick as ruin_brick ragged=3 seed=2 offset=8,4
 @autotile fence wood as fence_wood
 @autotile door wood as door_wood
+% State marks: @pips draws <prefix>_0..N (n pips lit, like a trough meter), @cracks cumulative damage overlays <prefix>_1..N.
+@pips meter_demo count=5 pip=2x2 gap=1 y=1 lit=y empty=r outline
+@cracks wall_crack stages=3 seed=4 dark=r light=y
 % Edge occlusion beside walls: n rows on top, w columns left, e right, and s rows along the bottom so a wall base reads seated.
 @shade wall_shade n=3 w=2 e=1 s=2
 % Animation: cells campfire_0..1 and an Aseprite tag named campfire.

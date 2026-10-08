@@ -1,6 +1,7 @@
 import {readFileSync, existsSync, statSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {shadowPixels, shadeTiles} from './tileset-shadow.js';
+import {pipFrames, crackFrames} from './tileset-marks.js';
 import {autotileTiles, AUTOTILE_KINDS, AUTOTILE_ROLES, MATERIALS, BLOB_MASKS, FENCE_MASKS, MASK_CONVENTION} from './tileset-autotile.js';
 
 // Tileset recipe: a regular grid of equal cells (frame index = row-major cell index) described in
@@ -102,7 +103,7 @@ export function parseTilesetSource(text, file, state) {
   while (true) {
     const line = next();
     if (line === null) break;
-    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade).${last ? ` This may be an extra row after ${last}, which already had its full row count.` : ''}`);
+    if (!isDirective(line)) fail(`Expected a directive (@palette, @tile, @anim, @recolor, @copy, @autotile, @shadow, @shade, @pips, @cracks).${last ? ` This may be an extra row after ${last}, which already had its full row count.` : ''}`);
     const start = i, words = line.slice(1).trim().split(/\s+/), directive = words[0], rest = words.slice(1);
     i++;
     if (directive === 'tile' || directive === 'anim') last = `${directive} ${rest[0] ?? ''}`.trim(); else last = '';
@@ -233,6 +234,43 @@ export function parseTilesetSource(text, file, state) {
       try { set = shadeTiles({prefix, size: cellW, n: Number(o.values.n), w: Number(o.values.w), e: o.values.e === undefined ? 0 : Number(o.values.e), s: o.values.s === undefined ? 0 : Number(o.values.s), color: o.values.color}); } catch (error) { fail(error.message, start); }
       for (const t of set) addTile(t.name, t.pixels, start, {autotile: prefix, mask: t.mask});
       state.autotiles[prefix] = {kind: 'shade', material: 'shadow', masks: set.map(t => t.mask), frames: set.map(t => t.name), convention: Number(o.values.s) > 0 ? 'N=1 E=4 SE=8 S=16 SW=32 W=64 NW=128: a set bit means that neighbour casts onto this tile (S: the wall below, a contact line along the bottom); a diagonal bit is dropped when either adjacent cardinal is set' : 'N=1 E=4 W=64 NW=128: a set bit means that neighbour casts onto this tile; NW is dropped when N or W is set'};
+    } else if (directive === 'pips' || directive === 'cracks') {
+      // @pips <prefix> count=N pip=WxH [gap=N] [x= y=] lit=<ch|#hex> empty=<ch|#hex> [outline]: <prefix>_0 .. <prefix>_N, n pips lit.
+      // @cracks <prefix> stages=N [seed=N] dark=<ch|#hex> light=<ch|#hex>: cumulative damage overlays <prefix>_1 .. <prefix>_N.
+      const [prefix, ...opts] = rest;
+      if (!prefix) fail(`@${directive} needs a prefix.`, start);
+      const o = options(opts), allowed = directive === 'pips' ? ['count', 'pip', 'gap', 'x', 'y', 'lit', 'empty', 'outline'] : ['stages', 'seed', 'dark', 'light'];
+      for (const k of Object.keys(o.values)) if (!allowed.includes(k)) fail(`@${directive} ${prefix}: unknown option ${k}=.`, start);
+      if (directive === 'cracks' && o.flags.size) fail(`@cracks ${prefix}: unknown option ${[...o.flags][0]}.`, start);
+      if (directive === 'pips') for (const f of o.flags) if (f !== 'outline') fail(`@pips ${prefix}: unknown option ${f}.`, start);
+      const color = (key) => {
+        const spec = o.values[key];
+        if (spec === undefined) fail(`@${directive} ${prefix}: ${key}= is required (a palette character or #rrggbb).`, start);
+        if (HEX.test(spec)) return {color: spec.toLowerCase(), ch: spec};
+        const entry = [...spec].length === 1 ? palette.get(spec) : null;
+        if (!entry) fail(`@${directive} ${prefix}: ${key}= "${spec}" is neither a palette character nor #rrggbb.`, start);
+        return {...entry, ch: spec};
+      };
+      const int = key => o.values[key] === undefined ? undefined : Number(o.values[key]);
+      if (o.values.outline !== undefined && !HEX.test(o.values.outline)) fail('outline=#rrggbb needs a six digit colour.', start);
+      let frames, names, tokens;
+      try {
+        if (directive === 'pips') {
+          const size = /^(\d+)x(\d+)$/.exec(o.values.pip ?? '');
+          if (!size) fail(`@pips ${prefix}: pip= is <w>x<h>, like pip=2x2.`, start);
+          frames = pipFrames({cellW, cellH, count: int('count'), pipW: Number(size[1]), pipH: Number(size[2]), gap: int('gap'), x: int('x'), y: int('y')});
+          names = frames.map((_, n) => `${prefix}_${n}`); tokens = {lit: color('lit'), empty: color('empty')};
+        } else {
+          frames = crackFrames({cellW, cellH, stages: int('stages'), seed: int('seed')});
+          names = frames.map((_, n) => `${prefix}_${n + 1}`); tokens = {dark: color('dark'), light: color('light')};
+        }
+      } catch (error) { if (error.message.startsWith(`${file}:`)) throw error; fail(error.message, start); }
+      const outlined = directive === 'pips' && (o.flags.has('outline') || o.values.outline);
+      frames.forEach((g, n) => {
+        const raw = g.map(row => row.map(t => (t ? {...tokens[t]} : null)));
+        const px = outlined ? applyOutline(raw, o.values.outline) : raw;
+        addTile(names[n], toColors(px), start, {raw, outlineOption: o, mark: directive});
+      });
     } else fail(`Unknown directive @${directive}.`, start);
   }
 }
