@@ -65,6 +65,15 @@ g #6b7d3a #2f3d22          % <char> <fill> [<outline>]
   south-west (SW=32, `w` wide) and, with `e`, the south-east (SE=8, `e` wide); a diagonal is dropped when either
   adjacent side is set. The set grows to 25 masks (33 with `e`) and `tileset-report.json` lists them under
   `autotiles.<prefix>.masks`; without `s=` it stays the nine masks. Use one set per height class (a low fence, a wall, a roof) and pick by neighbour.
+- `@pips <prefix> count=N pip=WxH [gap=N] [x= y=] lit=<char|#hex> empty=<char|#hex> [outline|outline=#hex]` makes
+  `<prefix>_0` .. `<prefix>_N`: a row of N pips with 0 to N lit from the left (a trough reserve, a battery, a stamina
+  bar drawn over a prop). The row is centred unless `x=` places it; `lit=`/`empty=` are palette characters or hex, and
+  `outline` fills the gaps between pips so the row reads as a dark strip. Use one directive per bar (`meter_trough_water`
+  at `y=1`, `meter_trough_feed` at `y=4`).
+- `@cracks <prefix> stages=N [seed=N] dark=<char|#hex> light=<char|#hex>` makes the transparent damage overlays
+  `<prefix>_1` .. `<prefix>_N` for a siege or wear state. Each stage keeps the last stage's cracks and grows or adds
+  more, so a wall visibly gets worse; a crack is a dark pixel with a light pixel at its lower right so it reads on any
+  tile. Deterministic for a `seed`, hard alpha; draw the stage over the tile.
 - `@autotile <kind> <material> as <prefix> [role=#hex ...] [face=N] [leaf=material] [ragged=N seed=N offset=X,Y]` expands to a full set.
   `ragged=N` (wall and roof, 1 to 4) crumbles the silhouette: up to N px are carved from the open north, east and west
   edges along a smooth, deterministic profile (`seed=` 0 to 255 picks it), hard alpha, with the new boundary outlined.
