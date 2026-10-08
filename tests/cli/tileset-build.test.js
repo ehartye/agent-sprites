@@ -211,3 +211,16 @@ test('the shipped tileset example builds and publishes its south-lined shade set
   const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));
   expect(report.autotiles.wall_shade.masks).toContain(16);expect(report.index.wall_shade_16).toBeGreaterThan(0);
 });
+
+test('ragged and offset options parse, are validated, and are listed in the report',async()=>{
+  write(`${palette}@autotile wall brick as ruin ragged=3 seed=2 offset=8,4\n@autotile wall brick as plain\n`);
+  const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  const report=JSON.parse(readFileSync(result.artifacts.tilesetReport));
+  expect(report.autotiles.ruin.options).toEqual({ragged:3,seed:2,offset:[8,4]});expect(report.autotiles.plain.options).toBeUndefined();
+  const {checkBuildSources}=await import('../../server/build/source-check.js');
+  for(const [opts,message] of [['ragged=9','ragged= must be'],['seed=3','needs ragged'],['ragged=2 seed=300','seed= must be'],['offset=16,0','offset= is x,y'],['ragged=2 offset=1','offset= is x,y']]){
+    write(`${palette}@autotile wall brick as bad ${opts}\n`);
+    expect(checkBuildSources(path).errors[0].message).toContain(message);
+  }
+  write(`${palette}@autotile floor slab as bad ragged=2\n`);expect(checkBuildSources(path).errors[0].message).toContain('wall and roof');
+});

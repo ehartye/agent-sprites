@@ -139,6 +139,33 @@ function blockRoles(S, pattern, kind, mask, face) {
   return g;
 }
 
+/**
+ * Crumbled silhouette for walls and roofs: carve a deterministic, hard-alpha profile into the open north, east and west edges
+ * (up to `depth` px), then outline the new boundary. The profile depends only on the position along the edge, never on the mask,
+ * so a run of tiles with the same open side crumbles continuously across the seams. The base (south edge) stays flush so a ruin
+ * still stands on the ground and takes the `@shade` south contact line.
+ */
+function raggedRoles(g, S, mask, depth, seed) {
+  const has = bit => (mask & bit) !== 0, last = S - 1;
+  const open = {n: !has(BITS.n), e: !has(BITS.e), s: !has(BITS.s), w: !has(BITS.w)};
+  // Four control points per 16 px edge, interpolated, so the crumble comes in broken runs rather than single-pixel noise, and the profile repeats every tile.
+  const profile = (i, edge) => {
+    const k = i >> 2, t = (i & 3) / 4, a = hash(k & 3, edge, 101 + seed), b = hash((k + 1) & 3, edge, 101 + seed), v = a + (b - a) * t;
+    return Math.min(depth, Math.max(0, Math.floor(v * (depth + 1.5) - .25)));
+  };
+  const carved = new Set(), cut = (x, y) => { if (g[y][x] !== null) { g[y][x] = null; carved.add(y * S + x); } };
+  const rows = open.s ? last - 1 : S; // an open base keeps its last two rows
+  if (open.n) for (let x = 0; x < S; x++) for (let y = 0, d = profile(x, 0); y < d; y++) cut(x, y);
+  if (open.w) for (let y = 0; y < rows; y++) for (let x = 0, d = profile(y, 1); x < d; x++) cut(x, y);
+  if (open.e) for (let y = 0; y < rows; y++) for (let x = last, d = profile(y, 2); x > last - d; x--) cut(x, y);
+  if (!carved.size) return g;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (g[y][x] === null || carved.has(y * S + x)) continue;
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => carved.has((y + dy) * S + x + dx) && x + dx >= 0 && x + dx < S && y + dy >= 0)) g[y][x] = 'o';
+  }
+  return g;
+}
+
 function fenceRoles(S, mask) {
   const has = bit => (mask & bit) !== 0, g = Array.from({length: S}, () => Array(S).fill(null));
   const put = (x, y, r) => { if (x >= 0 && y >= 0 && x < S && y < S) g[y][x] = r; };
@@ -265,9 +292,11 @@ function doorRoles(S, pattern, open, face) {
 const DOOR_EXTRA = {k: '#1b2040', f: '#6b5033'};
 
 /** Returns [{name, pixels}] with pixels[y][x] a #rrggbb string or null. */
-export function autotileTiles({kind, material: materialName, prefix, size = 16, overrides, face, leaf}) {
+export function autotileTiles({kind, material: materialName, prefix, size = 16, overrides, face, leaf, ragged = 0, seed = 0, offset = [0, 0]}) {
   if (!AUTOTILE_KINDS.includes(kind)) throw Error(`Unknown auto-tile kind "${kind}". Choose one of: ${AUTOTILE_KINDS.join(', ')}.`);
-  const m = material(materialName, overrides), pattern = PATTERNS[m.pattern], S = size;
+  const m = material(materialName, overrides), S = size;
+  // A variant is the same pattern sampled from a shifted origin (wrapping at 16), so two sets of one material do not tile identically.
+  const base = PATTERNS[m.pattern], [ox, oy] = offset, pattern = ox || oy ? (x, y) => base((x + ox) & 15, (y + oy) & 15) : base;
   if (S !== 16) throw Error('Auto-tiles are authored for 16x16 cells.');
   const leafMaterial = kind === 'door' ? material(leaf ?? materialName, undefined) : null;
   const color = role => role === null ? null : role.length === 2 && role[0] === 'l' ? leafMaterial[role[1]] : (m[role] ?? DOOR_EXTRA[role]);
@@ -276,5 +305,8 @@ export function autotileTiles({kind, material: materialName, prefix, size = 16, 
   if (kind === 'fence') return FENCE_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(m.fence ? styledFenceRoles(S, mask, m.fence) : fenceRoles(S, mask))}));
   if (kind === 'gate') return [{name: prefix, pixels: paint(gateRoles(S, m.fence, false))}, {name: `${prefix}_open`, pixels: paint(gateRoles(S, m.fence, true))}];
   if (kind === 'door') return [{name: prefix, pixels: paint(doorRoles(S, pattern, false, f))}, {name: `${prefix}_open`, pixels: paint(doorRoles(S, pattern, true, f))}];
-  return TERRAIN_MASKS.map(mask => ({name: `${prefix}_${mask}`, mask, pixels: paint(blockRoles(S, pattern, kind, mask, f))}));
+  return TERRAIN_MASKS.map(mask => {
+    const roles = blockRoles(S, pattern, kind, mask, f);
+    return {name: `${prefix}_${mask}`, mask, pixels: paint(ragged > 0 ? raggedRoles(roles, S, mask, ragged, seed) : roles)};
+  });
 }
