@@ -237,6 +237,10 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          compose built frames into contact sheets (rooms, fence runs, icon boards) from a JSON layout,
                          using the same neighbour-mask rules as a game: autotile glyphs pick <prefix>_<mask>;
                          whole-number nearest-neighbour scale, optional night tint; no server needed
+  app-icons <app-icons.json> [--check] [--json]
+                         build the web app icon set (192/512, maskable, apple-touch, favicons, .ico, optional share
+                         card) from 64/32/16 px tiles of a built tileset, by whole-number scales only; --check
+                         compares decoded pixels with the files on disk and writes nothing
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
@@ -380,6 +384,19 @@ async function run() {
       console.log(report.ok ? `${report.sheets.length} sheets written` : 'Preview failed');
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const sheet of report.sheets) console.log(`${sheet.name}: ${sheet.file} (${sheet.width}x${sheet.height})`);
+    }
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
+  if (cmd === 'app-icons') {
+    if (positional.length !== 1 || Object.keys(args).some(key => !['check', 'json'].includes(key))) throw new Error('Usage: agent-sprites app-icons <app-icons.json> [--check] [--json]');
+    const { buildAppIcons } = await import('../server/build/app-icons.js');
+    const report = await buildAppIcons(positional[0], { check: bool(args.check) });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(report.ok ? (report.mode === 'check' ? `${report.files.length} icon files current` : `${report.files.length} icon files written to ${report.output}`) : 'App icons failed');
+      for (const item of report.errors) console.log(`${item.code}: ${item.message}`);
+      for (const file of report.files) console.log(`${file.status}: ${file.name} (${file.width}x${file.height})`);
     }
     if (!report.ok) process.exitCode = 1;
     return;
