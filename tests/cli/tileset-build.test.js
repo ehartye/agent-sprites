@@ -178,3 +178,28 @@ test('contact sheet puts each label directly beneath its own art in every row',a
   }
   expect(info.height).toBe(6+2*(cardH+6));
 });
+
+test('check lists every short row and unknown palette character with file, line and expected width, writing nothing',async()=>{
+  write(`${palette}@tile one\n${[row(15),row(16),'gggggggggggggggq',...Array(13).fill(row(16))].join('\n')}\n@tile two\n${[row(14),...Array(15).fill(row(16))].join('\n')}\n`);
+  const {checkBuildSources}=await import('../../server/build/source-check.js');
+  const report=checkBuildSources(path);
+  expect(report.ok).toBe(false);
+  expect(report.errors.map(e=>[e.code,e.kind,e.file,e.line,e.expected,e.actual])).toEqual([
+    ['pxl-invalid','row-width','a.pxl',7,16,15],['pxl-invalid','palette','a.pxl',9,undefined,undefined],['pxl-invalid','row-width','a.pxl',24,16,14]]);
+  expect(report.errors[0].message).toBe('a.pxl:7: Tile one row 1 is 15 wide; expected 16.');
+  expect(existsSync(join(dir,'dist'))).toBe(false);
+});
+
+test('check passes a clean tileset and reports structural errors at their line',async()=>{
+  write(`${palette}@tile one\n${Array(16).fill(row(16)).join('\n')}\n`);
+  const {checkBuildSources}=await import('../../server/build/source-check.js');
+  expect(checkBuildSources(path)).toMatchObject({ok:true,tiles:1,errors:[]});
+  write(`${palette}@tile one\n${Array(16).fill(row(16)).join('\n')}\n@tile one\n${Array(16).fill(row(16)).join('\n')}\n`);
+  const bad=checkBuildSources(path);expect(bad.ok).toBe(false);expect(bad.errors[0]).toMatchObject({file:'a.pxl',line:23,kind:'parse'});
+});
+
+test('check refuses a build config that has no tileset source',async()=>{
+  writeFileSync(path,JSON.stringify({version:1,output:'dist',ops:'o.json'}));
+  const {checkBuildSources}=await import('../../server/build/source-check.js');
+  expect(checkBuildSources(path)).toMatchObject({ok:false,errors:[{code:'check-input'}]});
+});

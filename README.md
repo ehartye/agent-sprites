@@ -184,6 +184,14 @@ different tool version, changed inputs, missing artifacts, or legacy output
 without provenance. Successful builds now record tool/version and SHA-256 input
 hashes in `sprite-manifest.json`; existing manifest fields remain compatible.
 
+For tileset projects `--check` also parses the `.pxl` sources, so a row typed a
+character short is reported as `source-invalid` with its file and line (status
+`invalid`) instead of waiting for a rebuild. To check one project's sources
+without building, run `agent-sprites build ./sprite-project.json --check [--json]`:
+it lists every wrong-width row (file, line, tile, expected and actual width) and
+unknown palette character, writes nothing, needs no server and exits 1 on any
+problem, so it fits a CI step or a pre-commit hook.
+
 The config and its ops file or generator script are tracked automatically.
 Declare generator imports, palettes, source images and other dependencies in
 the build config's optional `inputs` list (paths relative to that config):

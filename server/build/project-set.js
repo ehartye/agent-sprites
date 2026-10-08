@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { buildProject } from './project-build.js';
+import { checkTilesetRecipe } from '../authoring/tileset.js';
 import { buildTool, resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 
 const key = path => process.platform === 'win32' ? path.toLowerCase() : path;
@@ -48,6 +49,12 @@ function inspectProject({ configPath, config, output }) {
     current = snapshotBuildInputs(configPath, config, source);
   } catch (error) {
     result.status = 'invalid'; reason('input-invalid', error.message); return result;
+  }
+  // Parse-only: a mistyped .pxl row is reported with its file and line instead of waiting for a rebuild to fail.
+  if (config.tileset && typeof config.tileset === 'object') {
+    const checked = checkTilesetRecipe(config.tileset, dirname(configPath));
+    for (const d of checked.diagnostics) reason('source-invalid', d.message, { file: d.file, line: d.line });
+    if (reasons.length) { result.status = 'invalid'; return result; }
   }
   const path = join(output, 'sprite-manifest.json');
   if (!existsSync(path)) { reason('unbuilt', 'No successful build manifest; rebuild this project.'); return result; }
