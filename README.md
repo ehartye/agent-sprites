@@ -184,6 +184,10 @@ different tool version, changed inputs, missing artifacts, or legacy output
 without provenance. Successful builds now record tool/version and SHA-256 input
 hashes in `sprite-manifest.json`; existing manifest fields remain compatible.
 
+To look at tiles composed into rooms, fence runs or icon boards, `agent-sprites tileset-preview layout.json --out sheets
+[--scale N] [--night]` stamps built frames from a small JSON layout (autotile glyphs pick `<prefix>_<mask>` from
+neighbours); see `examples/tileset/README.md`.
+
 For tileset projects `--check` also parses the `.pxl` sources, so a row typed a
 character short is reported as `source-invalid` with its file and line (status
 `invalid`) instead of waiting for a rebuild. To check one project's sources

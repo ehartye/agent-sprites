@@ -147,6 +147,34 @@ first cells that fit and adds a `contact-sheet-truncated` warning. Every frame i
 Always look at the result: open the contact sheet at 4x, then compose a small map from the sheet (walls around floor,
 a fence run, crops beside props) and check that runs join and silhouettes read.
 
+## Previewing composed maps
+
+`agent-sprites tileset-preview <layout.json> --out <directory> [--scale N] [--night] [--json]` composes built frames into
+contact sheets with the same neighbour-mask rules a game uses, so you can see a roofed room, a fence run or an icon board
+without writing a compositor. It needs no server, reads the built atlases (and sheets), and writes one PNG per sheet at a
+whole-number nearest-neighbour scale (`--scale`, default the layout's, else 4). See `preview-layout.json` in this folder.
+
+```json
+{ "version": 1, "atlases": { "tiles": "dist/tiles.atlas.json" }, "cell": 16, "background": "#c9a869", "scale": 4,
+  "sheets": { "room": { "size": [9, 7], "layers": [
+    { "at": [0, 0], "rows": ["#######", "#.....#", "###D###"],
+      "glyphs": { "#": { "autotile": "wall_brick", "joins": "#D" }, "D": { "frame": "door_wood" } } },
+    { "at": [8, 0], "frame": "campfire_0" } ] } } }
+```
+
+- `atlases` maps a name to a built Aseprite atlas (paths relative to the layout; the first is the default). A sheet has a
+  `size` in cells, an optional `background` and `tint`, and `layers` stamped in order. Opaque pixels replace what is
+  below (hard alpha); a sheet is opaque.
+- A layer is one `frame` at `at: [x, y]` (cells), or text `rows` with a `glyphs` table: `.` and space are empty,
+  `{ "frame": name }` stamps a frame, `{ "autotile": prefix }` stamps `<prefix>_<mask>` from the glyph's neighbours in the
+  same layer. `mode` is `blob` (default: eight neighbours, a diagonal counts only when both adjacent sides do, the 47-mask
+  convention) or `fence` (N=1 E=4 S=16 W=64). `joins` lists the glyphs that count as neighbours (default: itself), so
+  walls can join a door. `atlas` on a layer or glyph picks another atlas (an icon board from the items set).
+- `optional: true` turns a missing frame into a `missing-frame` warning instead of an error.
+- `each: [{...}, ...]` on a sheet (put `${key}` in the sheet name) or a layer repeats it per item, replacing `${key}` in
+  every string; a lone `"${x}"` becomes a number. `--night` (or `tint: "night"` or `{ "mul": [r, g, b], "add": [r, g, b] }`)
+  applies the dusk multiply of the game's night pass before scaling.
+
 ## Validation
 
 Every `.pxl` row must be exactly the cell (or `w=`) width and every tile or animation frame exactly the cell
