@@ -219,6 +219,48 @@ By default an overlay is a ragged strip with no outline. `overlayEdge` (terrain-
   times the variants. Bands are computed inside the tile, so they never depend on a neighbour; the report lists them under
   `edgeShade`.
 
+#### `overlayEdge.world`: a coast that is a function of the map (0.87.0)
+
+The classic overlay pins every band to one depth at both tile borders, so a long coast shows the same step at every tile block and
+the same wobble every 16 px, and every pair of materials reaches the same distance into its neighbour. `world` replaces that:
+
+```json
+"overlayEdge": { "rim": true, "round": 4, "soft": ["dust"], "animate": ["water"],
+  "world": { "levels": 3, "spread": 2, "amplitude": 2.2, "flavours": 2, "reach": {"default": 5, "dust": 4},
+             "pairs": [{ "over": "sand", "on": "water", "reach": 4.5 }] } },
+"overlays": { "skip": ["water"] }
+```
+
+How it works. The depth where a band crosses a tile border is a CROSSING LEVEL taken at the lattice vertex (a tile corner), and
+the four tiles around a vertex all read the same level, so their bands meet there: the boundary is continuous along the whole
+coast and the game chooses the levels from ANY function of the world position (a noise sampled at the vertex), so the coast wanders
+across the map instead of repeating per tile. Between two vertices the depth blends from one level to the other with an interior bump
+that vanishes at both ends. Cells are indexed by the levels of the corners the mask touches, plus an interior flavour.
+
+- `levels` (1 to 4, default 3) crossing depths, `reach` (source px, 1 to 10, default 5; a number, or `{default, <material>: n}`) their centre
+  and `spread` (0 to 4, default 1.5) their half range; `wavelength` (4 to 64, default 14) and `amplitude` (0 to 4, default 1.6) shape the
+  interior bump; `flavours` (1 to 4, default 2) interior variants of each combination; `seed` (offset). `variants` still sets the base
+  tiles and the texture variants; the overlay cells of a world set are indexed as described above.
+- `exact` (1 to 4, default 3): a mask that touches more than that many corners (a thin strip, a peninsula) has one level-independent
+  cell per flavour cut at the middle level, so neighbours may differ by a level there. Cell cost per overlay material, flavours 1:
+  `levels` 2 gives 80 (`exact` 2), 192 (3), 432 (4); `levels` 3 gives 134, 550, 1830.
+- `pairs` (`over`, `on`, optional `reach`, `spread`, `soft`, `shade`): per-pair border depth. Each pair adds `<over>-on-<on>_<mask>_<n>`
+  (and `-soft`, `-shade`) cells cut with the pair's own reach, so sand reaches 3 px over silt and 7 px over water. The report lists them.
+- The report gets `world`: `depths` (the depth of each level), `cornerOrder` `[nw,ne,se,sw]` and `lookup[stem][mask]["nw,ne,se,sw"]`, the aliases
+  for those corner levels (`-` for a corner the mask does not use; a collapsed mask has only `-,-,-,-`). Every frame also lists `corners` and `flavour`.
+  Vertex (tx,ty) is the top-left corner of tile (tx,ty). `worldLevel(vx,vy,{levels,wavelength,seed})` in
+  `server/authoring/environment-world-edge.js` is a reference level function; `world-edges/compose-coast.mjs` is a complete composition.
+
+`overlayEdge.animate` (`true` or animated materials): an animated material's overlay is normally one static snapshot, which beside the
+moving base shows as a hard, saw-toothed seam. With `animate` each overlay cell also exports `<alias>-f1` to `-f3`, the same coverage
+with the ripple of the next phases, and a tag `<alias>-anim` (listed in `animations` with `overlay: true`) to play in step with the material's tag.
+
+Top-level `overlays` leaves out cells nothing draws (atlas size): `skip` (materials) drops every overlay, `-soft` and `-shade` cell of
+the named materials (the base tiles stay, so a twin look of water or melt costs only its tiles), and `masks` keeps only the listed
+masks, for all materials (an array) or per material (an object, `"*"` for the rest). Without `world`, `animate` and `overlays` the sheet
+is byte-identical to before. Before and after: `world-edges/classic.json` and `world.json` build the same materials both ways and
+`node compose-coast.mjs` writes `preview/before.png`, `after.png` and `compare.png`.
+
 Omit `overlayEdge` and the sheet is byte-identical to before.
 
 Bits: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128. Corner rule: a diagonal bit is meaningful only when BOTH

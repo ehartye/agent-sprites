@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "output": "./dist-world",
+  "scale": 1,
+  "environment": {
+    "name": "coast", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 3,
+    "materials": ["water", "sand", "dust"],
+    "overlayEdge": {
+      "rim": true, "round": 4, "soft": ["dust"], "animate": ["water"],
+      "world": {
+        "levels": 3, "flavours": 2, "reach": { "default": 5, "dust": 4 }, "spread": 2, "amplitude": 2.2,
+        "pairs": [{ "over": "sand", "on": "water", "reach": 4.5, "spread": 1.5 }]
+      }
+    },
+    "overlays": { "skip": ["water"] }
+  },
+  "omit": ["project", "operations", "preview", "contactSheet"]
+}

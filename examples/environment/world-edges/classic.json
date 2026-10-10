@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "output": "./dist-classic",
+  "scale": 1,
+  "environment": {
+    "name": "coast", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 3,
+    "materials": ["water", "sand", "dust"],
+    "overlayEdge": { "rim": true, "round": 4, "soft": ["dust"] }
+  },
+  "omit": ["project", "operations", "preview", "contactSheet"]
+}
