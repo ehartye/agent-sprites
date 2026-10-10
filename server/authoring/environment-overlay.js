@@ -66,6 +66,23 @@ function roundInnerCorners(cover,mask,round){
   }
 }
 
+/**
+ * Soften the sharp own-material corners where two bands meet, away from the tile border so seams stay exact. With `round` the arcs
+ * do this job properly, and the one pixel fill would also square off the quarter circle of an outer corner, so it is skipped.
+ */
+export function softenCoverage(cover,mask,round){
+  const last=GRID-1;
+  if(round>0)roundInnerCorners(cover,mask,round);
+  else{
+    const before=cover.slice();
+    for(let y=1;y<last;y++)for(let x=1;x<last;x++){
+      if(before[y*GRID+x])continue;
+      const up=before[(y-1)*GRID+x],down=before[(y+1)*GRID+x],left=before[y*GRID+x-1],right=before[y*GRID+x+1];
+      if((up||down)&&(left||right))cover[y*GRID+x]=true;
+    }
+  }
+}
+
 /** Boolean coverage (GRID*GRID) of the neighbour material for a normalised mask and variant. `options.round` (0 to 6) rounds concave corners. */
 export function overlayCoverage(mask,variant=0,seed=7,options={}){
   mask=normalizeOverlayMask(mask);
@@ -89,17 +106,7 @@ export function overlayCoverage(mask,variant=0,seed=7,options={}){
     }
     cover[y*GRID+x]=on;
   }
-  // soften sharp base-colour corners where two bands meet, away from the tile border so seams stay exact. With `round` the arcs do this
-  // job properly, and the one pixel fill would also square off the quarter circle of an outer corner, so it is skipped.
-  if(options.round>0)roundInnerCorners(cover,mask,options.round);
-  else{
-    const before=cover.slice();
-    for(let y=1;y<last;y++)for(let x=1;x<last;x++){
-      if(before[y*GRID+x])continue;
-      const up=before[(y-1)*GRID+x],down=before[(y+1)*GRID+x],left=before[y*GRID+x-1],right=before[y*GRID+x+1];
-      if((up||down)&&(left||right))cover[y*GRID+x]=true;
-    }
-  }
+  softenCoverage(cover,mask,options.round);
   return cover;
 }
 
