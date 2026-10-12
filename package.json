@@ -1,6 +1,6 @@
 {
   "name": "agent-sprites",
-  "version": "0.87.0",
+  "version": "0.87.1",
   "description": "Pixel-art sprite authoring toolset for coding agents and 2D game projects",
   "type": "module",
   "main": "server/index.js",
@@ -15,7 +15,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "12.11.1",
     "canvas": "^3.2.3",
     "express": "^5.2.1",
     "sharp": "^0.35.4",

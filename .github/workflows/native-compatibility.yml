@@ -1,0 +1,122 @@
+name: Native compatibility
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - 'package*.json'
+      - '.claude-plugin/*.json'
+      - '.github/**'
+      - 'scripts/**'
+      - 'server/db/**'
+      - 'server/engine/**'
+      - 'server/index.js'
+      - 'server/web/api/control-routes.js'
+      - 'server/web/public/js/shared/raster.js'
+      - 'tests/db/**'
+      - 'tests/engine/**'
+      - 'tests/cli/managed-*.test.js'
+      - 'tests/cli/view-png-real-server.test.js'
+      - 'tests/cli/owned-child-process.test.js'
+      - 'tests/cli/owned-cli.test.js'
+      - 'tests/cli/native-compatibility-receipt.test.js'
+      - 'tests/support/**'
+      - 'tests/fixtures/**'
+      - 'tests/setup-session-db.js'
+      - 'vitest.config.js'
+  push:
+    branches: [main]
+    paths:
+      - 'package*.json'
+      - '.claude-plugin/*.json'
+      - '.github/**'
+      - 'scripts/**'
+      - 'server/db/**'
+      - 'server/engine/**'
+      - 'server/index.js'
+      - 'server/web/api/control-routes.js'
+      - 'server/web/public/js/shared/raster.js'
+      - 'tests/db/**'
+      - 'tests/engine/**'
+      - 'tests/cli/managed-*.test.js'
+      - 'tests/cli/view-png-real-server.test.js'
+      - 'tests/cli/owned-child-process.test.js'
+      - 'tests/cli/owned-cli.test.js'
+      - 'tests/cli/native-compatibility-receipt.test.js'
+      - 'tests/support/**'
+      - 'tests/fixtures/**'
+      - 'tests/setup-session-db.js'
+      - 'vitest.config.js'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        node: ['24', '26']
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    defaults:
+      run:
+        shell: bash
+    env:
+      npm_config_ignore_scripts: 'false'
+      npm_config_include: optional
+      NATIVE_RUNNER_LABEL: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Record source and prepare private runtime paths
+        run: node .github/scripts/native-compatibility.mjs prepare
+      - name: Install with optional packages and native scripts enabled
+        id: install
+        run: npm ci --include=optional --ignore-scripts=false --no-audit --no-fund
+      - name: Exercise Canvas, SQLite and Sharp bindings
+        id: dependencies
+        run: node .github/scripts/native-compatibility.mjs dependencies
+      - name: DB, raster, managed and owned PNG controls
+        id: tests
+        run: >-
+          node node_modules/vitest/vitest.mjs run tests/db
+          tests/engine/raster.test.js tests/engine/canvas-renderer.test.js
+          tests/engine/environment-modules.test.js tests/cli/managed-runtime.test.js
+          tests/cli/managed-invocation.test.js tests/cli/owned-child-process.test.js
+          tests/cli/owned-cli.test.js
+          tests/cli/native-compatibility-receipt.test.js
+          tests/cli/view-png-real-server.test.js --maxWorkers=2
+          --reporter=default --reporter=json --outputFile.json="$NATIVE_RECEIPT_DIR/targeted-tests.json"
+      - name: Install, check and launch the managed release
+        id: managed
+        run: node .github/scripts/native-compatibility.mjs managed
+      - name: Record step outcomes
+        if: always()
+        env:
+          NATIVE_INSTALL_RESULT: ${{ steps.install.outcome }}
+          NATIVE_DEPENDENCIES_RESULT: ${{ steps.dependencies.outcome }}
+          NATIVE_TESTS_RESULT: ${{ steps.tests.outcome }}
+          NATIVE_MANAGED_RESULT: ${{ steps.managed.outcome }}
+        run: node .github/scripts/native-compatibility.mjs receipt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: native-${{ matrix.os }}-node${{ matrix.node }}
+          path: ${{ runner.temp }}/sprite-native-receipts
+          if-no-files-found: error
+          retention-days: 14

@@ -58,8 +58,8 @@ test.each(Object.entries(MODULES))('%s interior trim stays off the door recess a
   for(const [x,y] of diff('habitat_back')){expect(x>=24&&x<=295&&y>=74&&y<=79).toBe(true);}
   for(const [x,y] of diff('habitat_front')){expect(y>=221&&y<=241&&((x>=128&&x<=135)||(x>=184&&x<=191))).toBe(true);}
   // the open doorway of the front layer is still transparent
-  const front=render(module,'habitat_front');
-  for(let y=220;y<256;y++)for(let x=136;x<184;x++)expect(px(front,x,y)).toEqual(px(render(original,'habitat_front'),x,y));
+  const front=render(module,'habitat_front'),originalFront=render(original,'habitat_front');
+  for(let y=220;y<256;y++)for(let x=136;x<184;x++)expect(px(front,x,y)).toEqual(px(originalFront,x,y));
 });
 
 test.each(Object.keys(MODULES))('%s exterior is hard-edged, closes the wall and leaves an exact door recess',style=>{
