@@ -31,9 +31,23 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
 test('skin publishes runtime and slicing metrics without a font bootstrap',async()=>{
   config.ui={name:'ui-skin',kind:'skin'};write();const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.artifacts.uiBoot).toBeUndefined();const report=JSON.parse(readFileSync(result.artifacts.uiReport));expect(report.skins.panel_dark).toBeDefined();expect(report.skins.specimen_label.textTone).toBe('ink');expect(report.skins.speech.insets.left).toBe(6);const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-report.json');expect(marker.files).toContain('ui-phaser.json');const px=JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'));expect(px).toMatchObject({kind:'skin',image:'ui-skin.png'});expect(px.frames.panel_dark.nineSlice).toEqual({leftWidth:4,rightWidth:4,topHeight:4,bottomHeight:4});expect(px.frames.icon_leaf.nineSlice).toBeUndefined();expect(px.frames.scrim.nineSlice).toBeUndefined();expect(Object.keys(px.frames).sort()).toEqual(report.frames.map(f=>f.alias).sort());for(const f of report.frames)expect(px.frames[f.alias].bounds).toEqual(f.bounds);expect(px.frames.speech.nineSlice.leftWidth).toBe(6);
 },20000);
-test('UI build emits pure pixel fit geometry usable by native engines without Canvas',async()=>{
+test('UI build emits a self-contained runtime matching manifest bytes and usable without Canvas',async()=>{
   write();const result=await buildProject(path);expect(result.ok).toBe(true);
-  const runtime=await import(pathToFileURL(result.artifacts.uiRuntime).href);expect(runtime.pixelFit).toBeTypeOf('function');
+  const manifest=JSON.parse(readFileSync(result.artifacts.manifest,'utf8'));
+  expect(manifest.files.uiRuntime).toBe('ui-runtime.mjs');
+  expect(readFileSync(join(dir,'dist',manifest.files.uiRuntime))).toEqual(readFileSync(new URL('../../server/build/ui-runtime.mjs',import.meta.url)));
+  const runtime=await import(pathToFileURL(result.artifacts.uiRuntime).href);
+  for(const name of ['normalizeBitmapFont','bitmapLineWidth','wrapBitmapText','measureBitmapText','placeBitmapText','planNineSlice','iterateNineSliceTiles','pixelResolution','projectPixelPoint','projectPixelRect','quantizePhysicalPoint','quantizePhysicalRect','pixelFit'])expect(runtime[name]).toBeTypeOf('function');
+  const font=runtime.normalizeBitmapFont({phaser:JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'))});
+  expect(runtime.placeBitmapText(font,'A?',0,0).draws).toHaveLength(2);
+  const plan=runtime.planNineSlice({frame:{x:0,y:0,w:3,h:3},insets:{left:0,right:0,top:0,bottom:0}},{x:0,y:0,width:5,height:5});
+  expect([...runtime.iterateNineSliceTiles(plan)]).toHaveLength(4);
+  const resolution=runtime.pixelResolution({id:'app:ui',revision:1,localToPhysical:{scale:3,origin:{x:-0.25,y:0.5}},physicalPixelsPerSourcePixel:2});
+  const point={x:0.25,y:-1.5};expect(runtime.projectPixelPoint(resolution,runtime.projectPixelPoint(resolution,point),'to-local')).toEqual(point);
+  const contextual=runtime.placeBitmapText(font,'A?',0.25,0.5,{resolution});
+  expect(contextual.draws).toHaveLength(2);expect(contextual.draws[0].physicalDestination.width).toBe(contextual.draws[0].source.width*2);
+  const contextualSkin=runtime.planNineSlice({frame:{x:0,y:0,w:3,h:3},insets:{left:0,right:0,top:0,bottom:0}},{x:0.25,y:0.5,width:3,height:3},{resolution});
+  expect([...runtime.iterateNineSliceTiles(contextualSkin)]).toHaveLength(4);
   const bounds={x:3,y:5,width:19,height:10},destination={x:0,y:0,width:160,height:160};
   expect(runtime.pixelFit(bounds,destination)).toEqual({x:4,y:40,width:152,height:80,scale:8});
   expect(runtime.pixelFit(bounds,{...destination,width:18})).toBe(null);

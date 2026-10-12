@@ -1,5 +1,8 @@
 # Bitmap UI recipes
 
+For renderer-independent normalization, wrapping and measurement, see the
+[pure bitmap text metrics API](text-metrics.md).
+
 Build `font.json` and `skin.json` through the checked managed CLI. Each selects the
 `ui` inline source, exclusively of `ops`, `generator`, `character`, and `environment`.
 Themes are `moss-brass` (default) and `wasteland`. `name`, `kind`, `theme`, and optional

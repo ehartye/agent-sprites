@@ -23,6 +23,282 @@ test('font publishes deterministic editable glyphs, metrics, game symbols, and c
   }
 });
 function fixture(kind){const {report}=generateUIRecipe({kind});return {image:{},report,atlas:{frames:report.frames.map((f,i)=>({filename:f.alias,frame:{x:i*report.cellSize.width,y:0,w:report.cellSize.width,h:report.cellSize.height}}))}};}
+// Metadata controls need no recipe generation or native raster per text case.
+function portableFontFixture(){
+  const report={kind:'font',fallback:'?',lineHeight:11,baseline:8,cellSize:{width:6,height:9},tones:{cream:'#ffffff',rare:'#123456'},glyphs:{
+    ' ':{advance:3,frames:{},bounds:null},
+    A:{advance:6,frames:{cream:'A',rare:'A-rare'},bounds:{left:0,top:1,right:4,bottom:7}},
+    I:{advance:4,frames:{cream:'I',rare:'I-rare'},bounds:{left:1,top:1,right:2,bottom:7}},
+    '?':{advance:4,frames:{cream:'?',rare:'?-rare'},bounds:{left:1,top:2,right:3,bottom:6}},
+  }};
+  const atlas={frames:[
+    {filename:'A',frame:{x:20,y:30,w:5,h:7},spriteSourceSize:{x:0,y:1}},
+    {filename:'I',frame:{x:30,y:30,w:2,h:7},spriteSourceSize:{x:1,y:1}},
+    {filename:'?',frame:{x:40,y:30,w:3,h:5},spriteSourceSize:{x:1,y:2}},
+    {filename:'A-rare',frame:{x:20,y:50,w:5,h:7},spriteSourceSize:{x:0,y:1}},
+    {filename:'I-rare',frame:{x:30,y:50,w:2,h:7},spriteSourceSize:{x:1,y:1}},
+    {filename:'?-rare',frame:{x:40,y:50,w:3,h:5},spriteSourceSize:{x:1,y:2}},
+  ]};
+  return {image:{},report,atlas};
+}
+test('portable font normalization owns immutable advances, exact ink and separate trim offsets for every tone',()=>{
+  const input=portableFontFixture(),before=JSON.stringify(input),font=uiRuntime.normalizeBitmapFont(input);
+  expect(font).toMatchObject({lineHeight:11,baseline:8,cell:{width:6,height:9},fallback:'?',toneNames:['cream','rare']});
+  expect(font.glyphs['?']).toMatchObject({advance:4,inkBounds:{known:true,rect:{x:1,y:2,width:3,height:5}},frames:{rare:{name:'?-rare',source:{x:40,y:50,width:3,height:5},offset:{x:1,y:2}}}});
+  expect(Object.isFrozen(font)).toBe(true);expect(Object.isFrozen(font.glyphs['?'].frames.rare.offset)).toBe(true);
+  expect(JSON.stringify(input)).toBe(before);
+  input.report.glyphs['?'].advance=99;input.atlas.frames[2].spriteSourceSize.x=99;
+  expect(font.glyphs['?'].advance).toBe(4);expect(font.glyphs['?'].frames.cream.offset.x).toBe(1);
+});
+test('Canvas drawing and missing glyphs retain the same normalized snapshot after source metadata changes',()=>{
+  const input=portableFontFixture(),image=input.image,font=createBitmapFont(input),calls=[],ctx={drawImage:(...args)=>calls.push(args)};
+  const text='A猫\nI',expected={width:20,height:44,lines:['A猫','I']};
+  expect(font.measure(text)).toEqual(expected);
+  input.report.glyphs.A.advance=99;input.report.lineHeight=99;
+  input.report.glyphs.A.frames.rare='new-frame';
+  input.atlas.frames[5].frame.x=99;input.atlas.frames[5].spriteSourceSize.x=99;
+  delete input.report.glyphs.I;input.report.glyphs['猫']={advance:99,frames:{rare:'new-frame'}};
+  input.report.fallback='A';
+  expect(font.measure(text)).toEqual(expected);
+  expect(font.wrap(text,24)).toEqual(expected.lines);
+  expect(font.draw(ctx,text,10,20,{tone:'rare'})).toEqual(expected);
+  expect(calls).toEqual([
+    [image,20,50,5,7,10,22,10,14],
+    [image,40,50,3,5,24,24,6,10],
+    [image,30,50,2,7,12,44,4,14],
+  ]);
+  expect(font.missingGlyphs('I猫\r\n\t')).toEqual(['猫']);
+  expect(Object.isFrozen(image)).toBe(false);
+});
+test.each(['array','object'])('portable font recreation uses one fresh %s atlas record for both rectangle and offset',shape=>{
+  const input=portableFontFixture();
+  if(shape==='object')input.atlas.frames=Object.fromEntries(input.atlas.frames.map(entry=>[entry.filename,entry]));
+  const original=uiRuntime.normalizeBitmapFont(input),oldFont=createBitmapFont(input);
+  const replacement={filename:'A',frame:{x:70,y:80,w:3,h:5},spriteSourceSize:{x:1,y:2}};
+  if(shape==='array')input.atlas.frames[0]=replacement;else input.atlas.frames.A=replacement;
+  input.report.glyphs.A.bounds={left:1,top:2,right:3,bottom:6};
+  const recreated=uiRuntime.normalizeBitmapFont(input),newFont=createBitmapFont(input);
+  expect(original.glyphs.A.frames.cream).toEqual({name:'A',source:{x:20,y:30,width:5,height:7},offset:{x:0,y:1}});
+  expect(recreated.glyphs.A.frames.cream).toEqual({name:'A',source:{x:70,y:80,width:3,height:5},offset:{x:1,y:2}});
+  const image=input.image,oldCalls=[],newCalls=[];
+  oldFont.draw({drawImage:(...args)=>oldCalls.push(args)},'A',10,20);
+  newFont.draw({drawImage:(...args)=>newCalls.push(args)},'A',10,20);
+  expect(oldCalls).toEqual([[image,20,30,5,7,10,22,10,14]]);
+  expect(newCalls).toEqual([[image,70,80,3,5,12,24,6,10]]);
+});
+test('portable font normalization retains legacy Phaser cell and ink as unknown without inventing cell bounds',()=>{
+  const chars={32:{x:0,y:0,width:0,height:0,xOffset:0,yOffset:0,xAdvance:4},63:{x:8,y:12,width:8,height:12,xOffset:0,yOffset:0,xAdvance:6},65:{x:16,y:12,width:8,height:12,xOffset:0,yOffset:0,xAdvance:6}};
+  const font=uiRuntime.normalizeBitmapFont({phaser:{kind:'font',glyphs:'?A',fallback:'?',lineHeight:12,baseline:9,tones:{cream:{chars},muted:{chars}}}});
+  expect(font.cell).toBe(null);expect(font.glyphs.A.inkBounds).toEqual({known:false,rect:null});
+  expect(font.glyphs.A.frames.cream.source).toEqual({x:16,y:12,width:8,height:12});
+  expect(uiRuntime.measureBitmapText(font,'A I')).toMatchObject({width:16,height:12,advanceWidth:16,sourceLines:['A I'],resolvedLines:['A ?'],paintedBounds:{known:false,rect:null}});
+  expect(uiRuntime.measureBitmapText(font,' ')).toMatchObject({width:4,paintedBounds:{known:true,rect:null}});
+  expect(()=>uiRuntime.measureBitmapText(font,'A',{policy:{lastLine:'cell'}})).toThrow(/cell.*unknown/i);
+});
+test('portable font measurement uses native exported metrics and counts a trim offset only once',()=>{
+  const phaser={kind:'font',glyphs:'?A',fallback:'?',lineHeight:11,baseline:8,cell:{width:6,height:9},metrics:{' ':{advance:3,bounds:null},'?':{advance:4,bounds:{left:1,top:2,right:3,bottom:6}},A:{advance:6,bounds:{left:0,top:1,right:4,bottom:7}}},tones:{
+    neon:{chars:{32:{x:0,y:0,width:0,height:0,xOffset:0,yOffset:0,xAdvance:3},63:{x:40,y:30,width:3,height:5,xOffset:1,yOffset:2,xAdvance:4},65:{x:20,y:30,width:5,height:7,xOffset:0,yOffset:1,xAdvance:6}}},
+  }};
+  const font=uiRuntime.normalizeBitmapFont({phaser});
+  expect(font.toneNames).toEqual(['neon']);
+  expect(uiRuntime.measureBitmapText(font,'A?',{scale:2})).toMatchObject({width:20,height:22,paintedBounds:{known:true,rect:{x:0,y:2,width:20,height:14}}});
+  expect(uiRuntime.bitmapLineWidth(font,'A?',{scale:2,trailingAdvance:1})).toBe(18);
+  expect(uiRuntime.measureBitmapText(font,'A\n?',{policy:{trailingAdvance:1,lastLine:'cell'}})).toMatchObject({width:5,advanceWidth:6,height:20});
+});
+test.each([
+  ['',undefined,2,[''],0,22],
+  ['A I',undefined,2,['A I'],26,22],
+  ['A\n\nI',undefined,2,['A','','I'],12,66],
+  ['A\r\nI\rA\tI',undefined,2,['A','I','A    I'],44,66],
+  ['A猫😀',undefined,2,['A猫😀'],28,22],
+  ['AA II\nA',24,2,['AA','II','A'],24,66],
+  ['AAAAA',24,2,['AA','AA','A'],24,66],
+  ['A I',25,2,['A','I'],12,44],
+  ['A',10,2,['A'],12,22],
+  [' A   I ',100,1,['A I'],13,11],
+  ['   ',undefined,1,['   '],9,11],
+  ['   ',100,1,[''],0,11],
+  [null,undefined,1,['null'],16,11],
+])('portable font calculations and Canvas preserve source lines and authored dimensions %#',(text,maxWidth,scale,lines,width,height)=>{
+  const input=portableFontFixture(),font=uiRuntime.normalizeBitmapFont(input),canvas=createBitmapFont(input);
+  const result=uiRuntime.measureBitmapText(font,text,{scale,maxWidth});
+  expect(result).toMatchObject({sourceLines:lines,width,height});
+  expect(canvas.measure(text,{scale,maxWidth})).toEqual({lines,width,height});
+  if(maxWidth!==undefined){expect(uiRuntime.wrapBitmapText(font,text,maxWidth,{scale}).sourceLines).toEqual(lines);expect(canvas.wrap(text,maxWidth,{scale})).toEqual(lines);}
+  expect(result.resolvedLines.every(line=>!line.includes('猫')&&!line.includes('😀'))).toBe(true);
+});
+test('portable font policies explicitly preserve empty input, literal control characters and terminal spaces',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  expect(uiRuntime.measureBitmapText(font,null,{policy:{empty:'none',nullish:'empty'}})).toMatchObject({sourceLines:[],resolvedLines:[],width:0,height:0});
+  expect(uiRuntime.measureBitmapText(font,'',{policy:{empty:'none'}}).height).toBe(0);
+  expect(uiRuntime.measureBitmapText(font,'A\nI',{policy:{lineSpacing:2}}).height).toBe(24);
+  expect(uiRuntime.wrapBitmapText(font,'A\r\tI',100,{policy:{newline:'lf-only',tab:'literal'}})).toMatchObject({sourceLines:['A\r\tI'],resolvedLines:['A??I']});
+  expect(uiRuntime.wrapBitmapText(font,'A ',6,{policy:{spaces:'terminal',trailingAdvance:1}}).sourceLines).toEqual(['A','']);
+  expect(uiRuntime.wrapBitmapText(font,'A ',8,{policy:{spaces:'terminal',trailingAdvance:1}}).sourceLines).toEqual(['A ']);
+  expect(uiRuntime.wrapBitmapText(font,'A',0).sourceLines).toEqual(['A']);
+  expect(()=>createBitmapFont(portableFontFixture()).wrap('A',0)).toThrow(/positive integer/);
+});
+test('portable font policies reject unsupported values while legacy minimal text resolution stays available',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  for(const policy of [{game:'x'},{empty:'guess'},{newline:'guess'},{tab:3},{trailingAdvance:2},{lastLine:'guess'},{lineSpacing:-1}])expect(()=>uiRuntime.measureBitmapText(font,'A',{policy})).toThrow(/policy/i);
+  expect(()=>uiRuntime.bitmapLineWidth(font,'A',{scale:1.5})).toThrow(/integer/);
+  expect(resolveFontText({glyphs:'A?',fallback:'?'},'A猫\r\n\t')).toBe('A?\n    ');
+});
+test.each([['left',10,10],['center',12,18],['right',15,27]])('portable placement preserves %s alignment, trim offsets, fallback and Canvas draw order',(align,firstX,lastX)=>{
+  const input=portableFontFixture(),font=uiRuntime.normalizeBitmapFont(input),calls=[],ctx={drawImage:(...args)=>calls.push(args)};
+  const plan=uiRuntime.placeBitmapText(font,'A猫\nI',10,20,{scale:2,tone:'rare',maxWidth:25,maxHeight:44,align});
+  const expected=[
+    [input.image,20,50,5,7,firstX,22,10,14],
+    [input.image,40,50,3,5,firstX+14,24,6,10],
+    [input.image,30,50,2,7,lastX+2,44,4,14],
+  ];
+  expect(plan.lines.map(line=>[line.x,line.y])).toEqual([[firstX,20],[lastX,42]]);
+  expect(plan.paintedBounds).toEqual({known:true,rect:{x:firstX,y:22,width:20,height:36}});
+  expect(plan.overflow).toEqual({horizontal:false,vertical:false,painted:{known:true,horizontal:false,vertical:false}});
+  expect(plan.draws.map(draw=>[input.image,draw.source.x,draw.source.y,draw.source.width,draw.source.height,draw.destination.x,draw.destination.y,draw.destination.width,draw.destination.height])).toEqual(expected);
+  expect(createBitmapFont(input).draw(ctx,'A猫\nI',10,20,{scale:2,tone:'rare',maxWidth:25,align})).toEqual({width:20,height:44,lines:['A猫','I']});
+  expect(calls).toEqual(expected);expect(ctx.imageSmoothingEnabled).toBe(false);
+});
+test('portable placement reports metric and known/unknown painted overflow without clipping or shrinking',()=>{
+  const input=portableFontFixture(),font=uiRuntime.normalizeBitmapFont(input);
+  const plan=uiRuntime.placeBitmapText(font,'I',3,5,{scale:2,maxWidth:7,maxHeight:1,align:'center'});
+  expect(plan.draws[0].destination).toEqual({x:4,y:7,width:4,height:14});
+  expect(plan.overflow).toEqual({horizontal:true,vertical:true,painted:{known:true,horizontal:false,vertical:true}});
+  delete input.report.glyphs.A.bounds;
+  const unknown=uiRuntime.placeBitmapText(uiRuntime.normalizeBitmapFont(input),'A',1,1,{maxWidth:6,maxHeight:11});
+  expect(unknown.paintedBounds).toEqual({known:false,rect:null});
+  expect(unknown.overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
+  const empty=uiRuntime.placeBitmapText(font,'',0,0,{maxWidth:0,maxHeight:0});
+  expect(empty.draws).toEqual([]);expect(empty.overflow.vertical).toBe(true);
+  for(const options of [{maxWidth:Infinity},{maxHeight:NaN},{maxWidth:1.5},{scale:1.5},{align:'justify'}])expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,options)).toThrow();
+});
+function portableSkinFixture(insets={left:2,right:1,top:1,bottom:2}){
+  return {image:{},report:{skins:{panel:{insets,minWidth:1,minHeight:1}}},atlas:{frames:[{filename:'panel',frame:{x:40,y:60,w:6,h:6},spriteSourceSize:{x:7,y:9}}]}};
+}
+const quadNumbers=quad=>[quad.source.x,quad.source.y,quad.source.width,quad.source.height,quad.destination.x,quad.destination.y,quad.destination.width,quad.destination.height];
+test('portable nine-slice preserves asymmetric geometry, partial tile order and cropped-frame origins',()=>{
+  const input=portableSkinFixture(),frame=input.atlas.frames[0].frame,bounds={x:2,y:3,width:8,height:7};
+  const plan=uiRuntime.planNineSlice({frame,insets:input.report.skins.panel.insets},bounds);
+  const expected=[
+    [40,60,2,1,2,3,2,1],[42,60,3,1,4,3,3,1],[42,60,2,1,7,3,2,1],[45,60,1,1,9,3,1,1],
+    [40,61,2,3,2,4,2,3],[40,61,2,1,2,7,2,1],
+    [42,61,3,3,4,4,3,3],[42,61,2,3,7,4,2,3],[42,61,3,1,4,7,3,1],[42,61,2,1,7,7,2,1],
+    [45,61,1,3,9,4,1,3],[45,61,1,1,9,7,1,1],
+    [40,64,2,2,2,8,2,2],[42,64,3,2,4,8,3,2],[42,64,2,2,7,8,2,2],[45,64,1,2,9,8,1,2],
+  ];
+  expect(plan.regions).toHaveLength(9);expect(Object.isFrozen(plan.regions[0].source)).toBe(true);
+  expect([...uiRuntime.iterateNineSliceTiles(plan)].map(quadNumbers)).toEqual(expected);
+  const calls=[],ctx={drawImage:(...args)=>calls.push(args)};
+  drawNineSlice(ctx,input,'panel',2,3,8,7,{scale:1});
+  expect(calls).toEqual(expected.map(quad=>[input.image,...quad]));expect(ctx.imageSmoothingEnabled).toBe(false);
+  frame.x=999;expect(uiRuntime.iterateNineSliceTiles(plan).next().value.source.x).toBe(40);
+});
+test('portable nine-slice handles zero insets, scaled partial tiles and bounded lazy region planning',()=>{
+  const input=portableSkinFixture({left:0,right:0,top:0,bottom:0}),frame={x:40,y:60,w:5,h:4};input.atlas.frames[0].frame=frame;
+  const plan=uiRuntime.planNineSlice({frame,insets:input.report.skins.panel.insets},{x:2,y:3,width:14,height:10},{scale:2});
+  const expected=[[40,60,5,4,2,3,10,8],[40,60,2,4,12,3,4,8],[40,60,5,1,2,11,10,2],[40,60,2,1,12,11,4,2]];
+  expect(plan.regions).toHaveLength(1);expect([...uiRuntime.iterateNineSliceTiles(plan)].map(quadNumbers)).toEqual(expected);
+  const calls=[];drawNineSlice({drawImage:(...args)=>calls.push(args)},input,'panel',2,3,14,10,{scale:2});expect(calls).toEqual(expected.map(quad=>[input.image,...quad]));
+  const large=uiRuntime.planNineSlice({frame:{x:0,y:0,w:1,h:1},insets:input.report.skins.panel.insets},{x:0,y:0,width:1000000,height:1000000});
+  expect(large.regions).toHaveLength(1);expect(large).not.toHaveProperty('draws');
+  const iterator=uiRuntime.iterateNineSliceTiles(large);expect(iterator.next().value.destination).toEqual({x:0,y:0,width:1,height:1});iterator.return();
+});
+test.each([2,3])('portable nine-slice keeps narrow/zero destination centers at width %i without imposing authored minima',width=>{
+  const input=portableSkinFixture(),plan=uiRuntime.planNineSlice({frame:input.atlas.frames[0].frame,insets:input.report.skins.panel.insets},{x:2,y:3,width,height:width});
+  const expected=[
+    [40,60,2,1,2,3,2,1],[45,60,1,1,2+width-1,3,1,1],
+    [40,64,2,2,2,3+width-2,2,2],[45,64,1,2,2+width-1,3+width-2,1,2],
+  ];
+  expect(plan.regions).toHaveLength(4);expect([...uiRuntime.iterateNineSliceTiles(plan)].map(quadNumbers)).toEqual(expected);
+  const calls=[];drawNineSlice({drawImage:(...args)=>calls.push(args)},input,'panel',2,3,width,width,{scale:1});expect(calls).toEqual(expected.map(quad=>[input.image,...quad]));
+  input.report.skins.panel.minWidth=4;expect(()=>drawNineSlice(null,input,'panel',2,3,width,width,{scale:1})).toThrow(/minimum/);
+});
+test('portable nine-slice omits zero source centers and preserves the existing unpainted center',()=>{
+  const input=portableSkinFixture({left:3,right:3,top:3,bottom:3}),frame=input.atlas.frames[0].frame;
+  const plan=uiRuntime.planNineSlice({frame,insets:input.report.skins.panel.insets},{x:0,y:0,width:8,height:8});
+  const expected=[[40,60,3,3,0,0,3,3],[43,60,3,3,5,0,3,3],[40,63,3,3,0,5,3,3],[43,63,3,3,5,5,3,3]];
+  expect(plan.regions).toHaveLength(4);expect([...uiRuntime.iterateNineSliceTiles(plan)].map(quadNumbers)).toEqual(expected);
+  const calls=[];drawNineSlice({drawImage:(...args)=>calls.push(args)},input,'panel',0,0,8,8,{scale:1});expect(calls).toEqual(expected.map(quad=>[input.image,...quad]));
+});
+const resolutionFixture=()=>uiRuntime.pixelResolution({id:'app:menu/card',revision:7,localToPhysical:{scale:3,origin:{x:-0.25,y:0.5}},physicalPixelsPerSourcePixel:2});
+test('portable resolution records mixed density and projects continuous points/rectangles without snapping inverse input',()=>{
+  const resolution=resolutionFixture(),point={x:-1.25,y:2.125},rect={...point,width:4.5,height:0.25};
+  expect(resolution.sourceToLocalScale).toBe(2/3);expect(Object.isFrozen(resolution.localToPhysical.origin)).toBe(true);
+  const physical=uiRuntime.projectPixelPoint(resolution,point);expect(physical).toEqual({x:-4,y:6.875});
+  expect(uiRuntime.projectPixelPoint(resolution,physical,'to-local')).toEqual(point);
+  expect(uiRuntime.projectPixelRect(resolution,rect)).toEqual({x:-4,y:6.875,width:13.5,height:0.75});
+  expect(uiRuntime.projectPixelRect(resolution,uiRuntime.projectPixelRect(resolution,rect),'to-local')).toEqual(rect);
+  const pointer=uiRuntime.projectPixelPoint(resolution,{x:3.25,y:7.125},'to-local');
+  expect(pointer.x).toBeCloseTo(3.5/3,14);expect(pointer.y).toBeCloseTo(6.625/3,14);
+});
+test('portable resolution quantization explicitly covers, collapses inward and keeps empty physical rectangles empty',()=>{
+  const rect={x:-0.25,y:0.25,width:0.5,height:0.5};
+  expect(uiRuntime.quantizePhysicalRect(rect,{mode:'inside'})).toEqual({x:0,y:1,width:0,height:0});
+  expect(uiRuntime.quantizePhysicalRect(rect,{mode:'cover'})).toEqual({x:-1,y:0,width:2,height:1});
+  expect(uiRuntime.quantizePhysicalRect({...rect,width:0,height:0},{mode:'cover'})).toEqual({x:-1,y:0,width:0,height:0});
+  expect(uiRuntime.quantizePhysicalPoint({x:-1,y:1},{grid:2})).toEqual({x:0,y:2});
+  expect(()=>uiRuntime.quantizePhysicalRect(rect,{mode:'guess'})).toThrow(/unsupported/i);
+});
+test('portable resolution text plans project whole physical glyphs into fractional local geometry and retain requested bounds',()=>{
+  const resolution=resolutionFixture(),font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  const plan=uiRuntime.placeBitmapText(font,'A\nI',-1.25,2.125,{resolution,tone:'rare',maxWidth:4.5,maxHeight:10});
+  expect(plan.context).toEqual({id:'app:menu/card',revision:7});
+  expect(plan.requestedLayoutBounds).toEqual({x:-1.25,y:2.125,width:4.5,height:10});
+  expect(plan.width).toBe(4);expect(plan.draws).toHaveLength(2);expect(plan.overflow.vertical).toBe(true);
+  for(const draw of plan.draws){
+    expect(Object.values(draw.physicalDestination).every(Number.isInteger)).toBe(true);
+    expect(draw.physicalDestination.width).toBe(draw.source.width*2);
+    expect(uiRuntime.projectPixelRect(resolution,draw.destination).x).toBeCloseTo(draw.physicalDestination.x,13);
+  }
+  expect(plan.draws[0].destination.width).toBeCloseTo(10/3,14);
+  expect(plan.quantization).toMatchObject({space:'physical',grid:1,bounds:'inside',sourcePixels:2});
+  expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{resolution,scale:1})).toThrow(/scale.*resolution/i);
+});
+test('portable resolution skin origin uses grid one and extents use the source-pixel grid relative to that origin',()=>{
+  const resolution=resolutionFixture(),input={frame:{x:0,y:0,w:5,h:4},insets:{left:0,right:0,top:0,bottom:0}},requested={x:1,y:2,width:6,height:5};
+  const plan=uiRuntime.planNineSlice(input,requested,{resolution});
+  expect(plan.physicalBounds).toEqual({x:3,y:7,width:16,height:14});
+  expect(plan.requestedLayoutBounds).toEqual(requested);expect(plan.context.revision).toBe(7);
+  expect(plan.quantization).toMatchObject({space:'physical',originGrid:1,originMode:'inside-ceil',extentGrid:2,extentMode:'inward-floor',extentOrigin:{x:3,y:7}});
+  const quads=[...uiRuntime.iterateNineSliceTiles(plan)];expect(quads).toHaveLength(4);
+  expect(quads[1].source).toEqual({x:0,y:0,width:3,height:4});
+  for(const quad of quads){
+    expect(Object.values(quad.source).every(Number.isInteger)).toBe(true);
+    expect(Object.values(quad.physicalDestination).every(Number.isInteger)).toBe(true);
+    expect(quad.physicalDestination.width).toBe(quad.source.width*2);
+    expect(uiRuntime.projectPixelRect(resolution,quad.destination).width).toBeCloseTo(quad.physicalDestination.width,13);
+  }
+  for(const bounds of [{x:0.1,y:0.1,width:0,height:0},{x:0.1,y:0.1,width:0.1,height:0.1}]){
+    const empty=uiRuntime.planNineSlice({...input,insets:{left:2,right:2,top:1,bottom:1}},bounds,{resolution});
+    expect(empty.regions).toEqual([]);expect([...uiRuntime.iterateNineSliceTiles(empty)]).toEqual([]);
+    expect(empty.physicalPaintedBounds).toEqual({known:true,rect:null});
+  }
+  const narrow=uiRuntime.planNineSlice({...input,insets:{left:2,right:2,top:1,bottom:1}},{x:1,y:2,width:1,height:1},{resolution});
+  expect(narrow.physicalBounds).toEqual({x:3,y:7,width:2,height:2});
+  expect(narrow.physicalPaintedBounds).toEqual({known:true,rect:{x:1,y:7,width:6,height:2}});
+  expect(narrow.overflow).toEqual({horizontal:true,vertical:false});
+  expect([...uiRuntime.iterateNineSliceTiles(narrow)]).toHaveLength(4);
+});
+test('portable resolution text keeps its nearest anchor independently of an inward fit box',()=>{
+  const resolution=resolutionFixture(),font=uiRuntime.normalizeBitmapFont(portableFontFixture()),x=1/6,y=1/4;
+  const unbounded=uiRuntime.placeBitmapText(font,'A',x,y,{resolution});
+  const constrained=uiRuntime.placeBitmapText(font,'A',x,y,{resolution,maxWidth:6,maxHeight:10});
+  expect(unbounded.physicalAnchor).toEqual({x:0,y:1});expect(constrained.physicalAnchor).toEqual(unbounded.physicalAnchor);
+  expect(constrained.draws[0].physicalDestination).toEqual(unbounded.draws[0].physicalDestination);
+  expect(constrained.physicalBounds).toEqual({x:1,y:2,width:17,height:29});
+  expect(constrained.requestedLayoutBounds).toEqual({x,y,width:6,height:10});
+  expect(constrained.overflow).toEqual({horizontal:true,vertical:true,painted:{known:true,horizontal:true,vertical:false}});
+  expect(constrained.quantization).toMatchObject({origin:'nearest',bounds:'inside'});
+});
+test('portable resolution rejects unsupported transforms/options and leaves uncontextualized Canvas guards unchanged',()=>{
+  const base={id:'app:ui',revision:1,localToPhysical:{scale:3,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:2};
+  for(const input of [{...base,rotation:0},{...base,id:'unnamespaced'},{...base,localToPhysical:{...base.localToPhysical,scaleX:3}},{...base,physicalPixelsPerSourcePixel:1.5}])expect(()=>uiRuntime.pixelResolution(input)).toThrow();
+  const resolution=resolutionFixture(),font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{resolution,dpr:2})).toThrow(/unsupported/i);
+  expect(()=>uiRuntime.projectPixelPoint(resolution,{x:0,y:0},'guess')).toThrow(/unsupported/i);
+  expect(()=>createBitmapFont(portableFontFixture()).draw(null,'A',0.5,0)).toThrow(/integer/);
+  expect(()=>uiRuntime.planNineSlice({frame:{x:0,y:0,w:5,h:4},insets:{left:0,right:0,top:0,bottom:0}},{x:0.5,y:0,width:6,height:5})).toThrow(/integer/);
+});
 test('compact font keeps the full repertoire with smaller authored metrics and integer rendering',()=>{
   const regular=generateUIRecipe({kind:'font'}),compact=generateUIRecipe({kind:'font',face:'compact'});
   expect(compact.report).toMatchObject({cellSize:{width:6,height:10},baseline:7,lineHeight:10,face:'compact'});
