@@ -132,7 +132,6 @@ function textPolicy(policy={}){
 }
 function normalizedFont(font){if(font?.format!=='agent-sprites/bitmap-font@1'||!font.glyphs?.[font.fallback])throw Error('Expected a normalized bitmap font.');return font;}
 const normalizedGlyph=(font,char)=>Object.hasOwn(font.glyphs,char)?font.glyphs[char]:font.glyphs[font.fallback];
-const advanceWidth=(font,line)=>{let width=0;for(const char of String(line))width+=normalizedGlyph(font,char).advance;return width;};
 function policyText(text,p){
   let source=String(p.nullish==='empty'&&text==null?'':text);
   if(p.newline==='normalize')source=source.replace(/\r\n?/g,'\n');
@@ -140,38 +139,79 @@ function policyText(text,p){
   return source;
 }
 const lineResult=(font,sourceLines)=>({sourceLines,resolvedLines:sourceLines.map(line=>[...line].map(char=>Object.hasOwn(font.glyphs,char)?char:font.fallback).join(''))});
+// One calculation kernel; adapters own metric validation, fallback and drawable metadata.
+function textMetricsKernel({lineHeight,advanceOf},p,{scale=1,leading=0,cellHeight}={}){
+  const advanceWidth=line=>{let width=0;for(const char of String(line))width+=advanceOf(char);return width;};
+  const width=line=>Math.max(0,advanceWidth(line)-p.trailingAdvance);
+  function wrap(source,maxWidth){
+    if(maxWidth!==Infinity&&(!Number.isFinite(maxWidth)||maxWidth<0))throw Error('Max width must be nonnegative or Infinity.');
+    if(!source&&p.empty==='none')return [];
+    const limit=maxWidth/scale,lines=[];
+    for(const paragraph of source.split('\n')){
+      if(!paragraph){lines.push('');continue;}
+      let line='';
+      for(const word of paragraph.split(/ +/)){
+        if(!word&&(p.spaces==='trim'||!line))continue;
+        if(line&&width(`${line} ${word}`)<=limit){line+=` ${word}`;continue;}
+        if(line){lines.push(line);line='';}
+        for(const char of word){const candidateWidth=width(line+char);if(line&&candidateWidth>limit){lines.push(line);line='';}line+=char;}
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+  function measure(source,maxWidth){
+    const sourceLines=maxWidth===undefined?(!source&&p.empty==='none'?[]:source.split('\n')):wrap(source,maxWidth);
+    const widths=sourceLines.map(advanceWidth);
+    const height=sourceLines.length?((sourceLines.length-1)*(lineHeight+p.lineSpacing+leading)+(p.lastLine==='cell'?cellHeight:lineHeight))*scale:0;
+    return {sourceLines,width:Math.max(0,...widths.map(value=>Math.max(0,value-p.trailingAdvance)*scale)),height,advanceWidth:Math.max(0,...widths)*scale};
+  }
+  return {lineWidth:line=>width(line)*scale,wrap,measure};
+}
+const bitmapMetrics=font=>({lineHeight:font.lineHeight,advanceOf:char=>normalizedGlyph(font,char).advance});
+function validatedTextMetrics(metrics){
+  if(!metrics||typeof metrics!=='object'||Array.isArray(metrics))throw Error('Expected text metrics.');
+  if(finite(metrics.lineHeight,'Metrics line height')<=0)throw Error('Metrics line height must be positive.');
+  if(typeof metrics.advanceOf!=='function')throw Error('Metrics advanceOf must be a function.');
+  // Stable, pure callbacks can be validated once for each code point in this calculation.
+  const advances=new Map();
+  return {lineHeight:metrics.lineHeight,advanceOf:char=>{
+    if(!advances.has(char)){
+      const advance=finite(metrics.advanceOf(char),`Advance for ${char}`);
+      if(advance<0)throw Error(`Advance for ${char} must be nonnegative.`);
+      advances.set(char,advance);
+    }
+    return advances.get(char);
+  }};
+}
+function metricsPolicy(policy){const p=textPolicy(policy);if(p.lastLine==='cell')throw Error('Text metrics policy lastLine cell requires bitmap cell metadata.');return p;}
+/** Raw full advances in caller units. advanceOf receives one Unicode code point and must be stable and pure. */
+export function textMetricsLineWidth(metrics,line){return textMetricsKernel(validatedTextMetrics(metrics),BITMAP_TEXT_POLICY).lineWidth(line);}
+/** Source lines only; no drawable font, fallback or ink metadata is inferred. */
+export function wrapTextMetrics(metrics,text,maxWidth=Infinity,options={}){
+  exactOptions(options,['policy'],'text metrics wrapping');const m=validatedTextMetrics(metrics),p=metricsPolicy(options.policy);
+  return {sourceLines:textMetricsKernel(m,p).wrap(policyText(text,p),maxWidth)};
+}
+/** Dimensions stay in caller units without rounding. Leading adds to policy lineSpacing between lines. */
+export function measureTextMetrics(metrics,text,options={}){
+  exactOptions(options,['maxWidth','leading','policy'],'text metrics measurement');
+  const m=validatedTextMetrics(metrics),p=metricsPolicy(options.policy),{maxWidth,leading=0}=options;
+  if(finite(leading,'Leading')<0)throw Error('Leading must be nonnegative.');
+  return textMetricsKernel(m,p,{leading}).measure(policyText(text,p),maxWidth);
+}
 export function bitmapLineWidth(font,line,{scale=1,trailingAdvance=0}={}){
   normalizedFont(font);positiveInteger(scale,'Scale');
   if(![0,1].includes(trailingAdvance))throw Error('Unsupported bitmap text policy: trailingAdvance');
-  return Math.max(0,advanceWidth(font,line)-trailingAdvance)*scale;
-}
-function wrappedLines(font,source,maxWidth,scale,p){
-  if(maxWidth!==Infinity&&(!Number.isFinite(maxWidth)||maxWidth<0))throw Error('Max width must be nonnegative or Infinity.');
-  if(!source&&p.empty==='none')return [];
-  const limit=maxWidth/scale,width=line=>Math.max(0,advanceWidth(font,line)-p.trailingAdvance),lines=[];
-  for(const paragraph of source.split('\n')){
-    if(!paragraph){lines.push('');continue;}
-    let line='';
-    for(const word of paragraph.split(/ +/)){
-      if(!word&&(p.spaces==='trim'||!line))continue;
-      if(line&&width(`${line} ${word}`)<=limit){line+=` ${word}`;continue;}
-      if(line){lines.push(line);line='';}
-      for(const char of word){if(line&&width(line+char)>limit){lines.push(line);line='';}line+=char;}
-    }
-    lines.push(line);
-  }
-  return lines;
+  return textMetricsKernel(bitmapMetrics(font),{...BITMAP_TEXT_POLICY,trailingAdvance},{scale}).lineWidth(line);
 }
 export function wrapBitmapText(font,text,maxWidth,{scale=1,policy}={}){
   normalizedFont(font);positiveInteger(scale,'Scale');const p=textPolicy(policy);
-  return lineResult(font,wrappedLines(font,policyText(text,p),maxWidth,scale,p));
+  return lineResult(font,textMetricsKernel(bitmapMetrics(font),p,{scale}).wrap(policyText(text,p),maxWidth));
 }
 export function measureBitmapText(font,text,{scale=1,maxWidth,policy}={}){
   normalizedFont(font);positiveInteger(scale,'Scale');const p=textPolicy(policy),source=policyText(text,p);
   if(p.lastLine==='cell'&&!font.cell)throw Error('Bitmap font cell height is unknown.');
-  const sourceLines=maxWidth===undefined?(!source&&p.empty==='none'?[]:source.split('\n')):wrappedLines(font,source,maxWidth,scale,p);
-  const widths=sourceLines.map(line=>advanceWidth(font,line));
-  const height=sourceLines.length?((sourceLines.length-1)*(font.lineHeight+p.lineSpacing)+(p.lastLine==='cell'?font.cell.height:font.lineHeight))*scale:0;
+  const measured=textMetricsKernel(bitmapMetrics(font),p,{scale,cellHeight:font.cell?.height}).measure(source,maxWidth),{sourceLines}=measured;
   let known=true,left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
   for(const [row,line] of sourceLines.entries()){
     let pen=0;
@@ -181,7 +221,7 @@ export function measureBitmapText(font,text,{scale=1,maxWidth,policy}={}){
       pen+=g.advance;
     }
   }
-  return {...lineResult(font,sourceLines),width:Math.max(0,...widths.map(width=>Math.max(0,width-p.trailingAdvance)*scale)),height,advanceWidth:Math.max(0,...widths)*scale,paintedBounds:{known,rect:known&&left!==Infinity?{x:left,y:top,width:right-left,height:bottom-top}:null}};
+  return {...lineResult(font,sourceLines),...measured,paintedBounds:{known,rect:known&&left!==Infinity?{x:left,y:top,width:right-left,height:bottom-top}:null}};
 }
 /** Source metrics remain source pixels; origins, bounds and returned paint are in the caller's destination space. */
 export function placeBitmapText(font,text,x,y,options={}){

@@ -60,6 +60,44 @@ Any glyph with unknown ink makes the aggregate painted bounds unknown.
 
 The existing minimal-repertoire `resolveFontText` contract is unchanged.
 
+## Caller-owned text metrics
+
+For a headless face or a renderer with its own font resources, pass only
+`{lineHeight, advanceOf}` to `textMetricsLineWidth`, `wrapTextMetrics` and
+`measureTextMetrics`. Line height must be positive and finite. `advanceOf` receives
+one Unicode code point as a string and returns a finite, nonnegative advance.
+The metrics and callback must remain stable and pure during each call; repeated
+code points may reuse a validated advance. No font tones or atlas frames are needed.
+
+```js
+import {textMetricsLineWidth, wrapTextMetrics, measureTextMetrics}
+  from './ui-runtime.mjs';
+
+// Space2grow's Face seam also works with its headless fixtures.
+const metrics = {lineHeight: face.line, advanceOf: codePoint => face.advanceOf(codePoint)};
+const width = textMetricsLineWidth(metrics, 'A label');
+const {sourceLines} = wrapTextMetrics(metrics, 'Long copy', 120);
+const measured = measureTextMetrics(metrics, 'Long copy', {maxWidth: 120, leading: 0.5});
+```
+
+All values use the caller's declared units, including fractional metrics and
+leading. These APIs accept no scale or resolution and never round. Width consumes
+raw `String(line)` without text normalization or trailing subtraction. Wrapping
+and measurement use the policy table above, with `trailingAdvance: 1` subtracting
+one caller unit and `lineSpacing` counting integer caller units. `lastLine: 'cell'`
+rejects because abstract metrics have no cell metadata. Unknown options reject.
+`leading` is finite and nonnegative and adds to `lineSpacing` between lines.
+
+Wrapping defaults to `Infinity`. Measurement with omitted `maxWidth` retains hard
+lines and their spaces; an explicit `Infinity` still invokes wrapping and its
+space policy. Empty and nullish inputs follow the same explicit policies as bitmap
+text. Wrapping returns only `{sourceLines}`; measurement returns
+`{sourceLines, width, height, advanceWidth}`. Width follows the trailing policy;
+advance width retains full advances. Source characters remain intact apart from
+the selected normalization and wrapping policy. These results make no fallback,
+ink, frame or drawing claims. Production adapters keep their real font resources
+for drawing; a metrics-only face is not a normalized drawable bitmap font.
+
 ## Placement and nine-slice plans
 
 ```js

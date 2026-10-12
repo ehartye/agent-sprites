@@ -41,6 +41,57 @@ function portableFontFixture(){
   ]};
   return {image:{},report,atlas};
 }
+
+function abstractMetrics(){return {lineHeight:10.5,advanceOf:char=>({' ':1.25,A:3.5,I:1.5,'😀':4.25,'猫':2.75,'\r':0.25,'\t':0.5}[char]??2)};}
+test('abstract text metrics consume raw Unicode code points and keep fractional caller units',()=>{
+  const metrics=abstractMetrics(),seen=[];
+  expect(uiRuntime.textMetricsLineWidth({...metrics,advanceOf:char=>{seen.push(char);return metrics.advanceOf(char);}},'A😀猫\r\t')).toBe(11.25);
+  expect(seen).toEqual(['A','😀','猫','\r','\t']);
+  expect(uiRuntime.textMetricsLineWidth(metrics,null)).toBe(8);
+  expect(uiRuntime.wrapTextMetrics(metrics,'A😀猫 I',7.75)).toEqual({sourceLines:['A😀','猫 I']});
+  expect(uiRuntime.measureTextMetrics(metrics,'A😀猫 I',{maxWidth:7.75,leading:0.5,policy:{lineSpacing:2,trailingAdvance:1}})).toEqual({sourceLines:['A😀','猫 I'],width:6.75,height:23.5,advanceWidth:7.75});
+});
+test('abstract text metrics return source calculations without drawable or fallback metadata',()=>{
+  const metrics=abstractMetrics();
+  expect(uiRuntime.measureTextMetrics(metrics,'猫😀\nA')).toEqual({sourceLines:['猫😀','A'],width:7,height:21,advanceWidth:7});
+  expect(uiRuntime.wrapTextMetrics(metrics,' A   I ')).toEqual({sourceLines:['A I']});
+  expect(uiRuntime.measureTextMetrics(metrics,' A   I ')).toEqual({sourceLines:[' A   I '],width:11.25,height:10.5,advanceWidth:11.25});
+  expect(uiRuntime.measureTextMetrics(metrics,' A   I ',{maxWidth:Infinity})).toEqual({sourceLines:['A I'],width:6.25,height:10.5,advanceWidth:6.25});
+  expect(uiRuntime.measureTextMetrics(metrics,'A\r\nI\rA\tI').sourceLines).toEqual(['A','I','A    I']);
+  expect(uiRuntime.wrapTextMetrics(metrics,'A\r\tI',100,{policy:{newline:'lf-only',tab:'literal'}})).toEqual({sourceLines:['A\r\tI']});
+  expect(uiRuntime.measureTextMetrics(metrics,null,{policy:{empty:'none',nullish:'empty'}})).toEqual({sourceLines:[],width:0,height:0,advanceWidth:0});
+  expect(uiRuntime.measureTextMetrics(metrics,'',{leading:0.5})).toEqual({sourceLines:[''],width:0,height:10.5,advanceWidth:0});
+  expect(uiRuntime.wrapTextMetrics(metrics,'A ',3.5,{policy:{spaces:'terminal',trailingAdvance:1}})).toEqual({sourceLines:['A','']});
+  expect(uiRuntime.wrapTextMetrics(metrics,'A',0)).toEqual({sourceLines:['A']});
+});
+test('abstract metrics reject invalid metrics, advances and unsupported rendering or cell options',()=>{
+  const metrics=abstractMetrics();
+  for(const invalid of [null,[],{}, {...metrics,lineHeight:0},{...metrics,lineHeight:-1},{...metrics,lineHeight:Infinity},{...metrics,lineHeight:NaN},{...metrics,advanceOf:3}]){
+    for(const call of [()=>uiRuntime.textMetricsLineWidth(invalid,'A'),()=>uiRuntime.wrapTextMetrics(invalid,'A'),()=>uiRuntime.measureTextMetrics(invalid,'A')])expect(call).toThrow(/metrics|line height|advanceOf/i);
+  }
+  for(const advance of [-1,Infinity,NaN,undefined,'3']){
+    const invalid={...metrics,advanceOf:()=>advance};
+    for(const call of [()=>uiRuntime.textMetricsLineWidth(invalid,'A'),()=>uiRuntime.wrapTextMetrics(invalid,'A',1),()=>uiRuntime.measureTextMetrics(invalid,'A')])expect(call).toThrow(/advance/i);
+  }
+  expect(uiRuntime.measureTextMetrics({...metrics,advanceOf:()=>0},'A😀')).toEqual({sourceLines:['A😀'],width:0,height:10.5,advanceWidth:0});
+  for(const policy of [{lastLine:'cell'},{unknown:1},{trailingAdvance:2},{lineSpacing:0.5}]){
+    expect(()=>uiRuntime.wrapTextMetrics(metrics,'A',10,{policy})).toThrow(/policy|cell/i);
+    expect(()=>uiRuntime.measureTextMetrics(metrics,'A',{policy})).toThrow(/policy|cell/i);
+  }
+  for(const options of [{leading:-1},{leading:Infinity},{leading:NaN},{scale:2},{resolution:{}},{unknown:1}])expect(()=>uiRuntime.measureTextMetrics(metrics,'A',options)).toThrow();
+  for(const options of [{scale:2},{resolution:{}},{leading:1},{unknown:1}])expect(()=>uiRuntime.wrapTextMetrics(metrics,'A',10,options)).toThrow();
+  for(const maxWidth of [-1,NaN,'3'])expect(()=>uiRuntime.wrapTextMetrics(metrics,'A',maxWidth)).toThrow(/width/i);
+});
+test('abstract and real bitmap calculations share nonuniform advances, finite policies and scaled results',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture()),metrics={lineHeight:font.lineHeight,advanceOf:char=>(font.glyphs[char]??font.glyphs[font.fallback]).advance};
+  for(const [text,maxWidth,policy] of [['A猫😀',undefined,{}],[' A   I ',Infinity,{}],['A\n\nI',undefined,{lineSpacing:2}],['A ',6,{spaces:'terminal',trailingAdvance:1}],['',undefined,{empty:'none'}],[null,undefined,{nullish:'empty'}]]){
+    const abstract=uiRuntime.measureTextMetrics(metrics,text,{maxWidth,policy}),bitmap=uiRuntime.measureBitmapText(font,text,{maxWidth,policy});
+    expect(abstract).toEqual({sourceLines:bitmap.sourceLines,width:bitmap.width,height:bitmap.height,advanceWidth:bitmap.advanceWidth});
+    const scaled=uiRuntime.measureBitmapText(font,text,{maxWidth:maxWidth===undefined?undefined:maxWidth*2,scale:2,policy});
+    expect(scaled).toMatchObject({...abstract,width:abstract.width*2,height:abstract.height*2,advanceWidth:abstract.advanceWidth*2});
+  }
+  expect(uiRuntime.measureBitmapText(font,'A\nI',{policy:{lastLine:'cell',trailingAdvance:1,lineSpacing:2}})).toMatchObject({sourceLines:['A','I'],width:5,height:22,advanceWidth:6,paintedBounds:{known:true,rect:{x:0,y:1,width:5,height:20}}});
+});
 test('portable font normalization owns immutable advances, exact ink and separate trim offsets for every tone',()=>{
   const input=portableFontFixture(),before=JSON.stringify(input),font=uiRuntime.normalizeBitmapFont(input);
   expect(font).toMatchObject({lineHeight:11,baseline:8,cell:{width:6,height:9},fallback:'?',toneNames:['cream','rare']});
