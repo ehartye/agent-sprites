@@ -22,7 +22,7 @@ function npm(args, { cwd }) {
 const deps = () => {};
 
 beforeEach(() => {
-  sandbox = mkdtempSync(join(tmpdir(), 'sprite-managed-test-'));
+  sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'sprite-managed-test-')));
   source = join(sandbox, 'plugin cache'); home = join(sandbox, 'managed home');
   globalRoot = join(sandbox, 'npm', 'node_modules');
   for (const dir of [source, globalRoot, join(source, 'scripts'), join(source, 'server'), join(source, '.claude-plugin')]) mkdirSync(dir, { recursive: true });
