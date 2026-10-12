@@ -37,7 +37,11 @@ test('UI build emits a self-contained runtime matching manifest bytes and usable
   expect(manifest.files.uiRuntime).toBe('ui-runtime.mjs');
   expect(readFileSync(join(dir,'dist',manifest.files.uiRuntime))).toEqual(readFileSync(new URL('../../server/build/ui-runtime.mjs',import.meta.url)));
   const runtime=await import(pathToFileURL(result.artifacts.uiRuntime).href);
-  for(const name of ['normalizeBitmapFont','bitmapLineWidth','wrapBitmapText','measureBitmapText','placeBitmapText','planNineSlice','iterateNineSliceTiles','pixelResolution','projectPixelPoint','projectPixelRect','quantizePhysicalPoint','quantizePhysicalRect','pixelFit'])expect(runtime[name]).toBeTypeOf('function');
+  for(const name of ['normalizeBitmapFont','bitmapLineWidth','wrapBitmapText','measureBitmapText','textMetricsLineWidth','wrapTextMetrics','measureTextMetrics','placeBitmapText','planNineSlice','iterateNineSliceTiles','pixelResolution','projectPixelPoint','projectPixelRect','quantizePhysicalPoint','quantizePhysicalRect','pixelFit'])expect(runtime[name]).toBeTypeOf('function');
+  const metrics={lineHeight:20,advanceOf:char=>char==='😀'?7.5:2.25};
+  expect(runtime.textMetricsLineWidth(metrics,'A😀')).toBe(9.75);
+  expect(runtime.wrapTextMetrics(metrics,'A😀A',9.75)).toEqual({sourceLines:['A😀','A']});
+  expect(runtime.measureTextMetrics(metrics,'A😀A',{maxWidth:9.75,leading:0.5})).toEqual({sourceLines:['A😀','A'],width:9.75,height:40.5,advanceWidth:9.75});
   const font=runtime.normalizeBitmapFont({phaser:JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'))});
   expect(runtime.placeBitmapText(font,'A?',0,0).draws).toHaveLength(2);
   const plan=runtime.planNineSlice({frame:{x:0,y:0,w:3,h:3},insets:{left:0,right:0,top:0,bottom:0}},{x:0,y:0,width:5,height:5});

@@ -59,6 +59,9 @@ and `better-sqlite3` bindings, and runs `npm link` from that managed copy. It do
 not install dependencies in the plugin cache or link your checkout. No published
 npm package is required. The global link uses your configured npm prefix; setup
 reports its PATH directory if it is missing from the current environment.
+The package's `allowScripts` policy permits dependency install scripts for
+`canvas` and `better-sqlite3` so npm can prepare their native bindings for the
+active Node ABI.
 
 Run setup again after a plugin update. Releases are identified by version, content,
 platform and Node ABI; matching installs are reused, and old releases are retained.
