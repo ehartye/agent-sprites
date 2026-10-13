@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 
-export const buildTool = Object.freeze({ name: 'agent-sprites', version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version });
+import { acquireBuildTool } from './producer-identity.js';
+export { buildTool } from './producer-identity.js';
 
 export function resolveBuildSource(configPath, config) {
   const hasInline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset'].some(key => Object.hasOwn(config, key));
@@ -23,7 +24,7 @@ export function resolveBuildSource(configPath, config) {
 
 // Generator imports and external assets are explicit: inspecting a build must
 // never run its generator merely to discover dependencies.
-export function snapshotBuildInputs(configPath, config, source) {
+export function snapshotBuildInputs(configPath, config, source, tool = acquireBuildTool()) {
   if (config.inputs !== undefined && (!Array.isArray(config.inputs) || config.inputs.some(path => typeof path !== 'string' || !path.trim()))) {
     throw new Error('inputs must be an array of nonempty file paths relative to the build config.');
   }
@@ -48,5 +49,5 @@ export function snapshotBuildInputs(configPath, config, source) {
     seen.add(key);
     inputs.push({ path: relative(base, path).split(sep).join('/'), sha256: createHash('sha256').update(readFileSync(canonical)).digest('hex') });
   }
-  return { tool: { ...buildTool }, inputs };
+  return { tool, inputs };
 }

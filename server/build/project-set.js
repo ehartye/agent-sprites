@@ -2,7 +2,8 @@ import { existsSync, readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { buildProject } from './project-build.js';
 import { checkTilesetRecipe } from '../authoring/tileset.js';
-import { buildTool, resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
+import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
+import { acquireBuildTool, compareBuildTool, assertToolStable } from './producer-identity.js';
 import { buildManifest, inspectArtifactIntegrity } from './artifact-integrity.js';
 
 const key = path => process.platform === 'win32' ? path.toLowerCase() : path;
@@ -41,13 +42,13 @@ function readProjects(listPath) {
   return projects;
 }
 
-function inspectProject({ configPath, config, output, declaredOutput }) {
+function inspectProject({ configPath, config, output, declaredOutput }, tool) {
   const reasons = [], reason = (code, message, details = {}) => reasons.push({ code, message, ...details });
   const result = { config: configPath, output, status: 'stale', reasons };
   let current;
   try {
     const { source } = resolveBuildSource(configPath, config);
-    current = snapshotBuildInputs(configPath, config, source);
+    current = snapshotBuildInputs(configPath, config, source, tool);
   } catch (error) {
     result.status = 'invalid'; reason('input-invalid', error.message); return result;
   }
@@ -75,7 +76,7 @@ function inspectProject({ configPath, config, output, declaredOutput }) {
   const prior = manifest.build;
   if (!prior?.tool || !Array.isArray(prior.inputs)) reason('provenance-missing', 'Legacy output has no build provenance; rebuild to establish freshness.');
   else {
-    if (prior.tool.name !== buildTool.name || prior.tool.version !== buildTool.version) reason('tool-version', `Built with ${prior.tool.name} ${prior.tool.version}; current tool is ${buildTool.name} ${buildTool.version}.`);
+    reasons.push(...compareBuildTool(prior.tool, tool));
     for (const input of current.inputs) {
       if (!prior.inputs.some(old => old?.path === input.path && old.sha256 === input.sha256)) reason('input-changed', `Build input changed or was not recorded: ${input.path}`, { input: input.path });
     }
@@ -94,7 +95,16 @@ export async function buildProjectSet(listPath, { check = false } = {}) {
   catch (error) { result.errors.push({ code: 'project-set', message: error.message }); return result; }
   result.total = projects.length;
   if (check) {
-    result.projects = projects.map(inspectProject);
+    let tool;
+    try {
+      tool = acquireBuildTool();
+      result.projects = projects.map(project => inspectProject(project, tool));
+      assertToolStable(tool, acquireBuildTool(), 'check');
+    } catch (error) {
+      const reason = { code: tool ? 'tool-changed-during-check' : 'tool-identity-invalid', message: error.message };
+      result.errors.push(reason);
+      result.projects = projects.map((project, index) => ({ ...(result.projects[index] ?? { config: project.configPath, output: project.output, reasons: [] }), status: 'invalid', reasons: [...(result.projects[index]?.reasons ?? []), reason] }));
+    }
     result.stale = result.projects.filter(project => project.status !== 'current').length;
     result.ok = result.stale === 0;
     return result;

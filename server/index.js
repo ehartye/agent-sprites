@@ -1,3 +1,5 @@
+// Capture source/package metadata before long-lived renderer modules load.
+import './build/producer-identity.js';
 import { networkInterfaces, tmpdir } from 'os';
 import { join } from 'path';
 import { startWebServer } from './web/http.js';

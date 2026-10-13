@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildProject } from '../../server/build/project-build.js';
 import { buildProjectSet as buildSet } from '../../server/build/project-set.js';
 
@@ -326,3 +326,135 @@ test('build --check exits nonzero on a short row and zero on a clean set', async
   expect(JSON.parse(ok.stdout)).toMatchObject({ ok: true, tiles: 1 });
   expect(existsSync(join(dir, '..', 'out'))).toBe(false);
 });
+
+// Real producer copies keep causal mutations outside the checkout and managed releases.
+// Dependencies are reused through a test-owned link; no install or native metadata mutation.
+function copiedProducer() {
+  const runtime = join(dir, '..', 'producer'); mkdirSync(runtime);
+  const original = fileURLToPath(new URL('../../', import.meta.url));
+  for (const name of ['package.json', 'package-lock.json', 'scripts', 'server']) cpSync(join(original, name), join(runtime, name), { recursive: true });
+  symlinkSync(join(original, 'node_modules'), join(runtime, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const helper = join(runtime, 'server', 'engine', 'canvas-renderer.js');
+  const priorHelper = readFileSync(helper);
+  writeFileSync(list, JSON.stringify({ version: 1, projects: ['a/sprite-project.json'] }));
+  return { runtime, helper, priorHelper };
+}
+async function copiedCLI(runtime, ...args) {
+  const options = { cwd: dir, windowsHide: true, env: { ...process.env, SPRITE_PORT: '1' } };
+  const result = await exec(process.execPath, [join(runtime, 'scripts', 'sprite.js'), ...args, '--json'], options).then(result => ({ ...result, code: 0 }), error => error);
+  return { code: result.code, report: JSON.parse(result.stdout) };
+}
+
+test('same-version actual producer source changes refuse freshness without touching outputs or running generators', async () => {
+  const { runtime, helper, priorHelper } = copiedProducer();
+  const counter = join(dir, '..', 'generator-runs.txt');
+  writeFileSync(join(dir, 'a', 'generate.mjs'), `import {readFileSync,writeFileSync} from 'node:fs';
+    const counter=${JSON.stringify(counter)};
+    writeFileSync(counter,String(Number(readFileSync(counter,'utf8'))+1));
+    console.log(JSON.stringify(${readFileSync(join(dir, 'a', 'ops.json'), 'utf8')}));`);
+  writeFileSync(counter, '0');
+  project('a', { ops: undefined, generator: 'generate.mjs' });
+  expect((await copiedCLI(runtime, 'build', a)).report.ok).toBe(true);
+  expect((await copiedCLI(runtime, 'build-set', list, '--check')).report.ok).toBe(true);
+  writeFileSync(join(dir, '..', 'out', 'foreign.txt'), 'retained foreign sibling');
+  const before = snapshotTree(join(dir, '..', 'out'));
+  const sourcesBefore = snapshotTree(dir);
+  const version = JSON.parse(readFileSync(join(runtime, 'package.json'), 'utf8')).version;
+  writeFileSync(helper, Buffer.concat([priorHelper, Buffer.from('\n// same-version fixture mutation\n')]));
+  const changed = await copiedCLI(runtime, 'build-set', list, '--check');
+  expect(changed.code).toBe(1);
+  expect(changed.report.projects[0].reasons.map(reason => reason.code)).toContain('tool-source-changed');
+  expect(snapshotTree(join(dir, '..', 'out'))).toEqual(before);
+  expect(snapshotTree(dir)).toEqual(sourcesBefore);
+  expect(readFileSync(counter, 'utf8')).toBe('1');
+  expect(JSON.parse(readFileSync(join(runtime, 'package.json'), 'utf8')).version).toBe(version);
+  writeFileSync(helper, priorHelper);
+  expect((await copiedCLI(runtime, 'build-set', list, '--check')).report.ok).toBe(true);
+  expect(snapshotTree(join(dir, '..', 'out'))).toEqual(before);
+  expect(snapshotTree(dir)).toEqual(sourcesBefore);
+}, 30000);
+
+test('actual producer mutation during generation fails before replacement and releases staging and lock', async () => {
+  const { runtime, helper } = copiedProducer();
+  expect((await copiedCLI(runtime, 'build', a)).report.ok).toBe(true);
+  const before = snapshotTree(join(dir, '..', 'out'));
+  const output = join(dir, '..', 'out', 'a');
+  writeFileSync(join(dir, 'a', 'generate.mjs'), `import {appendFileSync} from 'node:fs';
+    appendFileSync(${JSON.stringify(helper)},'\\n// generator tool mutation\\n');
+    console.log(JSON.stringify(${readFileSync(join(dir, 'a', 'ops.json'), 'utf8')}));`);
+  project('a', { ops: undefined, generator: 'generate.mjs' });
+  const failed = await copiedCLI(runtime, 'build', a);
+  expect(failed.report.ok).toBe(false);
+  expect(JSON.stringify(failed.report.errors)).toMatch(/tool.*changed during generation/i);
+  expect(snapshotTree(output)).toEqual(before.filter(entry => entry.path.startsWith(output + (process.platform === 'win32' ? '\\' : '/'))));
+  expect(readdirSync(join(dir, '..', 'out'))).toEqual(['a']);
+}, 30000);
+
+test('long-lived producer refuses changed loaded source and a fresh process records the new identity', async () => {
+  const { runtime, helper } = copiedProducer();
+  const script = join(dir, '..', 'long-lived.mjs');
+  writeFileSync(script, `import {appendFileSync,readFileSync} from 'node:fs';
+    const {buildProject}=await import(${JSON.stringify(pathToFileURL(join(runtime, 'server', 'build', 'project-build.js')).href)});
+    const first=await buildProject(${JSON.stringify(a)});
+    const before=readFileSync(first.artifacts.manifest,'utf8');
+    appendFileSync(${JSON.stringify(helper)},'\\n// after module load\\n');
+    const second=await buildProject(${JSON.stringify(a)});
+    console.log(JSON.stringify({first,second,preserved:before===readFileSync(first.artifacts.manifest,'utf8')}));`);
+  const result = JSON.parse((await exec(process.execPath, [script], { windowsHide: true })).stdout);
+  expect(result.first.ok).toBe(true);
+  expect(result.second.ok).toBe(false);
+  expect(JSON.stringify(result.second.errors)).toMatch(/restart.*required/i);
+  expect(result.preserved).toBe(true);
+  const old = JSON.parse(readFileSync(result.first.artifacts.manifest, 'utf8'));
+  expect((await copiedCLI(runtime, 'build', a)).report.ok).toBe(true);
+  const current = JSON.parse(readFileSync(result.first.artifacts.manifest, 'utf8'));
+  expect(current.build.tool.identity.source.sha256).not.toBe(old.build.tool.identity.source.sha256);
+  expect(readFileSync(result.first.artifacts.sheet).length).toBe(old.integrity[old.files.sheet].bytes);
+  expect(current.integrity[current.files.sheet]).toEqual(old.integrity[old.files.sheet]);
+}, 30000);
+
+test('check fences an actual producer source change between identity acquisition and manifest inspection', async () => {
+  const { runtime, helper } = copiedProducer();
+  expect((await copiedCLI(runtime, 'build', a)).report.ok).toBe(true);
+  const before = snapshotTree(join(dir, '..', 'out'));
+  const preload = join(dir, '..', 'mutate-at-manifest.mjs');
+  // Test-owned filesystem observation, rather than a production injection seam.
+  writeFileSync(preload, `import fs from 'node:fs'; import {syncBuiltinESMExports} from 'node:module';
+    const original=fs.readFileSync; let changed=false;
+    fs.readFileSync=function(path,...args){
+      if(!changed&&String(path).endsWith('sprite-manifest.json')){
+        changed=true;fs.appendFileSync(${JSON.stringify(helper)},'\\n// check tool mutation\\n');
+      }
+      return original.call(this,path,...args);
+    };syncBuiltinESMExports();`);
+  const run = await exec(process.execPath, ['--import', pathToFileURL(preload).href, join(runtime, 'scripts', 'sprite.js'), 'build-set', list, '--check', '--json'], { cwd: dir, windowsHide: true }).then(result => ({ ...result, code: 0 }), error => error);
+  const report = JSON.parse(run.stdout);
+  expect(run.code).toBe(1);
+  expect(report.ok).toBe(false);
+  expect(report.errors.map(error => error.code)).toContain('tool-changed-during-check');
+  expect(report.projects.every(project => project.status === 'invalid')).toBe(true);
+  expect(snapshotTree(join(dir, '..', 'out'))).toEqual(before);
+}, 30000);
+
+test('check distinguishes missing, malformed, source and bounded toolchain identity without repair', async () => {
+  const { runtime } = copiedProducer();
+  const built = (await copiedCLI(runtime, 'build', a)).report;
+  expect(built.ok).toBe(true);
+  const path = built.artifacts.manifest, original = JSON.parse(readFileSync(path, 'utf8'));
+  const cases = [
+    ['tool-identity-missing', tool => { delete tool.identity; }],
+    ['tool-identity-invalid', tool => { tool.identity = null; }],
+    ['tool-identity-invalid', tool => { tool.identity.source.sha256 = 'A'.repeat(64); }],
+    ['tool-source-changed', tool => { tool.identity.source.sha256 = '0'.repeat(64); }],
+    ['toolchain-changed', tool => { tool.identity.node.version = 'v0.0.0'; }],
+    ['toolchain-changed', tool => { tool.identity.dependencies.sharp = '0.0.0'; }],
+  ];
+  for (const [code, mutate] of cases) {
+    const manifest = structuredClone(original); mutate(manifest.build.tool);
+    writeFileSync(path, JSON.stringify(manifest));
+    const before = snapshotTree(join(dir, '..', 'out'));
+    const checked = await copiedCLI(runtime, 'build-set', list, '--check');
+    expect(checked.report.projects[0].reasons.map(reason => reason.code), code).toContain(code);
+    expect(snapshotTree(join(dir, '..', 'out')), code).toEqual(before);
+  }
+}, 30000);

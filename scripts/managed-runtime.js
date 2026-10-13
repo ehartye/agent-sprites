@@ -1,11 +1,10 @@
 // Shared by bootstrap and the skill launcher. Runtime selection never uses PATH.
-import { createHash } from 'node:crypto';
+import { fingerprintSource } from './source-fingerprint.js';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 
-const RUNTIME_FILES = ['package.json', 'package-lock.json', 'scripts', 'server'];
 const RECEIPT = 'managed-install.json';
 export const managedHome = () => resolve(process.env.AGENT_SPRITES_HOME || join(homedir(), '.agent-sprites'));
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
@@ -15,19 +14,6 @@ const inside = (parent, child) => { const rel = relative(parent, child); return 
 function canonical(path) {
   if (existsSync(path)) return realpathSync(path);
   return join(canonical(dirname(path)), basename(path));
-}
-
-function runtimeFiles(root) {
-  const paths = [];
-  function visit(name) {
-    const path = join(root, name);
-    const stat = lstatSync(path);
-    if (stat.isSymbolicLink()) throw new Error(`Runtime source must not contain symlinks: ${path}`);
-    if (stat.isDirectory()) for (const child of readdirSync(path).sort()) visit(`${name}/${child}`);
-    else if (stat.isFile()) paths.push(name);
-  }
-  for (const name of RUNTIME_FILES) visit(name);
-  return paths;
 }
 
 export function describeSource(source) {
@@ -41,16 +27,7 @@ export function describeSource(source) {
   }
   const lock = readJson(join(source, 'package-lock.json'));
   if (lock.version !== pkg.version || lock.packages?.['']?.version !== pkg.version) throw new Error('Package and lockfile version mismatch');
-  const files = runtimeFiles(source);
-  const hash = createHash('sha256');
-  for (const name of files) {
-    const bytes = readFileSync(join(source, name));
-    // Git checkouts and npm's Windows bin-link shebang repair can change CRLF.
-    // Normalize text line endings, while fingerprinting binary assets verbatim.
-    const content = /\.(?:[cm]?js|json|html|css|svg|txt)$/.test(name) ? bytes.toString('utf8').replaceAll('\r\n', '\n') : bytes;
-    hash.update(name).update('\0').update(content).update('\0');
-  }
-  const fingerprint = hash.digest('hex');
+  const { files, fingerprint } = fingerprintSource(source);
   const key = `${pkg.version}-${fingerprint.slice(0, 16)}-${process.platform}-${process.arch}-${process.versions.modules}`;
   return { source, version: pkg.version, fingerprint, key, files };
 }
