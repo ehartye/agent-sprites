@@ -44,16 +44,31 @@ For bitmap lettering, inventory panels, dialogue and pixel controls, read the
 Use the exported glyph metrics, tone frames, panel insets and `ui-runtime.mjs`;
 keep font masks and skin drawing in the tool rather than copying them into a game.
 
-Compose glyphs and skin parts at integer scales. Check the actual text repertoire
+Require a positive integer physical-pixel footprint per authored source pixel.
+For an aligned whole-camera path, integer local scales remain valid. For native
+UI in another resolution context, declare its exact uniform local-to-physical
+camera mapping `S` and integer footprint `P`; local scale `P / S` may be fractional.
+Use the [pure placement and resolution helpers](../../examples/ui/text-metrics.md#explicit-mixed-resolution-projection)
+to quantize physical paint, then project back to local space. Keep semantic hit,
+focus and clip bounds continuous and independent of painted bounds. Portable
+Canvas drawing and raster export APIs retain their integer scale/position guards.
+The game binding compares effective mapping values before publication, advances
+revision and cancels held activation on changes, and rejects stale contexts as
+described in the UI README.
+Pin helper software separately from font/skin artwork as the UI README describes.
+Check the actual text repertoire
 with `missingGlyphs`, including punctuation, changing quantities and error text.
-Phaser games load `ui-phaser.json` (per-tone `BitmapFontData` and nine-slice numbers; see the UI README) instead of writing an adapter.
+Phaser games load `ui-phaser.json` for per-tone `BitmapFontData` and nine-slice metadata;
+keep native resolution bindings in the game rather than rewriting the exported format.
 Use `ui-boot.mjs` when loading/failure messages must also use the exported font.
 For a logo, banner or boss name build a third font with `face: "display"` (2x lettering with outline, bevel and shadow) and draw it
-at scale 1 in the UI layer; never scale the regular face. For a title screen build a `kind: "logo"` recipe: one `logo` frame with the lettering, sun and wheat, drawn as one image; `banner_boss` is a nine-slice plate for boss-name banners. Hearts, skulls, drops and other symbols are font glyphs
+at the selected physical footprint; never enlarge the regular face to imitate it. For a title screen build a `kind: "logo"` recipe: one `logo` frame with the lettering, sun and wheat, drawn as one image; `banner_boss` is a nine-slice plate for boss-name banners. Hearts, skulls, drops and other symbols are font glyphs
 (`report.symbols`) and `sym_*` skin icons. Skin sheets are packed near-square; `verify --max-aspect 3` catches a strip.
 For a strictly pixel interface, replace visible browser lettering, native form
 art, tooltips, list markers, focus rings and world labels as well as main menus.
 Retain semantic controls for keyboard and screen readers beneath the visual layer.
+Games own action families, controls, layout, native rendering and resource
+lifecycle; these portable calculations do not supply a shared widget runtime.
 Drive dirty UI painting from the game's existing frame loop; use one-shot
 invalidation during bootstrap rather than a second perpetual animation loop.
 
