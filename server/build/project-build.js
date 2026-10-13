@@ -194,6 +194,8 @@ export async function buildProject(configPath) {
     if (isUiReport(recipeReport)) {
       artifacts.uiRuntime = 'ui-runtime.mjs';
       writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
+      artifacts.uiActionGroup = 'ui-action-group.mjs';
+      writeFileSync(join(stage, artifacts.uiActionGroup), readFileSync(new URL('./ui-action-group.mjs', import.meta.url)));
       artifacts.uiPhaser = 'ui-phaser.json';
       const phaserUi = buildPhaserUi({ report: recipeReport, atlas, name });
       writeFileSync(join(stage, artifacts.uiPhaser), json(phaserUi));

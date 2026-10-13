@@ -432,6 +432,14 @@ explicit upgrades replace it independently of historical font/skin exports.
 native Phaser rendering, controls and lifecycle ownership.
 See the [bundler layout and Phaser cache examples](examples/ui/README.md#bundlers-and-public-assets).
 
+UI builds also publish the independent `ui-action-group.mjs` module as
+`manifest.files.uiActionGroup`. Its [measured action-group API](examples/ui/action-group.md)
+selects equal-width native row/grid/stack topology or places fixed authored-width
+actions at the group's end. Pass explicit measurements and semantic, visual and
+fallback orders; games retain widgets, final native measurement, appearance,
+focus, input and save authorization. Pin this module separately from the unchanged
+core `ui-runtime.mjs` and historical art; no art rebuild is needed to adopt it.
+
 Custom Node generators can return `{operations, report}` with a UI `kind` of
 `font`, `skin`, or `logo`, using the same report shape as the inline recipe. They
 publish `uiReport`, `uiRuntime`, `uiPhaser`, and (for fonts) proof/bootstrap artifacts.

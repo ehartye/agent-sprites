@@ -67,7 +67,8 @@ fallback. Keep the original text for storage and game semantics. The portable
 compositor already draws unsupported characters with that fallback; use
 `missingGlyphs` to inspect which literal characters are unsupported.
 
-Both builds own `ui-report.json` and `ui-runtime.mjs` alongside the usual PNG,
+Both builds own `ui-report.json`, `ui-runtime.mjs` and the independent
+[`ui-action-group.mjs`](action-group.md) alongside the usual PNG,
 Aseprite atlas, editable project, operations, contact sheet and verification.
 Font builds also own `ui-boot.mjs`, exporting `imageDataUrl`, `atlas`, and `report`;
 this embeds the verified font for loading/failure screens without a font fetch.
@@ -97,6 +98,10 @@ from historical public art after an image build: it may predate the pinned helpe
 Old font/skin exports keep their existing bytes and provenance; upgrading software
 does not require rebuilding or relabeling them. Every face and skin uses the same
 helper module; keep one vendor copy without hand edits or copied helper logic.
+Action-group allocation uses a separate fixed module and receipt. Pin the canonical
+`server/build/ui-action-group.mjs` Git blob independently; adopting it leaves the
+existing core module, core receipt and historical art untouched. Its manifest key
+is `uiActionGroup`; it is not imported or re-exported by `ui-runtime.mjs`.
 Pure text metrics, placement, resolution projection, `resolveFontText`, `pixelFit`
 and `getOpaqueBounds` need no Canvas context. Games bind compatible results to
 native Phaser display objects; using these helpers does not require the portable
