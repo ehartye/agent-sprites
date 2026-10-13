@@ -42,6 +42,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(join(dir, '..'), { recursive: true, force: true }));
 
+// Two real native builds took 8.06s on hosted Windows, beyond the default 5s budget.
 test('builds every listed project in order and then reports both as current', async () => {
   const built = await buildSet(list);
   expect(built).toMatchObject({ ok: true, total: 2, attempted: 2, succeeded: 2, failed: 0 });
@@ -53,7 +54,7 @@ test('builds every listed project in order and then reports both as current', as
   expect(snapshotTree(join(dir, '..'))).toEqual(before);
   expect((await buildSet(list, { check: true })).ok).toBe(true);
   expect(snapshotTree(join(dir, '..'))).toEqual(before);
-});
+}, 15000);
 
 test('same-size changes to finalized artifacts cannot be certified as current', async () => {
   writeFileSync(list, JSON.stringify({ version: 1, projects: ['a/sprite-project.json'] }));

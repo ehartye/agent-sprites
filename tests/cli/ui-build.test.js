@@ -1,11 +1,11 @@
 import {test,expect,beforeEach,afterEach} from 'vitest';
-import {mkdtempSync,writeFileSync,readFileSync,rmSync,existsSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync,existsSync,realpathSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {buildProject} from '../../server/build/project-build.js';
 let dir,path,config;
-beforeEach(()=>{dir=mkdtempSync(join(tmpdir(),'sprite-ui-build-'));path=join(dir,'sprite-project.json');config={version:1,output:'dist',scale:1,ui:{name:'ui-font',kind:'font',characters:' Agé?'}};});
+beforeEach(()=>{dir=realpathSync(mkdtempSync(join(tmpdir(),'sprite-ui-build-')));path=join(dir,'sprite-project.json');config={version:1,output:'dist',scale:1,ui:{name:'ui-font',kind:'font',characters:' Agé?'}};});
 afterEach(()=>rmSync(dir,{recursive:true,force:true}));
 const write=()=>writeFileSync(path,JSON.stringify(config));
 async function assertEmittedActionGroup(result){

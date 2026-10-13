@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, renameSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, renameSync, realpathSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -31,7 +31,7 @@ beforeEach(async () => {
   Object.defineProperty(process, 'platform', { value: 'win32' });
   faults.rename = null;
   faults.write = null;
-  dir = mkdtempSync(join(tmpdir(), 'sprite-publication-'));
+  dir = realpathSync(mkdtempSync(join(tmpdir(), 'sprite-publication-')));
   output = join(dir, 'dist'); config = join(dir, 'sprite-project.json');
   writeFileSync(join(dir, 'ops.json'), JSON.stringify([
     { command: 'new', name: 'tiny', size: 16, rows: 1, cols: 1 },
