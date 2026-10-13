@@ -283,6 +283,16 @@ Static art can declare its required frame aliases too:
 Frame names match exactly, including case. Missing names fail verification with
 `missing-frame`; both array and JSON-hash Aseprite atlases are supported.
 
+For a long list, use `--expect-frames-file .\required-frames.json` instead of
+`--expect-frames`. The UTF-8 JSON file contains an array of exact, unique,
+nonempty string IDs, with at most 100000 IDs and 2 MiB of file bytes. Names are
+not trimmed, split on commas, or case-normalized; `[]` declares no required IDs.
+The two options are mutually exclusive. File paths resolve from the working
+directory. Missing, malformed, invalid-type, duplicate or oversized input fails
+before verification or review writes. Report/contact destinations cannot
+overwrite this input file, including through file links. Without explicit
+report/contact destinations, verification only reads files.
+
 This offline command reads the actual PNG and atlas without contacting a sprite
 server. It checks image dimensions, frame and trim bounds, unique names, positive
 durations, animation ranges/directions, and required tags. It accepts repeated
