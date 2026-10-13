@@ -8,9 +8,37 @@ let dir,path,config;
 beforeEach(()=>{dir=mkdtempSync(join(tmpdir(),'sprite-ui-build-'));path=join(dir,'sprite-project.json');config={version:1,output:'dist',scale:1,ui:{name:'ui-font',kind:'font',characters:' Agé?'}};});
 afterEach(()=>rmSync(dir,{recursive:true,force:true}));
 const write=()=>writeFileSync(path,JSON.stringify(config));
+async function assertEmittedActionGroup(result){
+  const manifest=JSON.parse(readFileSync(result.artifacts.manifest,'utf8'));
+  expect(manifest.files.uiActionGroup).toBe('ui-action-group.mjs');
+  const emitted=join(dir,'dist',manifest.files.uiActionGroup);
+  expect(result.artifacts.uiActionGroup).toBe(emitted);
+  const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json'),'utf8'));
+  expect(marker.files.filter(file=>file==='ui-action-group.mjs')).toHaveLength(1);
+  expect(readFileSync(emitted)).toEqual(readFileSync(new URL('../../server/build/ui-action-group.mjs',import.meta.url)));
+  // Import the actual emitted independent bytes, not the producer source or core runtime.
+  const {planActionGroup}=await import(pathToFileURL(emitted).href);
+  expect(planActionGroup).toBeTypeOf('function');
+  const plan=planActionGroup({
+    actions:[
+      {id:'overwrite',preferredWidth:140,minWidth:22,minHeight:22,fixedHeight:22},
+      {id:'cancel',preferredWidth:64,minWidth:22,minHeight:22,fixedHeight:22},
+    ],
+    visualOrder:['cancel','overwrite'],fallbackOrder:['cancel','overwrite'],
+    width:372,insets:{top:0,right:8,bottom:2,left:8},gap:6,rowGap:6,policy:'authored-width-end',
+  });
+  expect(plan.semanticIds).toEqual(['overwrite','cancel']);
+  expect(plan.allocation.slots).toEqual([
+    {id:'cancel',x:154,y:0,width:64,height:22},
+    {id:'overwrite',x:224,y:0,width:140,height:22},
+  ]);
+  expect(plan.occupiedHeight).toEqual({known:true,value:24});
+  expect(plan.overflow).toEqual({known:true,left:0,right:0});
+}
 test.each(['regular','compact'])('%s UI build publishes deterministic editable font, portable runtime, embedded bootstrap and owned report',async face=>{
   config.ui.face=face;
   write();const result=await buildProject(path);expect(result.errors).toEqual([]);expect(result.ok).toBe(true);
+  await assertEmittedActionGroup(result);
   for(const key of ['uiReport','uiRuntime','uiBoot','uiPhaser'])expect(existsSync(result.artifacts[key])).toBe(true);
   const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-runtime.mjs');expect(marker.files).toContain('ui-boot.mjs');
   const boot=await import(pathToFileURL(result.artifacts.uiBoot).href);expect(boot.imageDataUrl).toMatch(/^data:image\/png;base64,/);expect(boot.report.kind).toBe('font');expect(boot.atlas.frames.length).toBeGreaterThan(0);expect(boot.phaser).toEqual(JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8')));
@@ -30,6 +58,7 @@ test.each(['regular','compact'])('%s UI build publishes deterministic editable f
 },20000);
 test('skin publishes runtime and slicing metrics without a font bootstrap',async()=>{
   config.ui={name:'ui-skin',kind:'skin'};write();const result=await buildProject(path);expect(result.ok).toBe(true);expect(result.artifacts.uiBoot).toBeUndefined();const report=JSON.parse(readFileSync(result.artifacts.uiReport));expect(report.skins.panel_dark).toBeDefined();expect(report.skins.specimen_label.textTone).toBe('ink');expect(report.skins.speech.insets.left).toBe(6);const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json')));expect(marker.files).toContain('ui-report.json');expect(marker.files).toContain('ui-phaser.json');const px=JSON.parse(readFileSync(result.artifacts.uiPhaser,'utf8'));expect(px).toMatchObject({kind:'skin',image:'ui-skin.png'});expect(px.frames.panel_dark.nineSlice).toEqual({leftWidth:4,rightWidth:4,topHeight:4,bottomHeight:4});expect(px.frames.icon_leaf.nineSlice).toBeUndefined();expect(px.frames.scrim.nineSlice).toBeUndefined();expect(Object.keys(px.frames).sort()).toEqual(report.frames.map(f=>f.alias).sort());for(const f of report.frames)expect(px.frames[f.alias].bounds).toEqual(f.bounds);expect(px.frames.speech.nineSlice.leftWidth).toBe(6);
+  await assertEmittedActionGroup(result);
 },20000);
 test('UI build emits a self-contained runtime matching manifest bytes and usable without Canvas',async()=>{
   write();const result=await buildProject(path);expect(result.ok).toBe(true);

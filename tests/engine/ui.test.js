@@ -1,10 +1,183 @@
 import {test,expect} from 'vitest';
+import {existsSync} from 'node:fs';
 import {generateUIRecipe,packGrid} from '../../server/authoring/ui.js';
 import * as uiRuntime from '../../server/build/ui-runtime.mjs';
 import {Cell} from '../../server/engine/cell.js';
 import {Palette} from '../../server/engine/palette.js';
 import {CanvasRenderer} from '../../server/engine/canvas-renderer.js';
 const {createBitmapFont,resolveFontText,drawNineSlice,getOpaqueBounds,pixelFit,drawPixelFit}=uiRuntime;
+
+// Load inside these cases so a missing independent capability is a precise
+// assertion failure rather than preventing the existing font/skin owner loading.
+async function actionGroupPlanner(){
+  const source=new URL('../../server/build/ui-action-group.mjs',import.meta.url);
+  expect(existsSync(source),'independent action group artifact must exist').toBe(true);
+  const module=await import(source.href);
+  expect(module.planActionGroup).toBeTypeOf('function');
+  return module.planActionGroup;
+}
+function equalActionGroup(){return {
+  actions:['export','accept','cancel'].map(id=>({id,preferredWidth:50,minWidth:0,minHeight:22})),
+  visualOrder:['export','accept','cancel'],fallbackOrder:['cancel','export','accept'],
+  width:175,insets:{top:11,right:8,bottom:8,left:8},gap:8,rowGap:8,policy:'equal-max-fit',
+};}
+function authoredActionGroup(){return {
+  actions:[
+    {id:'overwrite',preferredWidth:140,minWidth:22,minHeight:22,fixedHeight:22},
+    {id:'cancel',preferredWidth:64,minWidth:22,minHeight:22,fixedHeight:22},
+  ],
+  visualOrder:['cancel','overwrite'],fallbackOrder:['cancel','overwrite'],
+  width:372,insets:{top:0,right:8,bottom:2,left:8},gap:6,rowGap:6,policy:'authored-width-end',
+};}
+test('action group preserves semantic IDs and selects native grid topology with unknown actual height',async()=>{
+  const plan=(await actionGroupPlanner())(equalActionGroup());
+  expect(plan).toEqual({
+    format:'agent-sprites/action-group@1',semanticIds:['export','accept','cancel'],
+    paintIds:['cancel','export','accept'],width:175,
+    insets:{top:11,right:8,bottom:8,left:8},gap:8,rowGap:8,
+    allocation:{kind:'native-equal',arrangement:'grid',columns:2,rows:[['cancel','export'],['accept']]},
+    occupiedHeight:{known:false,minimum:71},
+    overflow:{known:false,reason:'native-measurement-required',insetDeficit:0},
+  });
+});
+test('action group equal floor boundary retains visual row order only when every action fits',async()=>{
+  const planActionGroup=await actionGroupPlanner();
+  const row=planActionGroup({...equalActionGroup(),width:182});
+  expect(row.paintIds).toEqual(['export','accept','cancel']);
+  expect(row.allocation).toEqual({kind:'native-equal',arrangement:'row',columns:3,rows:[['export','accept','cancel']]});
+  expect(row.occupiedHeight).toEqual({known:false,minimum:41});
+  // A native remainder might give one child 50; the donor requires all to fit
+  // the floored equal share, so 181.5 cannot become a three-column row.
+  expect(planActionGroup({...equalActionGroup(),width:181.5}).allocation)
+    .toEqual({kind:'native-equal',arrangement:'grid',columns:2,rows:[['cancel','export'],['accept']]});
+});
+test('action group native stack does not clamp long measurements or hide an inset deficit',async()=>{
+  const planActionGroup=await actionGroupPlanner();
+  const stack=planActionGroup({...equalActionGroup(),width:73});
+  expect(stack.allocation).toEqual({kind:'native-equal',arrangement:'stack',columns:1,rows:[['cancel'],['export'],['accept']]});
+  expect(stack.occupiedHeight).toEqual({known:false,minimum:101});
+  const wide=equalActionGroup();wide.actions[0].preferredWidth=200;
+  expect(planActionGroup(wide).allocation).toEqual(stack.allocation);
+  const deficit=planActionGroup({...equalActionGroup(),width:10});
+  expect(deficit.allocation).toEqual(stack.allocation);
+  expect(deficit.overflow).toEqual({known:false,reason:'native-measurement-required',insetDeficit:6});
+});
+test('action group native minimum uses row maxima without promoting fixed heights to native facts',async()=>{
+  const planActionGroup=await actionGroupPlanner();
+  const input=equalActionGroup();input.actions[0].minHeight=40;input.actions[1].minHeight=12;
+  for(const action of input.actions)action.fixedHeight=200;
+  const plan=planActionGroup(input);
+  expect(plan.occupiedHeight).toEqual({known:false,minimum:79});
+  expect(plan.overflow.known).toBe(false);
+  expect(plan.allocation).not.toHaveProperty('slots');
+});
+test('action group authored end placement uses explicit visual order and fixed caller units',async()=>{
+  const plan=(await actionGroupPlanner())(authoredActionGroup());
+  expect(plan).toEqual({
+    format:'agent-sprites/action-group@1',semanticIds:['overwrite','cancel'],paintIds:['cancel','overwrite'],
+    width:372,insets:{top:0,right:8,bottom:2,left:8},gap:6,rowGap:6,
+    allocation:{kind:'authored',arrangement:'row',slots:[
+      {id:'cancel',x:154,y:0,width:64,height:22},
+      {id:'overwrite',x:224,y:0,width:140,height:22},
+    ]},occupiedHeight:{known:true,value:24},overflow:{known:true,left:0,right:0},
+  });
+});
+test('action group authored overflow is measured against the outer box and never shrinks controls',async()=>{
+  const planActionGroup=await actionGroupPlanner();
+  const narrow=planActionGroup({...authoredActionGroup(),width:100});
+  expect(narrow.allocation.slots).toEqual([
+    {id:'cancel',x:-118,y:0,width:64,height:22},
+    {id:'overwrite',x:-48,y:0,width:140,height:22},
+  ]);
+  expect(narrow.overflow).toEqual({known:true,left:118,right:0});
+  const insetOnly=planActionGroup({...authoredActionGroup(),width:222});
+  expect(insetOnly.allocation.slots[0].x).toBe(4);
+  expect(insetOnly.overflow).toEqual({known:true,left:0,right:0});
+  const taller=authoredActionGroup();taller.insets.top=3.5;taller.actions[0].minHeight=30.5;
+  expect(planActionGroup(taller).allocation.slots[1]).toEqual({id:'overwrite',x:224,y:3.5,width:140,height:30.5});
+  expect(planActionGroup(taller).occupiedHeight).toEqual({known:true,value:36});
+});
+test.each(['equal-max-fit','authored-width-end'])('action group %s empty input has zero occupancy despite padding',async policy=>{
+  const plan=(await actionGroupPlanner())({...equalActionGroup(),actions:[],visualOrder:[],fallbackOrder:[],policy});
+  expect(plan.semanticIds).toEqual([]);expect(plan.paintIds).toEqual([]);
+  expect(plan.allocation).toEqual({kind:'empty'});
+  expect(plan.occupiedHeight).toEqual({known:true,value:0});
+  expect(plan.overflow).toEqual({known:true,left:0,right:0});
+});
+test('action group copies and freezes only owned output while caller records remain mutable',async()=>{
+  const input=equalActionGroup(),plan=(await actionGroupPlanner())(input);
+  input.actions[0].id='changed';input.actions[0].preferredWidth=999;
+  input.visualOrder.reverse();input.fallbackOrder[0]='changed';input.insets.top=100;input.width=0;
+  expect(plan.semanticIds).toEqual(['export','accept','cancel']);
+  expect(plan.allocation.rows).toEqual([['cancel','export'],['accept']]);
+  expect(plan.insets.top).toBe(11);expect(plan.width).toBe(175);
+  for(const value of [plan,plan.semanticIds,plan.paintIds,plan.insets,plan.allocation,plan.allocation.rows,
+    ...plan.allocation.rows,plan.occupiedHeight,plan.overflow])expect(Object.isFrozen(value)).toBe(true);
+  expect(Object.isFrozen(input)).toBe(false);expect(Object.isFrozen(input.actions[0])).toBe(false);
+  const authored=(await actionGroupPlanner())(authoredActionGroup());
+  expect(Object.isFrozen(authored.allocation.slots)).toBe(true);
+  expect(authored.allocation.slots.every(Object.isFrozen)).toBe(true);
+});
+test('action group rejects malformed records, unsupported keys and incomplete or duplicate ID orders',async()=>{
+  const planActionGroup=await actionGroupPlanner(),valid=equalActionGroup();
+  const invalid=[null,[],new Date(),{}, {...valid,policy:'wrap'}, {...valid,theme:'gold'},
+    {...valid,insets:{...valid.insets,extra:1}}, {...valid,actions:{}},
+    {...valid,actions:[...valid.actions,{...valid.actions[0]}]},
+    {...valid,actions:[{...valid.actions[0],id:''},...valid.actions.slice(1)]},
+    {...valid,actions:[{...valid.actions[0],id:42},...valid.actions.slice(1)]},
+    {...valid,actions:[{...valid.actions[0],payload:{}},...valid.actions.slice(1)]},
+    {...valid,actions:[null,...valid.actions.slice(1)]},
+    {...valid,visualOrder:['cancel','cancel','accept']}, {...valid,fallbackOrder:['cancel','export']},
+    {...valid,visualOrder:['cancel','export','unknown']}, {...valid,fallbackOrder:'cancel'},
+    {...valid,actions:[],visualOrder:['cancel'],fallbackOrder:[]}];
+  const symbol=Symbol('unsupported');
+  invalid.push({...valid,[symbol]:true}, {...valid,insets:{...valid.insets,[symbol]:true}},
+    {...valid,actions:[{...valid.actions[0],[symbol]:true},...valid.actions.slice(1)]});
+  for(const input of invalid)expect(()=>planActionGroup(input)).toThrow();
+});
+test('action group accepts ordinary and null-prototype records without accepting class instances',async()=>{
+  const planActionGroup=await actionGroupPlanner(),ordinary=equalActionGroup();
+  const plain=value=>Object.assign(Object.create(null),value);
+  const input=plain({...ordinary,insets:plain(ordinary.insets),actions:ordinary.actions.map(plain)});
+  expect(planActionGroup(input)).toEqual(planActionGroup(ordinary));
+  class Measure{constructor(value){Object.assign(this,value);}}
+  expect(()=>planActionGroup(new Measure(ordinary))).toThrow();
+  expect(()=>planActionGroup({...ordinary,insets:new Measure(ordinary.insets)})).toThrow();
+  expect(()=>planActionGroup({...ordinary,actions:[new Measure(ordinary.actions[0]),...ordinary.actions.slice(1)]})).toThrow();
+});
+test('action group retains declared numeric inset values regardless of property enumerability',async()=>{
+  const planActionGroup=await actionGroupPlanner(),input=equalActionGroup();
+  Object.defineProperty(input.insets,'top',{value:11,enumerable:false});
+  const plan=planActionGroup(input);
+  expect(plan.insets).toEqual({top:11,right:8,bottom:8,left:8});
+  expect(plan.occupiedHeight).toEqual({known:false,minimum:71});
+});
+test('action group rejects invalid numeric inputs, policy minima and nonfinite derived arithmetic',async()=>{
+  const planActionGroup=await actionGroupPlanner();
+  for(const number of [-1,NaN,Infinity,-Infinity,'22',undefined]){
+    for(const key of ['width','gap','rowGap'])expect(()=>planActionGroup({...equalActionGroup(),[key]:number})).toThrow();
+    for(const key of ['top','right','bottom','left']){
+      const input=equalActionGroup();input.insets[key]=number;expect(()=>planActionGroup(input)).toThrow();
+    }
+    for(const key of ['preferredWidth','minWidth','minHeight','fixedHeight']){
+      const input=authoredActionGroup();input.actions[0][key]=number;expect(()=>planActionGroup(input)).toThrow();
+    }
+  }
+  const positiveMin=equalActionGroup();positiveMin.actions[0].minWidth=1;
+  expect(()=>planActionGroup(positiveMin)).toThrow();
+  const belowMin=authoredActionGroup();belowMin.actions[0].preferredWidth=21;
+  expect(()=>planActionGroup(belowMin)).toThrow();
+  const absentHeight=authoredActionGroup();delete absentHeight.actions[0].fixedHeight;
+  expect(()=>planActionGroup(absentHeight)).toThrow();
+  const insetOverflow=equalActionGroup();insetOverflow.insets.left=Number.MAX_VALUE;insetOverflow.insets.right=Number.MAX_VALUE;
+  expect(()=>planActionGroup(insetOverflow)).toThrow();
+  const heightOverflow=equalActionGroup();heightOverflow.width=0;
+  for(const action of heightOverflow.actions)action.minHeight=Number.MAX_VALUE;
+  expect(()=>planActionGroup(heightOverflow)).toThrow();
+  const cursorOverflow=authoredActionGroup();cursorOverflow.width=0;
+  for(const action of cursorOverflow.actions)action.preferredWidth=Number.MAX_VALUE;
+  expect(()=>planActionGroup(cursorOverflow)).toThrow();
+});
 
 test('font publishes deterministic editable glyphs, metrics, game symbols, and crisp bounded raster',()=>{
   const recipe=generateUIRecipe({kind:'font'});expect(generateUIRecipe({kind:'font'})).toEqual(recipe);
