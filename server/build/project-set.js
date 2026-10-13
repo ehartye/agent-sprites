@@ -1,8 +1,9 @@
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { buildProject } from './project-build.js';
 import { checkTilesetRecipe } from '../authoring/tileset.js';
 import { buildTool, resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
+import { buildManifest, inspectArtifactIntegrity } from './artifact-integrity.js';
 
 const key = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => {
@@ -25,8 +26,8 @@ function readProjects(listPath) {
     seen.add(id);
     const config = readJSON(configPath);
     if (config?.version !== 1 || typeof config.output !== 'string' || !config.output.trim()) throw new Error(`Invalid build config: ${path}; requires version: 1 and an output directory.`);
-    const output = canonical(resolve(dirname(configPath), config.output));
-    return { configPath, config, output };
+    const declaredOutput = resolve(dirname(configPath), config.output), output = canonical(declaredOutput);
+    return { configPath, config, output, declaredOutput };
   });
   for (const [i, project] of projects.entries()) {
     if (inside(project.output, listPath)) throw new Error(`Output contains the project set: ${project.output}`);
@@ -40,7 +41,7 @@ function readProjects(listPath) {
   return projects;
 }
 
-function inspectProject({ configPath, config, output }) {
+function inspectProject({ configPath, config, output, declaredOutput }) {
   const reasons = [], reason = (code, message, details = {}) => reasons.push({ code, message, ...details });
   const result = { config: configPath, output, status: 'stale', reasons };
   let current;
@@ -56,8 +57,13 @@ function inspectProject({ configPath, config, output }) {
     for (const d of checked.diagnostics) reason('source-invalid', d.message, { file: d.file, line: d.line });
     if (reasons.length) { result.status = 'invalid'; return result; }
   }
-  const path = join(output, 'sprite-manifest.json');
-  if (!existsSync(path)) { reason('unbuilt', 'No successful build manifest; rebuild this project.'); return result; }
+  const path = join(output, buildManifest);
+  try {
+    const directory = lstatSync(declaredOutput), file = lstatSync(path);
+    if (directory.isSymbolicLink() || !directory.isDirectory() || file.isSymbolicLink() || !file.isFile()) {
+      reason('manifest-invalid', 'Build output and manifest must be regular files/directories, not links.'); return result;
+    }
+  } catch { reason('unbuilt', 'No successful build manifest; rebuild this project.'); return result; }
   let manifest;
   try { manifest = readJSON(path); }
   catch (error) { reason('manifest-invalid', error.message); return result; }
@@ -75,13 +81,7 @@ function inspectProject({ configPath, config, output }) {
     }
     if (prior.inputs.length !== current.inputs.length || prior.inputs.some(old => !current.inputs.some(input => input.path === old?.path))) reason('input-list-changed', 'The recorded input list differs from the current build.');
   }
-  for (const file of Object.values(manifest.files)) {
-    // Published artifact names are flat, portable basenames. Do not follow an
-    // untrusted manifest to files elsewhere on disk.
-    if (typeof file !== 'string' || !file || file === '.' || file === '..' || /[\\/:]/.test(file)) { reason('manifest-invalid', 'Invalid artifact filename in build manifest.'); continue; }
-    try { if (!statSync(join(output, file)).isFile()) throw new Error('not a file'); }
-    catch { reason('output-missing', `Build artifact missing: ${file}`, { file }); }
-  }
+  reasons.push(...inspectArtifactIntegrity(output, manifest));
   if (!reasons.length) result.status = 'current';
   return result;
 }

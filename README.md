@@ -183,9 +183,14 @@ agent-sprites build-set ./sprite-projects.json --json
 
 `--check` reads files without executing generators, starting a sprite server or
 writing outputs. It exits 1 if any project needs attention and reports why: a
-different tool version, changed inputs, missing artifacts, or legacy output
-without provenance. Successful builds now record tool/version and SHA-256 input
-hashes in `sprite-manifest.json`; existing manifest fields remain compatible.
+different tool version, changed inputs or artifact bytes, missing artifacts,
+malformed or unsafe records, or legacy output without provenance or final-byte
+integrity. Successful builds record tool/version, SHA-256 input hashes, and exact
+final artifact byte counts and SHA-256 hashes in `sprite-manifest.json`;
+the existing version 1 manifest fields and file roles remain compatible.
+An old receipt without `integrity` is explicitly uncertified
+(`output-integrity-missing`); checking does not repair files or add a receipt.
+Rebuild deliberately from the canonical inputs when adopting the new producer.
 
 `agent-sprites app-icons app-icons.json [--check]` builds the web app icon set (192 and 512 icons, maskable 512, apple-touch 180
 without alpha, 16/32/48 favicons, `favicon.ico`, optional 1200x630 share card) from three tiles of a built tileset using whole-number
@@ -201,7 +206,9 @@ character short is reported as `source-invalid` with its file and line (status
 without building, run `agent-sprites build ./sprite-project.json --check [--json]`:
 it lists every wrong-width row (file, line, tile, expected and actual width) and
 unknown palette character, writes nothing, needs no server and exits 1 on any
-problem, so it fits a CI step or a pre-commit hook.
+problem, so it fits a CI step or a pre-commit hook. This single-project
+`build --check` validates sources; use `build-set --check` to inspect published
+artifact integrity.
 
 The config and its ops file or generator script are tracked automatically.
 Declare generator imports, palettes, source images and other dependencies in
@@ -212,9 +219,16 @@ the build config's optional `inputs` list (paths relative to that config):
 ```
 
 Declare every external file that affects the result; imports are not discovered
-automatically. Freshness checks compare recorded inputs and verify artifact
-presence; they do not verify artifact contents or detect unreleased tool edits
-under the same version. `verify` remains the atlas validation command.
+automatically. Freshness checks compare recorded inputs, the tool name/version,
+and every recorded final artifact's byte count and SHA-256. Changed bytes report
+`output-changed`; missing or unreadable files report `output-missing`.
+`manifest-invalid` covers malformed, incomplete, extra, self-referencing, or
+unsafe records, duplicate names, unlisted output files, and linked artifacts,
+manifests or output directories. These checks do not detect unreleased tool
+edits under the same version; package-version changes still invalidate builds
+broadly. `verify` remains the structural PNG/atlas validation command. Neither
+byte freshness nor structural validation certifies artwork quality or a game's
+later transformations.
 
 Builds run in list order, so derived sheets can follow their base sheets. Each
 project uses the existing isolated, verified publication path. A failure stops
@@ -320,6 +334,20 @@ Every build also writes `sprite-manifest.json`: `format`, `version: 1`, the proj
 `environmentReport`, `uiRuntime` and so on). Every name is relative to the manifest,
 so a game can copy the output directory anywhere and load the sheet, atlas and report
 from the manifest instead of guessing URLs from the recipe kind.
+Its additive `integrity` map records `{bytes, sha256}` for each unique portable
+basename in `files`, plus the fixed `.agent-sprites-build.json` ownership marker.
+`bytes` is a nonnegative safe integer; `sha256` is 64 lowercase hexadecimal
+characters.
+The snapshot covers all final emitted bytes, including verification, reports,
+editable project, operations, preview, and any runtime or bootstrap files;
+omitted artifacts have no records. The marker is covered as emitted ownership
+metadata, without promising identical metadata across machines. Before
+publication, the final staged inventory must match the declared artifacts and
+marker exactly, with regular files and no links or duplicate names. The manifest
+is excluded from its own integrity map and serialized last to avoid a hash cycle.
+Copy the complete output directory to retain its portable receipt. Existing
+output names, file roles, and independent game software pins stay unchanged;
+upgrading the producer does not regenerate game art automatically.
 Open the self-contained preview directly in a browser to play tags at their
 exported durations, pause, step, and zoom. Saved projects retain cell groups,
 animation speeds, shape groups, names and pivots when reopened.
