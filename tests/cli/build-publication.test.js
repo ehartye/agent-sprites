@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { buildProject } from '../../server/build/project-build.js';
 
-const faults = vi.hoisted(() => ({ rename: null, write: null }));
+const faults = vi.hoisted(() => ({ rename: null, write: null, platform: 'win32' }));
 vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal();
   return { ...actual, writeFileSync: vi.fn((path, ...args) => {
@@ -14,6 +14,9 @@ vi.mock('node:fs', async importOriginal => {
     faults.write?.(path, actual.writeFileSync);
     return result;
   }), renameSync: vi.fn((from, to) => {
+    // Simulate retry platform only at the publication fault boundary, after
+    // source/process identity fences. Builds retain the actual startup platform.
+    if (faults.rename) Object.defineProperty(process, 'platform', { value: faults.platform });
     faults.rename?.(from, to);
     return actual.renameSync(from, to);
   }) };
@@ -28,7 +31,7 @@ const publishing = (from, to) => from.includes('.staging-') && !from.endsWith('.
 const outputBytes = () => Object.fromEntries(readdirSync(output).sort().map(file => [file, readFileSync(join(output, file)).toString('hex')]));
 beforeEach(async () => {
   originalPlatform = process.platform;
-  Object.defineProperty(process, 'platform', { value: 'win32' });
+  faults.platform = 'win32';
   faults.rename = null;
   faults.write = null;
   dir = realpathSync(mkdtempSync(join(tmpdir(), 'sprite-publication-')));
@@ -170,7 +173,7 @@ test.each(['ENOENT', 'EIO', 'EXDEV', 'ENOTEMPTY'])('does not retry unexpected %s
 });
 
 test('does not retry permission errors on other platforms', async () => {
-  Object.defineProperty(process, 'platform', { value: 'linux' });
+  faults.platform = 'linux';
   let attempts = 0;
   faults.rename = (from, to) => { if (publishing(from, to)) { attempts++; throw denied('EPERM'); } };
   expect((await buildProject(config)).ok).toBe(false);

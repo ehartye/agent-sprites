@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, symlinkSync, copyFileSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, symlinkSync, copyFileSync, realpathSync, cpSync, renameSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, parse, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -68,7 +69,7 @@ describe('managed CLI installation', () => {
   });
 
   test('actual skill launcher selects managed copy and fails closed after source update', () => {
-    for (const file of ['managed-runtime.js', 'run-managed.js']) copyFileSync(join(process.cwd(), 'scripts', file), join(source, 'scripts', file));
+    for (const file of ['managed-runtime.js', 'run-managed.js', 'source-fingerprint.js']) copyFileSync(join(process.cwd(), 'scripts', file), join(source, 'scripts', file));
     installRuntime(source, { home, npm, checkDependencies: deps });
     const launch = () => execFileSync(process.execPath, [join(source, 'scripts', 'run-managed.js'), 'batch', 'ops with spaces.json'], {
       cwd: sandbox, encoding: 'utf8', env: { ...process.env, AGENT_SPRITES_HOME: home }, stdio: 'pipe',
@@ -147,4 +148,63 @@ describe('managed CLI installation', () => {
       expect(report.state).toBe(scenario === 'matched' ? 'matched' : scenario === 'unidentified' ? 'unidentified' : 'mismatch');
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
+});
+
+test('shared source fingerprint preserves original ordered byte policy, relocation and text normalization', async () => {
+  const { fingerprintSource } = await import('../../scripts/source-fingerprint.js');
+  put(join(source, 'scripts', 'z.mjs'), 'export const x=1;\r\n');
+  put(join(source, 'scripts', 'a.txt'), 'a\r\nb\r\n');
+  put(join(source, 'server', 'pixels.bin'), Buffer.from([0, 13, 10, 255]));
+  const files = ['package.json', 'package-lock.json', 'scripts/a.txt', 'scripts/sprite.js', 'scripts/z.mjs', 'server/index.js', 'server/pixels.bin'];
+  const original = createHash('sha256');
+  for (const name of files) {
+    const bytes = readFileSync(join(source, name));
+    original.update(name).update('\0').update(/\.(?:[cm]?js|json|html|css|svg|txt)$/.test(name) ? bytes.toString('utf8').replaceAll('\r\n', '\n') : bytes).update('\0');
+  }
+  const expected = original.digest('hex'), first = fingerprintSource(source);
+  expect(first).toEqual({ fingerprint: expected, files });
+  expect(describeSource(source).fingerprint).toBe(expected);
+  const moved = join(sandbox, 'relocated'); cpSync(source, moved, { recursive: true });
+  put(join(moved, 'scripts', 'z.mjs'), 'export const x=1;\n');
+  expect(fingerprintSource(moved)).toEqual(first);
+  put(join(moved, 'server', 'pixels.bin'), Buffer.from([0, 10, 255]));
+  expect(fingerprintSource(moved).fingerprint).not.toBe(expected);
+  put(join(moved, 'server', 'pixels.bin'), readFileSync(join(source, 'server', 'pixels.bin')));
+  renameSync(join(moved, 'scripts', 'a.txt'), join(moved, 'scripts', 'b.txt'));
+  expect(fingerprintSource(moved).fingerprint).not.toBe(expected);
+  renameSync(join(moved, 'scripts', 'b.txt'), join(moved, 'scripts', 'a.txt'));
+  put(join(moved, 'server', 'extra.txt'), 'extra');
+  expect(fingerprintSource(moved).fingerprint).not.toBe(expected);
+  rmSync(join(moved, 'server', 'extra.txt'));
+  expect(fingerprintSource(moved)).toEqual(first);
+});
+
+test('source inventory rejects directory links (Windows junctions) and Unix file symlinks', async () => {
+  const { fingerprintSource } = await import('../../scripts/source-fingerprint.js');
+  const target = join(sandbox, 'outside'); mkdirSync(target); put(join(target, 'helper.js'), '// outside');
+  const link = join(source, 'server', 'linked');
+  symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+  expect(() => fingerprintSource(source)).toThrow(/must not contain symlinks/);
+  rmSync(link, { recursive: true });
+  // Windows junction coverage above needs no file-symlink privilege; Unix also exercises files.
+  if (process.platform !== 'win32') {
+    symlinkSync(join(target, 'helper.js'), join(source, 'server', 'helper.js'), 'file');
+    expect(() => fingerprintSource(source)).toThrow(/must not contain symlinks/);
+  }
+});
+
+test('dependency metadata resolves exported entry ancestors from producer root without loading native bindings', async () => {
+  const { resolveDependencyVersions } = await import('../../server/build/producer-identity.js');
+  const versions = { canvas: '3.2.3', 'better-sqlite3': '12.11.1', sharp: '0.35.4' };
+  for (const [name, version] of Object.entries(versions)) {
+    const root = join(source, 'node_modules', name); mkdirSync(join(root, 'lib'), { recursive: true });
+    put(join(root, 'package.json'), JSON.stringify({ name, version, exports: { '.': './lib/index.cjs' } }));
+    put(join(root, 'lib', 'index.cjs'), 'throw new Error("native binding must not load for metadata");');
+  }
+  expect(resolveDependencyVersions(source)).toEqual(versions);
+  const metadata = join(source, 'node_modules', 'sharp', 'package.json');
+  put(metadata, JSON.stringify({ name: 'sharp', version: '0.35.5', exports: { '.': './lib/index.cjs' } }));
+  expect(resolveDependencyVersions(source).sharp).toBe('0.35.5');
+  put(metadata, JSON.stringify({ name: 'other', version: '0.35.5', exports: { '.': './lib/index.cjs' } }));
+  expect(() => resolveDependencyVersions(source)).toThrow(/sharp.*metadata/i);
 });

@@ -183,9 +183,9 @@ agent-sprites build-set ./sprite-projects.json --json
 
 `--check` reads files without executing generators, starting a sprite server or
 writing outputs. It exits 1 if any project needs attention and reports why: a
-different tool version, changed inputs or artifact bytes, missing artifacts,
+different tool version or declared source/toolchain identity, changed inputs or artifact bytes, missing artifacts,
 malformed or unsafe records, or legacy output without provenance or final-byte
-integrity. Successful builds record tool/version, SHA-256 input hashes, and exact
+integrity. Successful builds record tool/version and declared identity, SHA-256 input hashes, and exact
 final artifact byte counts and SHA-256 hashes in `sprite-manifest.json`;
 the existing version 1 manifest fields and file roles remain compatible.
 An old receipt without `integrity` is explicitly uncertified
@@ -219,16 +219,41 @@ the build config's optional `inputs` list (paths relative to that config):
 ```
 
 Declare every external file that affects the result; imports are not discovered
-automatically. Freshness checks compare recorded inputs, the tool name/version,
+automatically. Freshness checks compare recorded inputs, the tool name/version and declared identity,
 and every recorded final artifact's byte count and SHA-256. Changed bytes report
 `output-changed`; missing or unreadable files report `output-missing`.
 `manifest-invalid` covers malformed, incomplete, extra, self-referencing, or
 unsafe records, duplicate names, unlisted output files, and linked artifacts,
-manifests or output directories. These checks do not detect unreleased tool
-edits under the same version; package-version changes still invalidate builds
-broadly. `verify` remains the structural PNG/atlas validation command. Neither
+manifests or output directories. Same-version producer source changes report
+`tool-source-changed`; Node/process or resolved package-version changes report
+`toolchain-changed`. Missing legacy identity reports `tool-identity-missing`,
+and malformed identity reports `tool-identity-invalid`. Checks never upgrade
+receipts. A source/metadata change during inspection invalidates the whole set
+with `tool-changed-during-check`. `verify` remains the structural PNG/atlas validation command. Neither
 byte freshness nor structural validation certifies artwork quality or a game's
 later transformations.
+
+`build.tool.identity` is additive version 1 metadata: `source` records algorithm
+`sha256-runtime-source-v1`, scope `package+lock+scripts+server`, and a full lowercase
+SHA-256; `node` records the executing full Node version, modules ABI, platform and
+architecture; `dependencies` records resolved `canvas`, `better-sqlite3` and `sharp`
+npm versions. Resolution is anchored to the producer, including packages whose
+exports hide package.json, and does not load native bindings to read metadata.
+Source traversal starts with package.json, package-lock.json, scripts, server in
+that order, sorts each directory, rejects source links, and hashes relative POSIX
+name/NUL/content/NUL. js/mjs/cjs/json/html/css/svg/txt CRLF becomes LF; other bytes
+remain exact. Root relocation preserves identity. Any byte change within that
+broad source scope, even an unrelated helper/launcher change, can invalidate every
+project; Node patch/platform differences can invalidate identical output pixels.
+
+This declared scope does not fingerprint native binaries, system libraries,
+fonts, transitive packages or exact loader-read bytes. Equal identity does not
+promise pixel reproducibility or certify aesthetics. Builds capture an immutable
+source/package baseline before loading the producer graph and fence each attempt
+before publication. A long-lived producer whose disk source or package metadata
+changes refuses builds with `restart required`; checks can inspect current disk
+identity without rendering. Restart deliberately after development edits. A
+change restored before the end hash is outside this bounded mutation fence.
 
 Builds run in list order, so derived sheets can follow their base sheets. Each
 project uses the existing isolated, verified publication path. A failure stops

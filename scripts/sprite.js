@@ -405,6 +405,8 @@ async function run() {
     if (positional.length !== 1 || Object.keys(args).some(key => !['check', 'json'].includes(key)) || Object.values(args).some(value => ![true, 'true', 'false'].includes(value))) {
       throw new Error('Usage: agent-sprites build-set <sprite-projects.json> [--check] [--json]');
     }
+    // Capture startup identity before dynamically loading the producer graph.
+    await import('../server/build/producer-identity.js');
     const { buildProjectSet } = await import('../server/build/project-set.js');
     const report = await buildProjectSet(positional[0], { check: bool(args.check) });
     if (bool(args.json)) console.log(JSON.stringify(report));
@@ -433,6 +435,7 @@ async function run() {
   }
   if (cmd === 'build') {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
+    await import('../server/build/producer-identity.js');
     const { buildProject } = await import('../server/build/project-build.js');
     const report = await buildProject(positional[0]);
     if (bool(args.json)) console.log(JSON.stringify(report));

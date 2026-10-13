@@ -83,6 +83,14 @@ test('build provenance records the tool version and declared generator inputs by
   const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
   const version = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
   expect(manifest.build).toMatchObject({ tool: { name: 'agent-sprites', version } });
+  expect(manifest.build.tool.identity).toMatchObject({
+    version: 1,
+    source: { algorithm: 'sha256-runtime-source-v1', scope: 'package+lock+scripts+server' },
+    node: { version: process.version, modules: process.versions.modules, platform: process.platform, arch: process.arch },
+  });
+  expect(manifest.build.tool.identity.source.sha256).toMatch(/^[a-f0-9]{64}$/);
+  expect(Object.keys(manifest.build.tool.identity.dependencies)).toEqual(['canvas', 'better-sqlite3', 'sharp']);
+  for (const version of Object.values(manifest.build.tool.identity.dependencies)) expect(version).toMatch(/^\d+\.\d+\.\d+/);
   expect(manifest.build.inputs.map(input => input.path)).toEqual(['sprite-project.json', 'palette.json']);
   for (const input of manifest.build.inputs) expect(input.sha256).toMatch(/^[a-f0-9]{64}$/);
 });
@@ -123,6 +131,7 @@ test('character and environment builds publish the portable playback runtime', a
   const result = await buildProject(path);
   expect(result.errors).toEqual([]);
   expect(JSON.parse(readFileSync(result.artifacts.manifest, 'utf8')).files.playbackRuntime).toBe('playback-runtime.mjs');
+  expect(readFileSync(result.artifacts.playbackRuntime)).toEqual(readFileSync(new URL('../../server/build/playback-runtime.mjs', import.meta.url)));
   const runtime = await import(pathToFileURL(result.artifacts.playbackRuntime).href);
   const report = JSON.parse(readFileSync(result.artifacts.characterReport, 'utf8'));
   const walker = runtime.createWalker([report], { person: 'ada', outfit: 'casual', mode: 'authored-contact', facing: 'right' });

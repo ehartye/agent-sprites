@@ -1,3 +1,5 @@
+// Establish immutable source/package metadata before the renderer graph loads.
+import { acquireBuildTool, assertLoadedProducer, assertToolStable } from './producer-identity.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, openSync, closeSync, realpathSync, lstatSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join, basename, relative, isAbsolute, sep } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -97,6 +99,7 @@ export async function buildProject(configPath) {
   let stage, server, db, lock, lockPath, agent;
   const result = { ok: false, artifacts: {}, errors: [], warnings: [] };
   try {
+    const tool = assertLoadedProducer();
     configPath = realpathSync(resolve(configPath));
     const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath);
     if (config.version !== 1) throw new Error('Build config requires version: 1.');
@@ -109,7 +112,7 @@ export async function buildProject(configPath) {
     const omit = new Set(config.omit ?? []);
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
-    const provenance = snapshotBuildInputs(configPath, config, source);
+    const provenance = snapshotBuildInputs(configPath, config, source, tool);
     let output = resolve(base, config.output);
     if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
     mkdirSync(dirname(output), { recursive: true });
@@ -227,7 +230,9 @@ export async function buildProject(configPath) {
     // receipt. The marker names the manifest but does not hash it: no cycle.
     manifest.integrity = snapshotArtifactIntegrity(stage, manifest.files);
     writeFileSync(join(stage, artifacts.manifest), json(manifest));
-    if (JSON.stringify(snapshotBuildInputs(configPath, config, source)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
+    const finalTool = acquireBuildTool();
+    assertToolStable(tool, finalTool, 'generation');
+    if (JSON.stringify(snapshotBuildInputs(configPath, config, source, finalTool)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
     assertOwnedOutput(output, configPath);
     const backup = stage + '.previous';
     const replacing = existsSync(output);
