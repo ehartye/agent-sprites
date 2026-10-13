@@ -108,6 +108,7 @@ jobs:
         run: >-
           node node_modules/vitest/vitest.mjs run tests/db
           tests/engine/raster.test.js tests/engine/canvas-renderer.test.js
+          tests/engine/atlas-verifier.test.js
           tests/engine/environment-modules.test.js tests/cli/managed-runtime.test.js
           tests/cli/managed-invocation.test.js tests/cli/owned-child-process.test.js
           tests/cli/owned-cli.test.js

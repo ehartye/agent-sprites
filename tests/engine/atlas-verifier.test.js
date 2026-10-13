@@ -1,5 +1,6 @@
 import { test, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, linkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, linkSync, readdirSync, lstatSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -62,6 +63,151 @@ test('offline CLI checks static names and emits a failed report before review ou
   expect(bad.code).toBe(1);
   expect(JSON.parse(bad.stdout).errors.some(x=>x.code==='missing-frame')).toBe(true);
   expect(existsSync(contact)).toBe(false);
+});
+
+function verificationSnapshot() {
+  return readdirSync(dir).sort().map(name => {
+    const path = join(dir, name), stat = lstatSync(path, { bigint: true });
+    return { name, size: stat.size, mtime: stat.mtimeNs, bytes: stat.isFile() ? readFileSync(path).toString('hex') : null };
+  });
+}
+async function verifyCLI(...args) {
+  const cli = fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
+  return exec(process.execPath, [cli, 'verify', file, ...args, '--json'], {
+    cwd: dir, windowsHide: true, env: { ...process.env, SPRITE_PORT: '1' }, timeout: 10000,
+  }).then(result => ({ ...result, code: 0 }), error => error);
+}
+
+test('offline expected-frame files enforce required IDs through the existing verifier without writes', async () => {
+  const expected = join(dir, 'expected frames.json');
+  writeFileSync(expected, JSON.stringify(['idle', 'wingnut']));
+  const before = verificationSnapshot();
+  const bad = await verifyCLI('--expect-frames-file', 'expected frames.json');
+  expect(bad.code).toBe(1);
+  expect(JSON.parse(bad.stdout).errors).toContainEqual({ code: 'missing-frame', path: 'frames', message: 'Required frame is missing: wingnut' });
+  expect(verificationSnapshot()).toEqual(before);
+  writeFileSync(expected, JSON.stringify(['idle', '0']));
+  const goodBefore = verificationSnapshot();
+  const good = await verifyCLI('--expect-frames-file', 'expected frames.json');
+  expect(good.code).toBe(0);
+  expect(JSON.parse(good.stdout)).toMatchObject({ ok: true, frameCount: 6 });
+  expect(verificationSnapshot()).toEqual(goodBefore);
+});
+
+test('expected-frame files carry a list exceeding Windows argv length using a tiny unchanged PNG', async () => {
+  const names = Array.from({ length: 1400 }, (_, n) => `lantern-shoal-required-frame-${String(n).padStart(4, '0')}`);
+  expect(names.join(',').length).toBeGreaterThan(32767);
+  atlas.frames.push(...names.map(filename => ({ ...atlas.frames[0], filename })));
+  writeFileSync(file, JSON.stringify(atlas));
+  const expected = join(dir, 'large-expectations.json');
+  writeFileSync(expected, JSON.stringify(names));
+  const before = verificationSnapshot();
+  const good = await verifyCLI('--expect-frames-file', expected);
+  expect(good.code).toBe(0);
+  expect(JSON.parse(good.stdout)).toMatchObject({ ok: true, frameCount: atlas.frames.length });
+  expect(verificationSnapshot()).toEqual(before);
+  names[names.length - 1] += '-missing';
+  writeFileSync(expected, JSON.stringify(names));
+  const badBefore = verificationSnapshot();
+  const bad = await verifyCLI('--expect-frames-file', expected);
+  expect(bad.code).toBe(1);
+  expect(JSON.parse(bad.stdout).errors.map(error => error.message)).toContain(`Required frame is missing: ${names[names.length - 1]}`);
+  expect(verificationSnapshot()).toEqual(badBefore);
+});
+
+test('expected-frame files preserve exact IDs, including commas, whitespace and case', async () => {
+  const name = ' precise, comma ';
+  atlas.frames.push({ ...atlas.frames[0], filename: name });
+  writeFileSync(file, JSON.stringify(atlas));
+  const expected = join(dir, 'exact.json');
+  writeFileSync(expected, JSON.stringify([name]));
+  expect(JSON.parse((await verifyCLI('--expect-frames-file', expected)).stdout).ok).toBe(true);
+  atlas.frames = Object.fromEntries(atlas.frames.map(frame => [frame.filename, frame]));
+  writeFileSync(file, JSON.stringify(atlas));
+  expect(JSON.parse((await verifyCLI('--expect-frames-file', expected)).stdout).ok).toBe(true);
+  for (const wrong of ['precise, comma', ' Precise, comma ']) {
+    writeFileSync(expected, JSON.stringify([wrong]));
+    const before = verificationSnapshot();
+    const bad = await verifyCLI('--expect-frames-file', expected);
+    expect(bad.code).toBe(1);
+    expect(JSON.parse(bad.stdout).errors.map(error => error.code)).toContain('missing-frame');
+    expect(verificationSnapshot()).toEqual(before);
+  }
+});
+
+test('expected-frame file parse, shape, uniqueness and bounded-size failures precede review writes', async () => {
+  const expected = join(dir, 'invalid.json'), report = join(dir, 'review.json'), contact = join(dir, 'review.png');
+  const tooMany = JSON.stringify(Array.from({ length: 100001 }, (_, n) => `f${n}`));
+  const tooLarge = Buffer.alloc(2 * 1024 * 1024 + 1, 32); tooLarge.write('[]');
+  const cases = [
+    ['malformed JSON', '{'], ['invalid UTF8', Buffer.from([0xff])],
+    ...[null, {}, 'idle', 7, ['idle', null], ['idle', 7], ['idle', true], ['idle', {}], ['idle', []], [''], ['idle', 'idle']].map(value => [JSON.stringify(value), JSON.stringify(value)]),
+    ['more than 100000 IDs', tooMany], ['more than 2MiB', tooLarge],
+  ];
+  for (const [label, bytes] of cases) {
+    writeFileSync(expected, bytes);
+    const before = verificationSnapshot();
+    const bad = await verifyCLI('--expect-frames-file', expected, '--report', report, '--contact-sheet', contact);
+    expect(bad.code, label).toBe(1);
+    expect(bad.stderr, label).toContain('--expect-frames-file');
+    expect(verificationSnapshot(), label).toEqual(before);
+  }
+}, 20000);
+
+test('expected-frame file options reject missing paths and mutually exclusive flags without writes', async () => {
+  const expected = join(dir, 'expected.json'); writeFileSync(expected, JSON.stringify(['idle']));
+  const cases = [
+    ['--expect-frames-file'], ['--expect-frames-file', ''], ['--expect-frames-file', join(dir, 'missing.json')],
+    ['--expect-frames-file', dir], ['--expect-frames', 'idle', '--expect-frames-file', expected],
+    ['--expect-frames', '', '--expect-frames-file', expected],
+  ];
+  for (const args of cases) {
+    const before = verificationSnapshot();
+    const bad = await verifyCLI(...args);
+    expect(bad.code, JSON.stringify(args)).toBe(1);
+    expect(bad.stderr, JSON.stringify(args)).toContain('--expect-frames-file');
+    expect(verificationSnapshot()).toEqual(before);
+  }
+});
+
+test('expected-frame file permits an empty explicit contract and preserves explicit report mode', async () => {
+  const expected = join(dir, 'none.json'); writeFileSync(expected, '[]');
+  const report = join(dir, 'report.json'), contact = join(dir, 'contact.png');
+  const good = await verifyCLI('--expect-frames-file', expected, '--report', report, '--contact-sheet', contact);
+  expect(good.code).toBe(0);
+  expect(JSON.parse(readFileSync(report, 'utf8')).ok).toBe(true);
+  expect(existsSync(contact)).toBe(true);
+  expect(readFileSync(expected, 'utf8')).toBe('[]');
+});
+
+test('expected-frame file reads remain bounded when the file grows after its size observation', async () => {
+  const expected = join(dir, 'growing.json'); writeFileSync(expected, '[]');
+  const preload = join(dir, 'grow-after-fstat.mjs');
+  writeFileSync(preload, `import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+    const open=fs.openSync,stat=fs.fstatSync;let target;
+    fs.openSync=function(path,...args){const fd=open.call(this,path,...args);if(String(path)===${JSON.stringify(expected)})target=fd;return fd;};
+    fs.fstatSync=function(fd,...args){const result=stat.call(this,fd,...args);if(fd===target){target=undefined;fs.appendFileSync(${JSON.stringify(expected)},Buffer.alloc(2*1024*1024+1,32));}return result;};
+    syncBuiltinESMExports();`);
+  const before = verificationSnapshot().filter(entry => entry.name !== 'growing.json');
+  const cli = fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
+  const bad = await exec(process.execPath, ['--import', pathToFileURL(preload).href, cli, 'verify', file, '--expect-frames-file', expected, '--json'], {
+    cwd: dir, windowsHide: true, env: { ...process.env, SPRITE_PORT: '1' }, timeout: 10000,
+  }).then(result => ({ ...result, code: 0 }), error => error);
+  expect(bad.code).toBe(1);
+  expect(bad.stderr).toContain('--expect-frames-file: input exceeds the 2 MiB limit');
+  expect(verificationSnapshot().filter(entry => entry.name !== 'growing.json')).toEqual(before);
+});
+
+test('review destinations cannot overwrite expected-frame input files or their hard links', async () => {
+  const expected = join(dir, 'expectations.json'); writeFileSync(expected, JSON.stringify(['idle']));
+  const alias = join(dir, 'expectations-hardlink.json'); linkSync(expected, alias);
+  for (const option of ['--report', '--contact-sheet']) for (const destination of [expected, alias]) {
+    const before = verificationSnapshot();
+    const bad = await verifyCLI('--expect-frames-file', expected, option, destination);
+    expect(bad.code, `${option} ${destination}`).toBe(1);
+    expect(bad.stderr).toContain('--expect-frames-file');
+    expect(verificationSnapshot()).toEqual(before);
+  }
 });
 test('reads exported bytes, warns about empty frames and writes readable review artifacts', async () => {
   const contact = join(dir,'review.png'), reportPath=join(dir,'report.json');

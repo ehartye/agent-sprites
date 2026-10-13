@@ -3,7 +3,7 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync, realpathSync } from 'fs';
+import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync, realpathSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -123,6 +123,38 @@ function parseArgs(argv) {
 
 function num(v) { return v !== undefined ? Number(v) : undefined; }
 function bool(v) { return v === 'true' || v === true; }
+
+// A file transports exact IDs without the operating system's argv length cap.
+// Bound the actual read, including growth after fstat, rather than only its size.
+function expectedFramesFromFile(path, outputs) {
+  if (typeof path !== 'string' || !path.length) throw new Error('--expect-frames-file requires a nonempty file path.');
+  const limit = 2 * 1024 * 1024;
+  let fd;
+  try {
+    fd = openSync(path, 'r');
+    const input = fstatSync(fd, { bigint: true });
+    if (!input.isFile()) throw new Error('input must be a regular file.');
+    if (input.size > BigInt(limit)) throw new Error('input exceeds the 2 MiB limit.');
+    const bytes = Buffer.alloc(limit + 1);
+    let length = 0;
+    while (length < bytes.length) {
+      const count = readSync(fd, bytes, length, bytes.length - length, null);
+      if (!count) break;
+      length += count;
+    }
+    if (length > limit) throw new Error('input exceeds the 2 MiB limit.');
+    const frames = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)));
+    if (!Array.isArray(frames) || frames.length > 100000 || frames.some(name => typeof name !== 'string' || !name.length)) throw new Error('input must be a JSON array of at most 100000 nonempty string IDs.');
+    if (new Set(frames).size !== frames.length) throw new Error('input IDs must be unique.');
+    const canonicalInput = realpathSync(path);
+    for (const output of outputs.filter(Boolean)) if (existsSync(output)) {
+      const target = statSync(output, { bigint: true });
+      if (realpathSync(output) === canonicalInput || (target.dev === input.dev && target.ino === input.ino)) throw new Error('review output must differ from the input file, including file links.');
+    }
+    return frames;
+  } catch (error) { throw new Error(`--expect-frames-file: ${error.message}`, { cause: error }); }
+  finally { if (fd !== undefined) closeSync(fd); }
+}
 
 function parseVarsFlag(s) {
   // Split on commas that precede "<ident>=", so values like "0,0" are preserved.
@@ -244,7 +276,7 @@ OFFLINE VERIFICATION (does not start or contact a server)
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
                          isolated build of PNG, atlas, editable project and playable preview
-  verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
+  verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
                          inspect actual PNG + metadata; optional continuous-outline check
 
@@ -448,11 +480,14 @@ async function run() {
     return;
   }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter] [--outline-colors "#39283f"] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--outline-colors "#39283f"] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
+    const fileFrames = Object.hasOwn(args, 'expect-frames-file');
+    if (fileFrames && Object.hasOwn(args, 'expect-frames')) throw new Error('--expect-frames-file and --expect-frames are mutually exclusive.');
+    const expectedFrames = fileFrames ? expectedFramesFromFile(args['expect-frames-file'], [args.report, args['contact-sheet']]) : args['expect-frames'] ? String(args['expect-frames']).split(',') : [];
     const { verifyAtlasFile } = await import('../server/engine/atlas-verifier.js');
     const report = await verifyAtlasFile(positional[0], {
       expectedTags: args['expect-tags'] ? String(args['expect-tags']).split(',') : [],
-      expectedFrames: args['expect-frames'] ? String(args['expect-frames']).split(',') : [],
+      expectedFrames,
       outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
       contactPath: args['contact-sheet'], contactFrames: args['contact-frames'] ? String(args['contact-frames']).split(',').map(x=>x.trim()).filter(Boolean) : [], reportPath: args.report, scale: num(args.scale) ?? 4, maxAspect: num(args['max-aspect']),
     });
