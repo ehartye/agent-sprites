@@ -406,7 +406,12 @@ semantics. Message skin families include `message` (utility), `speech`, `specime
 `specimen_mount`, `specimen_label` (mint label with ink text), `note` (paper),
 `notification`, and `warning`. Their report metrics include six-pixel fixed
 insets, twelve-pixel content padding, minimum dimensions, and `textTone`.
-Use the exported metrics for layout at your integer display scale. The separate
+Use the exported metrics with a positive integer physical footprint per source
+pixel. Native contextual UI may use fractional local scale `P / S` under its
+declared uniform local-to-physical mapping; use the
+[pure placement and resolution helpers](examples/ui/text-metrics.md#explicit-mixed-resolution-projection)
+to quantize physical paint separately from semantic hit/focus/clip geometry.
+Portable Canvas drawing retains its integer scale and position guards. The separate
 `scrim_solid` frame is opaque pixel art; composite it at its reported `opacity`
 (0.48) to quiet the world behind a dialog. Historical skin frames and regular /
 compact font colors remain unchanged. A third `face: "display"` gives 2× logo and banner lettering, `kind: "logo"` builds a ready-made stacked title logotype (sun, wheat, lit lettering), every font draws symbols (heart, skull, check, star, moon, bolt, drop, wheat, lock) inline, the wasteland skin adds colour `sym_*` icons, and sheets pack near-square (`verify --max-aspect`). The portable runtime also exports
@@ -419,9 +424,12 @@ without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destinatio
 
 UI output may live in a game's `public/` directory as URL-served assets. Bundled
 source should load its JSON/reports through Phaser's loader/cache and import one
-unchanged generated `ui-runtime.mjs` vendored outside `public/` by the checked
-asset-build script. `resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure
-helpers; native Phaser `BitmapText` and `NineSlice` remain the visible UI renderer.
+unchanged canonical `server/build/ui-runtime.mjs` Git blob pinned outside `public/`
+with commit/version/path/SHA-256 attribution and byte-preserving Git attributes.
+Default builds verify that committed software pin without a producer installation;
+explicit upgrades replace it independently of historical font/skin exports.
+`resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure helpers; games retain
+native Phaser rendering, controls and lifecycle ownership.
 See the [bundler layout and Phaser cache examples](examples/ui/README.md#bundlers-and-public-assets).
 
 Custom Node generators can return `{operations, report}` with a UI `kind` of

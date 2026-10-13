@@ -18,7 +18,7 @@ It has authored four-column, six-row letters in 6×10 cells, baseline 7, line he
 10, advance 5 and space advance 3. Punctuation/symbols retain up to five columns;
 accents and descenders have reserved rows. It supports the same repertoire and
 tones as the default `face: "regular"`. Build it as a separate font atlas, then
-compose both faces at integer 2×: ordinary lettering is 14 pixels high and compact
+compose both faces at a physical footprint of 2 pixels per source pixel: ordinary lettering is 14 pixels high and compact
 lettering 12. Do not downscale the regular font to fake smaller type. Use matching
 advance/space metrics in semantic layouts. Keep important actions in the regular
 face and quiet supporting text in compact; use ink on light panels, cream on dark.
@@ -28,16 +28,16 @@ Use `kind: "logo"` for a title logotype: one frame named `logo`, stacked capital
 VALLEY"`, letters and digits only; one line per `
 `), a lit gold-to-copper gradient, brass and dark outlines, a hard
 drop shadow, a striped sun behind and a horizon of wheat. Wasteland theme colours; about 167x111 for the default text. It is
-one atlas frame, so draw it as one image at the layer's integer scale (`ui-phaser.json` is `{kind:'logo', frame, size, bounds}`).
+one atlas frame, so draw it as one image with whole physical pixels per source pixel (`ui-phaser.json` is `{kind:'logo', frame, size, bounds}`).
 The wasteland skin also has `banner_boss`, a nine-slice plate (insets 8, padding 10x8) with copper frame and gold corner studs, for boss-name and event banners.
 
-Use `face: "display"` for logos, banners, boss names and other big type that must still obey one integer scale per layer.
+Use `face: "display"` for logos, banners, boss names and other big type with whole physical pixels per source pixel.
 It is the regular lettering redrawn at twice the size: each 5x7 mask is smoothed with the EPX (Scale2x) rule so curves and
 diagonals get real pixel steps, lit like a bevel (highlight on top edges, shade on bottom edges), outlined, and given a one pixel
 drop shadow. Cells are 12x24, baseline 19, line height 24, advance 12, space advance 8. It covers every glyph of the regular
 face (pass `characters` to build a smaller atlas), and every tone is a ready-made ramp, never a tint: `gold` shades toward
 copper, `cream` toward brass, `muted` toward the backing, and `ink` is dark with a light outline for light panels. Draw it with
-`BitmapText` at scale 1 like the other faces, and only in short strings; its width is the only reason to prefer regular.
+`BitmapText` at the selected source-pixel footprint, without enlarging the regular face to imitate it, and only in short strings; its width is the only reason to prefer regular.
 
 The original 5-column font provides 8×12 cells, baseline 9, line height 12, advance
 6 and space advance 4. Lowercase descenders and common accents have reserved rows.
@@ -51,8 +51,15 @@ memory and renderer capabilities.
 
 Every glyph has exported `cream`, `muted`, `gold`, and `ink` frames. The report's
 `glyphs[character]` contains `advance`, pixel `bounds`, and `frames[tone]`. Use a
-positive integer scale; 2× or larger is recommended for screen text. Source 1×
-labels can follow an integer-scaled game camera. No kerning or platform shaping
+positive integer physical footprint `P`; 2 pixels or larger per source pixel is
+recommended for screen text. An aligned whole-camera path can use integer local
+scales. Native contextual UI uses local scale `P / S`, where `S` is its exact
+uniform local-to-physical camera scale; `P = 2`, `S = 3` gives valid local scale
+`2/3`. Declare the complete mapping, including physical origin, with
+[`pixelResolution`](text-metrics.md#explicit-mixed-resolution-projection).
+Quantize paint through the released placement helpers and project it back to
+local units; do not round continuous pointer, semantic hit, focus or clip geometry.
+No kerning or platform shaping
 is applied. For native text renderers, pass display copy through `resolveFontText`
 with the font report or `ui-phaser.json` font metadata; it preserves supported
 characters and replaces each unsupported Unicode code point with the exported
@@ -74,25 +81,26 @@ are copied unchanged and should not be imported as bundled source modules.
 Such imports can produce notices or fail. Load public JSON through Phaser's
 loader/cache (or `fetch`), and include the deployment base in asset URLs, as below.
 
-If bundled game code uses runtime helpers, vendor one complete, unchanged
-generated `ui-runtime.mjs` outside `public/`, for example at
-`src/vendor/agent-sprites/ui-runtime.mjs`. Add a deterministic copy to the existing
-asset-build script, after a checked managed UI build succeeds. With the script
-running from the game project root:
+If bundled game code uses runtime helpers, commit one complete, unchanged copy of
+the producer's canonical `server/build/ui-runtime.mjs` Git blob outside `public/`,
+for example at `src/vendor/agent-sprites/ui-runtime.mjs`. Record producer commit,
+version, source path and SHA-256 beside it. Preserve the blob bytes with a
+path-specific `.gitattributes` entry such as
+`src/vendor/agent-sprites/ui-runtime.mjs -text`; checkout line-ending conversion
+must not change its recorded digest. Import that committed source copy normally.
 
-```js
-import {copyFileSync, mkdirSync} from 'node:fs';
-mkdirSync('src/vendor/agent-sprites', {recursive: true});
-copyFileSync('public/assets/ui-font/ui-runtime.mjs',
-             'src/vendor/agent-sprites/ui-runtime.mjs');
-```
-
-Import that source copy normally and refresh it with asset builds from the same
-tool version. Every font face and skin emits the same runtime; keep one vendor
-copy, without hand edits, copied helper logic or copies per face.
-`resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure helpers and need no
-Canvas context. Phaser's visible UI still uses native `BitmapText` and `NineSlice`;
-using these helpers does not require the portable compositor.
+The default game build verifies the committed pin and digest without requiring a
+managed install or sibling producer checkout. An explicit software upgrade uses
+a clean producer revision, reads that revision's Git blob as bytes, and replaces
+the vendor module and provenance together. Do not automatically recopy a runtime
+from historical public art after an image build: it may predate the pinned helpers.
+Old font/skin exports keep their existing bytes and provenance; upgrading software
+does not require rebuilding or relabeling them. Every face and skin uses the same
+helper module; keep one vendor copy without hand edits or copied helper logic.
+Pure text metrics, placement, resolution projection, `resolveFontText`, `pixelFit`
+and `getOpaqueBounds` need no Canvas context. Games bind compatible results to
+native Phaser display objects; using these helpers does not require the portable
+compositor or a shared widget runtime.
 
 ## Phaser
 
@@ -102,7 +110,7 @@ Font: `{version, kind:'font', face, image, atlas, lineHeight, baseline, size, sp
 `glyphs` lists every supported character (no space). `tones.cream|muted|gold|ink` are each a
 `Phaser.Types.GameObjects.BitmapText.BitmapFontData`, exactly the shape `ParseXMLBitmapFont` produces (`font, size, lineHeight, retroFont:false, chars[charCode]` with `u0,v0,u1,v1` texture coordinates (v flipped: `1 - y/height`; Phaser's renderer reads them from the glyph) and
 `x,y,width,height` = that tone's glyph cell in the font PNG, `yOffset 0`, `xAdvance` = glyph advance). `ui-boot.mjs` also exports the same object as `phaser`, for loading/error screens with no fetch. Register one font per tone
-over the already-loaded PNG, then use a normal `BitmapText` at an integer scale:
+over the already-loaded PNG. This example uses the aligned whole-camera path:
 
 ```js
 import {resolveFontText} from './vendor/agent-sprites/ui-runtime.mjs'; // from src/
@@ -116,13 +124,49 @@ for (const [tone, data] of Object.entries(px.tones)) {
   this.cache.bitmapFont.add(`ui-font-${tone}`, {data, texture: 'ui-font', frame: null});
 }
 this.add.bitmapText(x, y, 'ui-font-cream', resolveFontText(px, 'Hello 🦋'), px.size);
-// Keep the scale integer; the unsupported butterfly displays as the exported ?.
+// Aligned whole-camera path: integer local scale; butterfly uses exported ?.
 ```
 
 Skin: `{version, kind:'skin', image, atlas, cell, frames[alias]}`; each frame has `frame` (atlas frame name), `padding`, `minWidth`,
 `minHeight`, `bounds` (painted pixel bounds, inclusive, as in the report; every report frame has an entry), optional `textTone`, `tile`, `content`, `icon`, `color`, `hollow`, and `nineSlice:{leftWidth,rightWidth,topHeight,bottomHeight}`
 (absent for icons and tiled scrims) matching `this.add.nineslice(x, y, texture, frame, width, height, leftWidth, rightWidth, topHeight, bottomHeight)`.
-Phaser stretches nine-slice edges, so size panels in whole source pixels and place them at integer positions under an integer camera zoom.
+Phaser stretches native NineSlice edges. For an aligned whole-camera path, size
+panels in whole source pixels and place them at aligned integer local positions
+under a whole camera zoom. For contextual tiling without stretched art, use
+`planNineSlice` and `iterateNineSliceTiles` with the same explicit resolution as
+text. Bind each emitted piece using its actual atlas cut dimensions and trim
+metadata, rather than assuming `sourceSize` equals the cropped frame.
+Create untrimmed synthetic piece frames when splitting an atlas cut.
+
+Native TileSprite buffers must have integer authored-source dimensions:
+`physicalDestination.width / P` and `physicalDestination.height / P`. Set the
+object scale to `P / S`, tile scale to 1 and tile offsets to zero. Do not give
+TileSprite fractional local buffer dimensions: integer Canvas buffers can truncate
+them. Reuse pieces by row, column and node type, since zero regions can disappear.
+The game retains minimum-size, padding and overflow policy.
+
+For this contextual fractional-local path on Phaser 4.2.1 Canvas, set
+`roundPixels = false` on the consuming UI camera. Its Canvas
+[`batchSprite` path](https://github.com/phaserjs/phaser/blob/v4.2.1/src/renderer/canvas/CanvasRenderer.js#L862-L877)
+otherwise rounds local origins and expands draw extents by 0.5;
+[BitmapText](https://github.com/phaserjs/phaser/blob/v4.2.1/src/gameobjects/bitmaptext/static/BitmapTextCanvasRenderer.js#L161-L165)
+also rounds local glyph origins. Those operations can alter already-quantized physical
+paint. This is a scoped native binding setting, not a global rounding rule.
+Verify the pinned renderer source and actual framebuffer pixels again on engine
+upgrades; aligned whole-camera paths retain their own rounding policy.
+
+Keep painted faces separate from full semantic action targets (at least 44 CSS
+pixels on phone controls), focus and clipping. Convert CSS/DPR/camera coordinates
+once and inverse-project input continuously. The game-owned binding keeps a prior
+snapshot of effective mapping values: `S`, physical origin and `P`, including
+viewport and pane-scroll contributions. Compare those values against the prior
+snapshot; a revision counter alone cannot detect a changed mapping. On any change,
+advance the context revision, invalidate plans and cancel held activation before
+publishing the new mapping or footprint. Accept a plan or held activation only
+when its context identity and revision match the current context. Retain the active
+scroll-drag transport when canceling held activation. Native objects, input, action
+families, controls and disposal stay game-owned; pure helper plans carry context
+metadata but neither manage lifecycle nor enforce the binding's current values.
 
 ```js
 // preload(): use the same deployment-base URL prefix as the font
