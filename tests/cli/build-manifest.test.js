@@ -1,5 +1,6 @@
 import { test, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,6 +8,18 @@ import { buildProject } from '../../server/build/project-build.js';
 
 let dir, path;
 const write = config => writeFileSync(path, JSON.stringify({ version: 1, output: 'dist', scale: 1, ...config }));
+function expectFinalIntegrity(result, manifest) {
+  const output = join(dir, 'dist');
+  const emitted = readdirSync(output).filter(file => file !== 'sprite-manifest.json').sort();
+  expect(Object.keys(manifest.integrity ?? {}).sort()).toEqual(emitted);
+  expect(emitted).toEqual([...Object.values(manifest.files), '.agent-sprites-build.json'].sort());
+  expect(manifest.integrity).not.toHaveProperty('sprite-manifest.json');
+  for (const file of emitted) {
+    const bytes = readFileSync(join(output, file));
+    expect(manifest.integrity[file], file).toEqual({ bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
+  }
+  expect(Object.keys(result.artifacts).sort()).toEqual([...Object.keys(manifest.files), 'manifest'].sort());
+}
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'sprite-manifest-')); path = join(dir, 'sprite-project.json'); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -17,6 +30,7 @@ test('recipe builds publish a portable manifest naming the recipe kind and every
   const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
   expect(manifest).toMatchObject({ format: 'agent-sprites-build-manifest', version: 1, name: 'furnishings', source: 'environment', kind: 'furniture', report: 'environment-report.json' });
   expect(manifest.files).toMatchObject({ sheet: 'furnishings.png', atlas: 'furnishings.atlas.json', environmentReport: 'environment-report.json' });
+  expectFinalIntegrity(result, manifest);
   // Relative names only: the manifest keeps working after the directory is copied.
   for (const file of Object.values(manifest.files)) expect(file).not.toMatch(/[\\/]/);
   expect(manifest.files.manifest).toBeUndefined();
@@ -35,7 +49,8 @@ test('UI manifests list the runtime and font bootstrap', async () => {
   expect(result.errors).toEqual([]);
   const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
   expect(manifest).toMatchObject({ source: 'ui', kind: 'font', report: 'ui-report.json' });
-  expect(manifest.files).toMatchObject({ uiRuntime: 'ui-runtime.mjs', uiBoot: 'ui-boot.mjs', uiPhaser: 'ui-phaser.json' });
+  expect(manifest.files).toMatchObject({ uiRuntime: 'ui-runtime.mjs', uiActionGroup: 'ui-action-group.mjs', uiBoot: 'ui-boot.mjs', uiPhaser: 'ui-phaser.json', fontProof: 'font-proof.png', fontProofReport: 'font-proof.json' });
+  expectFinalIntegrity(result, manifest);
 }, 20000);
 
 test('operation builds have no recipe kind or report', async () => {
@@ -47,6 +62,17 @@ test('operation builds have no recipe kind or report', async () => {
   expect(manifest).toMatchObject({ source: 'ops', name: 'dot' });
   expect(manifest).not.toHaveProperty('kind');
   expect(manifest).not.toHaveProperty('report');
+  expectFinalIntegrity(result, manifest);
+});
+
+test('integrity inventories only artifacts retained by an omitted-output build', async () => {
+  writeFileSync(join(dir, 'ops.json'), JSON.stringify([{ command: 'new', name: 'dot', size: 8, rows: 1, cols: 1 }, { command: 'draw', type: 'point', cell: '0,0', name: 'p', x: 1, y: 1, color: '#ffffff' }]));
+  write({ ops: 'ops.json', omit: ['project', 'operations', 'preview', 'contactSheet'] });
+  const result = await buildProject(path);
+  expect(result.errors).toEqual([]);
+  const manifest = JSON.parse(readFileSync(result.artifacts.manifest, 'utf8'));
+  expect(manifest.files).toEqual({ sheet: 'dot.png', atlas: 'dot.atlas.json', verification: 'verification.json' });
+  expectFinalIntegrity(result, manifest);
 });
 
 test('build provenance records the tool version and declared generator inputs by content', async () => {

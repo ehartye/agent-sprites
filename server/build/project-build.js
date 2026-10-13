@@ -27,9 +27,9 @@ import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { generateNativeRecipe } from '../authoring/native-recipe.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
+import { buildMarker as marker, buildManifest, snapshotArtifactIntegrity } from './artifact-integrity.js';
 
 const exec = promisify(execFile);
-const marker = '.agent-sprites-build.json';
 const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
@@ -216,14 +216,17 @@ export async function buildProject(configPath) {
     if (recipeReport?.pixelScale !== undefined) manifest.pixelScale = recipeReport.pixelScale;
     if (reportKey) manifest.report = artifacts[reportKey];
     manifest.files = { ...artifacts };
-    artifacts.manifest = 'sprite-manifest.json';
-    writeFileSync(join(stage, artifacts.manifest), json(manifest));
+    artifacts.manifest = buildManifest;
     verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, ...(artifacts.contactSheet ? { contactSheet: artifacts.contactSheet } : {}) };
     writeFileSync(join(stage, artifacts.verification), json(verified));
     if (artifacts.project) writeFileSync(join(stage, artifacts.project), json(project.toJSON()));
     if (artifacts.operations) writeFileSync(join(stage, artifacts.operations), json(operations));
     if (artifacts.preview) writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
     writeFileSync(join(stage, marker), json({ ...outputOwner(output, configPath), files: Object.values(artifacts) }));
+    // All output content, including the ownership marker, is final before the
+    // receipt. The marker names the manifest but does not hash it: no cycle.
+    manifest.integrity = snapshotArtifactIntegrity(stage, manifest.files);
+    writeFileSync(join(stage, artifacts.manifest), json(manifest));
     if (JSON.stringify(snapshotBuildInputs(configPath, config, source)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
     assertOwnedOutput(output, configPath);
     const backup = stage + '.previous';

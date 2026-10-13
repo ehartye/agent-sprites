@@ -11,6 +11,7 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'server/db/**'
+      - 'server/build/**'
       - 'server/engine/**'
       - 'server/index.js'
       - 'server/web/api/control-routes.js'
@@ -18,6 +19,11 @@ on:
       - 'tests/db/**'
       - 'tests/engine/**'
       - 'tests/cli/managed-*.test.js'
+      - 'tests/cli/build-manifest.test.js'
+      - 'tests/cli/project-set.test.js'
+      - 'tests/cli/build-publication.test.js'
+      - 'tests/cli/tileset-crop.test.js'
+      - 'tests/cli/ui-build.test.js'
       - 'tests/cli/view-png-real-server.test.js'
       - 'tests/cli/owned-child-process.test.js'
       - 'tests/cli/owned-cli.test.js'
@@ -34,6 +40,7 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'server/db/**'
+      - 'server/build/**'
       - 'server/engine/**'
       - 'server/index.js'
       - 'server/web/api/control-routes.js'
@@ -41,6 +48,11 @@ on:
       - 'tests/db/**'
       - 'tests/engine/**'
       - 'tests/cli/managed-*.test.js'
+      - 'tests/cli/build-manifest.test.js'
+      - 'tests/cli/project-set.test.js'
+      - 'tests/cli/build-publication.test.js'
+      - 'tests/cli/tileset-crop.test.js'
+      - 'tests/cli/ui-build.test.js'
       - 'tests/cli/view-png-real-server.test.js'
       - 'tests/cli/owned-child-process.test.js'
       - 'tests/cli/owned-cli.test.js'
@@ -91,7 +103,7 @@ jobs:
       - name: Exercise Canvas, SQLite and Sharp bindings
         id: dependencies
         run: node .github/scripts/native-compatibility.mjs dependencies
-      - name: DB, raster, managed and owned PNG controls
+      - name: DB, raster, artifact integrity, publication, managed and owned PNG controls
         id: tests
         run: >-
           node node_modules/vitest/vitest.mjs run tests/db
@@ -100,6 +112,9 @@ jobs:
           tests/cli/managed-invocation.test.js tests/cli/owned-child-process.test.js
           tests/cli/owned-cli.test.js
           tests/cli/native-compatibility-receipt.test.js
+          tests/cli/build-manifest.test.js tests/cli/project-set.test.js
+          tests/cli/build-publication.test.js tests/cli/tileset-crop.test.js
+          tests/cli/ui-build.test.js
           tests/cli/view-png-real-server.test.js --maxWorkers=2
           --reporter=default --reporter=json --outputFile.json="$NATIVE_RECEIPT_DIR/targeted-tests.json"
       - name: Install, check and launch the managed release
