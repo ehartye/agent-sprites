@@ -29,6 +29,10 @@ test('custom generator publishes UI reports, custom palette and exact trimmed gl
   write(font()); const result = await buildProject(config);
   expect(result.errors).toEqual([]); expect(result.ok).toBe(true);
   for (const key of ['uiReport', 'uiRuntime', 'uiPhaser', 'uiBoot', 'fontProof']) expect(existsSync(result.artifacts[key])).toBe(true);
+  const software=JSON.parse(readFileSync(result.artifacts.uiSoftwareManifest));
+  expect(Object.keys(software.files)).toHaveLength(16);
+  expect(existsSync(result.artifacts.uiIndexTypes)).toBe(true);
+  expect(existsSync(result.artifacts.uiPhaserRuntime)).toBe(true);
   const data = JSON.parse(readFileSync(result.artifacts.uiPhaser));
   expect(Object.keys(data.tones)).toEqual(['cream', 'muted', 'gold', 'ink', 'rare']);
   expect(data.tones.rare.chars[63]).toMatchObject({ width: 3, height: 5, xOffset: 1, yOffset: 2, xAdvance: 5 });

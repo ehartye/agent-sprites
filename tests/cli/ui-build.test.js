@@ -9,11 +9,16 @@ beforeEach(()=>{dir=realpathSync(mkdtempSync(join(tmpdir(),'sprite-ui-build-')))
 afterEach(()=>rmSync(dir,{recursive:true,force:true}));
 const write=()=>writeFileSync(path,JSON.stringify(config));
 async function assertEmittedActionGroup(result){
+  const software=JSON.parse(readFileSync(result.artifacts.uiSoftwareManifest,'utf8'));
+  expect(Object.keys(software.files)).toHaveLength(16);
+  expect(result.artifacts.uiIndex).toBe(join(dir,'dist','ui-index.mjs'));
+  expect(result.artifacts.uiPhaserRuntimeTypes).toBe(join(dir,'dist','ui-phaser-runtime.d.mts'));
   const manifest=JSON.parse(readFileSync(result.artifacts.manifest,'utf8'));
   expect(manifest.files.uiActionGroup).toBe('ui-action-group.mjs');
   const emitted=join(dir,'dist',manifest.files.uiActionGroup);
   expect(result.artifacts.uiActionGroup).toBe(emitted);
   const marker=JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json'),'utf8'));
+  for(const file of [...Object.keys(software.files),'ui-software-manifest.json'])expect(marker.files.filter(f=>f===file)).toHaveLength(1);
   expect(marker.files.filter(file=>file==='ui-action-group.mjs')).toHaveLength(1);
   expect(readFileSync(emitted)).toEqual(readFileSync(new URL('../../server/build/ui-action-group.mjs',import.meta.url)));
   // Import the actual emitted independent bytes, not the producer source or core runtime.

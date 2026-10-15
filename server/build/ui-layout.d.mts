@@ -58,7 +58,7 @@ export interface ActionPlan {
   readonly format: 'agent-sprites/action-group@1'; readonly semanticIds: readonly string[]; readonly paintIds: readonly string[];
   readonly allocation: {readonly kind: 'empty'} | {readonly kind: 'native-equal'; readonly arrangement: 'row' | 'grid' | 'stack'; readonly columns: number; readonly rows: readonly (readonly string[])[]} | {readonly kind: 'authored'; readonly arrangement: 'row'; readonly slots: readonly (Rect & {readonly id: string})[]};
 }
-export type LayoutRecord<K extends NodeKind = NodeKind> = K extends NodeKind ? DeepReadonly<Omit<UiNode<K>, 'children'> & {
+export type LayoutRecord<K extends NodeKind = NodeKind> = K extends NodeKind ? Readonly<Omit<UiNode<K>, 'children'> & {
   bounds: Rect; hitBounds: Rect; focusBounds: Rect; effectiveHitBounds: Rect | null; effectiveFocusBounds: Rect | null;
   clipBounds: Rect | null; contentClipBounds: Rect | null; contentBounds: Rect; paintBounds: Rect | null; effectivePaintBounds: Rect | null; semanticContextId: string; contextRevisions: Record<string, number>;
   paneId: string; state: 'visible' | 'clipped' | 'hidden'; measure: Measure; parts: readonly PaintPart[];

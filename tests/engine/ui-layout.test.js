@@ -5,6 +5,30 @@ async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])
 function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
 
+test('child semantic context projects allocation and inherited clipping through physical coordinates',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:2,x:10,y:0},sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:200,height:120}}];
+  const plan=layoutUi(u.absolute({id:'root',layout:{width:20,height:10,overflow:'clip'},children:[u.button({id:'child',contextId:'test:child',label:'?',actionId:'game:child',layout:{width:20,height:10}})]}),env);
+  const record=plan.records.find(r=>r.id==='child');
+  expect(record.semanticContextId).toBe('test:child');
+  expect(record.bounds).toEqual({x:-90,y:0,width:20,height:10});
+  expect(record.clipBounds).toEqual({x:-90,y:0,width:40,height:20});
+  expect(record.effectiveHitBounds).toEqual(record.bounds);
+  expect(record.contextRevisions).toMatchObject({'test:child':1,'test:main':1});
+});
+
+test('mixed semantic contexts convert child intrinsic and explicit sizes before parent row allocation',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',sourcePixelPhysicalSize:1,localToPhysical:{scale:1,x:100,y:0},viewport:{x:-100,y:0,width:300,height:120}}];
+  const tree=u.row({id:'row',layout:{width:50,height:20,align:'start'},children:[u.button({id:'intrinsic',contextId:'test:child',label:'?'}),u.button({id:'fixed',contextId:'test:child',label:'?',layout:{width:10,height:10}}),u.button({id:'main',label:'?'})]});
+  const records=layoutUi(tree,env).records;
+  expect(records[1].bounds).toEqual({x:-100,y:0,width:5,height:8});
+  expect(records[2].bounds).toEqual({x:-95,y:0,width:10,height:10});
+  expect(records[3].bounds.x).toBe(7.5);
+});
+
 test.each(['scroll','paginate','clip'])('review own text contributes to %s extent and field decoration movement',async overflow=>{
   const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
   for(const kind of ['text','field']){

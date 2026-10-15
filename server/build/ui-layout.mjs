@@ -71,6 +71,12 @@ export function layoutUi(tree, environment) {
   prepare(root, contexts[0].id);
 
   const measurements = new Map();
+  const ratio = (child, parentContext) => prepared.get(child.id).context.localToPhysical.scale / parentContext.localToPhysical.scale;
+  const childLength = (child, key, parentContext) => child.layout[key] === undefined ? undefined : child.layout[key] * ratio(child,parentContext);
+  function measureChild(child, availableWidth, parentContext) {
+    const factor=ratio(child,parentContext), measured=measure(child,availableWidth/factor);
+    return {...measured,min:{width:measured.min.width*factor,height:measured.min.height*factor},preferred:{width:measured.preferred.width*factor,height:measured.preferred.height*factor},allocatedHeight:measured.allocatedHeight*factor};
+  }
   function measure(node, availableWidth) {
     const width = clamp(node.layout.width ?? availableWidth, node.layout.minWidth ?? 0, node.layout.maxWidth ?? Number.MAX_VALUE);
     let widths = measurements.get(node.id);
@@ -94,15 +100,15 @@ export function layoutUi(tree, environment) {
     }
     const children = node.kind === 'fold' && !node.value ? [] : node.children.filter(child => !child.hidden);
     const cellWidth = node.kind === 'grid' ? Math.max(0, (innerWidth - gap * ((l.columns ?? 1) - 1)) / (l.columns ?? 1)) : innerWidth;
-    const sizes = children.map(child => measure(child, cellWidth));
-    const widths = sizes.map((m, i) => children[i].layout.width ?? m.preferred.width), heights = sizes.map((m, i) => children[i].layout.height ?? m.allocatedHeight);
+    const sizes = children.map(child => measureChild(child, cellWidth, data.context));
+    const widths = sizes.map((m, i) => childLength(children[i],'width',data.context) ?? m.preferred.width), heights = sizes.map((m, i) => childLength(children[i],'height',data.context) ?? m.allocatedHeight);
     let childWidth = maximum(widths), childHeight = sum(heights) + gap * Math.max(0, children.length - 1), minWidth = maximum(sizes.map(m => m.min.width)), minHeight = sum(sizes.map(m => m.min.height)) + gap * Math.max(0, children.length - 1), actionPlan;
     if (node.kind === 'row') {
       childWidth = sum(widths) + gap * Math.max(0, children.length - 1); childHeight = maximum(heights);
       minWidth = sum(sizes.map(m => m.min.width)) + gap * Math.max(0, children.length - 1); minHeight = maximum(sizes.map(m => m.min.height));
-      const allocatedWidths = fitLengths(children, sizes, innerWidth, 'width', gap);
-      const remeasured = children.map((child, i) => measure(child, allocatedWidths[i]));
-      childHeight = maximum(remeasured.map((m, i) => children[i].layout.height ?? m.allocatedHeight));
+      const allocatedWidths = fitLengths(children, sizes, innerWidth, 'width', gap, data.context);
+      const remeasured = children.map((child, i) => measureChild(child, allocatedWidths[i], data.context));
+      childHeight = maximum(remeasured.map((m, i) => childLength(children[i],'height',data.context) ?? m.allocatedHeight));
       minHeight = maximum(remeasured.map(m => m.min.height));
     } else if (node.kind === 'grid') {
       const columns = l.columns ?? 1, rows = Math.ceil(children.length / columns);
@@ -111,8 +117,8 @@ export function layoutUi(tree, environment) {
       minWidth = maximum(sizes.map(m => m.min.width)) * columns + gap * (columns - 1);
       minHeight = sum(Array.from({length: rows}, (_, i) => maximum(sizes.slice(i * columns, (i + 1) * columns).map(m => m.min.height)))) + gap * Math.max(0, rows - 1);
     } else if (node.kind === 'absolute') {
-      childWidth = maximum(widths.map((w, i) => w + (children[i].layout.x ?? 0))); childHeight = maximum(heights.map((h, i) => h + (children[i].layout.y ?? 0)));
-      minWidth = maximum(sizes.map((m, i) => m.min.width + (children[i].layout.x ?? 0))); minHeight = maximum(sizes.map((m, i) => m.min.height + (children[i].layout.y ?? 0)));
+      childWidth = maximum(widths.map((w, i) => w + (childLength(children[i],'x',data.context) ?? 0))); childHeight = maximum(heights.map((h, i) => h + (childLength(children[i],'y',data.context) ?? 0)));
+      minWidth = maximum(sizes.map((m, i) => m.min.width + (childLength(children[i],'x',data.context) ?? 0))); minHeight = maximum(sizes.map((m, i) => m.min.height + (childLength(children[i],'y',data.context) ?? 0)));
     } else if (node.kind === 'actionBar') {
       actionPlan = planActionGroup({actions: children.map((child, i) => ({id: child.id, preferredWidth: widths[i], minWidth: node.allocationPolicy === 'equal-max-fit' ? 0 : sizes[i].min.width, minHeight: sizes[i].min.height, ...(node.allocationPolicy === 'authored-width-end' ? {fixedHeight: heights[i]} : {})})), visualOrder: node.visualOrder, fallbackOrder: node.fallbackOrder, width: l.width ?? availableWidth, insets: p, gap, rowGap: l.rowGap ?? gap, policy: node.allocationPolicy});
       const byId = new Map(children.map((child, i) => [child.id, heights[i]]));
@@ -147,16 +153,16 @@ export function layoutUi(tree, environment) {
     return {min: minimum, preferred, allocatedHeight, textHeight: wrappedText.height, contentHeight: wrappedText.height + childHeight + (children.length && label !== undefined ? gap : 0), actionPlan};
   }
 
-  function fitLengths(children, measures, available, axis, gap) {
+  function fitLengths(children, measures, available, axis, gap, parentContext) {
     const suffix = axis === 'width' ? 'Width' : 'Height';
-    const lengths = children.map((child, i) => child.layout[axis] ?? (axis === 'height' ? measures[i].allocatedHeight : measures[i].preferred.width));
+    const lengths = children.map((child, i) => childLength(child,axis,parentContext) ?? (axis === 'height' ? measures[i].allocatedHeight : measures[i].preferred.width));
     let extra = available - sum(lengths) - gap * Math.max(0, children.length - 1);
     if (extra > 0) {
       let growing = children.map((child, i) => i).filter(i => children[i].layout[axis] === undefined && children[i].layout.grow > 0);
       while (extra > 1e-8 && growing.length) {
         const total = sum(growing.map(i => children[i].layout.grow)), before = extra;
-        for (const i of growing) { const add = Math.min(before * children[i].layout.grow / total, (children[i].layout[`max${suffix}`] ?? Number.MAX_VALUE) - lengths[i]); lengths[i] += add; extra -= add; }
-        growing = growing.filter(i => lengths[i] < (children[i].layout[`max${suffix}`] ?? Number.MAX_VALUE));
+        for (const i of growing) { const add = Math.min(before * children[i].layout.grow / total, (childLength(children[i],`max${suffix}`,parentContext) ?? Number.MAX_VALUE) - lengths[i]); lengths[i] += add; extra -= add; }
+        growing = growing.filter(i => lengths[i] < (childLength(children[i],`max${suffix}`,parentContext) ?? Number.MAX_VALUE));
         if (before === extra) break;
       }
     } else if (extra < 0) {
@@ -167,8 +173,13 @@ export function layoutUi(tree, environment) {
   }
 
   const records = [];
-  function allocate(node, bounds, inheritedClip, suppressed = false, inheritedPane = 'main') {
+  function allocate(node, bounds, inheritedClip, suppressed = false, inheritedPane = 'main', allocationContext, inheritedDependencies = {}) {
     const data = prepared.get(node.id), {padding: p, gap, context, labelContext, skinContext, face, label, skin, role} = data, l = node.layout;
+    if (allocationContext && allocationContext.id !== context.id) {
+      bounds = mapRect(allocationContext, context, bounds);
+      inheritedClip = inheritedClip && mapRect(allocationContext, context, inheritedClip);
+    }
+    inheritedClip = inheritedClip && intersection(inheritedClip, context.viewport);
     const measured = measure(node, bounds.width), index = records.length;
     const content = rect(bounds.x + p.left, bounds.y + p.top, Math.max(0, bounds.width - p.left - p.right), Math.max(0, bounds.height - p.top - p.bottom));
     const labelContent = mapRect(context, labelContext, content), skinBounds = mapRect(context, skinContext, bounds), skinContent = mapRect(context, skinContext, content);
@@ -177,7 +188,7 @@ export function layoutUi(tree, environment) {
     const fullyClipped = inheritedClip === null || mode !== 'visible' && clip === null;
     const hidden = suppressed || !!node.hidden;
     const effectiveHit = hidden || fullyClipped ? null : intersection(bounds, inheritedClip);
-    const dependencies = Object.fromEntries([...new Set([context.id, skinContext.id, labelContext.id])].map(id => [id, contextMap.get(id).revision]));
+    const dependencies = {...inheritedDependencies, ...Object.fromEntries([...new Set([context.id, skinContext.id, labelContext.id])].map(id => [id, contextMap.get(id).revision]))};
     const record = {...node, bounds, hitBounds: {...bounds}, focusBounds: {...bounds}, effectiveHitBounds: effectiveHit, effectiveFocusBounds: effectiveHit && {...effectiveHit}, clipBounds: inheritedClip, contentClipBounds: clip, semanticContextId: context.id, contextRevisions: dependencies, paneId: node.paneId ?? inheritedPane, state: hidden ? 'hidden' : effectiveHit ? 'visible' : 'clipped', measure: {min: measured.min, preferred: measured.preferred}, contentBounds: content, paintBounds: null, parts: [], overflow: {mode}};
     delete record.children;
     records.push(record);
@@ -187,7 +198,7 @@ export function layoutUi(tree, environment) {
     // If text plus children overflows, page text first and give child pages the
     // full viewport. A repeated header belongs outside the paginated container.
     const ownTextPages = mode === 'paginate' && ownTextBounds && content.height > 0 && (ownTextBounds.height > content.height || node.children.some(child => !child.hidden) && measured.contentHeight > content.height) ? Math.ceil(ownTextBounds.height / content.height) : 0;
-    const children = node.children.filter(child => !child.hidden), sizes = children.map(child => measure(child, content.width));
+    const children = node.children.filter(child => !child.hidden), sizes = children.map(child => measureChild(child, content.width, context));
     const childTop = content.y + (label !== undefined && children.length && !ownTextPages ? measured.textHeight + gap : 0), childHeight = Math.max(0, content.y + content.height - childTop);
     const slots = new Map(), pageMembership = new Map();
     if (node.kind === 'actionBar') {
@@ -197,22 +208,22 @@ export function layoutUi(tree, environment) {
         let y = content.y;
         for (const ids of plan.allocation.rows) {
           const width = Math.max(0, Math.floor((content.width - gap * (ids.length - 1)) / ids.length));
-          const rowMeasures = ids.map(id => measure(children.find(child => child.id === id), width));
+          const rowMeasures = ids.map(id => measureChild(children.find(child => child.id === id), width, context));
           const height = maximum(rowMeasures.map(m => m.allocatedHeight));
           ids.forEach((id, i) => slots.set(id, rect(content.x + i * (width + gap), y, width, height))); y += height + (l.rowGap ?? gap);
         }
       }
     } else if (node.kind === 'absolute') {
-      children.forEach((child, i) => slots.set(child.id, rect(content.x + (child.layout.x ?? 0), childTop + (child.layout.y ?? 0), child.layout.width ?? sizes[i].preferred.width, child.layout.height ?? sizes[i].allocatedHeight)));
+      children.forEach((child, i) => slots.set(child.id, rect(content.x + (childLength(child,'x',context) ?? 0), childTop + (childLength(child,'y',context) ?? 0), childLength(child,'width',context) ?? sizes[i].preferred.width, childLength(child,'height',context) ?? sizes[i].allocatedHeight)));
     } else if (node.kind === 'grid') {
       const columns = l.columns ?? 1, width = Math.max(0, (content.width - gap * (columns - 1)) / columns); let y = childTop;
       for (let i = 0; i < children.length; i += columns) {
-        const slice = children.slice(i, i + columns), measures = slice.map(child => measure(child, width)), height = maximum(measures.map(m => m.allocatedHeight));
-        slice.forEach((child, col) => slots.set(child.id, rect(content.x + col * (width + gap), y, child.layout.width ?? Math.max(width, measures[col].min.width), child.layout.height ?? height))); y += height + gap;
+        const slice = children.slice(i, i + columns), measures = slice.map(child => measureChild(child, width, context)), height = maximum(measures.map(m => m.allocatedHeight));
+        slice.forEach((child, col) => slots.set(child.id, rect(content.x + col * (width + gap), y, childLength(child,'width',context) ?? Math.max(width, measures[col].min.width), childLength(child,'height',context) ?? height))); y += height + gap;
       }
     } else {
       const horizontal = node.kind === 'row', axis = horizontal ? 'width' : 'height', available = horizontal ? content.width : childHeight;
-      const lengths = mode === 'paginate' || mode === 'scroll' ? children.map((child, i) => child.layout[axis] ?? (horizontal ? sizes[i].preferred.width : sizes[i].allocatedHeight)) : fitLengths(children, sizes, available, axis, gap);
+      const lengths = mode === 'paginate' || mode === 'scroll' ? children.map((child, i) => childLength(child,axis,context) ?? (horizontal ? sizes[i].preferred.width : sizes[i].allocatedHeight)) : fitLengths(children, sizes, available, axis, gap, context);
       const occupied = sum(lengths) + gap * Math.max(0, children.length - 1), extra = Math.max(0, available - occupied);
       let between = gap, cursor = (horizontal ? content.x : childTop) + (l.justify === 'end' ? extra : l.justify === 'center' ? extra / 2 : 0);
       if (l.justify === 'space-between' && children.length > 1) between += extra / (children.length - 1);
@@ -223,7 +234,7 @@ export function layoutUi(tree, environment) {
           cursor = (horizontal ? content.x : childTop) + used + (used ? gap : 0); pageMembership.set(child.id, page); used += (used ? gap : 0) + lengths[i];
         }
         const crossAxis = horizontal ? 'height' : 'width', crossAvailable = horizontal ? childHeight : content.width;
-        const cross = child.layout[crossAxis] ?? (l.align && l.align !== 'stretch' ? sizes[i].preferred[crossAxis] : clamp(crossAvailable, sizes[i].min[crossAxis], child.layout[crossAxis === 'width' ? 'maxWidth' : 'maxHeight'] ?? Number.MAX_VALUE));
+        const cross = childLength(child,crossAxis,context) ?? (l.align && l.align !== 'stretch' ? sizes[i].preferred[crossAxis] : clamp(crossAvailable, sizes[i].min[crossAxis], childLength(child,crossAxis === 'width' ? 'maxWidth' : 'maxHeight',context) ?? Number.MAX_VALUE));
         const shift = l.align === 'end' ? crossAvailable - cross : l.align === 'center' ? (crossAvailable - cross) / 2 : 0;
         slots.set(child.id, horizontal ? rect(cursor, childTop + shift, lengths[i], cross) : rect(content.x + shift, cursor, cross, lengths[i])); cursor += lengths[i] + between;
       });
@@ -321,7 +332,7 @@ export function layoutUi(tree, environment) {
     record.effectivePaintBounds = union(record.parts.map(part => { const bounds = part.placement?.paintedBounds.rect ?? part.plan?.paintedBounds.rect ?? part.bounds ?? part.track, clipped = bounds && part.clipBounds ? intersection(bounds, part.clipBounds) : null; return clipped ? mapRect(contextMap.get(part.contextId), context, clipped) : null; }));
     for (const child of node.children) {
       const slot = slots.get(child.id) ?? rect(content.x, childTop, 0, 0);
-      allocate(child, {...slot, x: slot.x - scrollX, y: slot.y - scrollY}, fullyClipped ? null : clip, hidden || child.hidden || node.kind === 'fold' && !node.value || mode === 'paginate' && pageMembership.get(child.id) !== record.overflow.page, record.paneId);
+      allocate(child, {...slot, x: slot.x - scrollX, y: slot.y - scrollY}, fullyClipped ? null : clip, hidden || child.hidden || node.kind === 'fold' && !node.value || mode === 'paginate' && pageMembership.get(child.id) !== record.overflow.page, record.paneId, context, dependencies);
     }
     if (record.state === 'hidden') { record.parts = []; record.paintBounds = null; }
     if (record.state === 'hidden' && mode === 'paginate' || suppressed && !node.hidden) record.state = 'clipped';

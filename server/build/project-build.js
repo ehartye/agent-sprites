@@ -24,6 +24,7 @@ import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
 import { buildPhaserUi } from './ui-phaser.js';
+import { publishUiSoftware } from './ui-software.mjs';
 import { isUiReport, validateUiReport } from './ui-report.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
@@ -239,10 +240,13 @@ export async function buildProject(configPath, { signal, onProgress, generatorPo
       writeFileSync(join(stage, artifacts.playbackRuntime), readFileSync(new URL('./playback-runtime.mjs', import.meta.url)));
     }
     if (isUiReport(recipeReport)) {
-      artifacts.uiRuntime = 'ui-runtime.mjs';
-      writeFileSync(join(stage, artifacts.uiRuntime), readFileSync(new URL('./ui-runtime.mjs', import.meta.url)));
-      artifacts.uiActionGroup = 'ui-action-group.mjs';
-      writeFileSync(join(stage, artifacts.uiActionGroup), readFileSync(new URL('./ui-action-group.mjs', import.meta.url)));
+      const software = publishUiSoftware({output:stage});
+      for (const file of Object.keys(software.artifacts)) {
+        const declaration = file.endsWith('.d.mts');
+        const alias = file.replace(/\.(?:d\.mts|mjs)$/, '').replace(/-([a-z])/g, (_, ch) => ch.toUpperCase()) + (declaration ? 'Types' : '');
+        artifacts[alias] = file;
+      }
+      artifacts.uiSoftwareManifest = 'ui-software-manifest.json';
       artifacts.uiPhaser = 'ui-phaser.json';
       const phaserUi = buildPhaserUi({ report: recipeReport, atlas, name });
       writeFileSync(join(stage, artifacts.uiPhaser), json(phaserUi));

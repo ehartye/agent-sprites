@@ -1,4 +1,5 @@
 import {UI_NODE_KINDS} from './ui-components.mjs';
+import {projectPixelPoint} from './ui-runtime.mjs';
 import {copyUiData, freezeUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-theme.mjs';
 
 const stable = value => JSON.stringify(value, (_, entry) => entry && !Array.isArray(entry) && typeof entry === 'object' ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
@@ -22,6 +23,7 @@ function prepare(scope) {
     uiId(context.id, 'Context ID', true);
     if (contexts.has(context.id)) throw new TypeError('Duplicate context ID');
     if (!Number.isInteger(uiNumber(context.revision, 'context revision'))) throw new RangeError('Invalid context revision');
+    projectPixelPoint(context,{x:0,y:0});uiRect(context.viewport,'context viewport');
     contexts.set(context.id, context);
   }
   for (const record of plan.records) {
@@ -31,6 +33,7 @@ function prepare(scope) {
     for (const key of ['bounds', 'hitBounds', 'focusBounds']) uiRect(record[key], key);
     for (const key of ['clipBounds', 'effectiveHitBounds', 'effectiveFocusBounds']) if (record[key] !== null) uiRect(record[key], key);
     if (!record.contextRevisions || !Object.keys(record.contextRevisions).length) throw new TypeError('Control requires context dependencies');
+    if (!contexts.has(record.semanticContextId) || record.contextRevisions[record.semanticContextId] !== contexts.get(record.semanticContextId).revision) throw new TypeError('Control requires a current semantic context');
     for (const [id, revision] of Object.entries(record.contextRevisions)) if (!contexts.has(id) || contexts.get(id).revision !== revision) throw new TypeError(`Stale or unknown control context ${id}`);
     records.set(record.id, record);
   }
@@ -90,13 +93,31 @@ export function createUiInteraction(scope, policy = {}) {
     if (consumed.has(inputId)) return false;
     consumed.add(inputId); return true;
   }
-  function point(value) {
+  function point(value, space) {
     if (value === undefined) return undefined;
-    uiKeys(value, ['x', 'y'], 'input point'); uiNumber(value.x, 'point.x', -Number.MAX_VALUE); uiNumber(value.y, 'point.y', -Number.MAX_VALUE); return value;
+    uiKeys(value, ['x', 'y'], 'input point'); uiNumber(value.x, 'point.x', -Number.MAX_VALUE); uiNumber(value.y, 'point.y', -Number.MAX_VALUE);
+    if (space === undefined) {
+      if (current.contexts.size !== 1) throw new TypeError('Multi-context input point requires an explicit point space');
+      const context = current.plan.contexts[0];
+      return {physical: projectPixelPoint(context, value)};
+    }
+    if (space === 'physical') return {physical:value};
+    uiKeys(space, ['contextId', 'revision'], 'point space');
+    const context = current.contexts.get(space.contextId);
+    if (!context || context.revision !== space.revision) return {stale:true};
+    return {physical:projectPixelPoint(context, value)};
+  }
+  function localPoint(record, p) {
+    if (!p || p.stale) return undefined;
+    const context = current.contexts.get(record.semanticContextId);
+    return projectPixelPoint(context, p.physical, 'to-local');
+  }
+  function containsPoint(record, bounds, p) {
+    return contains(bounds, localPoint(record, p));
   }
   function targetAt(p) {
     // Disabled owners block lower controls; decorative records never capture input.
-    return [...current.plan.records].reverse().find(record => pointerOwner(record) && record.state === 'visible' && contains(record.effectiveHitBounds, p));
+    return [...current.plan.records].reverse().find(record => pointerOwner(record) && record.state === 'visible' && containsPoint(record, record.effectiveHitBounds, p));
   }
   function move(direction) {
     if (!['next', 'previous', 'left', 'right', 'up', 'down'].includes(direction)) throw new TypeError('Invalid navigation direction');
@@ -106,7 +127,11 @@ export function createUiInteraction(scope, policy = {}) {
       const step = ['previous', 'left', 'up'].includes(direction) ? -1 : 1, index = pool.findIndex(record => record.id === focusId), raw = index + step;
       const next = policy.wrap ? (raw + pool.length) % pool.length : Math.min(pool.length - 1, Math.max(0, raw)); setFocus(pool[next].id); return;
     }
-    const center = r => ({x: r.effectiveFocusBounds.x + r.effectiveFocusBounds.width / 2, y: r.effectiveFocusBounds.y + r.effectiveFocusBounds.height / 2});
+    const center = r => {
+      const p = {x: r.effectiveFocusBounds.x + r.effectiveFocusBounds.width / 2, y: r.effectiveFocusBounds.y + r.effectiveFocusBounds.height / 2};
+      const c = current.contexts.get(r.semanticContextId);
+      return projectPixelPoint(c, p);
+    };
     const origin = center(from), horizontal = ['left', 'right'].includes(direction), sign = ['left', 'up'].includes(direction) ? -1 : 1;
     const ranked = pool.filter(record => record.id !== from.id).map(record => {
       const c = center(record), primary = (horizontal ? c.x - origin.x : c.y - origin.y) * sign, cross = Math.abs(horizontal ? c.y - origin.y : c.x - origin.x);
@@ -119,25 +144,27 @@ export function createUiInteraction(scope, policy = {}) {
     if (disposed) return [];
     if (!input || typeof input.type !== 'string') throw new TypeError('Expected normalized UI input');
     if (input.modelRevision !== undefined && input.modelRevision !== current.plan.revision || input.scopeId !== undefined && input.scopeId !== current.source.id || input.contextRevisions !== undefined && Object.entries(input.contextRevisions).some(([id, revision]) => current.contexts.get(id)?.revision !== revision)) return [];
+    const p = point(input.point, input.pointSpace);
+    if (p?.stale) {if (input.inputId) held.delete(input.inputId);return [];}
     let result = [];
     if (input.type === 'navigate') move(input.direction);
     else if (input.type === 'focus') setFocus(input.controlId);
     else if (input.type === 'pane') {
       uiId(input.paneId, 'Pane ID'); const previous = paneFocus.get(input.paneId);
       if (!setFocus(previous)) setFocus(candidates(input.paneId)[0]?.id);
-    } else if (input.type === 'hover') { const p = point(input.point); hoverId = targetAt(p)?.id ?? null; }
+    } else if (input.type === 'hover') { hoverId = targetAt(p)?.id ?? null; }
     else if (input.type === 'blur') { held.clear(); hoverId = null; }
     else if (input.type === 'press') {
-      uiId(input.inputId, 'Input identity'); const p = point(input.point), record = input.controlId ? current.records.get(input.controlId) : targetAt(p);
-      if (held.has(input.inputId) || !activatable(record) || p && (targetAt(p)?.id !== record.id || !contains(record.effectiveHitBounds, p))) return [];
-      const parts = inputParts(record), part = p && parts.find(part => contains(part.hitBounds, p));
+      uiId(input.inputId, 'Input identity'); const record = input.controlId ? current.records.get(input.controlId) : targetAt(p);
+      if (held.has(input.inputId) || !activatable(record) || p && (targetAt(p)?.id !== record.id || !containsPoint(record, record.effectiveHitBounds, p))) return [];
+      const parts = inputParts(record), part = p && parts.find(part => containsPoint(record, part.hitBounds, p));
       if (p && parts.length && (!part || !part.enabled)) return [];
       setFocus(record.id); held.set(input.inputId, tokenFor(record, input.inputId, part || undefined));
     } else if (input.type === 'release') {
       uiId(input.inputId, 'Input identity'); const token = held.get(input.inputId);
       if (!token) return [];
-      held.delete(input.inputId); const p = point(input.point), record = current.records.get(token.controlId);
-      if (input.controlId !== undefined && input.controlId !== token.controlId || p && (targetAt(p)?.id !== token.controlId || !contains(record?.effectiveHitBounds, p) || token.part && !contains(token.part.hitBounds, p))) return [];
+      held.delete(input.inputId); const record = current.records.get(token.controlId);
+      if (input.controlId !== undefined && input.controlId !== token.controlId || p && (targetAt(p)?.id !== token.controlId || !containsPoint(record, record?.effectiveHitBounds, p) || token.part && !containsPoint(record, token.part.hitBounds, p))) return [];
       result = activate(token);
     } else if (['activate', 'default', 'cancel'].includes(input.type)) {
       if (!once(input.inputId)) return [];
@@ -223,7 +250,7 @@ export function createUiInteraction(scope, policy = {}) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 256) throw new RangeError('Observation limit must be an integer from 1 to 256');
     const start = afterId === undefined ? 0 : current.plan.records.findIndex(record => record.id === afterId) + 1;
     if (afterId !== undefined && start === 0) throw new TypeError('Unknown observation cursor');
-    const controls = current.plan.records.slice(start, start + limit).map(record => ({...record, focused: record.id === focusId, hovered: record.id === hoverId, disposed}));
+    const controls = current.plan.records.slice(start, start + limit).map(record => ({...record, focused: record.id === focusId, hovered: record.id === hoverId, pressed: [...held.values()].some(token => token.controlId === record.id), disposed}));
     return freezeUiData({scopeId: current.source.id, modelRevision: current.plan.revision, disposed, focusId, hoverId, heldCount: held.size, controls, nextAfterId: start + controls.length < current.plan.records.length ? controls.at(-1).id : null});
   }
   function dispose() { if (!disposed) { disposed = true; generation++; held.clear(); consumed.clear(); paneFocus.clear(); focusId = null; hoverId = null; } }

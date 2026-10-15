@@ -25,10 +25,13 @@ export interface Skin {
 export type PreparedSkin = DeepReadonly<Omit<Skin, 'insets' | 'padding' | 'minWidth' | 'minHeight' | 'center' | 'tile'> & {insets: Insets; padding: Insets; minWidth: number; minHeight: number; center: 'include' | 'omit'; tile: boolean}>;
 export type AppearanceAlternative = {readonly kind: 'skin'; readonly id: string} | {readonly kind: 'flat'; readonly color: string};
 export type Appearance = {readonly kind: 'skin'; readonly id: string; readonly skin: PreparedSkin} | {readonly kind: 'flat'; readonly color: string};
+/** Native stock colors are explicit #RRGGBB values; no color is inferred by the host. */
+export type UiColors = Readonly<Partial<Record<'focus'|'hover'|'pressed'|'disabled'|'selection'|'caret'|'indicator'|'separator'|'track'|'fill'|'selected'|'adjust',string>>>;
+export interface ThemeIcon {readonly width:number;readonly height:number;readonly frame?:Rect;readonly [key:string]:UiData|Rect;}
 export interface ThemeRole {
   readonly extends?: string; readonly font?: string; readonly tone?: string; readonly alternatives?: readonly AppearanceAlternative[];
   readonly padding?: Padding; readonly minWidth?: number; readonly minHeight?: number; readonly density?: number;
-  readonly colors?: UiData; readonly edge?: UiData; readonly icons?: UiData; readonly placement?: UiData;
+  readonly colors?: UiColors; readonly edge?: UiData; readonly icons?: Readonly<{checked?:string;unchecked?:string}>; readonly placement?: UiData;
 }
 export type PreparedThemeRole = DeepReadonly<Omit<ThemeRole, 'extends' | 'padding'> & {padding?: Insets; appearance?: Appearance}>;
 export interface ThemeInput {
@@ -38,7 +41,7 @@ export interface ThemeInput {
   /** Geometry, padding and target sizes are component-local units. Skin dimensions remain source pixels. */
   readonly geometry?: {readonly gap?: number; readonly padding?: Padding; readonly minTarget?: number};
   readonly palette?: UiData; readonly placement?: UiData;
-  readonly icons?: Readonly<Record<string, {readonly width: number; readonly height: number; readonly [key: string]: UiData}>>;
+  readonly icons?: Readonly<Record<string, ThemeIcon>>;
 }
 export interface UiTheme {
   readonly format: 'agent-sprites/ui-theme@1'; readonly version: 1; readonly id: string;

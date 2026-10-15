@@ -32,7 +32,12 @@ export interface NodeValues {
   extension: {readonly extensionId: `${string}:${string}`; readonly extensionVersion?: 1; readonly model?: UiData};
 }
 export type UiNodeProps<K extends NodeKind> = BaseProps & NodeValues[K];
-export type UiNode<K extends NodeKind = NodeKind> = K extends NodeKind ? DeepReadonly<UiNodeProps<K> & {kind: K; role: string; appearanceRole: string; enabled: boolean; focusable: boolean; children: readonly UiNode[]; layout: Layout}> : never;
+/** Keep recursion behind an interface boundary so ordinary strict consumers can instantiate trees. */
+export interface PreparedNodeBase extends Omit<BaseProps, 'children' | 'layout' | 'role' | 'appearanceRole' | 'enabled' | 'focusable'> {
+  readonly role:string;readonly appearanceRole:string;readonly enabled:boolean;readonly focusable:boolean;
+  readonly children:readonly UiNode[];readonly layout:Layout;
+}
+export type UiNode<K extends NodeKind = NodeKind> = K extends NodeKind ? PreparedNodeBase & NodeValues[K] & {readonly kind:K} : never;
 /** Constructors validate/copy the complete tree and reject duplicate IDs and undeclared properties. */
 export function node<K extends NodeKind>(kind: K, props: UiNodeProps<K>): UiNode<K>;
 export function validateUiTree(tree: unknown): UiNode;
