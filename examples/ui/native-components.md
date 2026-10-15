@@ -97,6 +97,11 @@ each record keeps its own continuous semantic bounds and inherited mapping depen
 Stock painting uses native Images and explicit theme-colored Rectangles. Glyph Images
 consume the portable atlas source rectangles and quantized destinations; there is no
 Phaser Text, DOM text, canvas upload, renderer replacement or consumer stock painter.
+An optional font role `glyphTint: '#RRGGBB'` uses Phaser's native multiplicative
+Image tint for lettering, composition, tab labels and item quantities. It never
+tints skins or icons and resets to white when a keyed glyph changes to an untinted
+role. As with existing Phaser BitmapText/Image tint, this affects WebGL only;
+Canvas themes requiring exact colored lettering must declare colored source tones.
 Nine-slices use the existing lazy tile iterator, including hollow centers and cropped
 last tiles. Icons declare `{width,height,frame:{x,y,width,height}}` in source pixels;
 native preparation rejects missing frames. Item quantities use the same bitmap placement

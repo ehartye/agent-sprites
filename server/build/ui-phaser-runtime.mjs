@@ -81,14 +81,14 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
           if (colorValue === undefined) return;
           commands.push({key:`${record.id}:${key}`,kind:'rectangle',bounds,contextId:paint.contextId,clip:paint.clipBounds,color:color(colorValue),recordId:record.id,...extra});
         }
-        function image(key,source,destination,paint,borrowed) {
+        function image(key,source,destination,paint,borrowed,tint=0xffffff) {
           uiRect(source,'native source');uiRect(destination,'native destination');
           if (!source.width || !source.height || ![source.x,source.y,source.width,source.height].every(Number.isInteger)) throw new TypeError('Atlas fragments require positive whole source pixels');
-          commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id});
+          commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id,tint});
         }
         function glyphs(key,part) {
           const borrowed = part.placement.draws.length ? asset({kind:'font',id:role.font,tone:role.tone}) : null;
-          part.placement.draws.forEach((draw,i)=>image(`${key}:glyph:${i}`,draw.source,draw.destination,part,borrowed));
+          part.placement.draws.forEach((draw,i)=>image(`${key}:glyph:${i}`,draw.source,draw.destination,part,borrowed,role.glyphTint===undefined?0xffffff:color(role.glyphTint)));
         }
         function feedbackFor(control) {
           if (!control.focusable && !control.actionId) return;
@@ -257,6 +257,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         const {object}=item,d=command.bounds;
         if (command.kind==='image') {
           object.setCrop();object.setTexture(command.asset.texture,frame).setOrigin(0,0).setPosition(d.x,d.y).setScale(d.width/command.source.width,d.height/command.source.height);
+          object.setTint(command.tint);
           if (clipped) object.setCrop((clipped.x-d.x)*command.source.width/d.width,(clipped.y-d.y)*command.source.height/d.height,clipped.width*command.source.width/d.width,clipped.height*command.source.height/d.height);
         } else {
           const b=clipped??d;object.setSize(b.width,b.height).setOrigin(0,0).setPosition(b.x,b.y).setScale(1).setFillStyle(ink??0);

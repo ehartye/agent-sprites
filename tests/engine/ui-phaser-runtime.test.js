@@ -20,6 +20,7 @@ function fixture() {
     const obj = {kind, destroyed:0, setOrigin() {return this;}, setPosition(x,y) {Object.assign(this,{x,y});return this;},
       setScale(x,y=x) {Object.assign(this,{scaleX:x,scaleY:y});return this;}, setTexture(key,frame) {Object.assign(this,{texture:key,frame:typeof frame==='string'?frame:frame.name});return this;},
       setCrop(...crop) {this.crop=crop;return this;}, setVisible(visible) {this.visible=visible;return this;},
+      setTint(tint) {this.tint=tint;return this;},
       setSize(width,height) {Object.assign(this,{width,height});return this;}, setFillStyle(color) {this.color=color;return this;},
       setDepth(depth) {this.depth=depth;return this;}, destroy() {this.destroyed++;}};
     objects.push(obj);return obj;
@@ -38,6 +39,18 @@ async function api() {
   expect(existsSync(url),'shared native host public seam exists').toBe(true);
   return import(url.href);
 }
+
+test('authored glyph tint reaches only lettering and clears on a reused image',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const role=f.theme.roles.button;
+  f.theme=defineTheme({version:1,id:'test:tinted',fonts:f.theme.fonts,skins:{paper:{frame:{x:4,y:0,width:3,height:3},insets:1}},roles:{button:{font:role.font,tone:role.tone,alternatives:[{kind:'skin',id:'paper'}]},danger:{font:role.font,tone:role.tone,glyphTint:'#e8837a',alternatives:[{kind:'skin',id:'paper'}]}}});
+  const ui=createPhaserUi(f),snapshot=(revision,appearanceRole)=>({...f.snapshot(revision),tree:button({id:'ok',appearanceRole,label:'?',actionId:'game:ok',layout:{width:20,height:10}})});
+  const m=ui.mount(snapshot(1,'danger'),{parent:f.parent,scope:'test:tint'});
+  const glyph=f.objects.find(o=>o.kind==='image'&&o.tint===0xe8837a);expect(glyph).toBeDefined();
+  const skin=f.objects.filter(o=>o.kind==='image'&&o!==glyph);expect(skin.length).toBeGreaterThan(0);expect(skin.every(o=>o.tint===0xffffff)).toBe(true);
+  const count=f.objects.length;m.update(snapshot(2,'button'));expect(f.objects.length).toBe(count);expect(glyph.destroyed).toBe(0);expect(glyph.tint).toBe(0xffffff);
+  m.dispose();ui.dispose();expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);
+});
 
 test.each(['x','y'].flatMap(axis=>[0,50,100].map(value=>({axis,value}))))('capped $axis meter paints the controlled $value percent',async({axis,value})=>{
   const {createPhaserUi}=await api(),f=fixture();

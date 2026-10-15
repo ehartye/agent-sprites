@@ -18,3 +18,13 @@ test('themes reject authority, missing required assets, alias cycles and invalid
   }
   const i=themeInput();i.roles.button.alternatives=[{kind:'flat',color:'#112233'}];expect(defineTheme(i).roles.button.appearance).toEqual({kind:'flat',color:'#112233'});
 });
+
+test('authored glyph tint is inherited and validated independently of skin and feedback colors',async()=>{
+  const {defineTheme}=await api(),input=themeInput();input.roles.button.glyphTint='#e8837a';
+  const theme=defineTheme(input);expect(theme.roles.primary.glyphTint).toBe('#e8837a');
+  expect(theme.roles.primary.appearance.id).toBe('paper');expect(theme.roles.body.glyphTint).toBeUndefined();
+  for(const invalid of [0xe8837a,'red','#fff','#gggggg',null]){
+    const i=themeInput();i.roles.button.glyphTint=invalid;expect(()=>defineTheme(i)).toThrow(/glyphTint/);
+  }
+  const i=themeInput();i.roles.plain={glyphTint:'#e8837a'};expect(()=>defineTheme(i)).toThrow(/font/);
+});

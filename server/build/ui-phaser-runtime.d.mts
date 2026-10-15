@@ -10,6 +10,7 @@ export interface NativeObject {
   destroy():void;
 }
 export interface NativeImage extends NativeObject {
+  setTint(color:number):this;
   setTexture(texture:string|NativeTexture,frame?:string|number|NativeFrame):this; setCrop(x?:number,y?:number,width?:number,height?:number):this;
 }
 export interface NativeRectangle extends NativeObject {setSize(width:number,height:number):this;setFillStyle(color:number):this;}

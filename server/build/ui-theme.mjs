@@ -93,7 +93,7 @@ export function defineTheme(input) {
     const raw = source.roles[id];
     if (typeof raw === 'string') roles[id] = {...resolve(raw)};
     else {
-      uiKeys(raw, ['extends', 'font', 'tone', 'alternatives', 'padding', 'minWidth', 'minHeight', 'colors', 'edge', 'icons', 'placement', 'density'], `theme role ${id}`);
+      uiKeys(raw, ['extends', 'font', 'tone', 'glyphTint', 'alternatives', 'padding', 'minWidth', 'minHeight', 'colors', 'edge', 'icons', 'placement', 'density'], `theme role ${id}`);
       const role = {...(raw.extends ? resolve(raw.extends) : {}), ...raw};
       delete role.extends;
       if (role.font !== undefined) {
@@ -101,6 +101,10 @@ export function defineTheme(input) {
         role.tone ??= fonts[role.font].font.toneNames[0];
         if (!fonts[role.font].font.toneNames.includes(role.tone)) throw new TypeError(`Missing font tone ${role.tone} for role ${id}`);
       } else if (role.tone !== undefined) throw new TypeError(`Role ${id} tone requires a font`);
+      if (role.glyphTint !== undefined) {
+        if (typeof role.glyphTint !== 'string' || !/^#[\da-f]{6}$/i.test(role.glyphTint)) throw new TypeError(`Role ${id} glyphTint requires #RRGGBB`);
+        if (!role.font) throw new TypeError(`Role ${id} glyphTint requires a font`);
+      }
       if (role.padding !== undefined) role.padding = uiInsets(role.padding);
       for (const key of ['minWidth', 'minHeight', 'density']) if (role[key] !== undefined) uiNumber(role[key], `role.${key}`);
       if (raw.alternatives !== undefined) {
