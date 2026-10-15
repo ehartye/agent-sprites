@@ -216,6 +216,19 @@ function portableFontFixture(){
 }
 
 function abstractMetrics(){return {lineHeight:10.5,advanceOf:char=>({' ':1.25,A:3.5,I:1.5,'😀':4.25,'猫':2.75,'\r':0.25,'\t':0.5}[char]??2)};}
+
+test('review placement exposes UTF-16 source caret advances without changing whitespace policy',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  for(const [text,width,policy,lines] of [['A  I',100,{},['A I']],['A\r\n\tI',100,{},['A','I']],['😀  I',5,{},['😀','I']],['A ',8,{spaces:'terminal',trailingAdvance:1},['A ']],['A ',6,{spaces:'terminal',trailingAdvance:1},['A','']]]){
+    const plan=uiRuntime.placeBitmapText(font,text,0,0,{maxWidth:width,policy,sourceOffsets:true});expect(plan.sourceLines).toEqual(lines);
+    const last=plan.lines.at(-1);expect(last.sourceEnd).toBe(text.length);expect(last.caretAdvances.at(-1)).toBe(uiRuntime.measureBitmapText(font,last.source,{policy}).advanceWidth);
+    for(const line of plan.lines){expect(line.caretAdvances).toHaveLength(line.sourceEnd-line.sourceStart+1);expect(line.caretAdvances.every((v,i,a)=>i===0||v>=a[i-1])).toBe(true);}
+  }
+  const repeated=uiRuntime.placeBitmapText(font,'A  I',0,0,{maxWidth:100,sourceOffsets:true}).lines[0];expect(repeated).toMatchObject({sourceStart:0,sourceEnd:4,caretAdvances:[0,6,6,9,13]});
+  const normalized=uiRuntime.placeBitmapText(font,'A\r\n\tI',0,0,{maxWidth:100,sourceOffsets:true}).lines;expect(normalized.map(l=>[l.sourceStart,l.sourceEnd,l.caretAdvances])).toEqual([[0,1,[0,6]],[3,5,[0,0,4]]]);
+  const literal=uiRuntime.placeBitmapText(font,'A\r\tI',0,0,{maxWidth:100,policy:{newline:'lf-only',tab:'literal'},sourceOffsets:true}).lines[0];expect(literal.caretAdvances).toEqual([0,6,10,14,18]);
+  const mixed=uiRuntime.placeBitmapText(font,'A  I',0,0,{resolution:uiRuntime.pixelResolution({id:'test:offset',revision:1,localToPhysical:{scale:2,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:3}),maxWidth:100,sourceOffsets:true});expect(mixed.lines[0].caretAdvances).toEqual([0,9,9,13.5,19.5]);expect(mixed.sourceMap[0].caretAdvances).toEqual(mixed.lines[0].caretAdvances);
+});
 test('abstract text metrics consume raw Unicode code points and keep fractional caller units',()=>{
   const metrics=abstractMetrics(),seen=[];
   expect(uiRuntime.textMetricsLineWidth({...metrics,advanceOf:char=>{seen.push(char);return metrics.advanceOf(char);}},'A😀猫\r\t')).toBe(11.25);

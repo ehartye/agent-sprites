@@ -1,0 +1,231 @@
+import {UI_NODE_KINDS} from './ui-components.mjs';
+import {copyUiData, freezeUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-theme.mjs';
+
+const stable = value => JSON.stringify(value, (_, entry) => entry && !Array.isArray(entry) && typeof entry === 'object' ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
+const contains = (bounds, point) => bounds && point && point.x >= bounds.x && point.y >= bounds.y && point.x < bounds.x + bounds.width && point.y < bounds.y + bounds.height;
+const eligible = record => !!record && record.focusable && record.state === 'visible' && !!record.effectiveFocusBounds && record.effectiveFocusBounds.width > 0 && record.effectiveFocusBounds.height > 0;
+// Pointer/action eligibility is independent of participation in keyboard focus.
+const activatable = record => !!record && record.enabled && record.state === 'visible' && !!record.effectiveHitBounds && record.effectiveHitBounds.width > 0 && record.effectiveHitBounds.height > 0;
+const pointerKinds = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
+const pointerOwner = record => record && (pointerKinds.has(record.kind) || record.actionId !== undefined);
+const inputParts = record => (record.parts ?? []).filter(part => part.kind === 'tab' || part.kind === 'adjust');
+const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
+function semantic(plan) { return stable({focus: plan.focus, records: plan.records.map(record => Object.fromEntries(semanticKeys.filter(key => record[key] !== undefined).map(key => [key, record[key]])))}); }
+function prepare(scope) {
+  const source = copyUiData(scope);
+  uiKeys(source, ['id', 'plan'], 'interaction scope'); uiId(source.id, 'Scope ID', true);
+  const plan = source.plan;
+  if (plan?.format !== 'agent-sprites/ui-layout@1' || !Array.isArray(plan.contexts) || !plan.contexts.length || !Array.isArray(plan.records)) throw new TypeError('Expected a portable UI layout plan');
+  if (!Number.isInteger(uiNumber(plan.revision, 'model revision'))) throw new RangeError('Invalid model revision');
+  const contexts = new Map(), records = new Map();
+  for (const context of plan.contexts) {
+    uiId(context.id, 'Context ID', true);
+    if (contexts.has(context.id)) throw new TypeError('Duplicate context ID');
+    if (!Number.isInteger(uiNumber(context.revision, 'context revision'))) throw new RangeError('Invalid context revision');
+    contexts.set(context.id, context);
+  }
+  for (const record of plan.records) {
+    uiId(record.id, 'Control ID');
+    if (records.has(record.id)) throw new TypeError(`Duplicate control ID ${record.id}`);
+    if (!UI_NODE_KINDS.includes(record.kind) || typeof record.enabled !== 'boolean' || typeof record.focusable !== 'boolean' || !['visible', 'clipped', 'hidden'].includes(record.state)) throw new TypeError(`Invalid control ${record.id}`);
+    for (const key of ['bounds', 'hitBounds', 'focusBounds']) uiRect(record[key], key);
+    for (const key of ['clipBounds', 'effectiveHitBounds', 'effectiveFocusBounds']) if (record[key] !== null) uiRect(record[key], key);
+    if (!record.contextRevisions || !Object.keys(record.contextRevisions).length) throw new TypeError('Control requires context dependencies');
+    for (const [id, revision] of Object.entries(record.contextRevisions)) if (!contexts.has(id) || contexts.get(id).revision !== revision) throw new TypeError(`Stale or unknown control context ${id}`);
+    records.set(record.id, record);
+  }
+  plan.focus ??= {};
+  uiKeys(plan.focus, ['initialId', 'defaultId', 'cancelId'], 'focus');
+  for (const [role, id] of Object.entries(plan.focus)) if (id !== undefined && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
+  freezeUiData(source);
+  return {source, plan, contexts, records, semantic: semantic(plan)};
+}
+
+/** One instance per mounted scope. Hosts feed normalized events; this engine never dispatches. */
+export function createUiInteraction(scope, policy = {}) {
+  uiKeys(policy, ['navigation', 'wrap', 'restoreId'], 'interaction policy');
+  policy = freezeUiData(copyUiData({navigation: 'ordered', wrap: false, ...policy}));
+  if (!['ordered', 'spatial', 'pane'].includes(policy.navigation) || typeof policy.wrap !== 'boolean') throw new TypeError('Invalid navigation policy');
+  let current = prepare(scope), disposed = false, generation = 0, sequence = 0, focusId = null, hoverId = null;
+  const held = new Map(), consumed = new Set(), paneFocus = new Map();
+  function candidates(pane) { return current.plan.records.filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
+  function setFocus(id) {
+    const record = current.records.get(id);
+    if (!eligible(record)) return false;
+    focusId = id; paneFocus.set(record.paneId, id); return true;
+  }
+  function restore(previous) {
+    if (setFocus(previous) || setFocus(policy.restoreId) || setFocus(current.plan.focus.initialId)) return;
+    focusId = candidates()[0]?.id ?? null;
+    if (focusId) setFocus(focusId);
+  }
+  restore(null);
+  function liveToken(token) {
+    const record = current.records.get(token.controlId);
+    return token.generation === generation && token.modelRevision === current.plan.revision && activatable(record) && token.actionId === record.actionId && (!token.part || inputParts(record).some(part => part.enabled && stable(part) === stable(token.part))) && Object.entries(token.contextRevisions).every(([id, revision]) => current.contexts.get(id)?.revision === revision);
+  }
+  function tokenFor(record, inputId, part) {
+    return {controlId: record.id, actionId: record.actionId, inputId, part, modelRevision: current.plan.revision, contextRevisions: {...record.contextRevisions}, generation, activationId: `${current.source.id}:${generation}:${++sequence}`};
+  }
+  function change(record, value, extra = {}) { return {kind: 'change', controlId: record.id, value, modelRevision: current.plan.revision, ...extra}; }
+  function localChange(record, delta = 1) {
+    if (record.kind === 'toggle' || record.kind === 'fold') return change(record, !record.value);
+    if (record.kind === 'stepper') return change(record, Math.min(record.max, Math.max(record.min, record.value + delta * record.step)));
+    if (record.kind === 'pager') return change(record, Math.min(record.pageCount - 1, Math.max(0, record.value + delta)));
+    if (record.kind === 'tabs') {
+      const choices = record.options.filter(option => option.enabled !== false), index = choices.findIndex(option => option.id === record.value);
+      if (!choices.length) return null;
+      return change(record, choices[Math.min(choices.length - 1, Math.max(0, index + delta))].id);
+    }
+    return null;
+  }
+  function activate(token) {
+    if (!liveToken(token)) return [];
+    const record = current.records.get(token.controlId), changed = token.part?.kind === 'tab' ? change(record, token.part.value) : localChange(record, token.part?.delta ?? 1);
+    if (changed) return changed.value === record.value ? [] : [changed];
+    return token.actionId === undefined ? [] : [{kind: 'activate', controlId: token.controlId, actionId: token.actionId, modelRevision: token.modelRevision, activationId: token.activationId}];
+  }
+  function once(inputId) {
+    uiId(inputId, 'Input identity');
+    if (consumed.has(inputId)) return false;
+    consumed.add(inputId); return true;
+  }
+  function point(value) {
+    if (value === undefined) return undefined;
+    uiKeys(value, ['x', 'y'], 'input point'); uiNumber(value.x, 'point.x', -Number.MAX_VALUE); uiNumber(value.y, 'point.y', -Number.MAX_VALUE); return value;
+  }
+  function targetAt(p) {
+    // Disabled owners block lower controls; decorative records never capture input.
+    return [...current.plan.records].reverse().find(record => pointerOwner(record) && record.state === 'visible' && contains(record.effectiveHitBounds, p));
+  }
+  function move(direction) {
+    if (!['next', 'previous', 'left', 'right', 'up', 'down'].includes(direction)) throw new TypeError('Invalid navigation direction');
+    const from = current.records.get(focusId), pool = candidates(policy.navigation === 'pane' ? from?.paneId : undefined);
+    if (!pool.length) return;
+    if (policy.navigation !== 'spatial' || ['next', 'previous'].includes(direction) || !from) {
+      const step = ['previous', 'left', 'up'].includes(direction) ? -1 : 1, index = pool.findIndex(record => record.id === focusId), raw = index + step;
+      const next = policy.wrap ? (raw + pool.length) % pool.length : Math.min(pool.length - 1, Math.max(0, raw)); setFocus(pool[next].id); return;
+    }
+    const center = r => ({x: r.effectiveFocusBounds.x + r.effectiveFocusBounds.width / 2, y: r.effectiveFocusBounds.y + r.effectiveFocusBounds.height / 2});
+    const origin = center(from), horizontal = ['left', 'right'].includes(direction), sign = ['left', 'up'].includes(direction) ? -1 : 1;
+    const ranked = pool.filter(record => record.id !== from.id).map(record => {
+      const c = center(record), primary = (horizontal ? c.x - origin.x : c.y - origin.y) * sign, cross = Math.abs(horizontal ? c.y - origin.y : c.x - origin.x);
+      return {record, primary, score: primary + 2 * cross + cross * cross / Math.max(primary, 1)};
+    }).filter(value => value.primary > 0).sort((a, b) => a.score - b.score);
+    if (ranked.length) setFocus(ranked[0].record.id);
+  }
+
+  function handle(input) {
+    if (disposed) return [];
+    if (!input || typeof input.type !== 'string') throw new TypeError('Expected normalized UI input');
+    if (input.modelRevision !== undefined && input.modelRevision !== current.plan.revision || input.scopeId !== undefined && input.scopeId !== current.source.id || input.contextRevisions !== undefined && Object.entries(input.contextRevisions).some(([id, revision]) => current.contexts.get(id)?.revision !== revision)) return [];
+    let result = [];
+    if (input.type === 'navigate') move(input.direction);
+    else if (input.type === 'focus') setFocus(input.controlId);
+    else if (input.type === 'pane') {
+      uiId(input.paneId, 'Pane ID'); const previous = paneFocus.get(input.paneId);
+      if (!setFocus(previous)) setFocus(candidates(input.paneId)[0]?.id);
+    } else if (input.type === 'hover') { const p = point(input.point); hoverId = targetAt(p)?.id ?? null; }
+    else if (input.type === 'blur') { held.clear(); hoverId = null; }
+    else if (input.type === 'press') {
+      uiId(input.inputId, 'Input identity'); const p = point(input.point), record = input.controlId ? current.records.get(input.controlId) : targetAt(p);
+      if (held.has(input.inputId) || !activatable(record) || p && (targetAt(p)?.id !== record.id || !contains(record.effectiveHitBounds, p))) return [];
+      const parts = inputParts(record), part = p && parts.find(part => contains(part.hitBounds, p));
+      if (p && parts.length && (!part || !part.enabled)) return [];
+      setFocus(record.id); held.set(input.inputId, tokenFor(record, input.inputId, part || undefined));
+    } else if (input.type === 'release') {
+      uiId(input.inputId, 'Input identity'); const token = held.get(input.inputId);
+      if (!token) return [];
+      held.delete(input.inputId); const p = point(input.point), record = current.records.get(token.controlId);
+      if (input.controlId !== undefined && input.controlId !== token.controlId || p && (targetAt(p)?.id !== token.controlId || !contains(record?.effectiveHitBounds, p) || token.part && !contains(token.part.hitBounds, p))) return [];
+      result = activate(token);
+    } else if (['activate', 'default', 'cancel'].includes(input.type)) {
+      if (!once(input.inputId)) return [];
+      const id = input.type === 'default' ? current.plan.focus.defaultId : input.type === 'cancel' ? current.plan.focus.cancelId : input.controlId ?? focusId;
+      if (input.type === 'cancel' && id === undefined) result = [{kind: 'cancel', scopeId: current.source.id, modelRevision: current.plan.revision}];
+      else {
+        const record = current.records.get(id);
+        if (activatable(record)) result = activate(tokenFor(record, input.inputId));
+      }
+    } else if (['adjust', 'edit', 'selection', 'composition', 'caret', 'delete', 'select'].includes(input.type)) {
+      if (!once(input.inputId)) return [];
+      const record = current.records.get(input.controlId ?? focusId);
+      if (!activatable(record)) return [];
+      if (input.type === 'adjust') {
+        if (!Number.isInteger(input.delta)) throw new TypeError('Adjustment delta must be an integer');
+        const intent = localChange(record, input.delta); if (intent && intent.value !== record.value) result = [intent];
+      } else if (input.type === 'select' && record.kind === 'tabs') {
+        if (record.options.some(option => option.id === input.value && option.enabled !== false) && record.value !== input.value) result = [change(record, input.value)];
+      } else if (record.kind === 'field') {
+        const selection = record.selection ?? {start: record.value.length, end: record.value.length, direction: 'none'};
+        if (input.type === 'caret') {
+          if (!['left', 'right', 'home', 'end'].includes(input.direction) || input.extend !== undefined && typeof input.extend !== 'boolean') throw new TypeError('Invalid caret movement');
+          const caret = selection.direction === 'backward' ? selection.start : selection.end, anchor = selection.direction === 'backward' ? selection.end : selection.start;
+          const before = [...record.value.slice(0, caret)].at(-1)?.length ?? 0, after = [...record.value.slice(caret)][0]?.length ?? 0;
+          const target = input.direction === 'home' ? 0 : input.direction === 'end' ? record.value.length : input.direction === 'left' ? !input.extend && selection.start !== selection.end ? selection.start : caret - before : !input.extend && selection.start !== selection.end ? selection.end : caret + after;
+          const next = input.extend ? {start: Math.min(anchor, target), end: Math.max(anchor, target), direction: target === anchor ? 'none' : target < anchor ? 'backward' : 'forward'} : {start: target, end: target, direction: 'none'};
+          result = [change(record, record.value, {selection: next, composition: record.composition ?? null})];
+        } else if (input.type === 'delete') {
+          if (!['backward', 'forward'].includes(input.direction)) throw new TypeError('Invalid delete direction');
+          let {start, end} = selection;
+          if (start === end) {
+            if (input.direction === 'backward') start -= [...record.value.slice(0, start)].at(-1)?.length ?? 0;
+            else end += [...record.value.slice(end)][0]?.length ?? 0;
+          }
+          const value = record.value.slice(0, start) + record.value.slice(end);
+          result = [change(record, value, {selection: {start, end: start, direction: 'none'}, composition: null})];
+        } else if (input.type === 'selection') {
+          if (![input.start, input.end].every(Number.isInteger) || input.start < 0 || input.start > input.end || input.end > record.value.length || !['none', 'forward', 'backward'].includes(input.direction)) throw new RangeError('Invalid selection');
+          result = [change(record, record.value, {selection: {start: input.start, end: input.end, direction: input.direction}, composition: record.composition ?? null})];
+        } else {
+          if (typeof input.text !== 'string') throw new TypeError('Field edit requires text');
+          if (input.type === 'composition') result = [change(record, record.value, {selection, composition: input.text})];
+          else {
+            const capacity = record.maxLength === undefined ? input.text.length : Math.max(0, record.maxLength - record.value.length + selection.end - selection.start), insert = input.text.slice(0, capacity);
+            const value = record.value.slice(0, selection.start) + insert + record.value.slice(selection.end), caret = selection.start + insert.length;
+            result = [change(record, value, {selection: {start: caret, end: caret, direction: 'none'}, composition: null})];
+          }
+        }
+      }
+    } else throw new TypeError(`Unknown normalized UI event: ${input.type}`);
+    return freezeUiData(result);
+  }
+
+  function update(nextScope) {
+    if (disposed) throw new Error('UI interaction is disposed');
+    const next = prepare(nextScope);
+    if (next.source.id !== current.source.id || next.plan.revision < current.plan.revision) throw new TypeError('Stale scope or model revision');
+    let contextChanged = false;
+    for (const [id, context] of next.contexts) {
+      const prior = current.contexts.get(id);
+      if (prior && (context.revision < prior.revision || context.revision === prior.revision && stable(context) !== stable(prior))) throw new TypeError(`Stale context or reused context revision ${id}`);
+      if (!prior || context.revision !== prior.revision) contextChanged = true;
+    }
+    if (next.contexts.size !== current.contexts.size) contextChanged = true;
+    if (next.plan.revision === current.plan.revision && (next.semantic !== current.semantic || !contextChanged && stable(next.plan) !== stable(current.plan))) throw new TypeError('Model revision reused for changed data or geometry');
+    if (next.plan.revision === current.plan.revision) {
+      if (next.plan.themeId !== current.plan.themeId) throw new TypeError('Theme replacement requires a new model revision');
+      for (const record of next.plan.records) {
+        const prior = current.records.get(record.id);
+        if (stable(Object.keys(record.contextRevisions).sort()) !== stable(Object.keys(prior.contextRevisions).sort())) throw new TypeError('Context dependency replacement requires a new model revision');
+        const affected = Object.entries(record.contextRevisions).some(([id, revision]) => prior.contextRevisions[id] !== revision);
+        if (!affected && stable(record) !== stable(prior)) throw new TypeError(`Unchanged context revision cannot replace geometry for ${record.id}`);
+      }
+    }
+    const modelChanged = next.plan.revision !== current.plan.revision;
+    if (modelChanged) generation++;
+    current = next;
+    for (const [id, token] of held) if (!liveToken(token)) held.delete(id);
+    restore(focusId);
+    if (!current.records.has(hoverId)) hoverId = null;
+  }
+  function inspect({limit, afterId} = {}) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 256) throw new RangeError('Observation limit must be an integer from 1 to 256');
+    const start = afterId === undefined ? 0 : current.plan.records.findIndex(record => record.id === afterId) + 1;
+    if (afterId !== undefined && start === 0) throw new TypeError('Unknown observation cursor');
+    const controls = current.plan.records.slice(start, start + limit).map(record => ({...record, focused: record.id === focusId, hovered: record.id === hoverId, disposed}));
+    return freezeUiData({scopeId: current.source.id, modelRevision: current.plan.revision, disposed, focusId, hoverId, heldCount: held.size, controls, nextAfterId: start + controls.length < current.plan.records.length ? controls.at(-1).id : null});
+  }
+  function dispose() { if (!disposed) { disposed = true; generation++; held.clear(); consumed.clear(); paneFocus.clear(); focusId = null; hoverId = null; } }
+  return Object.freeze({handle, update, inspect, dispose});
+}

@@ -138,30 +138,50 @@ function policyText(text,p){
   if(p.tab==='four-spaces')source=source.replace(/\t/g,'    ');
   return source;
 }
+// Boundary maps use UTF-16 offsets, including collapsed CRLF and expanded tabs.
+function policyTextOffsets(text,p){
+  const raw=String(p.nullish==='empty'&&text==null?'':text),toDisplay=[0],toSource=[0];let source='';
+  for(let i=0;i<raw.length;){
+    const start=i;let value=raw[i++];
+    if(value==='\r'&&p.newline==='normalize'){if(raw[i]==='\n')i++;value='\n';}
+    if(value==='\t'&&p.tab==='four-spaces')value='    ';
+    const before=source.length;source+=value;
+    for(let n=before+1;n<=source.length;n++)toSource[n]=n===source.length?i:start;
+    for(let n=start+1;n<=i;n++)toDisplay[n]=source.length;
+  }
+  return {source,toDisplay,toSource};
+}
 const lineResult=(font,sourceLines)=>({sourceLines,resolvedLines:sourceLines.map(line=>[...line].map(char=>Object.hasOwn(font.glyphs,char)?char:font.fallback).join(''))});
 // One calculation kernel; adapters own metric validation, fallback and drawable metadata.
 function textMetricsKernel({lineHeight,advanceOf},p,{scale=1,leading=0,cellHeight}={}){
   const advanceWidth=line=>{let width=0;for(const char of String(line))width+=advanceOf(char);return width;};
   const width=line=>Math.max(0,advanceWidth(line)-p.trailingAdvance);
-  function wrap(source,maxWidth){
+  function wrap(source,maxWidth,capture){
     if(maxWidth!==Infinity&&(!Number.isFinite(maxWidth)||maxWidth<0))throw Error('Max width must be nonnegative or Infinity.');
     if(!source&&p.empty==='none')return [];
-    const limit=maxWidth/scale,lines=[];
+    const limit=maxWidth/scale,lines=[];let paragraphStart=0;
     for(const paragraph of source.split('\n')){
-      if(!paragraph){lines.push('');continue;}
-      let line='';
+      let line='',units=[],lineStart=paragraphStart,wordStart=paragraphStart;
+      const emit=end=>{lines.push(line);capture?.push({start:lineStart,end,units});line='';units=[];lineStart=end;};
+      if(!paragraph){emit(paragraphStart);paragraphStart++;continue;}
       for(const word of paragraph.split(/ +/)){
+        const start=wordStart;wordStart+=word.length;while(source[wordStart]===' ')wordStart++;
         if(!word&&(p.spaces==='trim'||!line))continue;
-        if(line&&width(`${line} ${word}`)<=limit){line+=` ${word}`;continue;}
-        if(line){lines.push(line);line='';}
-        for(const char of word){const candidateWidth=width(line+char);if(line&&candidateWidth>limit){lines.push(line);line='';}line+=char;}
+        if(line&&width(`${line} ${word}`)<=limit){
+          units.push({char:' ',start:units.at(-1)?.end??lineStart,end:start});line+=' ';
+          let offset=start;for(const char of word){units.push({char,start:offset,end:offset+char.length});offset+=char.length;}line+=word;continue;
+        }
+        if(line)emit(start);
+        let offset=start;
+        for(const char of word){const candidateWidth=width(line+char);if(line&&candidateWidth>limit)emit(offset);units.push({char,start:offset,end:offset+char.length});offset+=char.length;line+=char;}
       }
-      lines.push(line);
+      emit(paragraphStart+paragraph.length);paragraphStart+=paragraph.length+1;
     }
     return lines;
   }
-  function measure(source,maxWidth){
-    const sourceLines=maxWidth===undefined?(!source&&p.empty==='none'?[]:source.split('\n')):wrap(source,maxWidth);
+  function measure(source,maxWidth,capture){
+    const sourceLines=maxWidth===undefined?(!source&&p.empty==='none'?[]:source.split('\n')):wrap(source,maxWidth,capture);
+    if(capture&&maxWidth===undefined){let start=0;for(const line of sourceLines){let offset=start;const units=[...line].map(char=>{const unit={char,start:offset,end:offset+char.length};offset+=char.length;return unit;});capture.push({start,end:offset,units});start=offset+1;}}
     const widths=sourceLines.map(advanceWidth);
     const height=sourceLines.length?((sourceLines.length-1)*(lineHeight+p.lineSpacing+leading)+(p.lastLine==='cell'?cellHeight:lineHeight))*scale:0;
     return {sourceLines,width:Math.max(0,...widths.map(value=>Math.max(0,value-p.trailingAdvance)*scale)),height,advanceWidth:Math.max(0,...widths)*scale};
@@ -208,10 +228,22 @@ export function wrapBitmapText(font,text,maxWidth,{scale=1,policy}={}){
   normalizedFont(font);positiveInteger(scale,'Scale');const p=textPolicy(policy);
   return lineResult(font,textMetricsKernel(bitmapMetrics(font),p,{scale}).wrap(policyText(text,p),maxWidth));
 }
-export function measureBitmapText(font,text,{scale=1,maxWidth,policy}={}){
+export function measureBitmapText(font,text,{scale=1,maxWidth,policy,sourceOffsets=false}={}){
   normalizedFont(font);positiveInteger(scale,'Scale');const p=textPolicy(policy),source=policyText(text,p);
   if(p.lastLine==='cell'&&!font.cell)throw Error('Bitmap font cell height is unknown.');
-  const measured=textMetricsKernel(bitmapMetrics(font),p,{scale,cellHeight:font.cell?.height}).measure(source,maxWidth),{sourceLines}=measured;
+  const capture=sourceOffsets?[]:undefined,measured=textMetricsKernel(bitmapMetrics(font),p,{scale,cellHeight:font.cell?.height}).measure(source,maxWidth,capture),{sourceLines}=measured;
+  let sourceMap;
+  if(capture){
+    const {toDisplay,toSource}=policyTextOffsets(text,p);
+    sourceMap=capture.map(({start,end,units})=>{
+      const sourceStart=toSource[start],sourceEnd=toSource[end],caretAdvances=[];let index=0,advance=0;
+      for(let offset=sourceStart;offset<=sourceEnd;offset++){
+        while(index<units.length&&units[index].end<=toDisplay[offset])advance+=normalizedGlyph(font,units[index++].char).advance*scale;
+        caretAdvances.push(advance);
+      }
+      return {sourceStart,sourceEnd,caretAdvances};
+    });
+  }
   let known=true,left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
   for(const [row,line] of sourceLines.entries()){
     let pen=0;
@@ -221,24 +253,26 @@ export function measureBitmapText(font,text,{scale=1,maxWidth,policy}={}){
       pen+=g.advance;
     }
   }
-  return {...lineResult(font,sourceLines),...measured,paintedBounds:{known,rect:known&&left!==Infinity?{x:left,y:top,width:right-left,height:bottom-top}:null}};
+  return {...lineResult(font,sourceLines),...measured,...(sourceMap?{sourceMap}:{}),paintedBounds:{known,rect:known&&left!==Infinity?{x:left,y:top,width:right-left,height:bottom-top}:null}};
 }
 /** Source metrics remain source pixels; origins, bounds and returned paint are in the caller's destination space. */
 export function placeBitmapText(font,text,x,y,options={}){
-  exactOptions(options,['scale','tone','maxWidth','maxHeight','align','policy','resolution'],'text placement');
-  const {scale=1,tone=font?.toneNames?.[0],maxWidth,maxHeight,align='left',policy,resolution}=options;
+  exactOptions(options,['scale','tone','maxWidth','maxHeight','align','policy','resolution','sourceOffsets'],'text placement');
+  const {scale=1,tone=font?.toneNames?.[0],maxWidth,maxHeight,align='left',policy,resolution,sourceOffsets=false}=options;
+  if(typeof sourceOffsets!=='boolean')throw Error('Source offsets must be boolean.');
   if(resolution!==undefined){
     if(Object.hasOwn(options,'scale'))throw Error('Do not combine scale with resolution.');
     point({x,y});const r=resolutionData(resolution),anchor=projectedPoint(r,{x,y},'to-physical'),s=r.localToPhysical.scale,p=r.physicalPixelsPerSourcePixel;
     for(const extent of [maxWidth,maxHeight])if(extent!==undefined&&finite(extent,'Layout extent')<0)throw Error('Layout extents must be nonnegative.');
     const snapped=quantizePhysicalPoint(anchor),fitOrigin={...snapped},bounds={};
     for(const [axis,extent,value] of [['x','width',maxWidth],['y','height',maxHeight]])if(value!==undefined){fitOrigin[axis]=Math.ceil(anchor[axis]);bounds[extent]=Math.max(0,Math.floor(finite(anchor[axis]+value*s,'Layout edge'))-fitOrigin[axis]);}
-    const physical=placeBitmapText(font,text,snapped.x,snapped.y,{scale:p,tone,maxWidth:bounds.width,maxHeight:bounds.height,align,policy});
+    const physical=placeBitmapText(font,text,snapped.x,snapped.y,{scale:p,tone,maxWidth:bounds.width,maxHeight:bounds.height,align,policy,sourceOffsets});
     const project=rect=>projectedRect(r,rect,'to-local'),physicalBounds={...fitOrigin,width:bounds.width??physical.width,height:bounds.height??physical.height},ink=physical.paintedBounds;
     const escapes=(rect,axis,extent)=>!!rect&&(rect[axis]<physicalBounds[axis]||rect[axis]+rect[extent]>physicalBounds[axis]+physicalBounds[extent]);
     const overflow={horizontal:maxWidth!==undefined&&physical.lines.some(line=>escapes({x:line.x,width:line.width},'x','width')),vertical:maxHeight!==undefined&&physical.height>0&&escapes({y:snapped.y,height:physical.height},'y','height'),painted:{known:ink.known,horizontal:ink.known?maxWidth!==undefined&&escapes(ink.rect,'x','width'):null,vertical:ink.known?maxHeight!==undefined&&escapes(ink.rect,'y','height'):null}};
     return {...physical,width:finite(physical.width/s,'Local width'),height:finite(physical.height/s,'Local height'),advanceWidth:finite(physical.advanceWidth/s,'Local advance width'),
-      lines:physical.lines.map(line=>({...line,...projectedPoint(r,line,'to-local'),width:finite(line.width/s,'Local line width')})),
+      ...(physical.sourceMap?{sourceMap:physical.sourceMap.map(line=>({...line,caretAdvances:line.caretAdvances.map(value=>value/s)}))}:{}),
+      lines:physical.lines.map(line=>({...line,...projectedPoint(r,line,'to-local'),width:finite(line.width/s,'Local line width'),...(line.caretAdvances?{caretAdvances:line.caretAdvances.map(value=>value/s)}:{})})),
       draws:physical.draws.map(draw=>({...draw,physicalDestination:draw.destination,destination:project(draw.destination)})),
       paintedBounds:{known:physical.paintedBounds.known,rect:physical.paintedBounds.rect?project(physical.paintedBounds.rect):null},physicalPaintedBounds:physical.paintedBounds,
       resolution:r,context:{id:r.id,revision:r.revision},requestedLayoutBounds:{x,y,width:maxWidth??null,height:maxHeight??null},physicalAnchor:snapped,bounds:project(physicalBounds),physicalBounds,overflow,
@@ -247,11 +281,11 @@ export function placeBitmapText(font,text,x,y,options={}){
   integer(x,'X');integer(y,'Y');positiveInteger(scale,'Scale');
   if(!['left','center','right'].includes(align))throw Error('Invalid text alignment.');
   for(const [key,value] of [['Max width',maxWidth],['Max height',maxHeight]])if(value!==undefined&&(!Number.isInteger(value)||value<0))throw Error(`${key} must be a finite nonnegative integer.`);
-  const p=textPolicy(policy),measured=measureBitmapText(font,text,{scale,maxWidth,policy:p}),box=maxWidth??measured.width,draws=[],lines=[];
+  const p=textPolicy(policy),measured=measureBitmapText(font,text,{scale,maxWidth,policy:p,sourceOffsets}),box=maxWidth??measured.width,draws=[],lines=[];
   let known=true,left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
   for(const [row,line] of measured.sourceLines.entries()){
     const metrics=measureBitmapText(font,line,{scale,policy:p}),lx=x+(align==='center'?Math.floor((box-metrics.width)/2):align==='right'?box-metrics.width:0),ly=y+row*(font.lineHeight+p.lineSpacing)*scale;
-    lines.push({x:lx,y:ly,width:metrics.width,source:line,resolved:measured.resolvedLines[row]});
+    lines.push({x:lx,y:ly,width:metrics.width,source:line,resolved:measured.resolvedLines[row],...(sourceOffsets?measured.sourceMap[row]:{})});
     known&&=metrics.paintedBounds.known;
     const ink=metrics.paintedBounds.rect;
     if(ink){left=Math.min(left,lx+ink.x);top=Math.min(top,ly+ink.y);right=Math.max(right,lx+ink.x+ink.width);bottom=Math.max(bottom,ly+ink.y+ink.height);}
@@ -330,7 +364,8 @@ export function* iterateNineSliceTiles(plan){
   if(plan?.format!=='agent-sprites/nine-slice@1'||!Array.isArray(plan.regions)||plan.regions.length>9)throw Error('Expected a nine-slice plan.');
   if(plan.resolution){const r=resolutionData(plan.resolution);for(const quad of iterateNineSliceTiles(plan.physicalPlan))yield {...quad,physicalDestination:quad.destination,destination:projectedRect(r,quad.destination,'to-local')};return;}
   positiveInteger(plan.scale,'Scale');
-  for(const {source:s,destination:d,period} of plan.regions){
+  for(const {source:s,destination:d,period,tile} of plan.regions){
+    if(!tile){yield {source:{...s},destination:{...d}};continue;}
     positiveInteger(period.width,'Tile period width');positiveInteger(period.height,'Tile period height');
     for(let oy=0;oy<d.height;oy+=period.height)for(let ox=0;ox<d.width;ox+=period.width){
       const width=Math.min(period.width,d.width-ox),height=Math.min(period.height,d.height-oy);
