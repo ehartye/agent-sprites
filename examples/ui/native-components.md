@@ -92,6 +92,15 @@ a context revision; affected held presses become invalid while unrelated context
 eligible presses. Parent/child measurements and slots convert through physical space;
 each record keeps its own continuous semantic bounds and inherited mapping dependencies.
 
+The root's optional `focus.order` lists the game's current eligible semantic IDs,
+including controls on other pages or outside the painted clip. Ordered navigation
+uses that order and the mount's `wrap` policy, returning a revision-bound `focus`
+intent. The game routes it through its existing semantic focus/reveal owner, then
+publishes the newly visible snapshot. Unpainted targets gain no fake geometry or
+activation authority; activation still requires a live enabled hit region. Omit
+the order to retain native visible-control traversal. Keep disabled-but-readable
+IDs only when the game's existing focus policy includes them.
+
 ## Painting and ownership
 
 Stock painting uses native Images and explicit theme-colored Rectangles. Glyph Images

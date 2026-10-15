@@ -11,7 +11,11 @@ export interface Layout {
   readonly align?: 'start' | 'center' | 'end' | 'stretch'; readonly justify?: 'start' | 'center' | 'end' | 'space-between';
 }
 /** Initial focus requires focusability. Default/cancel roles require a declared node, independently of focusability. */
-export interface FocusRoles {readonly initialId?: string; readonly defaultId?: string; readonly cancelId?: string}
+export interface FocusRoles {
+  readonly initialId?: string; readonly defaultId?: string; readonly cancelId?: string;
+  /** Authoritative semantic traversal order. Absent/clipped targets emit a focus intent for host reveal, never an activation. */
+  readonly order?: readonly string[];
+}
 export interface Selection {readonly start: number; readonly end: number; readonly direction: 'none' | 'forward' | 'backward'}
 export interface BaseProps {
   readonly id: string; readonly role?: string; readonly appearanceRole?: string; readonly variant?: string;

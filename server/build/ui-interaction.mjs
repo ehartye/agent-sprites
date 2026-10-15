@@ -38,8 +38,12 @@ function prepare(scope) {
     records.set(record.id, record);
   }
   plan.focus ??= {};
-  uiKeys(plan.focus, ['initialId', 'defaultId', 'cancelId'], 'focus');
-  for (const [role, id] of Object.entries(plan.focus)) if (id !== undefined && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
+  uiKeys(plan.focus, ['initialId', 'defaultId', 'cancelId', 'order'], 'focus');
+  if (plan.focus.order !== undefined) {
+    if (!Array.isArray(plan.focus.order) || plan.focus.order.length > 10000 || new Set(plan.focus.order).size !== plan.focus.order.length) throw new TypeError('Invalid or duplicate focus order');
+    for (const id of plan.focus.order) uiId(id, 'Focus order ID');
+  }
+  for (const [role, id] of Object.entries(plan.focus)) if (role !== 'order' && id !== undefined && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
   freezeUiData(source);
   return {source, plan, contexts, records, semantic: semantic(plan)};
 }
@@ -51,10 +55,10 @@ export function createUiInteraction(scope, policy = {}) {
   if (!['ordered', 'spatial', 'pane'].includes(policy.navigation) || typeof policy.wrap !== 'boolean') throw new TypeError('Invalid navigation policy');
   let current = prepare(scope), disposed = false, generation = 0, sequence = 0, focusId = null, hoverId = null;
   const held = new Map(), consumed = new Set(), paneFocus = new Map();
-  function candidates(pane) { return current.plan.records.filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
+  function candidates(pane) { return (current.plan.focus.order?.map(id => current.records.get(id)) ?? current.plan.records).filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
   function setFocus(id) {
     const record = current.records.get(id);
-    if (!eligible(record)) return false;
+    if (!eligible(record) || current.plan.focus.order && !current.plan.focus.order.includes(id)) return false;
     focusId = id; paneFocus.set(record.paneId, id); return true;
   }
   function restore(previous) {
@@ -121,6 +125,16 @@ export function createUiInteraction(scope, policy = {}) {
   }
   function move(direction) {
     if (!['next', 'previous', 'left', 'right', 'up', 'down'].includes(direction)) throw new TypeError('Invalid navigation direction');
+    const order = current.plan.focus.order;
+    if (order !== undefined && (policy.navigation === 'ordered' || ['next', 'previous'].includes(direction))) {
+      if (!order.length) return [];
+      const step = ['previous', 'left', 'up'].includes(direction) ? -1 : 1, index = order.indexOf(focusId), raw = index + step;
+      const id = order[policy.wrap ? (raw + order.length) % order.length : Math.min(order.length - 1, Math.max(0, raw))];
+      // Off-page/clipped targets request the host's existing reveal operation.
+      // No synthetic native bounds or activation authority is introduced.
+      if (!setFocus(id)) focusId = null;
+      return [{kind: 'focus', controlId: id, modelRevision: current.plan.revision}];
+    }
     const from = current.records.get(focusId), pool = candidates(policy.navigation === 'pane' ? from?.paneId : undefined);
     if (!pool.length) return;
     if (policy.navigation !== 'spatial' || ['next', 'previous'].includes(direction) || !from) {
@@ -147,7 +161,7 @@ export function createUiInteraction(scope, policy = {}) {
     const p = point(input.point, input.pointSpace);
     if (p?.stale) {if (input.inputId) held.delete(input.inputId);return [];}
     let result = [];
-    if (input.type === 'navigate') move(input.direction);
+    if (input.type === 'navigate') result = move(input.direction) ?? [];
     else if (input.type === 'focus') setFocus(input.controlId);
     else if (input.type === 'pane') {
       uiId(input.paneId, 'Pane ID'); const previous = paneFocus.get(input.paneId);

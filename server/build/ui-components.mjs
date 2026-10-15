@@ -90,8 +90,12 @@ export function validateUiTree(tree) {
   }
   const result = visit(copy);
   for (const focus of focusScopes) {
-    uiKeys(focus, ['initialId', 'defaultId', 'cancelId'], 'focus');
-    for (const [role, id] of Object.entries(focus)) if (id !== undefined && (!ids.has(id) || role === 'initialId' && !ids.get(id).focusable)) throw new TypeError(`Unknown or unfocusable focus ID: ${id}`);
+    uiKeys(focus, ['initialId', 'defaultId', 'cancelId', 'order'], 'focus');
+    if (focus.order !== undefined) {
+      if (!Array.isArray(focus.order) || focus.order.length > 10000 || new Set(focus.order).size !== focus.order.length) throw new TypeError('Invalid or duplicate focus order');
+      for (const id of focus.order) uiId(id, 'Focus order ID');
+    }
+    for (const [role, id] of Object.entries(focus)) if (role !== 'order' && id !== undefined && (!ids.has(id) || role === 'initialId' && !ids.get(id).focusable)) throw new TypeError(`Unknown or unfocusable focus ID: ${id}`);
   }
   return freezeUiData(result);
 }

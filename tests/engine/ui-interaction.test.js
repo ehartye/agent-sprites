@@ -23,6 +23,27 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('declared semantic navigation requests off-page reveal without granting activation and preserves cyclic order',async()=>{
+  const {createUiInteraction}=await api(),s=scope([control('a',0),control('pager',20),control('c',40)]);
+  s.plan.focus.order=['a','off-page','c'];const ui=createUiInteraction(s,{navigation:'ordered',wrap:true});
+  expect(ui.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'off-page',modelRevision:1}]);
+  expect(ui.inspect({limit:10}).focusId).toBe(null);
+  expect(ui.handle({type:'activate',inputId:'no-stale-focus'})).toEqual([]);
+  expect(ui.handle({type:'activate',controlId:'off-page',inputId:'not-painted'})).toEqual([]);
+  const next=scope([control('a',0),control('off-page',20),control('c',40)]);next.plan.revision=2;next.plan.focus={initialId:'off-page',order:['a','off-page','c']};
+  ui.update(next);ui.handle({type:'focus',controlId:'off-page'});
+  expect(ui.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'c',modelRevision:2}]);
+  expect(ui.inspect({limit:10}).focusId).toBe('c');
+  expect(ui.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'a',modelRevision:2}]);
+  expect(ui.handle({type:'navigate',direction:'previous'})).toEqual([{kind:'focus',controlId:'c',modelRevision:2}]);
+  expect(()=>createUiInteraction({...s,plan:{...s.plan,focus:{order:['a','a']}}})).toThrow(/order|duplicate/i);
+  const clipped=scope([control('a',0),control('clipped',20,{state:'clipped',effectiveHitBounds:null,effectiveFocusBounds:null})]);
+  clipped.plan.focus.order=['a','clipped'];const reveal=createUiInteraction(clipped,{navigation:'ordered'});
+  expect(reveal.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'clipped',modelRevision:1}]);
+  expect(reveal.handle({type:'activate',inputId:'clipped'})).toEqual([]);
+  const changed=structuredClone(next);changed.plan.focus.order=['c','off-page','a'];expect(()=>ui.update(changed)).toThrow(/revision/i);
+});
+
 test('disabled focus remains readable; ordered, spatial and pane movement share one focus owner',async()=>{
   const {createUiInteraction}=await api();const ui=createUiInteraction(scope(),{navigation:'ordered',wrap:true});expect(ui.inspect({limit:10}).focusId).toBe('b');expect(ui.handle({type:'activate',inputId:'key:enter'})).toEqual([]);
   ui.handle({type:'navigate',direction:'next'});expect(ui.inspect({limit:10}).focusId).toBe('c');ui.handle({type:'navigate',direction:'next'});expect(ui.inspect({limit:10}).focusId).toBe('a');

@@ -27,6 +27,7 @@ export type NormalizedUiEvent =
   | (InputBinding & {readonly type: 'caret'; readonly controlId?: string; readonly direction: 'left' | 'right' | 'home' | 'end'; readonly extend?: boolean})
   | (InputBinding & {readonly type: 'delete'; readonly controlId?: string; readonly direction: 'forward' | 'backward'});
 export type UiIntent =
+  | {readonly kind: 'focus'; readonly controlId: string; readonly modelRevision: number}
   | {readonly kind: 'activate'; readonly controlId: string; readonly actionId: string; readonly modelRevision: number; readonly activationId: string}
   | {readonly kind: 'change'; readonly controlId: string; readonly value: UiData; readonly modelRevision: number; readonly selection?: Selection; readonly composition?: string | null}
   | {readonly kind: 'cancel'; readonly scopeId: string; readonly modelRevision: number};
