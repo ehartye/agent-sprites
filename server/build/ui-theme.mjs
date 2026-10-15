@@ -93,7 +93,7 @@ export function defineTheme(input) {
     const raw = source.roles[id];
     if (typeof raw === 'string') roles[id] = {...resolve(raw)};
     else {
-      uiKeys(raw, ['extends', 'font', 'tone', 'glyphTint', 'alternatives', 'padding', 'minWidth', 'minHeight', 'colors', 'edge', 'icons', 'placement', 'density'], `theme role ${id}`);
+      uiKeys(raw, ['extends', 'font', 'tone', 'glyphTint', 'caretWidth', 'alternatives', 'padding', 'minWidth', 'minHeight', 'colors', 'edge', 'icons', 'placement', 'density'], `theme role ${id}`);
       const role = {...(raw.extends ? resolve(raw.extends) : {}), ...raw};
       delete role.extends;
       if (role.font !== undefined) {
@@ -106,6 +106,10 @@ export function defineTheme(input) {
         if (!role.font) throw new TypeError(`Role ${id} glyphTint requires a font`);
       }
       if (role.padding !== undefined) role.padding = uiInsets(role.padding);
+      if (role.caretWidth !== undefined) {
+        uiNumber(role.caretWidth, 'role.caretWidth');
+        if (role.caretWidth === 0) throw new RangeError('role.caretWidth must be positive');
+      }
       for (const key of ['minWidth', 'minHeight', 'density']) if (role[key] !== undefined) uiNumber(role[key], `role.${key}`);
       if (raw.alternatives !== undefined) {
         if (!Array.isArray(raw.alternatives) || !raw.alternatives.length) throw new TypeError(`Role ${id} requires explicit appearance alternatives`);

@@ -5,6 +5,20 @@ async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])
 function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
 
+test('field caret defaults to one physical pixel and authored width follows its label context',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const width=options=>layoutUi(u.field({id:'f',value:'A',selection:{start:1,end:1,direction:'forward'},...options}),env).records[0].parts.find(p=>p.kind==='caret').bounds.width;
+  expect(width({})).toBe(.5);
+  env.theme=defineTheme({version:1,id:'test:caret',fonts:{body:{font:font()}},roles:{field:{font:'body',tone:'cream',caretWidth:1}}});
+  expect(width({})).toBe(1);
+  env.theme=defineTheme({version:1,id:'test:empty-caret',fonts:{body:{font:font(),policy:{empty:'none'}}},roles:{field:{font:'body',tone:'cream',caretWidth:1}}});
+  expect(width({value:'',selection:{start:0,end:0,direction:'forward'}})).toBe(1);
+  env.additionalContexts=[{...env.context,id:'test:label',localToPhysical:{scale:4,x:0,y:0},sourcePixelPhysicalSize:4}];
+  expect(width({labelContextId:'test:label'})).toBe(1);
+  env.context={...env.context,revision:2,localToPhysical:{scale:3,x:0,y:0}};
+  expect(width({})).toBe(1);
+});
+
 test('child semantic context projects allocation and inherited clipping through physical coordinates',async()=>{
   const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
   env.context={...env.context,localToPhysical:{scale:2,x:10,y:0},sourcePixelPhysicalSize:2};

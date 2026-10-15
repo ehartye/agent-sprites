@@ -32,6 +32,8 @@ export interface ThemeRole {
   readonly extends?: string; readonly font?: string; readonly tone?: string; readonly alternatives?: readonly AppearanceAlternative[];
   /** Optional WebGL multiplicative #RRGGBB glyph tint, matching Phaser Image/BitmapText. Canvas requires authored source tones. Does not tint skins or icons. */
   readonly glyphTint?: string;
+  /** Positive field caret width in label-context local units; omitted means one physical pixel. */
+  readonly caretWidth?: number;
   readonly padding?: Padding; readonly minWidth?: number; readonly minHeight?: number; readonly density?: number;
   readonly colors?: UiColors; readonly edge?: UiData; readonly icons?: Readonly<{checked?:string;unchecked?:string}>; readonly placement?: UiData;
 }

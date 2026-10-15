@@ -284,6 +284,7 @@ export function layoutUi(tree, environment) {
     if (node.kind === 'field' && record.text) {
       // Selection uses UTF-16 offsets, as does the existing native IME bridge.
       const {start, end} = node.selection, caret = node.selection.direction === 'backward' ? start : end;
+      const caretWidth = role.caretWidth ?? 1 / labelContext.localToPhysical.scale;
       let cursorBounds;
       for (const line of record.text.lines) {
         const {sourceStart: lineStart, sourceEnd: lineEnd} = line;
@@ -293,9 +294,9 @@ export function layoutUi(tree, environment) {
           const a = advance(start), b = advance(end);
           record.parts.push({kind: 'selection', bounds: rect(line.x + a, line.y, Math.max(0, b - a), height), direction: node.selection.direction, contextId: labelContext.id});
         }
-        if (caret >= lineStart) cursorBounds = rect(line.x + advance(caret), line.y, 1 / labelContext.localToPhysical.scale, height);
+        if (caret >= lineStart) cursorBounds = rect(line.x + advance(caret), line.y, caretWidth, height);
       }
-      cursorBounds ??= rect(shiftedLabelContent.x, shiftedLabelContent.y, 1 / labelContext.localToPhysical.scale, face.font.lineHeight * labelContext.sourceToLocalScale);
+      cursorBounds ??= rect(shiftedLabelContent.x, shiftedLabelContent.y, caretWidth, face.font.lineHeight * labelContext.sourceToLocalScale);
       record.parts.push({kind: 'caret', bounds: cursorBounds, contextId: labelContext.id});
       if (node.composition !== null) record.parts.push({kind: 'composition', placement: placeBitmapText(face.font, node.composition, cursorBounds.x, cursorBounds.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
     }

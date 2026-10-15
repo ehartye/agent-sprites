@@ -106,6 +106,10 @@ Nine-slices use the existing lazy tile iterator, including hollow centers and cr
 last tiles. Icons declare `{width,height,frame:{x,y,width,height}}` in source pixels;
 native preparation rejects missing frames. Item quantities use the same bitmap placement
 owner. Field selection sits under glyphs; caret/composition share the portable positions.
+An optional field role `caretWidth` declares a positive width in the label context's
+local units, including for empty fields. Omission preserves the one-physical-pixel
+default. The normal physical-grid paint quantization still applies; this setting
+does not change selection, hit bounds, text measurement or input ownership.
 Tabs retain selected/disabled feedback, adjustments draw minus/plus indicators, and
 toggle/fold indicators use declared colors or `role.icons.checked/unchecked` assets.
 Progress/meter caps reserve authored start/end extents and quantize fill to the authored

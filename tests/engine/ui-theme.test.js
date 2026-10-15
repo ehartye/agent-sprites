@@ -28,3 +28,13 @@ test('authored glyph tint is inherited and validated independently of skin and f
   }
   const i=themeInput();i.roles.plain={glyphTint:'#e8837a'};expect(()=>defineTheme(i)).toThrow(/font/);
 });
+
+test('authored caret width is inherited, copied and requires a positive finite local dimension',async()=>{
+  const {defineTheme}=await api(),input=themeInput();input.roles.body.caretWidth=1;
+  input.roles.field={extends:'body'};const theme=defineTheme(input);input.roles.body.caretWidth=2;
+  expect(theme.roles.field.caretWidth).toBe(1);
+  for(const width of [0,-1,Infinity,NaN,'1',null]){
+    const invalid=themeInput();invalid.roles.body.caretWidth=width;
+    expect(()=>defineTheme(invalid)).toThrow(/caretWidth|finite/);
+  }
+});
