@@ -1,0 +1,53 @@
+{
+  "at": "2026-10-16T04:36:02.941Z",
+  "base": "aa7019c982b3cf3294c4f343eb0b64cdfa1a1055",
+  "candidate": "C:/Users/ehart/repos/agent-sprites-worktrees/shared-ui-grid-rows",
+  "fix": "Grid measurement/placement and whole-row pagination honor rowGap; row height includes explicit child sizes converted to parent context. ActionBar pagination uses its existing measured rowGap.",
+  "meaningfulRed": {
+    "gridCases": 5,
+    "gridLog": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-grid-red.log",
+      "bytes": 4732,
+      "sha256": "bbd5ebe6364d15dea3bcbf3384856d59a822f4d67c826f8634c32394bd9d1ca6"
+    },
+    "actionBarCases": 1,
+    "actionBarLog": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-grid-action-pagination-red.log",
+      "bytes": 1164,
+      "sha256": "9cd77dc757b4929be7f5877915c5f8d178323a7f235faadc9f94933057be2621"
+    }
+  },
+  "green": {
+    "layoutCases": 41,
+    "layoutLog": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-grid-layout-green.log",
+      "bytes": 258,
+      "sha256": "9147b218b9bdb1733f2feafa1653aedd6923c46f81b77229d2939e4741d8d8f7"
+    },
+    "nineOwners": 9,
+    "cases": 322,
+    "skipped": 0,
+    "log": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-grid-nine-owners.log",
+      "bytes": 264,
+      "sha256": "edefcd8a772055687a32e58c4030b2db9605bf38c9f1e2ca88c6efd893cc0574"
+    }
+  },
+  "strictTypes": {
+    "reused": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-disabled-focus-strict-types-verification.json",
+      "bytes": 3461,
+      "sha256": "0547df94d91ed40aecb3cc6a4f327db04e80f50dfa52bc0b0e13b19571ffac15"
+    },
+    "reason": "All public declarations, native host API and strict consumer fixture remain unchanged; bounded implementation changes only pure layout."
+  },
+  "resourceRevision": {
+    "defaultInference": 2,
+    "temporaryMaxInference": 3,
+    "reason": "Two long-running game writers plus one bounded read-only source reviewer; preserve existing writer progress. No additional heavy/browser/build job. Last observed available physical memory35616984KiB of64595380KiB.",
+    "maxHeavyJobs": 1,
+    "consumerSourceWriters": 2,
+    "coordinatorProducerException": "One bounded isolated producer delta, now source-stable while review runs. Original475 andAA source checkouts and immutable handoffs unchanged."
+  },
+  "acceptance": "Unreleased source candidate only; independent review, canonical export, final game native checks/publication remain required."
+}

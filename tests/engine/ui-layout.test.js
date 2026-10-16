@@ -217,6 +217,56 @@ test('grid measures wrapped text at the allocated cell width and paginates whole
   const result=layoutUi(tree,env);expect(result.records[0].measure.preferred.height).toBe(48);expect(result.records[0].overflow.pageCount).toBe(2);expect(result.records.filter(r=>r.id!=='grid'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);expect(result.records[3].bounds.y).toBe(0);expect(result.records[3].bounds.height).toBe(24);
 });
 
+test.each([0,7])('grid honors explicit rowGap %i independently of column spacing',async rowGap=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=['a','b','c','d'].map(id=>u.panel({id,layout:{height:10,minHeight:10}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2,rowGap},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(20+rowGap);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(10+rowGap);
+  expect(result.records.find(r=>r.id==='b').bounds.x).toBe(51);
+});
+
+test('grid advances by the tallest explicit child height without overlapping rows',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[10,18,6,4].map((height,i)=>u.panel({id:['a','b','c','d'][i],layout:{height}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(26);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(20);
+  expect(result.records.find(r=>r.id==='d').bounds.height).toBe(4);
+});
+
+test('grid pagination uses the authored row gap and keeps each full row together',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=['a','b','c','d','e','f'].map(id=>u.panel({id,layout:{height:10,minHeight:10}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,height:24,columns:2,gap:2,rowGap:7,overflow:'paginate',page:1},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(44);
+  expect(result.records[0].overflow.pageCount).toBe(3);
+  expect(result.records.filter(r=>r.id!=='g'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(0);
+});
+
+test('grid row heights convert explicit child context units before adding the parent row gap',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:300,height:120}}];
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2,rowGap:5},children:[
+    u.panel({id:'a',contextId:'test:child',layout:{height:20}}),u.panel({id:'b',layout:{height:12}}),
+    u.panel({id:'c',layout:{height:4}}),u.panel({id:'d',contextId:'test:child',layout:{height:6}}),
+  ]}),env);
+  expect(result.records[0].measure.preferred.height).toBe(21);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(17);
+  expect(result.records.find(r=>r.id==='a').bounds.height).toBe(20);
+});
+
+test('action-bar pagination retains its measured row gap rather than column spacing',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const result=layoutUi(u.actionBar({id:'bar',allocationPolicy:'equal-max-fit',layout:{width:100,height:24,gap:2,rowGap:7,overflow:'paginate',page:1},
+    children:['a','b','c','d'].map(id=>u.button({id,layout:{width:49,height:10,minHeight:10}})),
+  }),env);
+  expect(result.records[0].measure.preferred.height).toBe(27);
+  expect(result.records[0].overflow.pageCount).toBe(2);
+  expect(result.records.filter(r=>r.id!=='bar'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);
+});
+
 test('stock controlled parts expose deterministic value geometry and caret; skin plans preserve hollow tiled edges',async()=>{
   const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
   const f=layoutUi(u.field({id:'f',value:'Ai',selection:{start:1,end:2,direction:'backward'}}),env).records[0];expect(f.parts.find(p=>p.kind==='caret').bounds.x).toBe(10.5);expect(f.parts.find(p=>p.kind==='selection').bounds.width).toBe(3);

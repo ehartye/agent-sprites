@@ -122,11 +122,11 @@ export function layoutUi(tree, environment) {
       childHeight = maximum(remeasured.map((m, i) => childLength(children[i],'height',data.context) ?? m.allocatedHeight));
       minHeight = maximum(remeasured.map(m => m.min.height));
     } else if (node.kind === 'grid') {
-      const columns = l.columns ?? 1, rows = Math.ceil(children.length / columns);
+      const columns = l.columns ?? 1, rows = Math.ceil(children.length / columns), rowGap = l.rowGap ?? gap;
       childWidth = maximum(widths) * columns + gap * (columns - 1);
-      childHeight = sum(Array.from({length: rows}, (_, i) => maximum(heights.slice(i * columns, (i + 1) * columns)))) + gap * Math.max(0, rows - 1);
+      childHeight = sum(Array.from({length: rows}, (_, i) => maximum(heights.slice(i * columns, (i + 1) * columns)))) + rowGap * Math.max(0, rows - 1);
       minWidth = maximum(sizes.map(m => m.min.width)) * columns + gap * (columns - 1);
-      minHeight = sum(Array.from({length: rows}, (_, i) => maximum(sizes.slice(i * columns, (i + 1) * columns).map(m => m.min.height)))) + gap * Math.max(0, rows - 1);
+      minHeight = sum(Array.from({length: rows}, (_, i) => maximum(sizes.slice(i * columns, (i + 1) * columns).map(m => m.min.height)))) + rowGap * Math.max(0, rows - 1);
     } else if (node.kind === 'absolute') {
       childWidth = maximum(widths.map((w, i) => w + (childLength(children[i],'x',data.context) ?? 0))); childHeight = maximum(heights.map((h, i) => h + (childLength(children[i],'y',data.context) ?? 0)));
       minWidth = maximum(sizes.map((m, i) => m.min.width + (childLength(children[i],'x',data.context) ?? 0))); minHeight = maximum(sizes.map((m, i) => m.min.height + (childLength(children[i],'y',data.context) ?? 0)));
@@ -230,10 +230,10 @@ export function layoutUi(tree, environment) {
     } else if (node.kind === 'absolute') {
       children.forEach((child, i) => slots.set(child.id, rect(content.x + (childLength(child,'x',context) ?? 0), childTop + (childLength(child,'y',context) ?? 0), childLength(child,'width',context) ?? sizes[i].preferred.width, childLength(child,'height',context) ?? sizes[i].allocatedHeight)));
     } else if (node.kind === 'grid') {
-      const columns = l.columns ?? 1, width = Math.max(0, (content.width - gap * (columns - 1)) / columns); let y = childTop;
+      const columns = l.columns ?? 1, width = Math.max(0, (content.width - gap * (columns - 1)) / columns), rowGap = l.rowGap ?? gap; let y = childTop;
       for (let i = 0; i < children.length; i += columns) {
-        const slice = children.slice(i, i + columns), measures = slice.map(child => measureChild(child, width, context)), height = maximum(measures.map(m => m.allocatedHeight));
-        slice.forEach((child, col) => slots.set(child.id, rect(content.x + col * (width + gap), y, childLength(child,'width',context) ?? Math.max(width, measures[col].min.width), childLength(child,'height',context) ?? height))); y += height + gap;
+        const slice = children.slice(i, i + columns), measures = slice.map(child => measureChild(child, width, context)), height = maximum(measures.map((m, col) => childLength(slice[col],'height',context) ?? m.allocatedHeight));
+        slice.forEach((child, col) => slots.set(child.id, rect(content.x + col * (width + gap), y, childLength(child,'width',context) ?? Math.max(width, measures[col].min.width), childLength(child,'height',context) ?? height))); y += height + rowGap;
       }
     } else {
       const horizontal = node.kind === 'row', axis = horizontal ? 'width' : 'height', available = horizontal ? content.width : childHeight;
@@ -258,13 +258,14 @@ export function layoutUi(tree, environment) {
       // Preserve a visual row as one page unit (grid, action allocation or authored slots).
       const rows = new Map();
       for (const child of children) { const slot = slots.get(child.id); if (!slot) continue; const row = rows.get(slot.y) ?? []; row.push(child.id); rows.set(slot.y, row); }
+      const rowGap = node.kind === 'grid' || node.kind === 'actionBar' ? l.rowGap ?? gap : gap;
       let page = 0, used = 0;
       for (const [y, ids] of [...rows.entries()].sort((a, b) => a[0] - b[0])) {
         const height = maximum(ids.map(id => slots.get(id).height));
-        if (used > 0 && used + gap + height > childHeight) { page++; used = 0; }
-        const top = childTop + used + (used ? gap : 0);
+        if (used > 0 && used + rowGap + height > childHeight) { page++; used = 0; }
+        const top = childTop + used + (used ? rowGap : 0);
         for (const id of ids) { pageMembership.set(id, page); const slot = slots.get(id); slots.set(id, {...slot, y: top + slot.y - y}); }
-        used += (used ? gap : 0) + height;
+        used += (used ? rowGap : 0) + height;
       }
       record.overflow.pageCount = page + 1; record.overflow.page = clamp(l.page ?? 0, 0, page);
     }

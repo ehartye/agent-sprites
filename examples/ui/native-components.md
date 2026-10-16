@@ -25,6 +25,15 @@ and all historical art/metadata aliases preserved. New aliases use camel case (f
 example `uiPhaserRuntime`, `uiIndexTypes`, `uiSoftwareManifest`). Build ownership and
 integrity receipts include every software file.
 
+## Grid rows and pagination
+
+Grid `layout.gap` separates columns; `layout.rowGap` separates rows and defaults
+to `gap` when omitted. Explicit zero keeps adjacent rows together. Measurement,
+placement and whole-row pagination use the same row gap. Each row advances by
+its tallest allocated child, including fixed child heights converted from their
+semantic contexts into the parent context. The gap stays in parent-local units.
+Action-bar whole-row pagination likewise preserves its declared row gap.
+
 ## Assets, contexts and the single game router
 
 The native port can opt into exact source-axis compression with
