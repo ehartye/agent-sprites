@@ -2,6 +2,19 @@ import {test,expect} from 'vitest';
 import {existsSync} from 'node:fs';
 import {normalizeBitmapFont} from '../../server/build/ui-runtime.mjs';
 
+test('disabled focus edge opt-in is inherited immutable boolean appearance data',async()=>{
+  const {defineTheme}=await api(),input=themeInput();
+  input.roles.button.edge={width:2,focusWhenDisabled:true,authored:'skill'};
+  const theme=defineTheme(input);input.roles.button.edge.focusWhenDisabled=false;
+  expect(theme.roles.primary.edge.focusWhenDisabled).toBe(true);
+  expect(Object.isFrozen(theme.roles.primary.edge)).toBe(true);
+  for(const value of ['true',1,0,null,[],{}]){
+    const bad=themeInput();bad.roles.button.edge={focusWhenDisabled:value};
+    expect(()=>defineTheme(bad)).toThrow(/focusWhenDisabled/);
+  }
+  const legacy=themeInput();expect(defineTheme(legacy).roles.primary.edge).toBeUndefined();
+});
+
 test('focus style inherits immutable opacity and local edge width without losing edge metadata',async()=>{
   const {defineTheme}=await api(),input=themeInput();
   input.roles.button.opacity=.3;input.roles.button.edge={width:2,authored:'magenta'};

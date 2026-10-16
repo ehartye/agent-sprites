@@ -119,6 +119,13 @@ Feedback fits inside quantized paint bounds and partitions corners and tiny boun
 without overlapping strips, so translucent feedback paints each covered pixel once.
 Hit/focus bounds and clipping remain independent and continuous.
 
+For readable disabled cards, opt in with `edge: {focusWhenDisabled: true}`.
+An authoritatively focused disabled control then uses its explicit `colors.focus`
+for the edge, while its base skin, tone and other appearance stay disabled. The
+edge disappears or returns to `colors.disabled` when focus leaves. Omitted/false
+retains the original disabled-feedback precedence; a missing focus color also
+retains that precedence. This option cannot grant focus or enable activation.
+
 ```js
 // Normal stock composition for authored item focus: opaque edge, 30% wash.
 // Use these roles with the consumer's actual contexts and immutable asset ports.

@@ -42,6 +42,54 @@ async function api() {
   return import(url.href);
 }
 
+test('disabled focus edge opt-in paints only authoritative focus and never enables activation',async()=>{
+  const {createPhaserUi}=await api();
+  for(const optIn of [true,false,undefined]){
+    const f=fixture();
+    f.theme=defineTheme({version:1,id:'test:disabled-focus',roles:{absolute:{},button:{colors:{focus:'#ff2bd6'},edge:{width:2,...(optIn===undefined?{}:{focusWhenDisabled:optIn})}}}});
+    const tree=u.absolute({id:'root',focus:{order:['neutral','card'],initialId:'neutral'},children:[
+      button({id:'neutral',actionId:'game:neutral',layout:{x:40,y:0,width:20,height:10}}),
+      button({id:'card',actionId:'game:locked',enabled:false,focusable:true,layout:{x:0,y:0,width:20,height:10}}),
+    ]});
+    const ui=createPhaserUi(f),m=ui.mount({revision:0,context:f.context,tree},{parent:f.parent,scope:'test:disabled-focus'});
+    const paintedCard=()=>f.objects.filter(o=>o.kind==='rectangle'&&o.visible&&o.color===0xff2bd6&&o.x<20);
+    expect(paintedCard()).toHaveLength(0);
+    m.handle({type:'focus',controlId:'card'});
+    expect(m.inspect({limit:10}).focusId).toBe('card');
+    expect(paintedCard()).toHaveLength(optIn===true?4:0);
+    if(optIn===true){expect(paintedCard()[0].height).toBe(2);expect(paintedCard().every(o=>o.alpha===1)).toBe(true);}
+    expect(m.handle({type:'activate',controlId:'card',inputId:'enter'}).filter(i=>i.kind==='activate')).toHaveLength(0);
+    m.handle({type:'press',point:{x:2,y:2},pointSpace:'physical',inputId:'mouse'});
+    expect(m.inspect({limit:10}).heldCount).toBe(0);
+    expect(m.handle({type:'release',point:{x:2,y:2},pointSpace:'physical',inputId:'mouse'}).filter(i=>i.kind==='activate')).toHaveLength(0);
+    m.handle({type:'focus',controlId:'neutral'});expect(paintedCard()).toHaveLength(0);
+    m.dispose();expect(m.inspect({limit:1}).native.objects).toBe(0);ui.dispose();
+  }
+});
+
+test('disabled focus edge preserves explicit disabled ink when focus ink is omitted',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:disabled-ink',roles:{button:{colors:{disabled:'#777777'},edge:{focusWhenDisabled:true}}}});
+  const ui=createPhaserUi(f),m=ui.mount({revision:0,context:f.context,tree:button({id:'locked',enabled:false,focusable:true,actionId:'game:locked',layout:{width:20,height:10}})},{parent:f.parent,scope:'test:disabled-ink'});
+  m.handle({type:'focus',controlId:'locked'});
+  expect(m.inspect({limit:1}).focusId).toBe('locked');
+  expect(f.objects.filter(o=>o.visible&&o.color===0x777777)).toHaveLength(4);ui.dispose();
+});
+
+test('disabled focus edge cannot grant focus to a control excluded by interaction policy',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:no-focus-grant',roles:{absolute:{},button:{colors:{focus:'#ff2bd6'},edge:{focusWhenDisabled:true}}}});
+  const tree=u.absolute({id:'root',focus:{order:['neutral'],initialId:'neutral'},children:[
+    button({id:'neutral',actionId:'game:neutral',layout:{x:40,y:0,width:20,height:10}}),
+    button({id:'locked',enabled:false,focusable:false,actionId:'game:locked',layout:{width:20,height:10}}),
+  ]});
+  const ui=createPhaserUi(f),m=ui.mount({revision:0,context:f.context,tree},{parent:f.parent,scope:'test:no-focus-grant'});
+  m.handle({type:'focus',controlId:'locked'});
+  expect(m.inspect({limit:10}).focusId).toBe('neutral');
+  expect(f.objects.filter(o=>o.visible&&o.x<20&&o.color===0xff2bd6)).toHaveLength(0);
+  ui.dispose();
+});
+
 test('focus style uses two semantic local pixels at scale four and defaults to one physical pixel',async()=>{
   const {createPhaserUi}=await api();
   for(const width of [2,undefined]){

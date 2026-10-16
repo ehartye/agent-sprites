@@ -108,6 +108,7 @@ export function defineTheme(input) {
       if (role.padding !== undefined) role.padding = uiInsets(role.padding);
       if (role.opacity !== undefined && (!Number.isFinite(role.opacity) || role.opacity < 0 || role.opacity > 1)) throw new RangeError('role.opacity must be finite and within 0..1');
       if (role.edge?.width !== undefined && (!Number.isFinite(role.edge.width) || role.edge.width <= 0)) throw new RangeError('role.edge.width must be positive and finite');
+      if (role.edge?.focusWhenDisabled !== undefined && typeof role.edge.focusWhenDisabled !== 'boolean') throw new TypeError('role.edge.focusWhenDisabled must be boolean');
       if (role.caretWidth !== undefined) {
         uiNumber(role.caretWidth, 'role.caretWidth');
         if (role.caretWidth === 0) throw new RangeError('role.caretWidth must be positive');

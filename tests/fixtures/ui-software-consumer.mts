@@ -55,12 +55,15 @@ const nativePorts:NativePorts={
 const placement={nativeStates:{hover:{tone:'cream',opacity:.3},focus:{tone:'cream',opacity:.3},pressed:{paintOffset:{x:0,y:1},opacity:0},disabled:{visible:false,opacity:1}}} satisfies NativeAppearancePlacement;
 const linked=absolute({id:'linked',children:[button({id:'owner',actionId:'game:ok'}),text({id:'linked-label',label:'?',metadata:{'ui:stateOwner':'owner'}})]});
 void linked;void placement;
-const edge={width:2,authored:'magenta',corners:{style:'square'}} satisfies ThemeEdge;
+const edge={width:2,focusWhenDisabled:true,authored:'magenta',corners:{style:'square'}} satisfies ThemeEdge;
 const washTheme=defineTheme({version:1,id:'consumer:wash',roles:{absolute:{},itemSlot:{opacity:1,edge,colors:{focus:'#ff2bd6'}},wash:{opacity:0,alternatives:[{kind:'flat',color:'#ff2bd6'}],placement:{nativeStates:{focus:{opacity:.3},hover:{opacity:.3},pressed:{opacity:.3},disabled:{opacity:0}}}}}});
 const washTree=absolute({id:'wash-root',children:[itemSlot({id:'item',actionId:'game:item',layout:{width:20,height:10}}),panel({id:'wash',appearanceRole:'wash',metadata:{'ui:stateOwner':'item'},layout:{width:20,height:10}})]});
 layoutUi(washTree,{theme:washTheme,context,revision:1}).records.forEach(record=>{const parentId:string|null|undefined=record.parentId;void parentId;});
 // @ts-expect-error edge width is a local number, never a CSS dimension
 const invalidEdge:ThemeEdge={width:'2px'};
+// @ts-expect-error disabled-focus ink is an explicit boolean, not an action grant
+const invalidDisabledFocus:ThemeEdge={focusWhenDisabled:'true'};
+void invalidDisabledFocus;
 // @ts-expect-error native opacity has no string or arbitrary alpha alias
 const invalidOpacity:NativeAppearancePlacement={nativeStates:{focus:{opacity:'0.3'}}};
 void invalidEdge;void invalidOpacity;

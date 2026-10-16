@@ -44,7 +44,13 @@ export interface NativeAppearancePlacement {
 }
 /** Authored edge metadata. Width is a positive semantic-local dimension;
  * native preflight requires whole physical pixels. Omission is one physical pixel. */
-export interface ThemeEdge {readonly width?:number;readonly [key:string]:UiData;}
+export interface ThemeEdge {
+  readonly width?:number;
+  /** Opt-in focus ink for an authoritatively focused disabled control.
+   * Does not grant focus, enable actions or override disabled base artwork. */
+  readonly focusWhenDisabled?:boolean;
+  readonly [key:string]:UiData;
+}
 export interface ThemeRole {
   readonly extends?: string; readonly font?: string; readonly tone?: string; readonly alternatives?: readonly AppearanceAlternative[];
   /** Optional WebGL multiplicative #RRGGBB glyph tint, matching Phaser Image/BitmapText. Canvas requires authored source tones. Does not tint skins or icons. */

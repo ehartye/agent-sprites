@@ -177,7 +177,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
           const left=Math.min(edgePixels,bounds.width),right=Math.min(edgePixels,bounds.width-left),middle=bounds.height-top-bottom;
           const borders=[{...bounds,height:top},{...bounds,y:bounds.y+bounds.height-bottom,height:bottom},
             {x:bounds.x,y:bounds.y+top,width:left,height:middle},{x:bounds.x+bounds.width-right,y:bounds.y+top,width:right,height:middle}];
-          borders.forEach((b,i)=>commands.push({key:`${control.id}:feedback:${i}`,kind:'rectangle',bounds:projectPixelRect(context,b,'to-local'),contextId:context.id,clip:control.clipBounds,recordId:control.id,feedback:role.colors??{},opacity:role.opacity??1}));
+          borders.forEach((b,i)=>commands.push({key:`${control.id}:feedback:${i}`,kind:'rectangle',bounds:projectPixelRect(context,b,'to-local'),contextId:context.id,clip:control.clipBounds,recordId:control.id,feedback:role.colors??{},focusWhenDisabled:role.edge?.focusWhenDisabled===true,opacity:role.opacity??1}));
         }
         // Selections are below lettering, after the authored face.
         const rank = p => ['flat','skin'].includes(p.kind)?0:p.kind==='selection'?1:2;
@@ -401,7 +401,11 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         const record = feedback.get(command.recordId), clipped = intersect(command.bounds,command.clip);
         let visible = !!clipped && record.state !== 'hidden' && command.active !== false && (!command.focusedOnly || record.focused), ink = command.color;
         if (command.feedback) {
-          const state = !record.enabled?'disabled':record.pressed?'pressed':record.hovered?'hover':record.focused?'focus':record.selected?'selected':null;
+          // A readable disabled card can retain its authored focus indicator.
+          // This changes edge ink only; base disabled art and input eligibility
+          // continue to use the original disabled state and authority.
+          const disabledFocus=!record.enabled&&record.focused&&command.focusWhenDisabled&&command.feedback.focus!==undefined;
+          const state = disabledFocus?'focus':!record.enabled?'disabled':record.pressed?'pressed':record.hovered?'hover':record.focused?'focus':record.selected?'selected':null;
           if (state && command.feedback[state] !== undefined) ink=color(command.feedback[state]); else visible=false;
         }
         let item=objects.get(command.key);
