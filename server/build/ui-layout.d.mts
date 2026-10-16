@@ -59,6 +59,9 @@ export interface ActionPlan {
   readonly allocation: {readonly kind: 'empty'} | {readonly kind: 'native-equal'; readonly arrangement: 'row' | 'grid' | 'stack'; readonly columns: number; readonly rows: readonly (readonly string[])[]} | {readonly kind: 'authored'; readonly arrangement: 'row'; readonly slots: readonly (Rect & {readonly id: string})[]};
 }
 export type LayoutRecord<K extends NodeKind = NodeKind> = K extends NodeKind ? Readonly<Omit<UiNode<K>, 'children'> & {
+  /** Flattened topology for independent state-owner sibling/leaf validation.
+   * New layout publications always supply it; legacy non-panel plans may omit it. */
+  parentId?: string | null;
   bounds: Rect; hitBounds: Rect; focusBounds: Rect; effectiveHitBounds: Rect | null; effectiveFocusBounds: Rect | null;
   clipBounds: Rect | null; contentClipBounds: Rect | null; contentBounds: Rect; paintBounds: Rect | null; effectivePaintBounds: Rect | null; semanticContextId: string; contextRevisions: Record<string, number>;
   paneId: string; state: 'visible' | 'clipped' | 'hidden'; measure: Measure; parts: readonly PaintPart[];

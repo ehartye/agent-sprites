@@ -38,6 +38,23 @@ test('state-owner identity participates in revision validation and linked labels
   expect(()=>createUiInteraction(forged)).toThrow(/state.owner|authority/);
 });
 
+test('focus style leaf panel link retains one itemSlot input owner and rejects forged authority or parentage',async()=>{
+  const {createUiInteraction}=await api();
+  const owner=control('a',0,{kind:'itemSlot',parentId:null}),wash=control('wash',0,{kind:'panel',parentId:null,focusable:false,actionId:undefined,children:[],parts:[{kind:'flat'}],metadata:{'ui:stateOwner':'a'}});
+  const s=scope([owner,wash]),ui=createUiInteraction(s);
+  ui.handle({type:'press',inputId:'p',point:{x:2,y:2}});expect(ui.inspect({limit:4}).heldCount).toBe(1);
+  expect(ui.handle({type:'release',inputId:'p',point:{x:2,y:2}})).toMatchObject([{controlId:'a'}]);
+  expect(ui.handle({type:'activate',inputId:'bad',controlId:'wash'})).toEqual([]);
+  for(const patch of [{focusable:true},{actionId:'game:bad'},{children:[{id:'a'}]},{parts:[{kind:'skin'}]},{metadata:{'ui:stateOwner':'missing'}},{focus:{defaultId:'a'}}]){
+    const forged=structuredClone(s);Object.assign(forged.plan.records[1],patch);expect(()=>createUiInteraction(forged)).toThrow(/state.owner|authority|flat|sibling/i);
+  }
+  const nested=structuredClone(s);nested.plan.records.push(control('parent',20,{kind:'panel',parentId:null,focusable:false,actionId:undefined}));nested.plan.records[1].parentId='parent';
+  expect(()=>createUiInteraction(nested)).toThrow(/state.owner|sibling/i);
+  const chain=structuredClone(s);chain.plan.records[0].metadata={'ui:stateOwner':'wash'};expect(()=>createUiInteraction(chain)).toThrow(/state.owner/i);
+  const ordered=structuredClone(s);ordered.plan.focus.order=['a','wash'];expect(()=>createUiInteraction(ordered)).toThrow(/state.owner|authority/i);
+  ui.dispose();
+});
+
 test('declared semantic navigation requests off-page reveal without granting activation and preserves cyclic order',async()=>{
   const {createUiInteraction}=await api(),s=scope([control('a',0),control('pager',20),control('c',40)]);
   s.plan.focus.order=['a','off-page','c'];const ui=createUiInteraction(s,{navigation:'ordered',wrap:true});

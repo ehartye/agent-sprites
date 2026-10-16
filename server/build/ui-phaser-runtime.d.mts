@@ -7,6 +7,8 @@ import type {NormalizedUiEvent, UiIntent, InteractionPolicy} from './ui-interact
 export interface NativeObject {
   setOrigin(x:number,y?:number):this; setPosition(x:number,y:number):this;
   setScale(x:number,y?:number):this; setVisible(visible:boolean):this; setDepth(depth:number):this;
+  /** Public Phaser alpha is set on every reconciliation, including reset to 1. */
+  setAlpha(alpha:number):this;
   destroy():void;
 }
 export interface NativeImage extends NativeObject {

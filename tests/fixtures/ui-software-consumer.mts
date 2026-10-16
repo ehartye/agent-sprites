@@ -1,5 +1,5 @@
-import {defineTheme,normalizeBitmapFont,button,text,field,absolute,extension,layoutUi,createPhaserUi,createUiInteraction,pixelResolution,projectPixelPoint,placeBitmapText,planActionGroup} from '../../server/build/ui-index.mjs';
-import type {NativeScene,NativeParent,NativePorts,UiSnapshot,NativeExtension,UiIntent,NativeAppearancePlacement,SourceRGBA} from '../../server/build/ui-index.mjs';
+import {defineTheme,normalizeBitmapFont,button,itemSlot,panel,text,field,absolute,extension,layoutUi,createPhaserUi,createUiInteraction,pixelResolution,projectPixelPoint,placeBitmapText,planActionGroup} from '../../server/build/ui-index.mjs';
+import type {NativeScene,NativeParent,NativePorts,NativeImage,NativeRectangle,UiSnapshot,NativeExtension,UiIntent,NativeAppearancePlacement,ThemeEdge,SourceRGBA} from '../../server/build/ui-index.mjs';
 // The coordinator resolves this to the actual installed Phaser 4.2.1 declaration
 // package. This fixture requires a separately verified TypeScript compiler.
 import type Phaser from 'phaser';
@@ -43,13 +43,27 @@ declare const actualTexture:Phaser.Textures.Texture;
 declare const sourcePixels:Omit<SourceRGBA,'source'>;
 const structuralScene:NativeScene=actualScene;
 const structuralParent:NativeParent=actualParent;
+declare const actualImage:Phaser.GameObjects.Image;
+declare const actualRectangle:Phaser.GameObjects.Rectangle;
+const structuralImage:NativeImage=actualImage;
+const structuralRectangle:NativeRectangle=actualRectangle;
+structuralImage.setAlpha(.3);structuralRectangle.setAlpha(0).setAlpha(1);
 const nativePorts:NativePorts={
   resolveAsset:()=>({ownership:'borrowed',texture:actualTexture}),
   readSourceRGBA:request=>request.kind==='skin'?{...sourcePixels,source:request.source}:null,
   attachContext:()=>({ownership:'borrowed',parent:actualParent})};
-const placement={nativeStates:{hover:{tone:'cream'},focus:{tone:'cream'},pressed:{paintOffset:{x:0,y:1}},disabled:{visible:false}}} satisfies NativeAppearancePlacement;
+const placement={nativeStates:{hover:{tone:'cream',opacity:.3},focus:{tone:'cream',opacity:.3},pressed:{paintOffset:{x:0,y:1},opacity:0},disabled:{visible:false,opacity:1}}} satisfies NativeAppearancePlacement;
 const linked=absolute({id:'linked',children:[button({id:'owner',actionId:'game:ok'}),text({id:'linked-label',label:'?',metadata:{'ui:stateOwner':'owner'}})]});
 void linked;void placement;
+const edge={width:2,authored:'magenta',corners:{style:'square'}} satisfies ThemeEdge;
+const washTheme=defineTheme({version:1,id:'consumer:wash',roles:{absolute:{},itemSlot:{opacity:1,edge,colors:{focus:'#ff2bd6'}},wash:{opacity:0,alternatives:[{kind:'flat',color:'#ff2bd6'}],placement:{nativeStates:{focus:{opacity:.3},hover:{opacity:.3},pressed:{opacity:.3},disabled:{opacity:0}}}}}});
+const washTree=absolute({id:'wash-root',children:[itemSlot({id:'item',actionId:'game:item',layout:{width:20,height:10}}),panel({id:'wash',appearanceRole:'wash',metadata:{'ui:stateOwner':'item'},layout:{width:20,height:10}})]});
+layoutUi(washTree,{theme:washTheme,context,revision:1}).records.forEach(record=>{const parentId:string|null|undefined=record.parentId;void parentId;});
+// @ts-expect-error edge width is a local number, never a CSS dimension
+const invalidEdge:ThemeEdge={width:'2px'};
+// @ts-expect-error native opacity has no string or arbitrary alpha alias
+const invalidOpacity:NativeAppearancePlacement={nativeStates:{focus:{opacity:'0.3'}}};
+void invalidEdge;void invalidOpacity;
 createPhaserUi({scene:structuralScene,theme,ports:nativePorts,limits:{sourceBytes:4194304}}).mount(snapshot,{parent:structuralParent,scope:'consumer:actual'});
 // @ts-expect-error reserved state-owner identity must be a string
 button({id:'bad-state-owner',metadata:{'ui:stateOwner':17}});

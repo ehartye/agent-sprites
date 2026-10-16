@@ -17,8 +17,9 @@ export interface FocusRoles {
   readonly order?: readonly string[];
 }
 export interface Selection {readonly start: number; readonly end: number; readonly direction: 'none' | 'forward' | 'backward'}
-/** Reserved link is validated at layout/interaction publication. Only text/icon
- * siblings without focus/action authority may consume a same-mount button state.
+/** Reserved link is validated at layout/interaction publication. Text/icon and
+ * leaf flat panel siblings without focus/action/order authority may consume a
+ * same-mount button or itemSlot state. Panels have no labels or descendants.
  * The metadata remains part of immutable semantic identity and model revisions. */
 export type UiMetadata = Readonly<Record<`${string}:${string}`,UiData> & {'ui:stateOwner'?:string}>;
 export interface BaseProps {

@@ -1,6 +1,23 @@
 import {test,expect} from 'vitest';
 import {existsSync} from 'node:fs';
 import {normalizeBitmapFont} from '../../server/build/ui-runtime.mjs';
+
+test('focus style inherits immutable opacity and local edge width without losing edge metadata',async()=>{
+  const {defineTheme}=await api(),input=themeInput();
+  input.roles.button.opacity=.3;input.roles.button.edge={width:2,authored:'magenta'};
+  input.roles.extended={extends:'button'};
+  const theme=defineTheme(input);input.roles.button.edge.width=9;input.roles.button.opacity=1;
+  expect(theme.roles.primary.opacity).toBe(.3);expect(theme.roles.extended.edge).toEqual({width:2,authored:'magenta'});
+  expect(Object.isFrozen(theme.roles.primary.edge)).toBe(true);
+  expect(theme.roles.body.opacity).toBeUndefined();expect(theme.roles.body.edge).toBeUndefined();
+  for(const value of [NaN,Infinity,-Infinity,-.1,1.1,null,'0.3']){
+    const bad=themeInput();bad.roles.button.opacity=value;expect(()=>defineTheme(bad)).toThrow(/opacity|finite/);
+  }
+  for(const value of [NaN,Infinity,-Infinity,0,-1,null,'2']){
+    const bad=themeInput();bad.roles.button.edge={width:value};expect(()=>defineTheme(bad)).toThrow(/width|finite/);
+  }
+  const zero=themeInput();zero.roles.button.opacity=0;expect(defineTheme(zero).roles.primary.opacity).toBe(0);
+});
 export function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 async function api(){const url=new URL('../../server/build/ui-theme.mjs',import.meta.url);expect(existsSync(url),'portable theme owner exists').toBe(true);return import(url.href);}
 export function themeInput(){return {version:1,id:'app:theme',fonts:{body:{font:font(),policy:{spaces:'terminal'}}},skins:{paper:{frame:{x:0,y:0,width:12,height:12},insets:{left:2,right:2,top:2,bottom:2},padding:{left:3,right:3,top:2,bottom:2},minWidth:4,minHeight:4,center:'omit',tile:true,trim:{x:1,y:1,width:10,height:10},caps:{start:2,end:3,period:4}}},roles:{body:{font:'body',tone:'cream'},button:{font:'body',tone:'cream',alternatives:[{kind:'skin',id:'missing'},{kind:'skin',id:'paper'}]},primary:'button'},geometry:{gap:2,padding:0,minTarget:10}};}

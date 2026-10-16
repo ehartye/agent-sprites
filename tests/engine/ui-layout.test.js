@@ -5,6 +5,23 @@ async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])
 function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
 
+test('focus style permits only a leaf flat panel state consumer beside button or itemSlot',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:wash',roles:{absolute:{},button:{},itemSlot:{},panel:{alternatives:[{kind:'flat',color:'#ff2bd6'}]}}});
+  const wash=extra=>u.panel({id:'wash',metadata:{'ui:stateOwner':'owner'},layout:{width:10,height:10},...extra});
+  const owner=u.itemSlot({id:'owner',actionId:'game:item',layout:{width:10,height:10}});
+  const tree=(decoration=wash(),control=owner,extra={})=>u.absolute({id:'root',children:[control,decoration],...extra});
+  const plan=layoutUi(tree(),env);
+  expect(plan.records.find(r=>r.id==='wash').parts.map(p=>p.kind)).toEqual(['flat']);
+  expect(plan.records.find(r=>r.id==='wash').parentId).toBe('root');
+  for(const decoration of [wash({focusable:true}),wash({actionId:'game:bad'}),wash({focus:{order:['owner']}}),wash({children:[u.button({id:'nested'})]}),u.absolute({id:'wash',metadata:{'ui:stateOwner':'owner'}}),u.absolute({id:'nest',children:[wash()]})])expect(()=>layoutUi(tree(decoration),env)).toThrow(/state.owner|sibling|authority/i);
+  for(const key of ['initialId','defaultId','cancelId','order'])expect(()=>layoutUi(tree(wash(),owner,{focus:key==='order'?{order:['owner','wash']}:{[key]:'wash'}}),env)).toThrow();
+  expect(()=>layoutUi(tree(wash(),u.panel({id:'owner'})),env)).toThrow(/state.owner/i);
+  expect(()=>layoutUi(tree(wash(),u.itemSlot({id:'owner',metadata:{'ui:stateOwner':'wash'}})),env)).toThrow(/state.owner/i);
+  const noFlat={...env,theme:defineTheme({version:1,id:'test:noFlat',roles:{absolute:{},itemSlot:{},panel:{}}})};
+  expect(()=>layoutUi(tree(),noFlat)).toThrow(/state.owner|flat/i);
+});
+
 test.each(['order','defaultId','cancelId'])('a linked label cannot gain %s focus authority',async role=>{
   const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
   const focus=role==='order'?{order:['button','label']}:{[role]:'label'};

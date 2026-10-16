@@ -21,11 +21,12 @@ function nativeStates(role,theme) {
   const states=role.placement?.nativeStates ?? {};
   uiKeys(states,appearanceStates,'native appearance states');
   for(const variant of Object.values(states)) {
-    uiKeys(variant,['skin','tone','glyphTint','paintOffset','visible'],'native appearance variant');
+    uiKeys(variant,['skin','tone','glyphTint','paintOffset','visible','opacity'],'native appearance variant');
     if(variant.skin!==undefined && !Object.hasOwn(theme.skins,variant.skin))throw new TypeError('Unknown native variant skin');
     if(variant.tone!==undefined && !theme.fonts[role.font]?.font.toneNames.includes(variant.tone))throw new TypeError('Unknown native variant tone');
     if(variant.glyphTint!==undefined){color(variant.glyphTint);if(!role.font)throw new TypeError('Variant glyph tint requires font');}
     if(variant.visible!==undefined && typeof variant.visible!=='boolean')throw new TypeError('Invalid native variant visibility');
+    if(variant.opacity!==undefined && (!Number.isFinite(variant.opacity)||variant.opacity<0||variant.opacity>1))throw new RangeError('Native variant opacity must be finite and within 0..1');
     if(variant.paintOffset!==undefined){uiKeys(variant.paintOffset,['x','y'],'native paint offset');if(![variant.paintOffset.x,variant.paintOffset.y].every(Number.isFinite))throw new TypeError('Invalid native paint offset');}
   }
   return states;
@@ -145,16 +146,18 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         const state=appearanceState(status);
         const variant=states[state]??{}, role={...baseRole,...variant};
         const context = contexts.get(record.semanticContextId);
+        const edgePixels=role.edge?.width===undefined?1:role.edge.width*context.localToPhysical.scale;
+        if(!Number.isInteger(edgePixels)||edgePixels<1)throw new RangeError('Native edge.width must be positive and align to whole physical pixels');
         for (const value of Object.values(role.colors ?? {})) color(value);
         function rect(key,bounds,paint,colorValue,extra={}) {
           if (colorValue === undefined) return;
-          commands.push({key:`${record.id}:${key}`,kind:'rectangle',bounds,contextId:paint.contextId,clip:paint.clipBounds,color:color(colorValue),recordId:record.id,...extra});
+          commands.push({key:`${record.id}:${key}`,kind:'rectangle',bounds,contextId:paint.contextId,clip:paint.clipBounds,color:color(colorValue),recordId:record.id,opacity:role.opacity??1,...extra});
         }
         function image(key,source,destination,paint,borrowed,tint=0xffffff) {
           uiRect(source,'native source');uiRect(destination,'native destination');
           if (!source.width || !source.height || ![source.x,source.y,source.width,source.height].every(Number.isInteger)) throw new TypeError('Atlas fragments require positive whole source pixels');
           if(borrowed.plane && (source.x<0||source.y<0||source.x+source.width>borrowed.plane.width||source.y+source.height>borrowed.plane.height))throw new RangeError('Source fragment exceeds RGBA plane');
-          commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id,tint});
+          commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id,tint,opacity:role.opacity??1});
         }
         function glyphs(key,part) {
           const borrowed = part.placement.draws.length ? asset({kind:'font',id:role.font,tone:role.tone}) : null;
@@ -167,10 +170,14 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         }
         function feedbackFor(control) {
           if (!control.focusable && !control.actionId) return;
-          const bounds = projectPixelRect(context,quantizePhysicalRect(projectPixelRect(context,control.bounds),{mode:'inside'}),'to-local');
-          const unit=1/context.localToPhysical.scale,w=Math.min(unit,bounds.width),h=Math.min(unit,bounds.height);
-          const borders=[{...bounds,height:h},{...bounds,y:bounds.y+bounds.height-h,height:h},{...bounds,width:w},{...bounds,x:bounds.x+bounds.width-w,width:w}];
-          borders.forEach((b,i)=>commands.push({key:`${control.id}:feedback:${i}`,kind:'rectangle',bounds:b,contextId:context.id,clip:control.clipBounds,recordId:control.id,feedback:role.colors??{}}));
+          const bounds = quantizePhysicalRect(projectPixelRect(context,control.bounds),{mode:'inside'});
+          // Partition in physical pixels: corners and tiny allocations paint
+          // once even with translucent feedback. Semantic bounds stay continuous.
+          const top=Math.min(edgePixels,bounds.height),bottom=Math.min(edgePixels,bounds.height-top);
+          const left=Math.min(edgePixels,bounds.width),right=Math.min(edgePixels,bounds.width-left),middle=bounds.height-top-bottom;
+          const borders=[{...bounds,height:top},{...bounds,y:bounds.y+bounds.height-bottom,height:bottom},
+            {x:bounds.x,y:bounds.y+top,width:left,height:middle},{x:bounds.x+bounds.width-right,y:bounds.y+top,width:right,height:middle}];
+          borders.forEach((b,i)=>commands.push({key:`${control.id}:feedback:${i}`,kind:'rectangle',bounds:projectPixelRect(context,b,'to-local'),contextId:context.id,clip:control.clipBounds,recordId:control.id,feedback:role.colors??{},opacity:role.opacity??1}));
         }
         // Selections are below lettering, after the authored face.
         const rank = p => ['flat','skin'].includes(p.kind)?0:p.kind==='selection'?1:2;
@@ -417,7 +424,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         } else {
           const b=clipped??d;object.setSize(b.width,b.height).setOrigin(0,0).setPosition(b.x,b.y).setScale(1).setFillStyle(ink??0);
         }
-        object.setDepth(depth++).setVisible(visible);
+        object.setAlpha(command.opacity).setDepth(depth++).setVisible(visible);
       }
       for (const [key,item] of objects) if(!usedObjects.has(key)){item.release();objects.delete(key);}
       for (const [key,item] of fragments) if(!usedFrames.has(key)){item.release();fragments.delete(key);}

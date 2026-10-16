@@ -22,6 +22,7 @@ function fixture() {
       setFrame(frame) {this.frame=typeof frame==='object'?frame.name:frame;return this;},
       setCrop(...crop) {this.crop=crop;return this;}, setVisible(visible) {this.visible=visible;return this;},
       setTint(tint) {this.tint=tint;return this;},
+      setAlpha(alpha) {this.alpha=alpha;return this;},
       setSize(width,height) {Object.assign(this,{width,height});return this;}, setFillStyle(color) {this.color=color;return this;},
       setDepth(depth) {this.depth=depth;return this;}, destroy() {this.destroyed++;}};
     objects.push(obj);return obj;
@@ -40,6 +41,151 @@ async function api() {
   expect(existsSync(url),'shared native host public seam exists').toBe(true);
   return import(url.href);
 }
+
+test('focus style uses two semantic local pixels at scale four and defaults to one physical pixel',async()=>{
+  const {createPhaserUi}=await api();
+  for(const width of [2,undefined]){
+    const f=fixture();f.context={...f.context,localToPhysical:{scale:4,x:0,y:0},sourcePixelPhysicalSize:2};
+    f.theme=defineTheme({version:1,id:'test:edge',roles:{button:{colors:{focus:'#ff2bd6'},...(width===undefined?{}:{edge:{width}})}}});
+    const ui=createPhaserUi(f),m=ui.mount({revision:1,context:f.context,tree:button({id:'ok',actionId:'game:ok',layout:{width:20,height:10}})},{parent:f.parent,scope:'test:edge'});
+    const borders=f.objects.filter(o=>o.kind==='rectangle'&&o.visible);
+    expect(borders[0].height).toBe(width??.25);expect(borders[2].width).toBe(width??.25);
+    expect(borders.every(o=>o.alpha===1)).toBe(true);m.dispose();ui.dispose();
+  }
+});
+
+test('focus style opacity applies to stock rectangles and glyphs and resets on keyed base reuse',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:alpha',fonts:f.theme.fonts,roles:{absolute:{},button:{font:'body',tone:'cream',alternatives:[{kind:'flat',color:'#123456'}],placement:{nativeStates:{focus:{opacity:.3},pressed:{opacity:0}}}}}});
+  const snapshot=revision=>({revision,context:f.context,tree:u.absolute({id:'root',children:[button({id:'ok',label:'?',actionId:'game:ok',layout:{width:20,height:10}}),button({id:'other',actionId:'game:other',layout:{x:30,width:20,height:10}})]})});
+  const ui=createPhaserUi(f),m=ui.mount(snapshot(1),{parent:f.parent,scope:'test:alpha'}),first=f.objects.slice(0,2);
+  expect(first.map(o=>o.alpha)).toEqual([.3,.3]);
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});expect(first.map(o=>o.alpha)).toEqual([0,0]);
+  expect(m.handle({type:'release',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toHaveLength(1);
+  m.handle({type:'hover',point:{x:90,y:40},pointSpace:'physical'});m.handle({type:'focus',controlId:'other'});
+  expect(first.map(o=>o.alpha)).toEqual([1,1]);expect(first.every(o=>!o.destroyed)).toBe(true);
+  ui.dispose();expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test('focus style stock flat wash follows itemSlot without input authority and keeps its border opaque',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:wash',roles:{absolute:{},itemSlot:{colors:{focus:'#ff2bd6'},edge:{width:2}},wash:{opacity:0,alternatives:[{kind:'flat',color:'#ff2bd6'}],placement:{nativeStates:{focus:{opacity:.3},hover:{opacity:.3},pressed:{opacity:.3},disabled:{opacity:0}}}}}});
+  const tree=u.absolute({id:'root',children:[u.itemSlot({id:'slot',actionId:'game:item',layout:{width:20,height:10}}),u.panel({id:'wash',appearanceRole:'wash',metadata:{'ui:stateOwner':'slot'},layout:{width:20,height:10}})]});
+  const ui=createPhaserUi(f),m=ui.mount({revision:1,context:f.context,tree},{parent:f.parent,scope:'test:wash'});
+  expect(f.objects.filter(o=>o.kind==='rectangle'&&o.visible).map(o=>o.alpha)).toEqual([1,1,1,1,.3]);
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});expect(m.inspect({limit:10}).heldCount).toBe(1);
+  expect(m.handle({type:'release',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toMatchObject([{controlId:'slot'}]);
+  expect(m.inspect({limit:10}).focusId).toBe('slot');ui.dispose();
+});
+
+test.each([NaN,Infinity,-Infinity,-.1,1.1,null,'0.3',false])('focus style rejects dormant native opacity %s before allocation',async opacity=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  // Non-finite data fails the immutable theme barrier; other malformed values
+  // must also fail the dormant variant preflight before a native attachment.
+  let attachments=0;f.ports.attachContext=()=>{attachments++;return {ownership:'borrowed',parent:f.parent};};
+  expect(()=>{
+    f.theme=defineTheme({version:1,id:'test:badAlpha',roles:{button:{placement:{nativeStates:{disabled:{opacity}}}}}});
+    createPhaserUi(f).mount({revision:1,context:f.context,tree:button({id:'ok'})},{parent:f.parent,scope:'test:badAlpha'});
+  }).toThrow(/opacity|finite/);
+  expect(f.objects).toHaveLength(0);expect(attachments).toBe(0);expect(f.scene.events.listenerCount('shutdown')).toBe(0);
+});
+
+test.each([0,-1,NaN,Infinity,null,'2',.3])('focus style rejects invalid or physically unaligned edge width %s before mutation',async width=>{
+  const {createPhaserUi}=await api(),f=fixture();let attachments=0;
+  f.ports.attachContext=()=>{attachments++;return {ownership:'borrowed',parent:f.parent};};
+  expect(()=>{
+    f.theme=defineTheme({version:1,id:'test:badWidth',roles:{button:{edge:{width}}}});
+    createPhaserUi(f).mount({revision:1,context:f.context,tree:button({id:'ok'})},{parent:f.parent,scope:'test:badWidth'});
+  }).toThrow(/width|finite/);
+  expect(f.objects).toHaveLength(0);expect(attachments).toBe(0);
+});
+
+test('focus style width follows semantic mapping independently of skin and label density',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.context={...f.context,localToPhysical:{scale:1.5,x:.25,y:-.5},sourcePixelPhysicalSize:2};
+  const other={...f.context,id:'test:other',localToPhysical:{scale:4,x:0,y:0},sourcePixelPhysicalSize:4};
+  f.theme=defineTheme({version:1,id:'test:mixedEdge',fonts:f.theme.fonts,roles:{button:{font:'body',tone:'cream',edge:{width:2},colors:{focus:'#ff2bd6'},alternatives:[{kind:'flat',color:'#123456'}]}}});
+  const snapshot={revision:1,context:f.context,additionalContexts:[other],tree:button({id:'ok',label:'?',skinContextId:other.id,labelContextId:other.id,layout:{width:20,height:10}})};
+  const ui=createPhaserUi(f),m=ui.mount(snapshot,{parent:f.parent,scope:'test:mixedEdge'});
+  const edge=f.objects.filter(o=>o.kind==='rectangle'&&o.color===0xff2bd6&&o.visible);
+  expect(edge[0].height*1.5).toBe(3);expect(edge[2].width*1.5).toBe(3);
+  expect(m.inspect({limit:1}).controls[0].bounds).toEqual({x:0,y:0,width:20,height:10});
+  ui.dispose();
+});
+
+test.each([{width:.25,height:.25},{width:1,height:3},{width:3,height:1},{width:3,height:3},{width:10,height:10}])('focus style translucent edge partitions tiny $width by $height bounds exactly once',async bounds=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.context={...f.context,localToPhysical:{scale:4,x:0,y:0},sourcePixelPhysicalSize:4};
+  f.theme=defineTheme({version:1,id:'test:tinyEdge',roles:{button:{opacity:.3,edge:{width:2},colors:{focus:'#ff2bd6'}}}});
+  const ui=createPhaserUi(f);ui.mount({revision:1,context:f.context,tree:button({id:'ok',layout:bounds})},{parent:f.parent,scope:'test:tinyEdge'});
+  const rects=f.objects.filter(o=>o.kind==='rectangle'&&o.visible);
+  expect(rects.every(o=>o.alpha===.3&&o.x>=0&&o.y>=0&&o.x+o.width<=bounds.width&&o.y+o.height<=bounds.height)).toBe(true);
+  // Coverage of planned seam rectangles, not rendered framebuffer pixels.
+  for(let py=0;py<bounds.height*4;py++)for(let px=0;px<bounds.width*4;px++){
+    const x=(px+.5)/4,y=(py+.5)/4,n=rects.filter(o=>x>=o.x&&x<o.x+o.width&&y>=o.y&&y<o.y+o.height).length;
+    const expected=x<2||y<2||x>=bounds.width-2||y>=bounds.height-2;
+    expect(n).toBe(expected?1:0);
+  }
+  ui.dispose();
+});
+
+test('focus style clipped borders retain continuous hit bounds and do not repaint clipped corners',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.context={...f.context,viewport:{x:0,y:0,width:4,height:4}};
+  f.theme=defineTheme({version:1,id:'test:clipEdge',roles:{button:{opacity:.3,edge:{width:2},colors:{focus:'#ff2bd6'}}}});
+  const ui=createPhaserUi(f),m=ui.mount({revision:1,context:f.context,tree:button({id:'ok',layout:{x:-1.25,y:-1.25,width:6,height:6}})},{parent:f.parent,scope:'test:clipEdge'});
+  const rects=f.objects.filter(o=>o.visible);expect(rects.length).toBeGreaterThan(0);
+  expect(rects.every(o=>o.x>=0&&o.y>=0&&o.x+o.width<=4&&o.y+o.height<=4)).toBe(true);
+  expect(m.inspect({limit:1}).controls[0].bounds).toEqual({x:-1.25,y:-1.25,width:6,height:6});
+  for(let y=.125;y<4;y+=.25)for(let x=.125;x<4;x+=.25)expect(rects.filter(o=>x>=o.x&&x<o.x+o.width&&y>=o.y&&y<o.y+o.height).length).toBeLessThanOrEqual(1);
+  ui.dispose();
+});
+
+test('focus style applies role opacity to skins icons and every stock command with keyed reset',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:stockAlpha',skins:f.theme.skins,fonts:fixture().theme.fonts,icons:{coin:{width:2,height:2,frame:{x:0,y:0,width:2,height:2}}},roles:{absolute:{},button:{opacity:.3,font:'body',tone:'cream',colors:{focus:'#ff2bd6'},alternatives:[{kind:'skin',id:'paper'}]},icon:{opacity:0},progress:{opacity:.3,colors:{track:'#123456',fill:'#ff2bd6'}}}});
+  const s=revision=>({revision,context:f.context,tree:u.absolute({id:'root',children:[button({id:'ok',label:'?',layout:{width:20,height:10}}),u.icon({id:'coin',asset:'coin',layout:{x:25,width:2,height:2}}),u.progress({id:'progress',value:.5,layout:{x:30,width:20,height:10}})]})});
+  const ui=createPhaserUi(f),m=ui.mount(s(1),{parent:f.parent,scope:'test:stockAlpha'});
+  expect(f.objects.filter(o=>o.visible).map(o=>o.alpha)).toContain(0);
+  expect(f.objects.filter(o=>o.visible&&o.alpha!==0).every(o=>o.alpha===.3)).toBe(true);
+  const count=f.objects.length;m.update(s(2));expect(f.objects.length).toBe(count);ui.dispose();
+});
+
+test('focus style state precedence falls directly to base and alpha failures drain without cache mutation',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:precedenceAlpha',roles:{button:{opacity:.8,alternatives:[{kind:'flat',color:'#123456'}],placement:{nativeStates:{focus:{opacity:.3},hover:{opacity:.6},pressed:{opacity:0},disabled:{opacity:.1}}}}}});
+  const snapshot=(revision,enabled=true)=>({revision,context:f.context,tree:button({id:'ok',enabled,actionId:'game:ok',layout:{width:20,height:10}})});
+  const ui=createPhaserUi(f),m=ui.mount(snapshot(1),{parent:f.parent,scope:'test:precedenceAlpha'}),o=f.objects[0];
+  expect(o.alpha).toBe(.3);m.handle({type:'hover',point:{x:4,y:4},pointSpace:'physical'});expect(o.alpha).toBe(.6);
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});expect(o.alpha).toBe(0);
+  m.update(snapshot(2,false));expect(o.alpha).toBe(.1);expect(m.handle({type:'release',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toEqual([]);
+  m.update(snapshot(3));expect(o.alpha).toBe(.6); // current hover still outranks focus
+  o.setAlpha=()=>{throw Error('alpha failed');};expect(()=>m.handle({type:'hover',point:{x:4,y:4},pointSpace:'physical'})).toThrow(/alpha failed/);
+  expect(m.inspect({limit:1}).native.lifecycle).toBe('retired');expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+  expect(f.texture.frameTotal).toBe(1);expect(f.fragments.size).toBe(0);expect(f.scene.events.listenerCount('shutdown')).toBe(0);ui.dispose();
+});
+
+test('focus style rejected context update preserves held state and initial alpha failure drains owned frames',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:rejectedEdge',roles:{button:{edge:{width:2},colors:{focus:'#ff2bd6'}}}});
+  const snapshot={revision:1,context:f.context,tree:button({id:'ok',actionId:'game:ok',layout:{width:20,height:10}})};
+  const ui=createPhaserUi(f),m=ui.mount(snapshot,{parent:f.parent,scope:'test:rejectedEdge'}),before=f.objects.map(o=>({x:o.x,y:o.y,width:o.width,height:o.height,alpha:o.alpha}));
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});
+  expect(()=>m.update({...snapshot,revision:2,context:{...f.context,revision:2,localToPhysical:{scale:1.25,x:0,y:0}}})).toThrow(/edge.width/);
+  expect(m.inspect({limit:1}).heldCount).toBe(1);expect(f.objects.map(o=>({x:o.x,y:o.y,width:o.width,height:o.height,alpha:o.alpha}))).toEqual(before);
+  expect(m.handle({type:'release',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toHaveLength(1);ui.dispose();
+  const g=uniformFixture(),make=g.scene.add.image;g.scene.add.image=(...args)=>{const o=make(...args);o.setAlpha=()=>{throw Error('initial alpha failed');};return o;};
+  const broken=createPhaserUi(g);expect(()=>broken.mount(g.snapshot(),{parent:g.parent,scope:'test:initialAlpha'})).toThrow(/initial alpha failed/);
+  expect(g.objects.every(o=>o.destroyed===1)).toBe(true);expect(g.fragments.size).toBe(0);expect(g.texture.frameTotal).toBe(1);expect(g.scene.events.listenerCount('shutdown')).toBe(0);broken.dispose();
+});
+
+test('focus style accepts only named opacity fields and never arbitrary alpha aliases',async()=>{
+  const {createPhaserUi}=await api();
+  expect(()=>button({id:'bad',alpha:.3})).toThrow(/keys/);
+  for(const role of [{alpha:.3},{alternatives:[{kind:'flat',color:'#ff2bd6',alpha:.3}]}])expect(()=>defineTheme({version:1,id:'test:badAlias',roles:{button:role}})).toThrow(/keys/);
+  const f=fixture();f.theme=defineTheme({version:1,id:'test:badNativeAlias',roles:{button:{placement:{nativeStates:{pressed:{alpha:.3}}}}}});
+  expect(()=>createPhaserUi(f).mount({revision:1,context:f.context,tree:button({id:'bad'})},{parent:f.parent,scope:'test:badAlias'})).toThrow(/keys/);expect(f.objects).toHaveLength(0);
+});
 
 function uniformFixture(nonuniform=false) {
   const f=fixture(), source={width:12,height:12}; f.texture.source=[source];

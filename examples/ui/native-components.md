@@ -56,7 +56,7 @@ reuse stock Images and unregistered Frame clones without texture registration.
 
 Immutable theme roles may reserve `placement.nativeStates` for `hover`, `focus`,
 `pressed` and `disabled`. Each override accepts only `skin`, `tone`, `glyphTint`,
-`paintOffset: {x,y}` and `visible`. A skin override selects another prepared skin;
+`paintOffset: {x,y}`, `visible` and `opacity`. A skin override selects another prepared skin;
 tone selects authored glyph frames in the same font, retaining glyph geometry.
 Offsets translate paint in each part's local coordinates, leaving semantic bounds
 and clips fixed; each offset must map to whole physical pixels in that context.
@@ -91,12 +91,56 @@ const label = text({id: 'confirm:label', label: 'Confirm',
   appearanceRole: 'controlLabel', metadata: {'ui:stateOwner': 'confirm'}});
 ```
 
-The label and its button must be siblings in one mounted tree. Only text/icon
-consumers without independent focus/action authority qualify. Dangling, chained,
+The decoration and its button or itemSlot owner must be siblings in one mounted
+tree. Text/icon consumers and leaf flat panels without independent focus/action
+authority qualify. A linked panel has no label or descendants, including nested
+controls; a skinned panel or arbitrary layout node cannot be a wash. Dangling, chained,
 cyclic, cross-mount references and focus-role/order targets reject. The link is
 part of immutable semantic identity, so rebinding requires a model revision and
 cancels held activation. Omission preserves existing control IDs and snapshots.
 Each mount continues to own one portable interaction engine and no input listeners.
+Flattened records retain `parentId` for independent interaction validation; it is
+part of semantic identity. Legacy text/icon plans may omit it. New panel links
+require explicit parent identity and remain outside focus order/default/cancel roles.
+
+Theme-role `opacity` and state override `opacity` accept finite numbers in `0..1`.
+The role default is `1`; a selected state inherits its role when it omits opacity.
+The host calls the public Image/Rectangle `setAlpha` for every stock command and
+every keyed reconciliation, including restoring `1`. This preserves source alpha
+and applies to flat faces, skins, glyphs, icons and feedback without changing color.
+Opacity does not hide semantic controls or grant input authority. Use `visible:false`
+when paint visibility, rather than zero alpha, is the intended state policy.
+
+`edge.width` is a positive finite dimension in the control's **semantic local**
+context. Native preflight requires `width * localToPhysical.scale` to be a positive
+whole number of physical pixels. Skin and label densities do not determine it.
+Omission retains exactly one physical pixel. Other edge metadata is preserved.
+Feedback fits inside quantized paint bounds and partitions corners and tiny bounds
+without overlapping strips, so translucent feedback paints each covered pixel once.
+Hit/focus bounds and clipping remain independent and continuous.
+
+```js
+// Normal stock composition for authored item focus: opaque edge, 30% wash.
+// Use these roles with the consumer's actual contexts and immutable asset ports.
+const focusTheme = defineTheme({version: 1, id: 'app:item-focus', roles: {
+  absolute: {},
+  itemSlot: {edge: {width: 2}, colors: {focus: '#ff2bd6', hover: '#ff2bd6', pressed: '#ff2bd6'}},
+  wash: {opacity: 0, alternatives: [{kind: 'flat', color: '#ff2bd6'}],
+    placement: {nativeStates: {focus: {opacity: .3}, hover: {opacity: .3},
+      pressed: {opacity: .3}, disabled: {opacity: 0}}}}
+}});
+const itemFocusTree = absolute({id: 'items', children: [
+  itemSlot({id: 'item', actionId: 'game:item', layout: {width: 34, height: 22}}),
+  panel({id: 'item:wash', appearanceRole: 'wash', metadata: {'ui:stateOwner': 'item'},
+    layout: {width: 34, height: 22}})
+]});
+// Place item art in the itemSlot or earlier stock siblings, below the wash.
+// The same-magenta wash leaves the independently opaque border unchanged.
+```
+
+The example is a stock construction, not native pixel acceptance. The coordinator
+must still verify actual WebGL/Canvas compositing and input with the installed
+Phaser 4.2.1 and the consumer's camera/depth/clip owners.
 
 Cyber's original `PixelUI.paintControl` can be represented by normal primary
 `panel_neon`, secondary `panel_dark`, other `btn_normal`, then the control overrides

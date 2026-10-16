@@ -10,7 +10,7 @@ const activatable = record => !!record && record.enabled && record.state === 'vi
 const pointerKinds = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
 const pointerOwner = record => record && (pointerKinds.has(record.kind) || record.actionId !== undefined);
 const inputParts = record => (record.parts ?? []).filter(part => part.kind === 'tab' || part.kind === 'adjust');
-const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
+const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'parentId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
 function semantic(plan) { return stable({focus: plan.focus, records: plan.records.map(record => Object.fromEntries(semanticKeys.filter(key => record[key] !== undefined).map(key => [key, record[key]])))}); }
 function prepare(scope) {
   const source = copyUiData(scope);
@@ -39,7 +39,9 @@ function prepare(scope) {
   }
   for(const record of records.values())if(record.metadata?.['ui:stateOwner']!==undefined) {
     const id=record.metadata['ui:stateOwner'],owner=records.get(id);
-    if(typeof id!=='string'||!owner||owner.kind!=='button'||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon'].includes(record.kind)||record.focusable||record.actionId!==undefined||record.focus!==undefined)throw new TypeError('Invalid same-mount state-owner link or authority');
+    if(typeof id!=='string'||!owner||!['button','itemSlot'].includes(owner.kind)||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon','panel'].includes(record.kind)||record.focusable||record.actionId!==undefined||record.focus!==undefined)throw new TypeError('Invalid same-mount state-owner link or authority');
+    if(record.parentId!==owner.parentId || record.parentId!==undefined && record.parentId!==null && (!records.has(record.parentId)||[record.id,id].includes(record.parentId)))throw new TypeError('State-owner must be a same-mount sibling');
+    if(record.kind==='panel' && (record.parentId===undefined || (record.children??[]).length || [...records.values()].some(r=>r.parentId===record.id) || record.label!==undefined || !Array.isArray(record.parts) || record.parts.some(p=>p.kind!=='flat') || record.state==='visible'&&record.parts.length!==1))throw new TypeError('State-owner panel must be a leaf flat decoration');
     if(plan.focus?.order?.includes(record.id)||['initialId','defaultId','cancelId'].some(key=>plan.focus?.[key]===record.id))throw new TypeError('State-owner consumer cannot gain focus authority');
   }
   plan.focus ??= {};

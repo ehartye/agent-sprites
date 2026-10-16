@@ -73,9 +73,10 @@ export function layoutUi(tree, environment) {
   const parents=new Map();
   function parentIds(node,parent=null){parents.set(node.id,parent);for(const child of node.children)parentIds(child,node.id);}
   parentIds(root);
-  for(const {node} of prepared.values())if(node.metadata?.['ui:stateOwner']!==undefined) {
+  for(const {node,role} of prepared.values())if(node.metadata?.['ui:stateOwner']!==undefined) {
     const id=node.metadata['ui:stateOwner'],owner=prepared.get(id)?.node;
-    if(typeof id!=='string'||!owner||owner.kind!=='button'||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon'].includes(node.kind)||node.focusable||node.actionId!==undefined||node.focus!==undefined)throw new TypeError('Invalid state-owner link or authority');
+    if(typeof id!=='string'||!owner||!['button','itemSlot'].includes(owner.kind)||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon','panel'].includes(node.kind)||node.focusable||node.actionId!==undefined||node.focus!==undefined)throw new TypeError('Invalid state-owner link or authority');
+    if(node.kind==='panel' && (node.children.length || node.label!==undefined || role.appearance?.kind!=='flat'))throw new TypeError('State-owner panel must be a leaf flat decoration');
     if(parents.get(node.id)!==parents.get(id))throw new TypeError('State-owner must be a same-mount sibling');
     for(const {node:ancestor}of prepared.values())if(ancestor.focus && (ancestor.focus.order?.includes(node.id)||['initialId','defaultId','cancelId'].some(key=>ancestor.focus[key]===node.id)))throw new TypeError('State-owner consumer cannot gain focus authority');
   }
@@ -201,6 +202,9 @@ export function layoutUi(tree, environment) {
     const dependencies = {...inheritedDependencies, ...Object.fromEntries([...new Set([context.id, skinContext.id, labelContext.id])].map(id => [id, contextMap.get(id).revision]))};
     const record = {...node, bounds, hitBounds: {...bounds}, focusBounds: {...bounds}, effectiveHitBounds: effectiveHit, effectiveFocusBounds: effectiveHit && {...effectiveHit}, clipBounds: inheritedClip, contentClipBounds: clip, semanticContextId: context.id, contextRevisions: dependencies, paneId: node.paneId ?? inheritedPane, state: hidden ? 'hidden' : effectiveHit ? 'visible' : 'clipped', measure: {min: measured.min, preferred: measured.preferred}, contentBounds: content, paintBounds: null, parts: [], overflow: {mode}};
     delete record.children;
+    // Retain topology after flattening so the interaction publication barrier
+    // can independently validate decorative sibling/leaf restrictions.
+    record.parentId=parents.get(node.id);
     records.push(record);
     const textMaxWidth = node.kind === 'tabs' ? undefined : labelContent.width;
     const ownText = face && label !== undefined && !hidden ? placeBitmapText(face.font, label, labelContent.x, labelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field'}) : null;
