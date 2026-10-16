@@ -155,11 +155,20 @@ export function createUiInteraction(scope, policy = {}) {
       return projectPixelPoint(c, p);
     };
     const origin = center(from), horizontal = ['left', 'right'].includes(direction), sign = ['left', 'up'].includes(direction) ? -1 : 1;
-    const ranked = pool.filter(record => record.id !== from.id).map(record => {
+    const projected = pool.filter(record => record.id !== from.id).map(record => {
       const c = center(record), primary = (horizontal ? c.x - origin.x : c.y - origin.y) * sign, cross = Math.abs(horizontal ? c.y - origin.y : c.x - origin.x);
-      return {record, primary, score: primary + 2 * cross + cross * cross / Math.max(primary, 1)};
-    }).filter(value => value.primary > 0).sort((a, b) => a.score - b.score);
+      return {record, primary, cross, score: primary + 2 * cross + cross * cross / Math.max(primary, 1)};
+    });
+    const ranked = projected.filter(value => value.primary > 0).sort((a, b) => a.score - b.score);
     if (ranked.length) setFocus(ranked[0].record.id);
+    else if (policy.wrap && projected.length) {
+      // At a directional boundary, wrap to the opposite physical edge, then
+      // the nearest cross-axis center. Equal candidates keep semantic order.
+      const edge = projected.reduce((min, value) => Math.min(min, value.primary), Infinity);
+      let target;
+      for (const value of projected) if (value.primary === edge && (!target || value.cross < target.cross)) target = value;
+      if (target) setFocus(target.record.id);
+    }
   }
 
   function handle(input) {

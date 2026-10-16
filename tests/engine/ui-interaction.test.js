@@ -23,6 +23,31 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('spatial wrap chooses the opposite edge nearest across in all four directions',async()=>{
+  const {createUiInteraction}=await api();
+  const records=[];for(let row=0;row<3;row++)for(let col=0;col<4;col++){
+    const box={x:col*12,y:row*12,width:9,height:9};
+    records.push(control(`${row}${col}`,box.x,{bounds:box,hitBounds:box,focusBounds:box,effectiveHitBounds:box,effectiveFocusBounds:box}));
+  }
+  for(const [from,direction,to] of [['03','right','00'],['00','left','03'],['02','up','22'],['22','down','02']]){
+    for(const wrap of [true,false]){
+      const s=scope(records);s.plan.focus={initialId:from};const input=createUiInteraction(s,{navigation:'spatial',wrap});
+      input.handle({type:'navigate',direction});expect(input.inspect({limit:20}).focusId).toBe(wrap?to:from);input.dispose();
+    }
+  }
+});
+
+test('spatial wrap uses physical contexts, stable cross-axis ties and visible eligible controls only',async()=>{
+  const {createUiInteraction}=await api(),other=context('app:other');
+  other.localToPhysical={scale:2,origin:{x:100,y:0}};
+  const s=scope([control('right',0,{semanticContextId:other.id,contextRevisions:{[other.id]:1}}),control('left-first',0),control('left-tied',0),control('hidden',-10,{state:'hidden'}),control('decorative',-20,{focusable:false})]);
+  s.plan.contexts.push(other);s.plan.focus={initialId:'right'};
+  const input=createUiInteraction(s,{navigation:'spatial',wrap:true});input.handle({type:'navigate',direction:'right'});
+  expect(input.inspect({limit:20}).focusId).toBe('left-first');
+  input.handle({type:'navigate',direction:'left'});expect(input.inspect({limit:20}).focusId).toBe('right');
+  input.dispose();
+});
+
 test('state-owner identity participates in revision validation and linked labels never become input owners',async()=>{
   const {createUiInteraction}=await api();
   const linked=control('label',0,{kind:'text',role:'text',focusable:false,actionId:undefined,metadata:{'ui:stateOwner':'a'}});

@@ -236,6 +236,12 @@ activation authority; activation still requires a live enabled hit region. Omit
 the order to retain native visible-control traversal. Keep disabled-but-readable
 IDs only when the game's existing focus policy includes them.
 
+With `navigation: 'spatial'`, directional ranking uses physical centers across
+declared contexts. Opt-in `wrap: true` moves from a boundary to the opposite edge,
+then chooses the nearest cross-axis center; ties retain semantic record order.
+Hidden, clipped and nonfocusable controls do not become wrap targets. Default
+`wrap: false` leaves focus at the boundary. This does not change action eligibility.
+
 ## Painting and ownership
 
 Stock painting uses native Images and explicit theme-colored Rectangles. Glyph Images
