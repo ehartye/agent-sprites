@@ -5,6 +5,90 @@ async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])
 function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
 
+test('independent regions: hit and focus remain continuous while the original visual allocation is unchanged',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:regions',roles:{button:{alternatives:[{kind:'flat',color:'#123456'}]}},geometry:{minTarget:0}});
+  const record=layoutUi(u.button({id:'small',layout:{x:30.25,y:20.25,width:20,height:10},regions:{hit:{x:-5,y:-5,width:30,height:20},focus:{x:-20,y:-10,width:60,height:30}}}),env).records[0];
+  expect(record.bounds).toEqual({x:30.25,y:20.25,width:20,height:10});
+  expect(record.hitBounds).toEqual({x:25.25,y:15.25,width:30,height:20});
+  expect(record.focusBounds).toEqual({x:10.25,y:10.25,width:60,height:30});
+  expect(record.effectiveHitBounds).toEqual(record.hitBounds);expect(record.effectiveFocusBounds).toEqual(record.focusBounds);
+  expect(record.paintBounds.width).toBeLessThanOrEqual(20);expect(record.paintBounds.height).toBeLessThanOrEqual(10);
+});
+
+test('independent regions: focus can remain visible while the activation target is clipped',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  const record=layoutUi(u.button({id:'card',actionId:'game:card',layout:{x:60,y:0,width:10,height:10},regions:{focus:{x:-50,y:0,width:50,height:10}}}),env).records[0];
+  expect(record.effectiveHitBounds).toBeNull();expect(record.effectiveFocusBounds).toEqual({x:10,y:0,width:30,height:10});expect(record.state).toBe('visible');
+});
+
+test('independent regions review: own content clipping does not suppress visible semantic regions',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  const target={x:10,y:0,width:30,height:10};
+  for(const overflow of ['visible','clip','scroll','paginate']){
+    const regions={hit:{x:-50,y:0,width:50,height:10},focus:{x:-50,y:0,width:50,height:10}};
+    const tree=u.button({id:'outside',layout:{x:60,y:0,width:10,height:10,overflow},regions});
+    const record=layoutUi(tree,env).records[0];
+    expect(record.effectiveHitBounds).toEqual(target);expect(record.effectiveFocusBounds).toEqual(target);expect(record.state).toBe('visible');
+    const hidden=layoutUi({...tree,hidden:true},env).records[0];
+    expect(hidden.effectiveHitBounds).toBeNull();expect(hidden.effectiveFocusBounds).toBeNull();
+  }
+});
+
+test('independent regions review: empty ancestor clips suppress descendant focus and activation',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  for(const regions of [undefined,{hit:{x:-60,y:0,width:70,height:10},focus:{x:-60,y:0,width:70,height:10}}]){
+    const tree=u.absolute({id:'root',layout:{width:40,height:30,overflow:'clip'},children:[
+      u.panel({id:'outside',layout:{x:60,y:0,width:10,height:10,overflow:'clip'},children:[
+        u.button({id:'leaf',actionId:'game:leaf',layout:{width:10,height:10},...(regions?{regions}:{})})
+      ]})
+    ]});
+    const plan=layoutUi(tree,env),record=plan.records.find(r=>r.id==='leaf');
+    expect(record.clipBounds).toBeNull();expect(record.effectiveHitBounds).toBeNull();expect(record.effectiveFocusBounds).toBeNull();expect(record.state).toBe('clipped');
+    const input=createUiInteraction({id:'test:ancestor',plan});expect(input.inspect({limit:10}).focusId).toBeNull();expect(input.handle({type:'activate',controlId:'leaf',inputId:'blocked'})).toEqual([]);input.dispose();
+  }
+});
+
+test.each(['stepper','pager','tabs'])('independent regions review: %s routes semantic padding without enlarging its visual parts',async kind=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.theme=defineTheme({version:1,id:'test:compound',fonts:{body:{font:font()}},roles:{[kind]:{font:'body',tone:'cream'}},geometry:{minTarget:44,padding:0,gap:0}});
+  const values=kind==='stepper'?{value:1,min:0,max:3,step:1}:kind==='pager'?{value:1,pageCount:4}:{value:'a',options:[{id:'a',label:'A'},{id:'b',label:'i'}]};
+  const model=(revision,enabled=true,overrides={})=>layoutUi(u[kind]({id:'compound',...values,...overrides,enabled,layout:{x:20,y:20,width:10,height:10},regions:{hit:{x:-17,y:-17,width:44,height:44}}}),{...env,revision});
+  const plan=model(1),record=plan.records[0],parts=record.parts.filter(p=>['adjust','tab'].includes(p.kind));
+  expect(record.bounds).toEqual({x:20,y:20,width:10,height:10});expect(record.hitBounds).toEqual({x:3,y:3,width:44,height:44});
+  const before=parts.map(p=>({...p.bounds})),input=createUiInteraction({id:'test:compound',plan});
+  const point={x:35,y:25};input.handle({type:'press',inputId:'padding',point});expect(input.inspect({limit:1}).heldCount).toBe(1);
+  expect(input.handle({type:'release',inputId:'padding',point})[0]?.value).toBe(kind==='tabs'?'b':2);expect(parts.map(p=>p.bounds)).toEqual(before);
+  input.handle({type:'press',inputId:'stale',point});input.update({id:'test:compound',plan:model(2,false)});expect(input.handle({type:'release',inputId:'stale',point})).toEqual([]);input.dispose();
+  const limit=kind==='tabs'?{options:[{id:'a',label:'A'},{id:'b',label:'i',enabled:false}]}:{value:3};
+  const limited=createUiInteraction({id:'test:compound',plan:model(3,true,limit)});limited.handle({type:'press',inputId:'limit',point});expect(limited.inspect({limit:1}).heldCount).toBe(0);expect(limited.handle({type:'release',inputId:'limit',point})).toEqual([]);limited.dispose();
+});
+
+test('independent regions: declared hit geometry satisfies minTarget without inflating the painted face',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:target',roles:{button:{}},geometry:{minTarget:44}});
+  const node=hit=>u.button({id:'small',layout:{width:10,height:10},regions:{hit}});
+  const record=layoutUi(node({x:-17,y:-17,width:44,height:44}),env).records[0];
+  expect(record.bounds.width).toBe(10);expect(record.measure.min.width).toBe(0);expect(record.hitBounds.width).toBe(44);
+  expect(()=>layoutUi(node({x:0,y:0,width:43,height:44}),env)).toThrow(/target|minimum/i);
+});
+
+test('independent regions: child context origins and clipping do not rescale relative rectangles twice',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:2,x:10,y:0},sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:200,height:120}}];
+  const plan=layoutUi(u.absolute({id:'root',layout:{width:20,height:10,overflow:'clip'},children:[u.button({id:'child',contextId:'test:child',layout:{width:20,height:10},regions:{hit:{x:-2,y:-1,width:24,height:12},focus:{x:-4,y:-2,width:28,height:14}}})]}),env);
+  const record=plan.records.find(r=>r.id==='child');expect(record.bounds).toEqual({x:-90,y:0,width:20,height:10});
+  expect(record.hitBounds).toEqual({x:-92,y:-1,width:24,height:12});expect(record.focusBounds).toEqual({x:-94,y:-2,width:28,height:14});
+  expect(record.effectiveHitBounds).toEqual({x:-90,y:0,width:22,height:11});expect(record.effectiveFocusBounds).toEqual({x:-90,y:0,width:24,height:12});
+});
+
 test('focus style permits only a leaf flat panel state consumer beside button or itemSlot',async()=>{
   const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
   env.theme=defineTheme({version:1,id:'test:wash',roles:{absolute:{},button:{},itemSlot:{},panel:{alternatives:[{kind:'flat',color:'#ff2bd6'}]}}});

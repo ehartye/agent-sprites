@@ -170,7 +170,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         }
         function feedbackFor(control) {
           if (!control.focusable && !control.actionId) return;
-          const bounds = quantizePhysicalRect(projectPixelRect(context,control.bounds),{mode:'inside'});
+          const bounds = quantizePhysicalRect(projectPixelRect(context,control.focusBounds),{mode:'inside'});
           // Partition in physical pixels: corners and tiny allocations paint
           // once even with translucent feedback. Semantic bounds stay continuous.
           const top=Math.min(edgePixels,bounds.height),bottom=Math.min(edgePixels,bounds.height-top);
@@ -470,7 +470,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
     }
     const api=Object.freeze({scope,update,handle,inspect(options){
       const observation=interaction.inspect(options);
-      const controls=observation.controls.map(r=>({id:r.id,kind:r.kind,role:r.role,enabled:r.enabled,focused:r.focused,hovered:r.hovered,pressed:r.pressed,state:r.state,bounds:r.bounds,effectiveHitBounds:r.effectiveHitBounds,effectiveFocusBounds:r.effectiveFocusBounds,clipBounds:r.clipBounds,paintBounds:r.paintBounds,contextRevisions:r.contextRevisions}));
+        const controls=observation.controls.map(r=>({id:r.id,kind:r.kind,role:r.role,enabled:r.enabled,focused:r.focused,hovered:r.hovered,pressed:r.pressed,state:r.state,bounds:r.bounds,hitBounds:r.hitBounds,focusBounds:r.focusBounds,effectiveHitBounds:r.effectiveHitBounds,effectiveFocusBounds:r.effectiveFocusBounds,clipBounds:r.clipBounds,paintBounds:r.paintBounds,semanticContextId:r.semanticContextId,contextRevisions:r.contextRevisions}));
       return freezeUiData({...observation,controls,native:{lifecycle,objects:objects.size,fragments:fragments.size,attachments:attachments.size,extensions:extensions.size,created,destroyed,cleanupFailures:[...failures]}});
     },dispose(){close('disposed');},uses(id){return [...extensions.values()].some(e=>e.extensionId===id);}});
     try {

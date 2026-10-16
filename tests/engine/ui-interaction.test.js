@@ -23,6 +23,33 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('independent regions: focus does not enlarge activation and geometry changes still invalidate held input',async()=>{
+  const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
+  const theme=defineTheme({version:1,id:'test:regions',roles:{button:{}},geometry:{minTarget:0}}),ctx={id:'test:regions',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:100,height:60}};
+  const plan=(revision=1,enabled=true,dx=-5)=>layoutUi(u.button({id:'small',actionId:'game:small',enabled,layout:{x:30,y:20,width:20,height:10},regions:{hit:{x:dx,y:-5,width:30,height:20},focus:{x:-20,y:-10,width:60,height:30}}}),{theme,context:ctx,revision});
+  const input=createUiInteraction({id:'test:regions',plan:plan()});
+  input.handle({type:'press',inputId:'focus-only',point:{x:12,y:12}});expect(input.inspect({limit:1}).heldCount).toBe(0);
+  expect(input.handle({type:'release',inputId:'focus-only',point:{x:12,y:12}})).toEqual([]);
+  input.handle({type:'press',inputId:'target-padding',point:{x:27,y:17}});expect(input.inspect({limit:1}).heldCount).toBe(1);
+  expect(input.handle({type:'release',inputId:'target-padding',point:{x:27,y:17}}).map(i=>i.actionId)).toEqual(['game:small']);
+  input.handle({type:'press',inputId:'held',point:{x:27,y:17}});expect(()=>input.update({id:'test:regions',plan:plan(1,true,-4)})).toThrow(/revision/i);
+  input.update({id:'test:regions',plan:plan(2,false)});expect(input.inspect({limit:1}).focusId).toBe('small');expect(input.inspect({limit:1}).heldCount).toBe(0);
+  expect(input.handle({type:'activate',controlId:'small',inputId:'disabled'})).toEqual([]);input.dispose();
+});
+
+test('independent regions review: context revision cannot admit authored region changes at the same model revision',async()=>{
+  const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
+  const theme=defineTheme({version:1,id:'test:regions',roles:{button:{}},geometry:{minTarget:0}});
+  const ctx={id:'test:regions',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:100,height:60}};
+  const plan=(model,context,dx)=>layoutUi(u.button({id:'small',actionId:'game:small',layout:{x:30,y:20,width:20,height:10},regions:{hit:{x:dx,y:0,width:30,height:10}}}),{theme,context:{...ctx,revision:context},revision:model});
+  const input=createUiInteraction({id:'test:regions',plan:plan(1,1,0)});
+  input.update({id:'test:regions',plan:plan(1,2,0)});
+  expect(()=>input.update({id:'test:regions',plan:plan(1,3,-10)})).toThrow(/revision/i);
+  input.handle({type:'press',inputId:'outside',point:{x:25,y:25}});expect(input.handle({type:'release',inputId:'outside',point:{x:25,y:25}})).toEqual([]);
+  input.update({id:'test:regions',plan:plan(2,3,-10)});
+  input.handle({type:'press',inputId:'new',point:{x:25,y:25}});expect(input.handle({type:'release',inputId:'new',point:{x:25,y:25}}).map(i=>i.actionId)).toEqual(['game:small']);input.dispose();
+});
+
 test('spatial wrap chooses the opposite edge nearest across in all four directions',async()=>{
   const {createUiInteraction}=await api();
   const records=[];for(let row=0;row<3;row++)for(let col=0;col<4;col++){

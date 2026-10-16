@@ -42,6 +42,28 @@ async function api() {
   return import(url.href);
 }
 
+test('independent regions: native disabled focus frames the full card without changing the small painted button or hit target',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:regions',roles:{absolute:{},button:{alternatives:[{kind:'flat',color:'#123456'}],colors:{focus:'#ff2bd6'},edge:{width:2,focusWhenDisabled:true}}},geometry:{minTarget:0}});
+  const tree=u.absolute({id:'root',focus:{order:['neutral','card'],initialId:'neutral'},children:[button({id:'neutral',layout:{x:80,y:0,width:10,height:10}}),button({id:'card',actionId:'game:locked',enabled:false,focusable:true,layout:{x:30,y:20,width:20,height:10},regions:{focus:{x:-20,y:-10,width:60,height:30}}})]});
+  const ui=createPhaserUi(f),m=ui.mount({revision:1,tree,context:f.context},{parent:f.parent,scope:'test:regions'});
+  m.handle({type:'focus',controlId:'card'});
+  const edges=f.objects.filter(o=>o.visible&&o.color===0xff2bd6),face=f.objects.find(o=>o.visible&&o.color===0x123456&&o.x===30);
+  expect(edges).toHaveLength(4);expect(edges[0]).toMatchObject({x:10,y:10,width:60,height:2});expect(face).toMatchObject({x:30,y:20,width:20,height:10});
+  const record=m.inspect({limit:10}).controls.find(r=>r.id==='card');expect(record.focusBounds).toEqual({x:10,y:10,width:60,height:30});expect(record.hitBounds).toEqual({x:30,y:20,width:20,height:10});
+  expect(m.handle({type:'activate',controlId:'card',inputId:'disabled'})).toEqual([]);ui.dispose();expect(m.inspect({limit:1}).native.objects).toBe(0);
+});
+
+test('independent regions: native touch padding activates outside the smaller visual face and reuses its objects',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const tree=button({id:'small',actionId:'game:small',layout:{x:18,y:18,width:27,height:15},regions:{hit:{x:-8,y:-8,width:44,height:31}}});
+  const ui=createPhaserUi(f),m=ui.mount({revision:1,tree,context:f.context},{parent:f.parent,scope:'test:touch-region'}),created=m.inspect({limit:1}).native.created;
+  const face=f.objects.find(o=>o.visible&&o.color===0x123456);expect(face).toMatchObject({x:18,y:18,width:27,height:15});
+  m.handle({type:'press',inputId:'padding',point:{x:22,y:22},pointSpace:'physical'});
+  expect(m.handle({type:'release',inputId:'padding',point:{x:22,y:22},pointSpace:'physical'}).map(i=>i.actionId)).toEqual(['game:small']);
+  expect(m.inspect({limit:1}).native.created).toBe(created);ui.dispose();expect(m.inspect({limit:1}).native.objects).toBe(0);
+});
+
 test('disabled focus edge opt-in paints only authoritative focus and never enables activation',async()=>{
   const {createPhaserUi}=await api();
   for(const optIn of [true,false,undefined]){

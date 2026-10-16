@@ -82,7 +82,7 @@ export interface UiSnapshot {readonly revision:number;readonly tree:UiNode;reado
 export interface NativeObservation {
   readonly scopeId:string;readonly modelRevision:number;readonly disposed:boolean;readonly focusId:string|null;readonly hoverId:string|null;readonly heldCount:number;
   readonly controls:readonly {readonly id:string;readonly kind:string;readonly role:string;readonly enabled:boolean;readonly focused:boolean;readonly hovered:boolean;readonly pressed:boolean;
-    readonly state:string;readonly bounds:Rect;readonly effectiveHitBounds:Rect|null;readonly effectiveFocusBounds:Rect|null;readonly clipBounds:Rect|null;readonly paintBounds:Rect|null;readonly contextRevisions:Readonly<Record<string,number>>}[];
+    readonly state:string;readonly bounds:Rect;readonly hitBounds:Rect;readonly focusBounds:Rect;readonly effectiveHitBounds:Rect|null;readonly effectiveFocusBounds:Rect|null;readonly clipBounds:Rect|null;readonly paintBounds:Rect|null;readonly semanticContextId:string;readonly contextRevisions:Readonly<Record<string,number>>}[];
   readonly nextAfterId:string|null;
   readonly native:{readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly cleanupFailures:readonly string[]};
 }

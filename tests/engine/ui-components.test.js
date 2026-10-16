@@ -9,6 +9,13 @@ test('focus order declares immutable semantic reveal targets without inventing p
 import {existsSync} from 'node:fs';
 async function api(){const url=new URL('../../server/build/ui-components.mjs',import.meta.url);expect(existsSync(url),'portable component owner exists').toBe(true);return import(url.href);}
 
+test('independent regions: constructors freeze relative hit and focus rectangles and reject malformed geometry',async()=>{
+  const u=await api(),regions={hit:{x:-8,y:-8,width:44,height:31},focus:{x:-30,y:-10,width:80,height:30}};
+  const control=u.button({id:'small-face',regions});regions.hit.width=99;
+  expect(control.regions.hit.width).toBe(44);expect(Object.isFrozen(control.regions.focus)).toBe(true);
+  for(const invalid of [{paint:{x:0,y:0,width:1,height:1}},{hit:{x:0,y:0,width:-1,height:1}},{focus:{x:NaN,y:0,width:1,height:1}},{hit:{x:0,y:0,width:Infinity,height:1}},{focus:{x:0,y:0,width:1}}])expect(()=>u.button({id:'bad',regions:invalid})).toThrow();
+});
+
 test('stock constructors copy and deeply freeze caller data; validate kinds, IDs, dimensions and authority',async()=>{
   const u=await api(); const props={id:'go',label:'Go',actionId:'travel',metadata:{'app:hint':{value:1}},layout:{minWidth:12}};
   const b=u.button(props);props.metadata['app:hint'].value=2;props.layout.minWidth=90;

@@ -36,6 +36,30 @@ Action-bar whole-row pagination likewise preserves its declared row gap.
 
 ## Assets, contexts and the single game router
 
+Nodes can declare `regions: {hit, focus}` independently of their ordinary visual
+`layout`. Each optional rectangle has finite `x`, `y`, `width`, `height` in the
+node's semantic-local units, relative to its allocated origin. Negative offsets
+are valid; dimensions are nonnegative. Omission keeps the existing allocation.
+For a 27-by-15 face inside a 44-by-31 touch target, use the small visual layout
+and `regions.hit: {x: -8, y: -8, width: 44, height: 31}`. A small skill button can
+likewise declare the larger surrounding card as `regions.focus` without making
+the rest of that card clickable. Labels, children and artwork keep their existing
+visual layout; density still belongs to the declared contexts.
+
+Both regions stay continuous and inherit clipping independently. Focus may
+remain visible/readable when its hit target is clipped, but activation still
+requires an enabled control and a nonempty effective hit region. Explicit hit
+regions satisfy the theme's minimum target policy directly rather than enlarging
+the painted face. Native feedback uses the focus frame; borrowed art, keyed
+objects, input authority and disposal rules are unchanged. Native observations
+include raw/effective hit and focus bounds plus `semanticContextId` for their units.
+
+For steppers, pagers and tabs, an explicit hit region is divided into equal
+horizontal cells in choice order (decrement/increment or tab order). Those
+semantic cells inherit the effective hit clip; their artwork and text retain
+the original visual allocation. Disabled choices, value limits and held-input
+revision checks still apply. Omitting the hit region preserves existing parts.
+
 The native port can opt into exact source-axis compression with
 `readSourceRGBA({kind,id,tone,texture,sourceIndex,source,maxBytes})`. Return
 `{source,width,height,data}` for a full, tightly packed immutable RGBA8 source,

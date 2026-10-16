@@ -23,6 +23,13 @@ const mount=ui.mount(snapshot,{parent,scope:'consumer:screen',policy:{navigation
 const intents:readonly UiIntent[]=mount.handle({type:'press',point:{x:2,y:2},pointSpace:'physical',inputId:'pointer:1'});
 mount.handle({type:'release',point:{x:1,y:1},pointSpace:{contextId:context.id,revision:1},inputId:'pointer:1'});
 mount.inspect({limit:20}).controls.forEach(c=>{const focused:boolean=c.focused;void focused;});
+const smallFace=button({id:'small-face',layout:{width:27,height:15},regions:{hit:{x:-8,y:-8,width:44,height:31},focus:{x:-10,y:-10,width:60,height:40}}});
+mount.inspect({limit:20}).controls.forEach(c=>{const geometry:readonly number[]=[c.hitBounds.width,c.focusBounds.width];const coordinateSpace:string=c.semanticContextId;void geometry;void coordinateSpace;});
+void smallFace;
+// @ts-expect-error regions declare continuous numeric rectangles, not CSS units
+button({id:'bad-region',regions:{hit:{x:0,y:0,width:'44px',height:44}}});
+// @ts-expect-error visual allocation stays in layout; no implicit paint region API
+button({id:'bad-region-key',regions:{paint:{x:0,y:0,width:20,height:10}}});
 mount.update({...snapshot,revision:2});mount.dispose();remove();ui.dispose();void intents;
 const plan=layoutUi(snapshot.tree,{...snapshot,theme,extensions:{'consumer:chart':chart}});
 const interaction=createUiInteraction({id:'consumer:portable',plan});interaction.handle({type:'default',inputId:'enter:1'});interaction.dispose();

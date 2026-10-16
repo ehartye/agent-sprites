@@ -1,4 +1,4 @@
-import type {UiData, DeepReadonly, Padding} from './ui-theme.mjs';
+import type {UiData, DeepReadonly, Padding, Rect} from './ui-theme.mjs';
 export type NodeKind = 'panel' | 'header' | 'card' | 'text' | 'button' | 'actionBar' | 'listRow' | 'itemSlot' | 'field' | 'toggle' | 'stepper' | 'tabs' | 'fold' | 'pager' | 'progress' | 'meter' | 'separator' | 'icon' | 'notice' | 'tooltip' | 'extension' | 'stack' | 'row' | 'grid' | 'absolute';
 export const UI_NODE_KINDS: readonly NodeKind[];
 export type Overflow = 'visible' | 'clip' | 'scroll' | 'paginate';
@@ -17,6 +17,10 @@ export interface FocusRoles {
   readonly order?: readonly string[];
 }
 export interface Selection {readonly start: number; readonly end: number; readonly direction: 'none' | 'forward' | 'backward'}
+/** Continuous rectangles relative to the node allocation origin in its semantic
+ * context. Negative offsets are valid. Omission uses the allocation unchanged;
+ * neither region changes stock visual/child layout or grants action eligibility. */
+export interface ComponentRegions {readonly hit?: Rect;readonly focus?: Rect;}
 /** Reserved link is validated at layout/interaction publication. Text/icon and
  * leaf flat panel siblings without focus/action/order authority may consume a
  * same-mount button or itemSlot state. Panels have no labels or descendants.
@@ -25,6 +29,7 @@ export type UiMetadata = Readonly<Record<`${string}:${string}`,UiData> & {'ui:st
 export interface BaseProps {
   readonly id: string; readonly role?: string; readonly appearanceRole?: string; readonly variant?: string;
   readonly label?: string; readonly children?: readonly UiNode[]; readonly layout?: Layout; readonly enabled?: boolean;
+  readonly regions?: ComponentRegions;
   readonly focusable?: boolean; readonly selected?: boolean; readonly actionId?: string; readonly paneId?: string;
   readonly contextId?: string; readonly labelContextId?: string; readonly skinContextId?: string;
   readonly focus?: FocusRoles; readonly metadata?: UiMetadata; readonly hidden?: boolean;

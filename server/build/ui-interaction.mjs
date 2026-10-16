@@ -10,7 +10,7 @@ const activatable = record => !!record && record.enabled && record.state === 'vi
 const pointerKinds = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
 const pointerOwner = record => record && (pointerKinds.has(record.kind) || record.actionId !== undefined);
 const inputParts = record => (record.parts ?? []).filter(part => part.kind === 'tab' || part.kind === 'adjust');
-const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'parentId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
+const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'parentId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'regions', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
 function semantic(plan) { return stable({focus: plan.focus, records: plan.records.map(record => Object.fromEntries(semanticKeys.filter(key => record[key] !== undefined).map(key => [key, record[key]])))}); }
 function prepare(scope) {
   const source = copyUiData(scope);

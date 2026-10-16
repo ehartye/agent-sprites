@@ -145,7 +145,11 @@ export function layoutUi(tree, environment) {
       minimum.width = Math.max(minimum.width, data.skin.minWidth * data.skinContext.physicalPixelsPerSourcePixel / data.context.localToPhysical.scale);
       minimum.height = Math.max(minimum.height, data.skin.minHeight * data.skinContext.physicalPixelsPerSourcePixel / data.context.localToPhysical.scale);
     }
-    if (node.focusable) { minimum.width = Math.max(minimum.width, theme.geometry.minTarget); minimum.height = Math.max(minimum.height, theme.geometry.minTarget); }
+    if (node.focusable) {
+      if (node.regions?.hit) {
+        if (node.regions.hit.width < theme.geometry.minTarget || node.regions.hit.height < theme.geometry.minTarget) throw new RangeError('Declared hit region violates minimum target size');
+      } else { minimum.width = Math.max(minimum.width, theme.geometry.minTarget); minimum.height = Math.max(minimum.height, theme.geometry.minTarget); }
+    }
     if (['progress', 'meter', 'separator'].includes(node.kind)) { preferred.width = Math.max(preferred.width, 40); preferred.height = Math.max(preferred.height, node.kind === 'separator' ? 1 : 6); }
     if (node.kind === 'icon' || node.kind === 'itemSlot' && node.asset) {
       const asset = theme.icons?.[node.asset];
@@ -198,9 +202,12 @@ export function layoutUi(tree, environment) {
     const clip = mode === 'visible' ? inheritedClip : intersection(inheritedClip, content);
     const fullyClipped = inheritedClip === null || mode !== 'visible' && clip === null;
     const hidden = suppressed || !!node.hidden;
-    const effectiveHit = hidden || fullyClipped ? null : intersection(bounds, inheritedClip);
+    const regionBounds = region => region ? rect(bounds.x + region.x, bounds.y + region.y, region.width, region.height) : {...bounds};
+    const hitBounds = regionBounds(node.regions?.hit), focusBounds = regionBounds(node.regions?.focus);
+    const effectiveHit = hidden || inheritedClip === null ? null : intersection(hitBounds, inheritedClip);
+    const effectiveFocus = hidden || inheritedClip === null ? null : intersection(focusBounds, inheritedClip);
     const dependencies = {...inheritedDependencies, ...Object.fromEntries([...new Set([context.id, skinContext.id, labelContext.id])].map(id => [id, contextMap.get(id).revision]))};
-    const record = {...node, bounds, hitBounds: {...bounds}, focusBounds: {...bounds}, effectiveHitBounds: effectiveHit, effectiveFocusBounds: effectiveHit && {...effectiveHit}, clipBounds: inheritedClip, contentClipBounds: clip, semanticContextId: context.id, contextRevisions: dependencies, paneId: node.paneId ?? inheritedPane, state: hidden ? 'hidden' : effectiveHit ? 'visible' : 'clipped', measure: {min: measured.min, preferred: measured.preferred}, contentBounds: content, paintBounds: null, parts: [], overflow: {mode}};
+    const record = {...node, bounds, hitBounds, focusBounds, effectiveHitBounds: effectiveHit, effectiveFocusBounds: effectiveFocus, clipBounds: inheritedClip, contentClipBounds: clip, semanticContextId: context.id, contextRevisions: dependencies, paneId: node.paneId ?? inheritedPane, state: hidden ? 'hidden' : effectiveHit || effectiveFocus ? 'visible' : 'clipped', measure: {min: measured.min, preferred: measured.preferred}, contentBounds: content, paintBounds: null, parts: [], overflow: {mode}};
     delete record.children;
     // Retain topology after flattening so the interaction publication barrier
     // can independently validate decorative sibling/leaf restrictions.
@@ -330,6 +337,13 @@ export function layoutUi(tree, environment) {
         const bounds = rect(content.x + (delta === 1 ? content.width / 2 : 0), content.y, content.width / 2, content.height);
         const atLimit = delta < 0 ? node.value <= (node.min ?? 0) : node.value >= (node.kind === 'pager' ? node.pageCount - 1 : node.max);
         record.parts.push({kind: 'adjust', delta, enabled: node.enabled && !atLimit, bounds, hitBounds: fullyClipped || hidden ? null : intersection(bounds, clip), contextId: context.id});
+      }
+    }
+    if (node.regions?.hit) {
+      const choices = record.parts.filter(part => part.kind === 'tab' || part.kind === 'adjust');
+      for (const [index, part] of choices.entries()) {
+        const cell = rect(hitBounds.x + hitBounds.width * index / choices.length, hitBounds.y, hitBounds.width / choices.length, hitBounds.height);
+        part.hitBounds = effectiveHit ? intersection(cell, effectiveHit) : null;
       }
     }
     if (['progress', 'meter'].includes(node.kind)) {

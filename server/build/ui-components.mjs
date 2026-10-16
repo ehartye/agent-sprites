@@ -1,4 +1,4 @@
-import {copyUiData, freezeUiData, uiNumber, uiKeys, uiId, uiInsets} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, uiNumber, uiKeys, uiId, uiInsets, uiRect} from './ui-theme.mjs';
 
 export const UI_NODE_KINDS = Object.freeze(['panel', 'header', 'card', 'text', 'button', 'actionBar', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager', 'progress', 'meter', 'separator', 'icon', 'notice', 'tooltip', 'extension', 'stack', 'row', 'grid', 'absolute']);
 const controls = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
@@ -8,7 +8,7 @@ const values = {
   tabs: ['value', 'options'], pager: ['value', 'pageCount'], extension: ['extensionId', 'extensionVersion', 'model'],
   actionBar: ['visualOrder', 'fallbackOrder', 'allocationPolicy'], icon: ['asset'], itemSlot: ['asset', 'quantity'],
 };
-const common = ['id', 'role', 'appearanceRole', 'variant', 'label', 'children', 'layout', 'enabled', 'focusable', 'selected', 'actionId', 'paneId', 'contextId', 'labelContextId', 'skinContextId', 'focus', 'metadata', 'hidden'];
+const common = ['id', 'role', 'appearanceRole', 'variant', 'label', 'children', 'layout', 'regions', 'enabled', 'focusable', 'selected', 'actionId', 'paneId', 'contextId', 'labelContextId', 'skinContextId', 'focus', 'metadata', 'hidden'];
 const layoutKeys = ['x', 'y', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'preferredWidth', 'preferredHeight', 'grow', 'gap', 'rowGap', 'padding', 'columns', 'overflow', 'scrollX', 'scrollY', 'page', 'align', 'justify'];
 
 function validateLayout(layout) {
@@ -40,6 +40,10 @@ function make(kind, props) {
   if (!Array.isArray(result.children)) throw new TypeError('Node children must be an array');
   if (result.metadata && Object.keys(result.metadata).some(key => !/^\S+:\S+$/.test(key))) throw new TypeError('Metadata keys must be namespaced');
   validateLayout(result.layout);
+  if (result.regions !== undefined) {
+    uiKeys(result.regions, ['hit', 'focus'], 'component regions');
+    for (const [kind, region] of Object.entries(result.regions)) uiRect(region, `${kind} region`);
+  }
   if (['toggle', 'fold'].includes(kind) && typeof result.value !== 'boolean') throw new TypeError(`${kind} value must be boolean`);
   if (kind === 'field') {
     if (typeof result.value !== 'string') throw new TypeError('Field value must be a string');
