@@ -48,7 +48,9 @@ export interface BitmapPlacement extends BitmapMeasure {
   readonly overflow:{readonly horizontal:boolean;readonly vertical:boolean;readonly painted:{readonly known:boolean;readonly horizontal:boolean|null;readonly vertical:boolean|null}};
 }
 export interface ContextualBitmapPlacement extends BitmapPlacement {readonly resolution:PixelResolution;readonly context:{readonly id:string;readonly revision:number};readonly physicalPaintedBounds:BitmapMeasure['paintedBounds'];readonly physicalBounds:Rect;readonly bounds:Rect;}
-export type PlacementOptions=Omit<TextOptions,'scale'> & {readonly tone?:string;readonly maxHeight?:number;readonly align?:'left'|'center'|'right'} & ({readonly scale?:number;readonly resolution?:never}|{readonly resolution:PixelResolution;readonly scale?:never});
+/** wrap:false preserves policy-normalized source lines and all spaces/advances.
+ * maxWidth/maxHeight still control alignment and honest fit/paint diagnostics. */
+export type PlacementOptions=Omit<TextOptions,'scale'> & {readonly wrap?:boolean;readonly tone?:string;readonly maxHeight?:number;readonly align?:'left'|'center'|'right'} & ({readonly scale?:number;readonly resolution?:never}|{readonly resolution:PixelResolution;readonly scale?:never});
 export function placeBitmapText(font:BitmapFont,text:unknown,x:number,y:number,options:PlacementOptions & {readonly resolution:PixelResolution}):ContextualBitmapPlacement;
 export function placeBitmapText(font:BitmapFont,text:unknown,x:number,y:number,options?:PlacementOptions):BitmapPlacement;
 export interface NineSliceRegion {readonly row:number;readonly column:number;readonly source:Rect;readonly destination:Rect;readonly tile:boolean;readonly period:Size;}

@@ -23,6 +23,91 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('logical spatial: Travel 284x160 requests area-4 reveal then activates only after republish',async()=>{
+  const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
+  const theme=defineTheme({version:1,id:'test:travel',roles:{absolute:{},button:{}},geometry:{minTarget:0}});
+  const context={id:'test:travel',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:284,height:160}};
+  // Actual Travel/screen/scrollBody reservations: box (4,8,276,144),
+  // body (10,32,264,92), eight 24-unit rows with 138x22 action faces.
+  // Projection withholds partly clipped actions in zero-clip wrappers.
+  const plan=(scroll,revision)=>layoutUi(u.absolute({id:'travel',layout:{width:284,height:160,overflow:'clip'},focus:{initialId:'area-3',defaultId:'area-4',cancelId:'back',order:[...Array.from({length:8},(_,i)=>`area-${i+1}`),'deploy','back']},children:[
+    u.absolute({id:'body',layout:{x:10,y:32,width:264,height:92,overflow:'clip'},children:Array.from({length:8},(_,i)=>{
+      const y=i*24-scroll,child=u.button({id:`area-${i+1}`,actionId:`district:${i+1}`,layout:{x:2,y,width:138,height:22}});
+      return y<0||y+22>92?u.absolute({id:`withheld:${i}`,layout:{width:0,height:0,overflow:'clip'},children:[child]}):child;
+    })}),u.button({id:'deploy',actionId:'deploy',layout:{x:132,y:128,width:140,height:22}}),u.button({id:'back',actionId:'back',layout:{x:70,y:128,width:56,height:22}})
+  ]}),{theme,context,revision});
+  const first=plan(0,1),target=first.records.find(r=>r.id==='area-4');
+  expect(target.focusBounds).toEqual({x:12,y:104,width:138,height:22});expect(target.effectiveFocusBounds).toBeNull();
+  const ui=createUiInteraction({id:'test:travel',plan:first},{navigation:'spatial',wrap:true});
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'area-4',modelRevision:1}]);
+  expect(ui.inspect({limit:30}).focusId).toBe('area-4');
+  for(const type of ['activate','default'])expect(ui.handle({type,inputId:`before:${type}`})).toEqual([]);
+  ui.handle({type:'press',controlId:'area-4',inputId:'before:held'});expect(ui.inspect({limit:30}).heldCount).toBe(0);
+  ui.update({id:'test:travel',plan:plan(24,2)});
+  expect(ui.handle({type:'release',controlId:'area-4',inputId:'before:held'})).toEqual([]);
+  expect(ui.handle({type:'activate',inputId:'queued-old',modelRevision:1})).toEqual([]);
+  expect(ui.handle({type:'activate',inputId:'after',modelRevision:2})).toMatchObject([{kind:'activate',controlId:'area-4',actionId:'district:4',modelRevision:2}]);
+  expect(ui.handle({type:'default',inputId:'after-default'})).toMatchObject([{controlId:'area-4'}]);
+  expect(ui.handle({type:'cancel',inputId:'escape'})).toMatchObject([{controlId:'back'}]);ui.dispose();
+});
+
+test.each(['visible','paginate'])('review correction: spatial navigation excludes inherited hidden targets under %s parents',async overflow=>{
+  const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
+  const theme=defineTheme({version:1,id:'test:hidden-tree',roles:{absolute:{},button:{}},geometry:{minTarget:0}});
+  const context={id:'test:hidden-tree',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:100,height:120}};
+  const make=(hidden,revision)=>layoutUi(u.absolute({id:'root',layout:{width:100,height:120},focus:{initialId:'origin',order:['origin','unavailable','far']},children:[
+    u.button({id:'origin',layout:{width:10,height:10}}),
+    u.absolute({id:'hidden-parent',hidden,layout:{overflow},children:[u.absolute({id:'nested',layout:{width:30,height:40},children:[u.button({id:'unavailable',hidden:false,layout:{y:20,width:10,height:10}})]})]}),
+    u.button({id:'far',layout:{y:80,width:10,height:10}})
+  ]}),{theme,context,revision});
+  const plan=make(true,1);
+  const unavailable=plan.records.find(r=>r.id==='unavailable');
+  expect(unavailable).toMatchObject({hidden:false,state:'clipped',parentId:'nested',focusBounds:{y:20,width:10,height:10}});
+  expect(unavailable.effectiveFocusBounds).toBeNull();
+  const input=createUiInteraction({id:'test:hidden-tree',plan},{navigation:'spatial'});
+  expect(input.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'far',modelRevision:1}]);
+  expect(input.inspect({limit:10}).focusId).toBe('far');
+  expect(input.handle({type:'activate',controlId:'unavailable',inputId:'hidden'})).toEqual([]);
+  expect(()=>input.update({id:'test:hidden-tree',plan:make(false,1)})).toThrow(/revision/i);
+  input.update({id:'test:hidden-tree',plan:make(false,2)});
+  expect(input.handle({type:'navigate',direction:'up'})).toEqual([{kind:'focus',controlId:'unavailable',modelRevision:2}]);
+  input.dispose();
+  const reversed={...plan,records:[...plan.records].reverse()},unordered=createUiInteraction({id:'test:hidden-tree',plan:reversed},{navigation:'spatial'});
+  expect(unordered.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'far',modelRevision:1}]);
+  unordered.dispose();
+});
+
+test('logical spatial: raw context geometry preserves readable disabled focus and directional order',async()=>{
+  const {createUiInteraction}=await api(),other=context('app:other');other.localToPhysical={scale:2,origin:{x:20,y:40}};
+  const box={x:0,y:0,width:10,height:10},s=scope([
+    control('origin',20,{bounds:{...box,x:20,y:10},focusBounds:{...box,x:20,y:10},effectiveFocusBounds:{...box,x:20,y:10}}),
+    control('near',0,{semanticContextId:other.id,contextRevisions:{[other.id]:1},state:'clipped',effectiveFocusBounds:null,effectiveHitBounds:null,enabled:false}),
+    control('visible-far',20,{focusBounds:{...box,x:20,y:100},effectiveFocusBounds:{...box,x:20,y:100}})
+  ]);s.plan.contexts.push(other);s.plan.focus={initialId:'origin',order:['origin','near','visible-far']};
+  const ui=createUiInteraction(s,{navigation:'spatial'});
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'near',modelRevision:1}]);
+  expect(ui.handle({type:'activate',inputId:'disabled'})).toEqual([]);
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'visible-far',modelRevision:1}]);ui.dispose();
+});
+
+test('logical spatial: hidden missing zero and undeclared geometry cannot become directional targets',async()=>{
+  const {createUiInteraction}=await api(),box={x:0,y:20,width:10,height:10};
+  const s=scope([control('from',0),control('hidden',0,{focusBounds:box,state:'hidden'}),control('zero',0,{focusBounds:{...box,width:0},effectiveFocusBounds:null,state:'clipped'}),control('decoration',0,{focusBounds:box,focusable:false}),control('undeclared',0,{focusBounds:box}),control('next',0,{focusBounds:{...box,y:40},effectiveFocusBounds:null,effectiveHitBounds:null,state:'clipped'})]);
+  s.plan.focus={initialId:'from',order:['from','hidden','missing','zero','decoration','next']};
+  const ui=createUiInteraction(s,{navigation:'spatial'});
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'next',modelRevision:1}]);
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([]);ui.dispose();
+});
+
+test.each(['left','right','up','down'])('logical spatial: %s wrap uses physical edge and declared tie order',async direction=>{
+  const {createUiInteraction}=await api(),horizontal=['left','right'].includes(direction),sign=['left','up'].includes(direction)?-1:1;
+  const box=n=>({x:horizontal?n*sign:0,y:horizontal?0:n*sign,width:10,height:10});
+  const s=scope(['from','tied-last','tied-first'].map((id,i)=>control(id,0,{focusBounds:box(i?-20:0),effectiveFocusBounds:i?null:box(0),effectiveHitBounds:i?null:box(0),state:i?'clipped':'visible'})));
+  s.plan.focus={initialId:'from',order:['from','tied-first','tied-last']};
+  const ui=createUiInteraction(s,{navigation:'spatial',wrap:true});
+  expect(ui.handle({type:'navigate',direction})).toEqual([{kind:'focus',controlId:'tied-first',modelRevision:1}]);ui.dispose();
+});
+
 test('independent regions: focus does not enlarge activation and geometry changes still invalidate held input',async()=>{
   const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
   const theme=defineTheme({version:1,id:'test:regions',roles:{button:{}},geometry:{minTarget:0}}),ctx={id:'test:regions',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:100,height:60}};

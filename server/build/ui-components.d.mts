@@ -7,6 +7,12 @@ export interface Layout {
   readonly minWidth?: number; readonly minHeight?: number; readonly maxWidth?: number; readonly maxHeight?: number;
   readonly preferredWidth?: number; readonly preferredHeight?: number; readonly grow?: number;
   readonly gap?: number; readonly rowGap?: number; readonly padding?: Padding; readonly columns?: number;
+  /** Rows opt into variable-width flow with true (default false). Labels use
+   * false to preserve prelaid source lines/whitespace (default true). */
+  readonly wrap?: boolean;
+  /** Outer final-page height in this node's semantic units. A smaller capacity
+   * repacks only the ordinary last page; padding/header consume it normally. */
+  readonly lastPageHeight?: number;
   readonly overflow?: Overflow; readonly scrollX?: number; readonly scrollY?: number; readonly page?: number;
   readonly align?: 'start' | 'center' | 'end' | 'stretch'; readonly justify?: 'start' | 'center' | 'end' | 'space-between';
 }

@@ -66,3 +66,11 @@ test('reading, notice and HUD families compose useful stock nodes with controlle
   const hud=u.hudFamily({id:'hud',arrangement:'absolute',items:[u.meter({id:'energy',value:2,min:0,max:4,layout:{x:10,y:5,width:40,height:8}})]});expect(hud.kind).toBe('absolute');expect(hud.role).toBe('hud');expect(hud.focusable).toBe(false);expect(hud.children[0].value).toBe(2);
   expect(()=>u.readingFamily({id:'bad',paragraphs:[123]})).toThrow();expect(()=>u.noticeFamily({id:'bad',message:'Bad',announcementRole:'button'})).toThrow();expect(()=>u.hudFamily({id:'bad',arrangement:'unknown',items:[]})).toThrow();
 });
+test('flow contract: wrap is boolean, final capacity is finite nonnegative',async()=>{
+  const u=await import('../../server/build/ui-components.mjs');
+  expect(u.row({id:'r',layout:{wrap:true,rowGap:0}}).layout.wrap).toBe(true);
+  expect(u.text({id:'t',label:'A',layout:{wrap:false}}).layout.wrap).toBe(false);
+  expect(u.stack({id:'p',layout:{overflow:'paginate',lastPageHeight:0}}).layout.lastPageHeight).toBe(0);
+  for(const wrap of [1,'false',null,{}])expect(()=>u.row({id:'r',layout:{wrap}})).toThrow(/wrap|boolean/i);
+  for(const lastPageHeight of [-1,NaN,Infinity,'30',null])expect(()=>u.stack({id:'p',layout:{lastPageHeight}})).toThrow();
+});

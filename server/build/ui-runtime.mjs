@@ -257,8 +257,9 @@ export function measureBitmapText(font,text,{scale=1,maxWidth,policy,sourceOffse
 }
 /** Source metrics remain source pixels; origins, bounds and returned paint are in the caller's destination space. */
 export function placeBitmapText(font,text,x,y,options={}){
-  exactOptions(options,['scale','tone','maxWidth','maxHeight','align','policy','resolution','sourceOffsets'],'text placement');
-  const {scale=1,tone=font?.toneNames?.[0],maxWidth,maxHeight,align='left',policy,resolution,sourceOffsets=false}=options;
+  exactOptions(options,['scale','tone','maxWidth','maxHeight','align','policy','resolution','sourceOffsets','wrap'],'text placement');
+  const {scale=1,tone=font?.toneNames?.[0],maxWidth,maxHeight,align='left',policy,resolution,sourceOffsets=false,wrap=true}=options;
+  if(typeof wrap!=='boolean')throw Error('Text wrap must be boolean.');
   if(typeof sourceOffsets!=='boolean')throw Error('Source offsets must be boolean.');
   if(resolution!==undefined){
     if(Object.hasOwn(options,'scale'))throw Error('Do not combine scale with resolution.');
@@ -266,7 +267,7 @@ export function placeBitmapText(font,text,x,y,options={}){
     for(const extent of [maxWidth,maxHeight])if(extent!==undefined&&finite(extent,'Layout extent')<0)throw Error('Layout extents must be nonnegative.');
     const snapped=quantizePhysicalPoint(anchor),fitOrigin={...snapped},bounds={};
     for(const [axis,extent,value] of [['x','width',maxWidth],['y','height',maxHeight]])if(value!==undefined){fitOrigin[axis]=Math.ceil(anchor[axis]);bounds[extent]=Math.max(0,Math.floor(finite(anchor[axis]+value*s,'Layout edge'))-fitOrigin[axis]);}
-    const physical=placeBitmapText(font,text,snapped.x,snapped.y,{scale:p,tone,maxWidth:bounds.width,maxHeight:bounds.height,align,policy,sourceOffsets});
+    const physical=placeBitmapText(font,text,snapped.x,snapped.y,{scale:p,tone,maxWidth:bounds.width,maxHeight:bounds.height,align,policy,sourceOffsets,wrap});
     const project=rect=>projectedRect(r,rect,'to-local'),physicalBounds={...fitOrigin,width:bounds.width??physical.width,height:bounds.height??physical.height},ink=physical.paintedBounds;
     const escapes=(rect,axis,extent)=>!!rect&&(rect[axis]<physicalBounds[axis]||rect[axis]+rect[extent]>physicalBounds[axis]+physicalBounds[extent]);
     const overflow={horizontal:maxWidth!==undefined&&physical.lines.some(line=>escapes({x:line.x,width:line.width},'x','width')),vertical:maxHeight!==undefined&&physical.height>0&&escapes({y:snapped.y,height:physical.height},'y','height'),painted:{known:ink.known,horizontal:ink.known?maxWidth!==undefined&&escapes(ink.rect,'x','width'):null,vertical:ink.known?maxHeight!==undefined&&escapes(ink.rect,'y','height'):null}};
@@ -281,7 +282,7 @@ export function placeBitmapText(font,text,x,y,options={}){
   integer(x,'X');integer(y,'Y');positiveInteger(scale,'Scale');
   if(!['left','center','right'].includes(align))throw Error('Invalid text alignment.');
   for(const [key,value] of [['Max width',maxWidth],['Max height',maxHeight]])if(value!==undefined&&(!Number.isInteger(value)||value<0))throw Error(`${key} must be a finite nonnegative integer.`);
-  const p=textPolicy(policy),measured=measureBitmapText(font,text,{scale,maxWidth,policy:p,sourceOffsets}),box=maxWidth??measured.width,draws=[],lines=[];
+  const p=textPolicy(policy),measured=measureBitmapText(font,text,{scale,maxWidth:wrap?maxWidth:undefined,policy:p,sourceOffsets}),box=maxWidth??measured.width,draws=[],lines=[];
   let known=true,left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
   for(const [row,line] of measured.sourceLines.entries()){
     const metrics=measureBitmapText(font,line,{scale,policy:p}),lx=x+(align==='center'?Math.floor((box-metrics.width)/2):align==='right'?box-metrics.width:0),ly=y+row*(font.lineHeight+p.lineSpacing)*scale;

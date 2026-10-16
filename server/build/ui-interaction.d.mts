@@ -2,7 +2,14 @@ import type {UiData} from './ui-theme.mjs';
 import type {Selection} from './ui-components.mjs';
 import type {UiLayoutPlan, LayoutRecord} from './ui-layout.mjs';
 export interface InteractionScope {readonly id: string; readonly plan: UiLayoutPlan}
-export interface InteractionPolicy {readonly navigation?: 'ordered' | 'spatial' | 'pane'; readonly wrap?: boolean; readonly restoreId?: string}
+export interface InteractionPolicy {
+  /** Spatial navigation with explicit plan.focus.order ranks declared measured
+   * raw focus rectangles in physical space, including clipped controls, and
+   * emits focus intents for host reveal/republish. Missing, hidden, nonfocusable
+   * and zero-area geometry is excluded. Disabled readable focus remains valid.
+   * Omitted order retains visible effective-rectangle navigation. */
+  readonly navigation?: 'ordered' | 'spatial' | 'pane'; readonly wrap?: boolean; readonly restoreId?: string;
+}
 export interface InputBinding {
   /** One-shot activation/edit identity, or the matched identity for one press/release pair. Never reuse a one-shot ID in a mount. */
   readonly inputId: string;
@@ -27,6 +34,7 @@ export type NormalizedUiEvent =
   | (InputBinding & {readonly type: 'caret'; readonly controlId?: string; readonly direction: 'left' | 'right' | 'home' | 'end'; readonly extend?: boolean})
   | (InputBinding & {readonly type: 'delete'; readonly controlId?: string; readonly direction: 'forward' | 'backward'});
 export type UiIntent =
+  /** Requests logical focus/reveal only; it never authorizes activation. */
   | {readonly kind: 'focus'; readonly controlId: string; readonly modelRevision: number}
   | {readonly kind: 'activate'; readonly controlId: string; readonly actionId: string; readonly modelRevision: number; readonly activationId: string}
   | {readonly kind: 'change'; readonly controlId: string; readonly value: UiData; readonly modelRevision: number; readonly selection?: Selection; readonly composition?: string | null}

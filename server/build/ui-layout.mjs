@@ -1,12 +1,77 @@
 import {pixelResolution, measureBitmapText, placeBitmapText, planNineSlice, projectPixelRect, quantizePhysicalRect} from './ui-runtime.mjs';
 import {planActionGroup} from './ui-action-group.mjs';
 import {validateUiTree} from './ui-components.mjs';
-import {copyUiData, freezeUiData, uiId, uiNumber, uiRect, uiInsets, resolveThemeRole} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, uiId, uiNumber, uiKeys, uiRect, uiInsets, resolveThemeRole} from './ui-theme.mjs';
 
 const rect = (x, y, width, height) => uiRect({x, y, width, height});
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const sum = values => values.reduce((a, b) => a + b, 0);
 const maximum = values => Math.max(0, ...values);
+
+/** Ordered measured flow, shared by component rows and caller-measured blocks.
+ * Callbacks describe source atoms and must be pure; the common owner packs runs.
+ * An indivisible oversize run remains actionable and overflows on its own page. */
+export function paginateUiBlocks(blocks, options) {
+  return freezeUiData(paginateBlocks(blocks, options).pages);
+}
+function paginateBlocks(blocks, options) {
+  uiKeys(options, ['pageHeight', 'lastPageHeight', 'gap', 'minSplit'], 'pagination');
+  const {pageHeight, lastPageHeight = pageHeight, gap = 0, minSplit = 0} = options;
+  for (const [key, value] of Object.entries({pageHeight, lastPageHeight, gap, minSplit})) uiNumber(value, key);
+  if (!Array.isArray(blocks)) throw new TypeError('Pagination blocks must be an array');
+  const input = blocks.map(block => {
+    uiKeys(block, ['height', 'breakBefore', 'wholeFirst', 'flow'], 'pagination block'); uiNumber(block.height, 'block height');
+    for (const key of ['breakBefore', 'wholeFirst']) if (block[key] !== undefined && typeof block[key] !== 'boolean') throw new TypeError(`${key} must be boolean`);
+    if (!block.flow) { if (block.flow !== undefined) throw new TypeError('Invalid block flow'); return {...block}; }
+    const f = block.flow; uiKeys(f, ['count', 'heightOf', 'keep'], 'block flow');
+    if (!Number.isSafeInteger(f.count) || f.count < 1 || typeof f.heightOf !== 'function' || f.keep !== undefined && typeof f.keep !== 'function') throw new TypeError('Invalid block flow');
+    const cache = new Map();
+    return {...block, flow: {count: f.count, heightOf: (from, to) => {
+      const key = `${from}:${to}`;
+      if (!cache.has(key)) cache.set(key, uiNumber(f.heightOf(from, to), 'flow height'));
+      return cache.get(key);
+    }, keep: i => { const value = f.keep?.(i) ?? false; if (typeof value !== 'boolean') throw new TypeError('Flow keep must return boolean'); return value; }}};
+  });
+  function pack(items, capacity) {
+    const pages = []; let page = [], used = 0;
+    const close = () => { if (page.length) pages.push(page); page = []; used = 0; };
+    const append = (run, height) => { used = uiNumber(used + (page.length ? gap : 0) + height, 'page used'); page.push(run); };
+    items.forEach((block, index) => {
+      if (block.breakBefore) close();
+      const room = capacity - used - (page.length ? gap : 0);
+      if (block.height <= room) { append({block:index}, block.height); return; }
+      const f = block.flow;
+      if (!f || f.count === 1 || block.wholeFirst && block.height <= capacity) { close(); append({block:index},block.height); return; }
+      let from = 0;
+      while (from < f.count) {
+        const room = capacity - used - (page.length ? gap : 0), limit = page.length && room < minSplit ? 0 : room;
+        let to = from;
+        while (to < f.count && f.heightOf(from,to+1) <= limit) to++;
+        while (to > from && to < f.count && f.keep(to-1)) to--;
+        if (to === from) {
+          if (page.length) { close(); continue; }
+          to = from + 1; while (to < f.count && f.keep(to-1)) to++;
+        }
+        append({block:index,from,to},f.heightOf(from,to)); from = to;
+        if (from < f.count) close();
+      }
+    });
+    close(); return pages;
+  }
+  const pages = pack(input,pageHeight), last = pages.at(-1);
+  const heightOf = entry => entry.from === undefined ? input[entry.block].height : input[entry.block].flow.heightOf(entry.from,entry.to);
+  if (!last || lastPageHeight >= pageHeight || sum(last.map(heightOf)) + gap * (last.length-1) <= lastPageHeight) return {pages,reducedFrom:Math.max(0,pages.length-1)};
+  const tail = last.map(entry => {
+    const b = input[entry.block]; if (entry.from === undefined) return b;
+    const base = entry.from, f = b.flow;
+    return {...b,height:heightOf(entry),flow:{count:entry.to-base,heightOf:(a,z)=>f.heightOf(base+a,base+z),keep:i=>f.keep(base+i)}};
+  });
+  const repacked = pack(tail,lastPageHeight).map(page => page.map(run => {
+    const original = last[run.block];
+    return run.from === undefined ? {...original} : {block:original.block,from:(original.from??0)+run.from,to:(original.from??0)+run.to};
+  }));
+  return {pages:[...pages.slice(0,-1),...repacked],reducedFrom:pages.length-1};
+}
 function intersection(a, b) {
   if (!a) return b && {...b}; if (!b) return {...a};
   const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y), right = Math.min(a.x + a.width, b.x + b.width), bottom = Math.min(a.y + a.height, b.y + b.height);
@@ -104,7 +169,7 @@ export function layoutUi(tree, environment) {
     if (face && label !== undefined) {
       const options = {scale: c.physicalPixelsPerSourcePixel, policy: face.policy};
       naturalText = measureBitmapText(face.font, label, options);
-      wrappedText = node.kind === 'tabs' ? naturalText : measureBitmapText(face.font, label, {...options, maxWidth: innerWidth * data.context.localToPhysical.scale});
+      wrappedText = node.kind === 'tabs' || l.wrap === false ? naturalText : measureBitmapText(face.font, label, {...options, maxWidth: innerWidth * data.context.localToPhysical.scale});
       naturalText = {width: naturalText.width / data.context.localToPhysical.scale, height: naturalText.height / data.context.localToPhysical.scale};
       wrappedText = {width: wrappedText.width / data.context.localToPhysical.scale, height: wrappedText.height / data.context.localToPhysical.scale};
       textMin = maximum([...label].filter(ch => ch !== '\n').map(ch => measureBitmapText(face.font, ch, options).width / data.context.localToPhysical.scale));
@@ -115,12 +180,20 @@ export function layoutUi(tree, environment) {
     const widths = sizes.map((m, i) => childLength(children[i],'width',data.context) ?? m.preferred.width), heights = sizes.map((m, i) => childLength(children[i],'height',data.context) ?? m.allocatedHeight);
     let childWidth = maximum(widths), childHeight = sum(heights) + gap * Math.max(0, children.length - 1), minWidth = maximum(sizes.map(m => m.min.width)), minHeight = sum(sizes.map(m => m.min.height)) + gap * Math.max(0, children.length - 1), actionPlan;
     if (node.kind === 'row') {
+      if (l.wrap === true) {
+        const rows = flowRows(children, sizes, innerWidth, data);
+        childWidth = maximum(rows.map(row => sum(row.widths) + gap * Math.max(0,row.children.length-1)));
+        childHeight = sum(rows.map(row => row.height)) + (l.rowGap ?? gap) * Math.max(0,rows.length-1);
+        minWidth = maximum(sizes.map((m,i) => childLength(children[i],'width',data.context) ?? m.min.width));
+        minHeight = sum(rows.map(row => row.minHeight)) + (l.rowGap ?? gap) * Math.max(0,rows.length-1);
+      } else {
       childWidth = sum(widths) + gap * Math.max(0, children.length - 1); childHeight = maximum(heights);
       minWidth = sum(sizes.map(m => m.min.width)) + gap * Math.max(0, children.length - 1); minHeight = maximum(sizes.map(m => m.min.height));
       const allocatedWidths = fitLengths(children, sizes, innerWidth, 'width', gap, data.context);
       const remeasured = children.map((child, i) => measureChild(child, allocatedWidths[i], data.context));
       childHeight = maximum(remeasured.map((m, i) => childLength(children[i],'height',data.context) ?? m.allocatedHeight));
       minHeight = maximum(remeasured.map(m => m.min.height));
+      }
     } else if (node.kind === 'grid') {
       const columns = l.columns ?? 1, rows = Math.ceil(children.length / columns), rowGap = l.rowGap ?? gap;
       childWidth = maximum(widths) * columns + gap * (columns - 1);
@@ -187,6 +260,24 @@ export function layoutUi(tree, environment) {
     return lengths;
   }
 
+  // One row topology/width owner for measurement, placement and page units.
+  function flowRows(children, sizes, available, data) {
+    const {context,gap}=data, rows=[]; let indices=[], used=0;
+    const bases=children.map((child,i)=>childLength(child,'width',context) ?? ((child.layout.grow??0)>0 ? sizes[i].min.width : Math.max(sizes[i].min.width,Math.min(available,sizes[i].preferred.width))));
+    for (let i=0;i<children.length;i++) {
+      if(indices.length && used+gap+bases[i]>available) { rows.push(indices); indices=[]; used=0; }
+      used+=(indices.length?gap:0)+bases[i]; indices.push(i);
+    }
+    if(indices.length)rows.push(indices);
+    return rows.map(indices=> {
+      const list=indices.map(i=>children[i]);
+      const measures=indices.map(i=>({...sizes[i],preferred:{...sizes[i].preferred,width:bases[i]}}));
+      const widths=fitLengths(list,measures,available,'width',gap,context);
+      const resolved=list.map((child,i)=>measureChild(child,widths[i],context));
+      return {children:list,widths,measures:resolved,height:maximum(resolved.map((m,i)=>childLength(list[i],'height',context)??m.allocatedHeight)),minHeight:maximum(resolved.map((m,i)=>childLength(list[i],'height',context)??m.min.height))};
+    });
+  }
+
   const records = [];
   function allocate(node, bounds, inheritedClip, suppressed = false, inheritedPane = 'main', allocationContext, inheritedDependencies = {}) {
     const data = prepared.get(node.id), {padding: p, gap, context, labelContext, skinContext, face, label, skin, role} = data, l = node.layout;
@@ -199,7 +290,7 @@ export function layoutUi(tree, environment) {
     const content = rect(bounds.x + p.left, bounds.y + p.top, Math.max(0, bounds.width - p.left - p.right), Math.max(0, bounds.height - p.top - p.bottom));
     const labelContent = mapRect(context, labelContext, content), skinBounds = mapRect(context, skinContext, bounds), skinContent = mapRect(context, skinContext, content);
     const mode = l.overflow ?? data.extension?.overflow ?? 'visible';
-    const clip = mode === 'visible' ? inheritedClip : intersection(inheritedClip, content);
+    let clip = mode === 'visible' ? inheritedClip : intersection(inheritedClip, content);
     const fullyClipped = inheritedClip === null || mode !== 'visible' && clip === null;
     const hidden = suppressed || !!node.hidden;
     const regionBounds = region => region ? rect(bounds.x + region.x, bounds.y + region.y, region.width, region.height) : {...bounds};
@@ -214,14 +305,25 @@ export function layoutUi(tree, environment) {
     record.parentId=parents.get(node.id);
     records.push(record);
     const textMaxWidth = node.kind === 'tabs' ? undefined : labelContent.width;
-    const ownText = face && label !== undefined && !hidden ? placeBitmapText(face.font, label, labelContent.x, labelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field'}) : null;
+    const ownText = face && label !== undefined && !hidden ? placeBitmapText(face.font, label, labelContent.x, labelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : null;
     const ownTextBounds = ownText ? mapRect(labelContext, context, rect(labelContent.x, labelContent.y, ownText.width, ownText.height)) : null;
     // If text plus children overflows, page text first and give child pages the
     // full viewport. A repeated header belongs outside the paginated container.
-    const ownTextPages = mode === 'paginate' && ownTextBounds && content.height > 0 && (ownTextBounds.height > content.height || node.children.some(child => !child.hidden) && measured.contentHeight > content.height) ? Math.ceil(ownTextBounds.height / content.height) : 0;
+    let ownTextPages = mode === 'paginate' && ownTextBounds && content.height > 0 && (ownTextBounds.height > content.height || node.children.some(child => !child.hidden) && measured.contentHeight > content.height) ? Math.ceil(ownTextBounds.height / content.height) : 0;
+    let textPageOffsets, textPageHeights, textPageRanges, textReducedFrom;
+    if(mode==='paginate' && ownText && l.lastPageHeight!==undefined && !node.children.some(child=>!child.hidden) && ownText.lines.length) {
+      const unit=labelContext.physicalPixelsPerSourcePixel/context.localToPhysical.scale;
+      const step=(face.font.lineHeight+(face.policy?.lineSpacing??0))*unit;
+      const blocks=ownText.lines.map((line,i)=>({height:(i===ownText.lines.length-1 && face.policy?.lastLine==='cell'?face.font.cell.height:face.font.lineHeight)*unit}));
+      const packed=paginateBlocks(blocks,{pageHeight:content.height,lastPageHeight:Math.max(0,Math.min(content.height,l.lastPageHeight-p.top-p.bottom)),gap:(face.policy?.lineSpacing??0)*unit});
+      ownTextPages=packed.pages.length; textReducedFrom=packed.reducedFrom;
+      textPageOffsets=packed.pages.map(runs=>runs[0].block*step);
+      textPageHeights=packed.pages.map(runs=>sum(runs.map(run=>blocks[run.block].height))+(runs.length-1)*(face.policy?.lineSpacing??0)*unit);
+      textPageRanges=packed.pages.map(runs=>[runs[0].block,runs.at(-1).block+1]);
+    }
     const children = node.children.filter(child => !child.hidden), sizes = children.map(child => measureChild(child, content.width, context));
     const childTop = content.y + (label !== undefined && children.length && !ownTextPages ? measured.textHeight + gap : 0), childHeight = Math.max(0, content.y + content.height - childTop);
-    const slots = new Map(), pageMembership = new Map();
+    const slots = new Map(), pageMembership = new Map(), rowAnchors = new Map();
     if (node.kind === 'actionBar') {
       const plan = measured.actionPlan; record.actionPlan = plan;
       if (plan.allocation.kind === 'authored') for (const slot of plan.allocation.slots) slots.set(slot.id, rect(bounds.x + slot.x, bounds.y + slot.y, slot.width, slot.height));
@@ -242,6 +344,19 @@ export function layoutUi(tree, environment) {
         const slice = children.slice(i, i + columns), measures = slice.map(child => measureChild(child, width, context)), height = maximum(measures.map((m, col) => childLength(slice[col],'height',context) ?? m.allocatedHeight));
         slice.forEach((child, col) => slots.set(child.id, rect(content.x + col * (width + gap), y, childLength(child,'width',context) ?? Math.max(width, measures[col].min.width), childLength(child,'height',context) ?? height))); y += height + rowGap;
       }
+    } else if (node.kind === 'row' && l.wrap === true) {
+      const rows=flowRows(children,sizes,content.width,data); let y=childTop;
+      for(const row of rows) {
+        const extra=Math.max(0,content.width-sum(row.widths)-gap*Math.max(0,row.children.length-1));
+        let x=content.x+(l.justify==='end'?extra:l.justify==='center'?extra/2:0);
+        const between=gap+(l.justify==='space-between'&&row.children.length>1?extra/(row.children.length-1):0);
+        for(const [i,child] of row.children.entries()) {
+          const m=row.measures[i], height=childLength(child,'height',context) ?? (l.align && l.align!=='stretch'?m.allocatedHeight:clamp(row.height,m.min.height,childLength(child,'maxHeight',context)??Number.MAX_VALUE));
+          const shift=l.align==='end'?row.height-height:l.align==='center'?(row.height-height)/2:0;
+          slots.set(child.id,rect(x,y+shift,row.widths[i],height)); rowAnchors.set(child.id,y); x+=row.widths[i]+between;
+        }
+        y+=row.height+(l.rowGap??gap);
+      }
     } else {
       const horizontal = node.kind === 'row', axis = horizontal ? 'width' : 'height', available = horizontal ? content.width : childHeight;
       const lengths = mode === 'paginate' || mode === 'scroll' ? children.map((child, i) => childLength(child,axis,context) ?? (horizontal ? sizes[i].preferred.width : sizes[i].allocatedHeight)) : fitLengths(children, sizes, available, axis, gap, context);
@@ -250,7 +365,7 @@ export function layoutUi(tree, environment) {
       if (l.justify === 'space-between' && children.length > 1) between += extra / (children.length - 1);
       let page = 0, used = 0;
       children.forEach((child, i) => {
-        if (mode === 'paginate') {
+        if (mode === 'paginate' && horizontal) {
           if (used > 0 && used + gap + lengths[i] > available) { page++; used = 0; }
           cursor = (horizontal ? content.x : childTop) + used + (used ? gap : 0); pageMembership.set(child.id, page); used += (used ? gap : 0) + lengths[i];
         }
@@ -259,34 +374,55 @@ export function layoutUi(tree, environment) {
         const shift = l.align === 'end' ? crossAvailable - cross : l.align === 'center' ? (crossAvailable - cross) / 2 : 0;
         slots.set(child.id, horizontal ? rect(cursor, childTop + shift, lengths[i], cross) : rect(content.x + shift, cursor, cross, lengths[i])); cursor += lengths[i] + between;
       });
-      if (mode === 'paginate') { record.overflow.pageCount = page + 1; record.overflow.page = clamp(l.page ?? 0, 0, page); }
+      if (mode === 'paginate' && horizontal) { record.overflow.pageCount = page + 1; record.overflow.page = clamp(l.page ?? 0, 0, page); }
     }
     if (mode === 'paginate' && children.length && !pageMembership.size) {
       // Preserve a visual row as one page unit (grid, action allocation or authored slots).
       const rows = new Map();
-      for (const child of children) { const slot = slots.get(child.id); if (!slot) continue; const row = rows.get(slot.y) ?? []; row.push(child.id); rows.set(slot.y, row); }
-      const rowGap = node.kind === 'grid' || node.kind === 'actionBar' ? l.rowGap ?? gap : gap;
-      let page = 0, used = 0;
-      for (const [y, ids] of [...rows.entries()].sort((a, b) => a[0] - b[0])) {
-        const height = maximum(ids.map(id => slots.get(id).height));
-        if (used > 0 && used + rowGap + height > childHeight) { page++; used = 0; }
-        const top = childTop + used + (used ? rowGap : 0);
-        for (const id of ids) { pageMembership.set(id, page); const slot = slots.get(id); slots.set(id, {...slot, y: top + slot.y - y}); }
-        used += (used ? rowGap : 0) + height;
+      for (const child of children) { const slot = slots.get(child.id); if (!slot) continue; const y=rowAnchors.get(child.id)??slot.y, row = rows.get(y) ?? []; row.push(child.id); rows.set(y, row); }
+      const rowGap = ['grid','actionBar','row'].includes(node.kind) ? l.rowGap ?? gap : gap;
+      const ordered=[...rows.entries()].sort((a,b)=>a[0]-b[0]);
+      const blocks=ordered.map(([y,ids])=>({height:maximum(ids.map(id=>slots.get(id).y+slots.get(id).height-y))}));
+      const lastHeight=Math.min(childHeight,Math.max(0,(l.lastPageHeight??bounds.height)-p.top-p.bottom-(childTop-content.y)));
+      const packed=paginateBlocks(blocks,{pageHeight:childHeight,lastPageHeight:lastHeight,gap:rowGap});
+      record.overflow.pageCount=Math.max(1,packed.pages.length); record.overflow.page=clamp((l.page??0)-ownTextPages,0,record.overflow.pageCount-1);
+      packed.pages.forEach((runs,page)=> { let used=0;
+        for(const [index,run] of runs.entries()) {
+          const [y,ids]=ordered[run.block],top=childTop+used+(index?rowGap:0);
+          for(const id of ids) { pageMembership.set(id,page); const slot=slots.get(id); slots.set(id,{...slot,y:top+slot.y-y}); }
+          used+=(index?rowGap:0)+blocks[run.block].height;
+        }
+      });
+      if(record.overflow.page>=packed.reducedFrom && (l.page??0)>=ownTextPages) {
+        clip=intersection(inheritedClip,{...content,height:Math.max(0,Math.min(content.height,(l.lastPageHeight??bounds.height)-p.top-p.bottom))});
+        record.contentClipBounds=clip;
       }
-      record.overflow.pageCount = page + 1; record.overflow.page = clamp(l.page ?? 0, 0, page);
     }
     if (mode === 'paginate' && ownTextPages) {
       for (const [id, page] of pageMembership) pageMembership.set(id, page + ownTextPages);
       record.overflow.pageCount = ownTextPages + (children.length ? record.overflow.pageCount ?? 1 : 0);
       record.overflow.page = clamp(l.page ?? 0, 0, record.overflow.pageCount - 1);
     }
-    const extent = union([ownTextBounds, ...slots.values()]) ?? content;
-    const maxScrollX = Math.max(0, extent.x + extent.width - content.x - content.width), maxScrollY = Math.max(0, extent.y + extent.height - content.y - content.height);
+    if(mode==='paginate' && node.kind==='row' && l.wrap!==true && l.lastPageHeight!==undefined && record.overflow.page===record.overflow.pageCount-1) {
+      clip=intersection(inheritedClip,{...content,height:Math.max(0,Math.min(content.height,l.lastPageHeight-p.top-p.bottom))});record.contentClipBounds=clip;
+    }
+    if(textPageOffsets && record.overflow.page>=textReducedFrom) {
+      clip=intersection(inheritedClip,{...content,height:Math.max(0,Math.min(content.height,l.lastPageHeight-p.top-p.bottom))});record.contentClipBounds=clip;
+    }
+    const boundedPage=mode==='paginate'&&l.lastPageHeight!==undefined;
+    const pageText=boundedPage&&ownTextPages;
+    const visibleText=pageText ? record.overflow.page<ownTextPages && ownTextBounds ? {...ownTextBounds,height:textPageHeights?.[record.overflow.page]??Math.min(content.height,ownTextBounds.height-record.overflow.page*content.height)} : null : ownTextBounds;
+    if (visibleText && textPageRanges) {
+      const [from,to]=textPageRanges[record.overflow.page];
+      visibleText.width=maximum(ownText.lines.slice(from,to).map(line=>line.width))*labelContext.localToPhysical.scale/context.localToPhysical.scale;
+    }
+    const extent = union([visibleText, ...[...slots.entries()].filter(([id])=>!boundedPage||pageMembership.get(id)===record.overflow.page).map(([,slot])=>slot)]) ?? content;
+    const viewport=boundedPage?clip??{...content,width:0,height:0}:content;
+    const maxScrollX = Math.max(0, extent.x + extent.width - viewport.x - viewport.width), maxScrollY = Math.max(0, extent.y + extent.height - viewport.y - viewport.height);
     Object.assign(record.overflow, {contentBounds: extent, horizontal: extent.x < content.x || maxScrollX > 0, vertical: extent.y < content.y || maxScrollY > 0, maxScrollX, maxScrollY});
-    const scrollX = mode === 'scroll' ? clamp(l.scrollX ?? 0, 0, maxScrollX) : 0, scrollY = mode === 'scroll' ? clamp(l.scrollY ?? 0, 0, maxScrollY) : 0;
+    const scrollX = mode === 'scroll' || boundedPage ? clamp(l.scrollX ?? 0, 0, maxScrollX) : 0, scrollY = mode === 'scroll' || boundedPage ? clamp(l.scrollY ?? 0, 0, maxScrollY) : 0;
     Object.assign(record.overflow, {scrollX, scrollY});
-    const textShiftX = scrollX, textShiftY = scrollY + (ownTextPages ? Math.min(record.overflow.page, ownTextPages - 1) * content.height : 0);
+    const textShiftX = scrollX, textShiftY = scrollY + (ownTextPages ? textPageOffsets?.[Math.min(record.overflow.page,ownTextPages-1)]??Math.min(record.overflow.page, ownTextPages - 1) * content.height : 0);
     const shiftedLabelContent = mapRect(context, labelContext, {...content, x: content.x - textShiftX, y: content.y - textShiftY});
     if (skin && !hidden) {
       const plan = planNineSlice({frame: {x: skin.frame.x, y: skin.frame.y, w: skin.frame.width, h: skin.frame.height}, insets: skin.insets}, skinBounds, {resolution: skinContext});
@@ -299,8 +435,29 @@ export function layoutUi(tree, environment) {
       const overflow = {horizontal: !!painted && (painted.x < allocation.x || painted.x + painted.width > allocation.x + allocation.width), vertical: !!painted && (painted.y < allocation.y || painted.y + painted.height > allocation.y + allocation.height)};
       record.parts.push({kind: 'skin', appearance: role.appearance, plan: {...localPlan, physicalPlan, physicalPaintedBounds: physicalPlan.paintedBounds, overflow}, contextId: skinContext.id});
     } else if (role.appearance?.kind === 'flat' && !hidden) record.parts.push({kind: 'flat', color: role.appearance.color, bounds: paintRect(skinContext, skinBounds), contextId: skinContext.id});
+    let caretSourceLine;
     if (ownText && (!ownTextPages || record.overflow.page < ownTextPages)) {
-      record.text = textShiftX || textShiftY ? placeBitmapText(face.font, label, shiftedLabelContent.x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field'}) : ownText;
+      record.text = textShiftX || textShiftY ? placeBitmapText(face.font, label, shiftedLabelContent.x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : ownText;
+      if (node.kind === 'field') {
+        const caret = node.selection.direction === 'backward' ? node.selection.start : node.selection.end;
+        // Soft wraps share a source endpoint. Preserve the full mapping's
+        // later-line choice before a page removes the other candidate.
+        for (const line of record.text.lines) if (caret >= line.sourceStart) caretSourceLine = line;
+      }
+      if (textPageRanges) {
+        const [from,to]=textPageRanges[record.overflow.page], full=record.text, lines=full.lines.slice(from,to);
+        // Keep whole-source metrics and UTF-16 mappings. Only the packed source
+        // range may paint; a viewport clip alone can expose the next line.
+        const pagePolicy={...face.policy,...(to<full.lines.length?{lastLine:'line'}:{})};
+        const page=placeBitmapText(face.font,full.sourceLines.slice(from,to).join('\n'),lines[0].x,lines[0].y,{resolution:labelContext,tone:role.tone,policy:pagePolicy,wrap:false});
+        const physicalBounds=quantizePhysicalRect(projectPixelRect(context,viewport),{mode:'inside'});
+        const metric={...page.physicalAnchor,width:visibleText.width*context.localToPhysical.scale,height:textPageHeights[record.overflow.page]*context.localToPhysical.scale};
+        const escapes=(bounds,axis,extent)=>!!bounds&&(bounds[axis]<physicalBounds[axis]||bounds[axis]+bounds[extent]>physicalBounds[axis]+physicalBounds[extent]);
+        const ink=page.physicalPaintedBounds;
+        record.text={...full,lines,draws:full.draws.filter(draw=>draw.row>=from&&draw.row<to),
+          paintedBounds:page.paintedBounds,physicalPaintedBounds:ink,physicalBounds,bounds:projectPixelRect(labelContext,physicalBounds,'to-local'),
+          overflow:{horizontal:escapes(metric,'x','width'),vertical:escapes(metric,'y','height'),painted:{known:ink.known,horizontal:ink.known?escapes(ink.rect,'x','width'):null,vertical:ink.known?escapes(ink.rect,'y','height'):null}}};
+      }
       record.parts.push({kind: 'text', placement: record.text, contextId: labelContext.id});
     }
     if (node.kind === 'field' && record.text) {
@@ -316,11 +473,13 @@ export function layoutUi(tree, environment) {
           const a = advance(start), b = advance(end);
           record.parts.push({kind: 'selection', bounds: rect(line.x + a, line.y, Math.max(0, b - a), height), direction: node.selection.direction, contextId: labelContext.id});
         }
-        if (caret >= lineStart) cursorBounds = rect(line.x + advance(caret), line.y, caretWidth, height);
+        if (line === caretSourceLine) cursorBounds = rect(line.x + advance(caret), line.y, caretWidth, height);
       }
-      cursorBounds ??= rect(shiftedLabelContent.x, shiftedLabelContent.y, caretWidth, face.font.lineHeight * labelContext.sourceToLocalScale);
-      record.parts.push({kind: 'caret', bounds: cursorBounds, contextId: labelContext.id});
-      if (node.composition !== null) record.parts.push({kind: 'composition', placement: placeBitmapText(face.font, node.composition, cursorBounds.x, cursorBounds.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
+      if (cursorBounds || !textPageRanges) {
+        cursorBounds ??= rect(shiftedLabelContent.x, shiftedLabelContent.y, caretWidth, face.font.lineHeight * labelContext.sourceToLocalScale);
+        record.parts.push({kind: 'caret', bounds: cursorBounds, contextId: labelContext.id});
+        if (node.composition !== null) record.parts.push({kind: 'composition', placement: placeBitmapText(face.font, node.composition, cursorBounds.x, cursorBounds.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
+      }
     }
     if (node.kind === 'tabs' && record.text) {
       record.parts = record.parts.filter(part => part.kind !== 'text');

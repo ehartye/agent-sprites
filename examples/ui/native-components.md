@@ -34,6 +34,108 @@ its tallest allocated child, including fixed child heights converted from their
 semantic contexts into the parent context. The gap stays in parent-local units.
 Action-bar whole-row pagination likewise preserves its declared row gap.
 
+## Wrapping rows, prelaid labels and final capacity
+
+`Layout.wrap` is the single row/text policy. A row opts into variable-width flow
+with `wrap: true`; omitted or false preserves its existing one-line allocation.
+Labels wrap by default; `wrap: false` preserves their already laid-out source
+lines, including leading, repeated and trailing spaces. On a labelled row the
+same property governs both its child flow and its label. Use a separate text
+child when their policies differ. Skin, semantic, and label contexts stay
+independent; widths/heights cross contexts through physical space exactly once.
+
+```js
+row({id: 'wardrobe', layout: {width: 100, gap: 8, rowGap: 4, wrap: true},
+  children: [60, 48, 36].map((width, index) => button({id: `choice:${index}`,
+    layout: {width, height: 22}}))});
+text({id: 'prelaid', label: ' A    B ', layout: {wrap: false, width: 32}});
+```
+
+Rows group ordered children using fixed widths, natural widths, or minimum grow
+reservations. Each line then distributes growth within declared maxima and
+remeasures at those widths. Fixed widths and minimum constraints may overflow;
+they are never silently clipped to fit. Each line advances by its tallest child
+plus `rowGap` (default `gap`, including explicit zero). Measurement, placement,
+scroll extent and pagination share that topology. Vertical alignment cannot
+split a visual line across pages. Defaults for nonwrapping rows stay unchanged.
+
+Low-level `placeBitmapText` also accepts a strictly boolean `wrap: false`.
+`maxWidth` and `maxHeight` retain alignment and fit/paint diagnostics while source
+lines and full advances remain intact. Text normalization, fallback glyphs,
+trailing-advance/line-spacing policies and optional UTF-16 caret mapping still
+apply. A fractional anchor can lose a physical fit pixel through inward bounds
+quantization and honestly report overflow; it never reflows an explicitly
+unwrapped line. The Space `Plot 7B` reproduction at zoom 1.5 retains its 33-pixel
+advance against the 32-pixel physical fit box. Native clipping remains separate.
+
+For `overflow: 'paginate'`, `Layout.lastPageHeight` declares the final outer
+height in that node's semantic units. Padding and any preceding label consume
+it. Values are finite nonnegative numbers; omission preserves ordinary capacity.
+A capacity larger than ordinary height never enlarges a page. A smaller capacity
+repacks only the ordinary tail, with every replacement tail page using the smaller
+capacity. Five ordered 20-unit blocks at ordinary height 60 and final height 30
+produce three pages: `[0,1,2]`, `[3]`, `[4]`. Grids, action bars and wrapping rows
+keep visual rows indivisible. Text-only pages with an explicit final capacity
+keep source lines whole. Legacy horizontal row pagination retains its width-based
+topology and uses final height as its vertical clip.
+
+An oversize indivisible row/run is retained on its own page with overflow.
+Explicit final-capacity pages honor controlled `scrollX`/`scrollY` within the
+selected page's extent, so a host can reveal its actions without enlarging the
+allocation. Zero capacity retains content and reports overflow; it creates no
+paint room. The host still owns reveal intents, page controls and input routing.
+
+The same common owner exports `paginateUiBlocks` directly from `ui-layout.mjs`
+for an adapter that already measures paragraph/card atoms:
+
+```js
+import {paginateUiBlocks} from './ui-layout.mjs';
+const pages = paginateUiBlocks([
+  {height: 20, breakBefore: true},
+  {height: 80, wholeFirst: true,
+    flow: {count: 8, heightOf: (from, to) => (to - from) * 10,
+      keep: index => index === 2}},
+], {pageHeight: 60, lastPageHeight: 30, gap: 4, minSplit: 10});
+// pages contain {block, from?, to?}; ranges are half-open source atom offsets.
+```
+
+`breakBefore` starts a new page without adding an empty page. `wholeFirst` moves
+a fitting block whole; blocks taller than a page may split at declared atom
+boundaries. `keep(i)` keeps an atom with its successor, including an oversize
+heading chain. `minSplit` is the minimum residual room before splitting into a
+partly occupied page. Pure stable `heightOf(from,to)` callbacks measure the actual
+wrapper, including first-run headers and padding; no character-count estimate is
+substituted. Output ranges preserve source block/atom identity through tail
+repacking and are deeply frozen. The helper does not freeze caller data.
+
+This replaces generic local packing/splitting decisions. Adapter-authored models,
+speaker breaks, atom/wrapper composition, measured footer reservations and native
+resource lifetimes stay with their existing owners. The producer checks establish
+source calculations and actual Phaser declaration compatibility. Independent
+review/export, all three game migrations, backend pixels, device behavior and
+the final fourteen-objective audit remain coordinator acceptance gates.
+
+## Declared logical spatial focus and reveal
+
+With `navigation: 'spatial'` and an explicit root `focus.order`, directional
+navigation ranks declared controls using their measured raw `focusBounds`,
+projected from each semantic context into physical space. This includes clipped
+controls awaiting host reveal. Every chosen target emits the existing
+`{kind: 'focus', controlId, modelRevision}` intent; it never activates an action.
+The host reveals that logical control and republishes the current plan before
+activation can use its visible effective hit region. No synthetic geometry or
+local directional solver is needed. Explicit `defaultId`/`cancelId` authority,
+event identity and model/context revision barriers remain unchanged.
+
+Missing IDs, hidden controls, nonfocusable decorations and zero-area raw focus
+rectangles are excluded from directional geometry. Disabled focusable controls
+remain readable without becoming activatable. Equal spatial scores and edge-wrap
+ties follow declared order. Directional wrap retains the existing physical-edge
+and nearest-cross-axis rule. Omitted `focus.order` retains visible effective-bound
+spatial navigation; next/previous and ordered logical reveal retain their existing
+contract. Cyber's 284-by-160 Travel reproduction now requests `area-4` from
+`area-3` before the host scrolls, with activation blocked until republished.
+
 ## Assets, contexts and the single game router
 
 Nodes can declare `regions: {hit, focus}` independently of their ordinary visual

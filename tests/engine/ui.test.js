@@ -215,6 +215,48 @@ function portableFontFixture(){
   return {image:{},report,atlas};
 }
 
+test('flow contract: explicit no-wrap preserves prelaid whitespace and fit diagnostics',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  const placed=uiRuntime.placeBitmapText(font,' A    I ',0,0,{maxWidth:10,wrap:false,sourceOffsets:true});
+  expect(placed.lines.map(line=>line.source)).toEqual([' A    I ']);
+  expect(placed.width).toBe(28);
+  expect(placed.draws.map(draw=>draw.destination.x)).toEqual([3,22]);
+  expect(placed.lines[0].caretAdvances).toEqual([0,3,9,12,15,18,21,25,28]);
+  expect(placed.overflow.horizontal).toBe(true);
+  expect(placed.overflow.painted.horizontal).toBe(true);
+});
+
+test('flow contract: no-wrap preserves policy normalization, UTF16 mapping, alignment and missing ink',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  for(const align of ['left','center','right']) {
+    const p=uiRuntime.placeBitmapText(font,' A\r\n\t😀 I \n',10,20,{maxWidth:40,wrap:false,sourceOffsets:true,align,policy:{lineSpacing:2,trailingAdvance:1}});
+    expect(p.lines.map(l=>l.source)).toEqual([' A','    😀 I ','']);
+    expect(p.lines.map(l=>[l.sourceStart,l.sourceEnd])).toEqual([[0,2],[4,10],[11,11]]);
+    expect(p.lines[1].caretAdvances.at(-1)).toBe(26);
+    expect(p.lines[1].y).toBe(33);
+    expect(p.draws.find(d=>d.char==='😀').resolvedChar).toBe('?');
+  }
+  expect(uiRuntime.placeBitmapText(font,null,0,0,{wrap:false,policy:{nullish:'empty',empty:'none'}}).lines).toEqual([]);
+  expect(uiRuntime.placeBitmapText(font,'',0,0,{wrap:false}).lines.map(l=>l.source)).toEqual(['']);
+  for(const wrap of [null,0,'false',{}])expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{wrap})).toThrow(/wrap.*boolean/i);
+  for(const maxWidth of [-1,1.5,Infinity])expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{wrap:false,maxWidth})).toThrow();
+  const input=portableFontFixture();delete input.report.glyphs.A.bounds;
+  expect(uiRuntime.placeBitmapText(uiRuntime.normalizeBitmapFont(input),' A ',0,0,{wrap:false,maxWidth:1}).overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
+});
+
+test('flow contract: Space Plot 7B fractional inward-fit reproduction stays one line with physical overflow',()=>{
+  const glyphs=Object.fromEntries([...'Plot7B?'].map((char,i)=>[char,{advance:5,frames:{cream:char}}]));
+  glyphs[' ']={advance:3};
+  const font=uiRuntime.normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:10,tones:{cream:{}},glyphs},atlas:{frames:Object.fromEntries([...'Plot7B?'].map((char,i)=>[char,{frame:{x:i*6,y:0,w:6,h:10}}]))}});
+  const resolution=uiRuntime.pixelResolution({id:'space:world-label',revision:1,localToPhysical:{scale:1.5,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:1});
+  const options={resolution,maxWidth:22,maxHeight:6+2/3};
+  expect(uiRuntime.placeBitmapText(font,'Plot 7B',69,81+1/3,options).lines.map(l=>l.source)).toEqual(['Plot','7B']);
+  const p=uiRuntime.placeBitmapText(font,'Plot 7B',69,81+1/3,{...options,wrap:false});
+  expect(p.lines.map(l=>l.source)).toEqual(['Plot 7B']);expect(p.physicalBounds.width).toBe(32);
+  expect(p.physicalAnchor).toEqual({x:104,y:122});expect(p.overflow.horizontal).toBe(true);
+  expect(p.draws).toHaveLength(6);expect(p.draws.every(d=>Object.values(d.physicalDestination).every(Number.isInteger))).toBe(true);
+});
+
 function abstractMetrics(){return {lineHeight:10.5,advanceOf:char=>({' ':1.25,A:3.5,I:1.5,'😀':4.25,'猫':2.75,'\r':0.25,'\t':0.5}[char]??2)};}
 
 test('review placement exposes UTF-16 source caret advances without changing whitespace policy',()=>{

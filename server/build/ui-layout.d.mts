@@ -75,3 +75,15 @@ export interface UiLayoutPlan {
 }
 /** Semantic records retain input order. actionPlan/slot geometry describes independently supplied paint order. */
 export function layoutUi(tree: UiNode, environment: LayoutEnvironment): UiLayoutPlan;
+
+/** Heights are measured by the existing source adapter in one semantic space.
+ * heightOf/keep must be stable pure callbacks. No native resources belong here. */
+export interface UiPageBlock {
+  readonly height:number; readonly breakBefore?:boolean; readonly wholeFirst?:boolean;
+  readonly flow?:{readonly count:number;readonly heightOf:(from:number,to:number)=>number;readonly keep?:(index:number)=>boolean};
+}
+export interface UiPageRun {readonly block:number;readonly from?:number;readonly to?:number;}
+/** Greedy ordered whole blocks/atom runs. A smaller lastPageHeight repacks only
+ * the ordinary tail at that capacity. Oversize indivisible runs get their own
+ * page and remain available to the native owner's clipped scrolling policy. */
+export function paginateUiBlocks(blocks:readonly UiPageBlock[],options:{readonly pageHeight:number;readonly lastPageHeight?:number;readonly gap?:number;readonly minSplit?:number}):readonly (readonly UiPageRun[])[];

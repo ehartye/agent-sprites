@@ -9,15 +9,16 @@ const values = {
   actionBar: ['visualOrder', 'fallbackOrder', 'allocationPolicy'], icon: ['asset'], itemSlot: ['asset', 'quantity'],
 };
 const common = ['id', 'role', 'appearanceRole', 'variant', 'label', 'children', 'layout', 'regions', 'enabled', 'focusable', 'selected', 'actionId', 'paneId', 'contextId', 'labelContextId', 'skinContextId', 'focus', 'metadata', 'hidden'];
-const layoutKeys = ['x', 'y', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'preferredWidth', 'preferredHeight', 'grow', 'gap', 'rowGap', 'padding', 'columns', 'overflow', 'scrollX', 'scrollY', 'page', 'align', 'justify'];
+const layoutKeys = ['x', 'y', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'preferredWidth', 'preferredHeight', 'grow', 'gap', 'rowGap', 'padding', 'columns', 'overflow', 'scrollX', 'scrollY', 'page', 'align', 'justify', 'wrap', 'lastPageHeight'];
 
 function validateLayout(layout) {
   uiKeys(layout, layoutKeys, 'node layout');
   for (const [key, value] of Object.entries(layout)) {
-    if (['overflow', 'align', 'justify', 'padding'].includes(key)) continue;
+    if (['overflow', 'align', 'justify', 'padding', 'wrap'].includes(key)) continue;
     uiNumber(value, `layout.${key}`, ['x', 'y'].includes(key) ? -Number.MAX_VALUE : 0);
   }
   if (layout.padding !== undefined) uiInsets(layout.padding);
+  if (layout.wrap !== undefined && typeof layout.wrap !== 'boolean') throw new TypeError('Layout wrap must be boolean');
   if (layout.overflow !== undefined && !['visible', 'clip', 'scroll', 'paginate'].includes(layout.overflow)) throw new TypeError('Invalid overflow policy');
   if (layout.align !== undefined && !['start', 'center', 'end', 'stretch'].includes(layout.align)) throw new TypeError('Invalid alignment');
   if (layout.justify !== undefined && !['start', 'center', 'end', 'space-between'].includes(layout.justify)) throw new TypeError('Invalid justification');

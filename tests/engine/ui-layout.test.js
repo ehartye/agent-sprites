@@ -5,6 +5,261 @@ async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])
 function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
 function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
 
+test('flow contract: wardrobe wraps variable widths with independent rowGap and whole-row pages',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[60,48,36].map((width,i)=>u.button({id:`a${i}`,layout:{width,height:22}}));
+  const tree=layout=>u.row({id:'wardrobe',layout:{width:100,height:60,gap:8,rowGap:4,wrap:true,...layout},children});
+  const plan=layoutUi(tree({}),env);
+  expect(plan.records.slice(1).map(r=>[r.bounds.x,r.bounds.y,r.bounds.width])).toEqual([[0,0,60],[0,26,48],[56,26,36]]);
+  expect(plan.records[0].measure.preferred.height).toBe(48);
+  expect(layoutUi(tree({rowGap:0}),env).records[2].bounds.y).toBe(22);
+  const paged=layoutUi(tree({height:30,overflow:'paginate',page:1}),env);
+  expect(paged.records[0].overflow.pageCount).toBe(2);
+  expect(paged.records.slice(1).map(r=>r.state)).toEqual(['clipped','visible','visible']);
+  expect(paged.records[2].bounds.y).toBe(0);expect(paged.records[3].bounds.y).toBe(0);
+  const defaults=layoutUi(u.row({id:'default',layout:{width:100,height:60,gap:8},children}),env);
+  expect(defaults.records.slice(1).map(r=>r.bounds.y)).toEqual([0,0,0]);
+});
+
+test('flow contract: smaller final page repacks only the ordinary tail in order',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=Array.from({length:5},(_,i)=>u.panel({id:`b${i}`,layout:{height:20}}));
+  const make=layout=>u.stack({id:'pages',layout:{width:100,height:60,overflow:'paginate',...layout},children});
+  expect(layoutUi(make({}),env).records[0].overflow.pageCount).toBe(2);
+  const page=layoutUi(make({lastPageHeight:30,page:2}),env);
+  expect(page.records[0].overflow.pageCount).toBe(3);
+  expect(page.records.filter(r=>r.state==='visible').map(r=>r.id)).toEqual(['pages','b4']);
+  expect(page.records.at(-1).bounds.y).toBe(0);
+  expect(page.records[0].contentClipBounds.height).toBe(30);
+});
+
+test('flow contract: component no-wrap keeps semantic whitespace across label density and honest physical overflow',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1.5,x:0,y:0},sourcePixelPhysicalSize:1};
+  const tree=u.text({id:'prelaid',label:' A    i ',layout:{x:69,y:81+1/3,width:20,height:20,wrap:false}});
+  const record=layoutUi(tree,{...env,context:{...env.context,viewport:{x:0,y:0,width:200,height:200}}}).records[0];
+  expect(record.text.lines.map(l=>l.source)).toEqual([' A    i ']);
+  expect(record.text.width).toBe(27/1.5);
+  expect(record.measure.preferred.width).toBe(27/1.5);
+  const narrow=layoutUi({...tree,layout:{...tree.layout,width:27/1.5}}, {...env,context:{...env.context,viewport:{x:0,y:0,width:200,height:200}}}).records[0];
+  expect(narrow.text.lines).toHaveLength(1);expect(narrow.text.overflow.horizontal).toBe(true);
+});
+
+test('flow contract: measured pagination preserves split runs, whole-first cards, headings and explicit breaks',async()=>{
+  const {paginateUiBlocks}=await import('../../server/build/ui-layout.mjs');
+  expect(typeof paginateUiBlocks).toBe('function');
+  expect(paginateUiBlocks(Array.from({length:5},()=>({height:20})),{pageHeight:60,lastPageHeight:30})).toEqual([[{block:0},{block:1},{block:2}],[{block:3}],[{block:4}]]);
+  const flow={count:5,heightOf:(a,b)=>(b-a)*10,keep:i=>i===1};
+  expect(paginateUiBlocks([{height:10},{height:50,flow}],{pageHeight:30})).toEqual([[{block:0},{block:1,from:0,to:1}],[{block:1,from:1,to:4}],[{block:1,from:4,to:5}]]);
+  expect(paginateUiBlocks([{height:10},{height:20,wholeFirst:true,flow:{count:2,heightOf:(a,b)=>(b-a)*10}}],{pageHeight:25})).toEqual([[{block:0}],[{block:1}]]);
+  expect(paginateUiBlocks([{height:10},{height:10,breakBefore:true},{height:40},{height:5}],{pageHeight:30})).toEqual([[{block:0}],[{block:1}],[{block:2}],[{block:3}]]);
+});
+
+test('flow contract: aligned unequal-height actions keep one visual row on the final page',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[22,10].map((height,i)=>u.button({id:`a${i}`,layout:{width:40,height}}));
+  const result=layoutUi(u.row({id:'row',layout:{width:100,height:30,wrap:true,align:'center',overflow:'paginate',lastPageHeight:15},children}),env);
+  expect(result.records[0].overflow.pageCount).toBe(1);
+  expect(result.records[2].bounds.y).toBe(6);
+});
+
+test('flow contract: oversize final page can scroll its full actionable row into view',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const plan=layoutUi(u.stack({id:'pages',layout:{width:100,height:60,lastPageHeight:30,overflow:'paginate',scrollY:20},children:[
+    u.absolute({id:'big',layout:{height:50},children:[u.button({id:'bottom',actionId:'game:bottom',layout:{y:35,width:20,height:15}})]})
+  ]}),env);
+  expect(plan.records[0].overflow).toMatchObject({pageCount:1,maxScrollY:20,scrollY:20});
+  expect(plan.records[1].bounds.y).toBe(-20);
+  expect(plan.records[2].bounds.y).toBe(15);expect(plan.records[2].effectiveHitBounds.height).toBe(15);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  const input=createUiInteraction({id:'test:oversize',plan});
+  expect(input.handle({type:'activate',controlId:'bottom',inputId:'keyboard'})[0]?.actionId).toBe('game:bottom');input.dispose();
+});
+
+test.each([0,1,2])('review correction: nonmultiple text capacity paints only page %s source lines',async page=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const record=layoutUi(u.text({id:'whole-lines',label:'A\ni\nA',layout:{width:30,height:12,lastPageHeight:8,overflow:'paginate',page,wrap:false}}),env).records[0];
+  expect(record.overflow).toMatchObject({page,pageCount:3,vertical:false,maxScrollY:0});
+  expect(record.text.draws.map(d=>d.row)).toEqual([page]);
+  expect(record.text.lines.map(l=>l.source)).toEqual([['A','i','A'][page]]);
+  expect(record.text.lines[0].y).toBe(0);
+  expect(record.text.sourceLines).toEqual(['A','i','A']);
+  expect(record.text.height).toBe(24);
+  expect(record.text.paintedBounds).toEqual({known:true,rect:{x:0,y:0,width:page===1?1:6,height:6}});
+  expect(record.text.overflow).toMatchObject({horizontal:false,vertical:false,painted:{known:true,horizontal:false,vertical:false}});
+});
+
+test('flow contract: final text page retains whole source lines and smaller clip',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const plan=layoutUi(u.text({id:'text-pages',label:'A\ni\nA\ni\nA',layout:{width:100,height:24,lastPageHeight:8,overflow:'paginate',page:2,wrap:false}}),env);
+  const record=plan.records[0];
+  expect(record.overflow).toMatchObject({page:2,pageCount:3});
+  expect(record.contentClipBounds.height).toBe(8);
+  expect(record.text.lines.at(-1).y).toBe(0);
+});
+
+test.each([0,1,2])('review correction: page %s preserves blank lines whitespace and full UTF16 mapping',async page=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const value=' A  i \n\n😀i\nA\n i ',sources=[' A  i ','','😀i','A',' i '];
+  const record=layoutUi(u.field({id:'mapped-pages',value,selection:{start:8,end:10,direction:'forward'},composition:null,layout:{width:50,height:20,lastPageHeight:10,overflow:'paginate',page,wrap:false}}),env).records[0];
+  const ranges=[[0,2],[2,4],[4,5]],[from,to]=ranges[page];
+  expect(record.text.lines.map(l=>l.source)).toEqual(sources.slice(from,to));
+  expect(record.text.sourceLines).toEqual(sources);expect(record.text.height).toBe(40);
+  expect(record.text.width).toBe(21);expect(record.text.advanceWidth).toBe(21);
+  expect(record.text.sourceMap.map(l=>[l.sourceStart,l.sourceEnd])).toEqual([[0,6],[7,7],[8,11],[12,13],[14,17]]);
+  expect(record.text.draws.every(d=>d.row>=from&&d.row<to)).toBe(true);
+  expect(record.text.lines[0].sourceStart).toBe([0,8,14][page]);
+  expect(record.text.lines[0].y).toBe(0);
+  expect(record.parts.filter(p=>p.kind==='selection')).toHaveLength(page===1?1:0);
+  expect(record.parts.filter(p=>p.kind==='caret')).toHaveLength(page===1?1:0);
+  if(page===1)expect(record.text.lines[0].caretAdvances).toEqual([0,0,5,7]);
+  expect(record.text.overflow.vertical).toBe(false);
+});
+
+test('review correction: paginated soft-wrap caret belongs to one source line including EOF',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  for(const offset of [2,3])for(const page of [0,1]){
+    const record=layoutUi(u.field({id:'soft-caret',value:'A A',selection:{start:offset,end:offset,direction:'forward'},composition:'i',layout:{width:14,height:8,lastPageHeight:8,overflow:'paginate',page}}),env).records[0];
+    expect(record.text.sourceMap.map(line=>[line.sourceStart,line.sourceEnd])).toEqual([[0,2],[2,3]]);
+    const caret=record.parts.filter(part=>part.kind==='caret'),composition=record.parts.filter(part=>part.kind==='composition');
+    expect(caret,`offset ${offset}, page ${page}`).toHaveLength(page===1?1:0);
+    expect(composition,`offset ${offset}, page ${page}`).toHaveLength(page===1?1:0);
+    if(page===1){expect(caret[0].bounds).toMatchObject({x:offset===2?0:7,y:0});expect(composition[0].placement.lines[0]).toMatchObject({x:offset===2?0:7,y:0});}
+  }
+});
+
+test('review correction: no-wrap page-local width and oversize scrolling remain honest',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const make=(page,extra={})=>layoutUi(u.text({id:'oversize-text',label:'AAAA\ni\nA',layout:{width:14,height:12,lastPageHeight:5,overflow:'paginate',page,wrap:false,...extra}}),env).records[0];
+  const first=make(0,{scrollX:100});
+  expect(first.text.sourceLines).toEqual(['AAAA','i','A']);expect(first.text.width).toBe(28);
+  expect(first.overflow).toMatchObject({horizontal:true,maxScrollX:14,scrollX:14,vertical:false});
+  expect(first.text.draws.map(d=>d.row)).toEqual([0,0,0,0]);
+  expect(first.text.overflow).toMatchObject({horizontal:true,vertical:false});
+  const middle=make(1,{scrollX:100});
+  expect(middle.overflow).toMatchObject({horizontal:false,maxScrollX:0,scrollX:0});
+  expect(middle.text.overflow).toMatchObject({horizontal:false,vertical:false});
+  const last=make(2,{scrollY:100});
+  expect(last.overflow).toMatchObject({pageCount:3,vertical:true,maxScrollY:3,scrollY:3});
+  expect(last.contentClipBounds.height).toBe(5);expect(last.text.lines[0].y).toBe(-3);
+  expect(last.text.draws.map(d=>d.row)).toEqual([2]);
+  expect(last.text.overflow).toMatchObject({vertical:true,painted:{known:true,vertical:true}});
+});
+
+test('review correction: default wrapping assigns its already-wrapped rows to pages once',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  for(let page=0;page<3;page++){
+    const record=layoutUi(u.text({id:'wrapped-pages',label:'AA AA AA',layout:{width:14,height:12,lastPageHeight:8,overflow:'paginate',page}}),env).records[0];
+    expect(record.text.sourceLines).toEqual(['AA','AA','AA']);
+    expect(record.text.lines.map(l=>l.source)).toEqual(['AA']);
+    expect(record.text.draws.map(d=>d.row)).toEqual([page,page]);
+    expect(record.text.overflow).toMatchObject({horizontal:false,vertical:false});
+  }
+});
+
+test('review correction: page paint retains physical overflow in a separate fractional label context',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1.5,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.additionalContexts=[{...env.context,id:'test:label-page',localToPhysical:{scale:3,x:0.25,y:0.5},sourcePixelPhysicalSize:2}];
+  for(let page=0;page<3;page++){
+    const record=layoutUi(u.text({id:'mixed-text',label:'A\ni\nA',labelContextId:'test:label-page',layout:{x:0.2,y:0.2,width:30,height:15,lastPageHeight:11,overflow:'paginate',page,wrap:false}}),env).records[0];
+    expect(record.text.draws.map(d=>d.row)).toEqual([page]);
+    expect(record.text.height).toBe(16);expect(record.text.lines[0].y).toBeCloseTo(-1/6);
+    expect(record.text.draws[0].physicalDestination.y).toBe(0);
+    expect(record.text.overflow).toMatchObject({vertical:true,painted:{known:true,vertical:true}});
+    expect(record.overflow).toMatchObject({pageCount:3,vertical:false});
+  }
+});
+
+test('review correction: page-local ink diagnostics preserve unknown metadata and final cell spacing policy',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),face=structuredClone(font());
+  face.cell={width:8,height:6};face.glyphs.A.inkBounds={known:false,rect:null};
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.theme=defineTheme({version:1,id:'test:page-policy',fonts:{body:{font:face,policy:{lastLine:'cell',lineSpacing:2}}},roles:{text:{font:'body',tone:'cream'}},geometry:{padding:0,gap:0,minTarget:0}});
+  const make=page=>layoutUi(u.text({id:'policy-text',label:'A\ni\ni',layout:{width:30,height:18,lastPageHeight:6,overflow:'paginate',page,wrap:false}}),env).records[0];
+  expect(make(0).text.draws.map(d=>d.row)).toEqual([0,1]);
+  expect(make(0).text.paintedBounds).toEqual({known:false,rect:null});
+  expect(make(0).text.overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
+  const last=make(1);expect(last.text.height).toBe(26);
+  expect(last.text.draws.map(d=>d.row)).toEqual([2]);expect(last.text.lines[0].y).toBe(0);
+  expect(last.text.paintedBounds).toEqual({known:true,rect:{x:0,y:0,width:1,height:6}});
+  expect(last.text.overflow).toMatchObject({vertical:false,painted:{known:true,vertical:false}});
+});
+
+test('flow contract: row measurement placement scrolling and semantic context conversion agree',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:10,y:-6},sourcePixelPhysicalSize:1,viewport:{x:-100,y:-100,width:400,height:400}}];
+  const children=[u.button({id:'one',layout:{width:60,height:22}}),u.button({id:'two',contextId:'test:child',layout:{width:96,height:44}}),u.button({id:'three',layout:{width:36,height:22}})];
+  const make=layout=>u.row({id:'mixed-flow',layout:{width:100,height:30,wrap:true,gap:8,rowGap:4,...layout},children});
+  const plan=layoutUi(make({}),env);expect(plan.records[0].measure.preferred.height).toBe(48);
+  expect(plan.records[2].bounds).toEqual({x:-10,y:58,width:96,height:44});
+  const scrolled=layoutUi(make({overflow:'scroll',scrollY:18}),env);
+  expect(scrolled.records[0].overflow.maxScrollY).toBe(18);
+  expect(scrolled.records[2].bounds.y).toBe(22);
+  expect(scrolled.records[3].bounds.y).toBe(8);
+  const clipped=layoutUi(make({overflow:'clip'}),env);expect(clipped.records[3].effectiveHitBounds.height).toBe(4);
+});
+
+test('flow contract: grow reservations respect minima maxima and fixed widths before wrapping',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[u.panel({id:'grow',layout:{grow:1,minWidth:20,maxWidth:40,preferredWidth:20,height:10}}),u.panel({id:'fixed',layout:{width:60,height:22}}),u.panel({id:'natural',layout:{preferredWidth:36,height:12}})];
+  const plan=layoutUi(u.row({id:'grow-row',layout:{width:100,height:60,gap:8,rowGap:4,wrap:true,align:'end'},children}),env);
+  expect(plan.records.slice(1).map(r=>[r.bounds.width,r.bounds.y])).toEqual([[32,12],[60,0],[36,26]]);
+  const empty=layoutUi(u.row({id:'empty',layout:{wrap:true,rowGap:4,padding:2}}),env).records[0];
+  expect(empty.measure.preferred.height).toBe(4);
+});
+
+test('flow contract: smaller final capacity honors parent padding and child context units',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:10,y:-6},sourcePixelPhysicalSize:1,viewport:{x:-100,y:-100,width:400,height:400}}];
+  const children=Array.from({length:5},(_,i)=>u.panel({id:`c${i}`,contextId:'test:child',layout:{height:40}}));
+  const p=layoutUi(u.stack({id:'p',layout:{height:68,width:100,padding:4,overflow:'paginate',lastPageHeight:38,page:1},children}),env);
+  expect(p.records[0].overflow.pageCount).toBe(3);expect(p.records[0].contentClipBounds.height).toBe(30);
+  expect(p.records[4].bounds.y).toBe(14);
+});
+
+test('flow contract: pagination validates policies and preserves final split offsets and minSplit',async()=>{
+  const {paginateUiBlocks}=await import('../../server/build/ui-layout.mjs');
+  expect(paginateUiBlocks([],{pageHeight:0,lastPageHeight:0})).toEqual([]);
+  expect(paginateUiBlocks([{height:0},{height:1}],{pageHeight:0,lastPageHeight:0})).toEqual([[{block:0}],[{block:1}]]);
+  const f={count:8,heightOf:(a,b)=>(b-a)*10};
+  const p=paginateUiBlocks([{height:80,flow:f}],{pageHeight:60,lastPageHeight:10});
+  expect(p).toEqual([[{block:0,from:0,to:6}],[{block:0,from:6,to:7}],[{block:0,from:7,to:8}]]);
+  expect(Object.isFrozen(p[0][0])).toBe(true);
+  expect(paginateUiBlocks([{height:20},{height:40,flow:{count:4,heightOf:(a,b)=>(b-a)*10}}],{pageHeight:30,minSplit:15})).toEqual([[{block:0}],[{block:1,from:0,to:3}],[{block:1,from:3,to:4}]]);
+  for(const options of [{pageHeight:-1},{pageHeight:NaN},{pageHeight:30,lastPageHeight:null},{pageHeight:30,gap:Infinity},{pageHeight:30,other:1}])expect(()=>paginateUiBlocks([] ,options)).toThrow();
+  for(const block of [{height:-1},{height:1,breakBefore:1},{height:1,wholeFirst:'yes'},{height:20,flow:{count:2,heightOf:()=>-1}},{height:20,flow:{count:2,heightOf:()=>6,keep:()=>1}}])expect(()=>paginateUiBlocks([block],{pageHeight:5})).toThrow();
+});
+
+test('flow contract: a final page smaller than its label never enlarges the clip budget',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const result=layoutUi(u.panel({id:'small-final',label:'A',layout:{width:100,height:40,overflow:'paginate',lastPageHeight:5},children:[u.button({id:'below',layout:{height:5,width:10}})]}),env);
+  expect(result.records[0].contentClipBounds.height).toBe(5);
+  expect(result.records[1].effectiveHitBounds).toBeNull();
+});
+
+test('flow contract: legacy horizontal pagination keeps its topology and honors final vertical capacity',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const p=layoutUi(u.row({id:'horizontal-pages',layout:{width:60,height:30,overflow:'paginate',lastPageHeight:10,page:1},children:[u.button({id:'a',layout:{width:60,height:22}}),u.button({id:'b',layout:{width:60,height:22}})]}),env);
+  expect(p.records[0].overflow.pageCount).toBe(2);expect(p.records[0].contentClipBounds.height).toBe(10);
+});
+
+test('flow contract: no-wrap measurement and placement use an independent label context once',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:label',localToPhysical:{scale:1.5,x:.25,y:-.5},sourcePixelPhysicalSize:2,viewport:{x:-100,y:-100,width:500,height:500}}];
+  const r=layoutUi(u.field({id:'prelaid-field',labelContextId:'test:label',value:' A    i ',selection:{start:1,end:6,direction:'forward'},layout:{width:50,height:20,wrap:false}}),env).records[0];
+  expect(r.measure.preferred.width).toBe(27);
+  expect(r.text.lines.map(l=>l.source)).toEqual([' A    i ']);expect(r.text.width).toBe(36);
+  expect(r.text.lines[0].caretAdvances.at(-1)).toBe(36);
+  expect(r.parts.some(p=>p.kind==='selection'&&p.contextId==='test:label')).toBe(true);
+});
+
 test('independent regions: hit and focus remain continuous while the original visual allocation is unchanged',async()=>{
   const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
   env.theme=defineTheme({version:1,id:'test:regions',roles:{button:{alternatives:[{kind:'flat',color:'#123456'}]}},geometry:{minTarget:0}});

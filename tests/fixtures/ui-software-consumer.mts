@@ -4,8 +4,30 @@ import type {NativeScene,NativeParent,NativePorts,NativeImage,NativeRectangle,Ui
 // package. This fixture requires a separately verified TypeScript compiler.
 import type Phaser from 'phaser';
 import {publishUiSoftware} from '../../server/build/ui-software.mjs';
+import {row,stack} from '../../server/build/ui-components.mjs';
+import {paginateUiBlocks} from '../../server/build/ui-layout.mjs';
+import type {Layout} from '../../server/build/ui-components.mjs';
+import type {InteractionPolicy} from '../../server/build/ui-interaction.mjs';
 
 const font=normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}}}}});
+const flowLayout={wrap:true,rowGap:0,lastPageHeight:30,overflow:'paginate'} satisfies Layout;
+row({id:'flow',layout:flowLayout,children:[button({id:'action',layout:{width:60,height:22}})]});
+stack({id:'reading-pages',layout:{height:60,lastPageHeight:30,overflow:'paginate'}});
+text({id:'prelaid',label:' ?    ? ',layout:{wrap:false}});
+placeBitmapText(font,' ?    ? ',0,0,{wrap:false,maxWidth:10,sourceOffsets:true,align:'center'});
+paginateUiBlocks([{height:80,wholeFirst:true,flow:{count:8,heightOf:(from,to)=>(to-from)*10,keep:index=>index===2}},{height:20,breakBefore:true}],{pageHeight:60,lastPageHeight:30,minSplit:10,gap:0}).forEach(page=>page.forEach(run=>{const block:number=run.block;const from:number|undefined=run.from;void block;void from;}));
+// @ts-expect-error wrap is an explicit boolean
+row({id:'bad-wrap',layout:{wrap:'true'}});
+// @ts-expect-error final capacity uses semantic numbers
+stack({id:'bad-final',layout:{lastPageHeight:'30px'}});
+// @ts-expect-error there is one coordinated row/text policy, no competing noReflow flag
+text({id:'bad-text-policy',layout:{noReflow:true}});
+// @ts-expect-error low-level wrap is an explicit boolean
+placeBitmapText(font,'?',0,0,{wrap:'false'});
+// @ts-expect-error flow height must remain numeric
+paginateUiBlocks([{height:20,flow:{count:2,heightOf:()=> '20'}}],{pageHeight:30});
+// @ts-expect-error heading keep callbacks must return boolean
+paginateUiBlocks([{height:20,flow:{count:2,heightOf:()=>20,keep:()=>1}}],{pageHeight:30});
 const colors={focus:'#ffffff',hover:'#ffff00',pressed:'#ff0000',disabled:'#777777',selection:'#444444',caret:'#ffffff'};
 const theme=defineTheme({version:1,id:'consumer:theme',fonts:{body:{font}},roles:{absolute:{},button:{font:'body',tone:'cream',colors},field:{font:'body',tone:'cream',colors},extension:{}}});
 const context={id:'consumer:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:2,viewport:{x:0,y:0,width:100,height:100}};
@@ -33,6 +55,12 @@ button({id:'bad-region-key',regions:{paint:{x:0,y:0,width:20,height:10}}});
 mount.update({...snapshot,revision:2});mount.dispose();remove();ui.dispose();void intents;
 const plan=layoutUi(snapshot.tree,{...snapshot,theme,extensions:{'consumer:chart':chart}});
 const interaction=createUiInteraction({id:'consumer:portable',plan});interaction.handle({type:'default',inputId:'enter:1'});interaction.dispose();
+const logicalSpatialPolicy={navigation:'spatial',wrap:true} satisfies InteractionPolicy;
+const directional=createUiInteraction({id:'consumer:directional',plan},logicalSpatialPolicy);
+directional.handle({type:'navigate',direction:'down'}).forEach(intent=>{if(intent.kind==='focus'){const controlId:string=intent.controlId;const revision:number=intent.modelRevision;void controlId;void revision;}});directional.dispose();
+// @ts-expect-error logical reveal uses the existing declared focus order, no private solver option
+const privateSpatialPolicy:InteractionPolicy={navigation:'spatial',logicalBounds:()=>({x:0,y:0,width:1,height:1})};
+void privateSpatialPolicy;
 const resolution=pixelResolution({id:'consumer:main',revision:1,localToPhysical:{scale:2,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:2});
 projectPixelPoint(resolution,{x:1,y:2});placeBitmapText(font,'?',0,0,{resolution,sourceOffsets:true}).draws.forEach(d=>void d.destination.width);
 planActionGroup({actions:[],visualOrder:[],fallbackOrder:[],width:100,insets:{top:0,right:0,bottom:0,left:0},gap:0,rowGap:0,policy:'equal-max-fit'});

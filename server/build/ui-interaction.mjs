@@ -5,6 +5,7 @@ import {copyUiData, freezeUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-the
 const stable = value => JSON.stringify(value, (_, entry) => entry && !Array.isArray(entry) && typeof entry === 'object' ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
 const contains = (bounds, point) => bounds && point && point.x >= bounds.x && point.y >= bounds.y && point.x < bounds.x + bounds.width && point.y < bounds.y + bounds.height;
 const eligible = record => !!record && record.focusable && record.state === 'visible' && !!record.effectiveFocusBounds && record.effectiveFocusBounds.width > 0 && record.effectiveFocusBounds.height > 0;
+const logicalGeometry = record => !!record && record.focusable && !record.hidden && record.state !== 'hidden' && record.focusBounds.width > 0 && record.focusBounds.height > 0;
 // Pointer/action eligibility is independent of participation in keyboard focus.
 const activatable = record => !!record && record.enabled && record.state === 'visible' && !!record.effectiveHitBounds && record.effectiveHitBounds.width > 0 && record.effectiveHitBounds.height > 0;
 const pointerKinds = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
@@ -51,8 +52,22 @@ function prepare(scope) {
     for (const id of plan.focus.order) uiId(id, 'Focus order ID');
   }
   for (const [role, id] of Object.entries(plan.focus)) if (role !== 'order' && id !== undefined && !(role === 'initialId' && plan.focus.order?.includes(id)) && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
+  // Suppression is inherited through the semantic tree. A clipped record can
+  // instead be an offscreen logical target, including beneath an empty clip.
+  // Resolve each ancestry once, without recursion or changing published data.
+  const logicalVisibility = new Map();
+  for (const record of records.values()) {
+    const chain = [], seen = new Set(); let ancestor = record;
+    while (ancestor && !logicalVisibility.has(ancestor.id) && !seen.has(ancestor.id)) {
+      seen.add(ancestor.id); chain.push(ancestor);
+      if (ancestor.hidden || ancestor.state === 'hidden') { logicalVisibility.set(ancestor.id, false); break; }
+      ancestor = records.get(ancestor.parentId);
+    }
+    const visible = ancestor ? logicalVisibility.get(ancestor.id) ?? false : true;
+    for (const entry of chain) logicalVisibility.set(entry.id, visible);
+  }
   freezeUiData(source);
-  return {source, plan, contexts, records, semantic: semantic(plan)};
+  return {source, plan, contexts, records, logicalVisibility, semantic: semantic(plan)};
 }
 
 /** One instance per mounted scope. Hosts feed normalized events; this engine never dispatches. */
@@ -143,14 +158,25 @@ export function createUiInteraction(scope, policy = {}) {
       if (!setFocus(id)) focusId = null;
       return [{kind: 'focus', controlId: id, modelRevision: current.plan.revision}];
     }
-    const from = current.records.get(focusId), pool = candidates(policy.navigation === 'pane' ? from?.paneId : undefined);
+    // Explicit logical order admits measured off-page geometry for spatial
+    // reveal. Raw focus rectangles stay semantic; activation still requires
+    // a visible effective hit region in the current publication.
+    const logicalSpatial = order !== undefined && policy.navigation === 'spatial' && !['next','previous'].includes(direction);
+    const previous = current.records.get(focusId);
+    const pool = logicalSpatial ? order.map(id=>current.records.get(id)).filter(record=>logicalGeometry(record) && current.logicalVisibility.get(record.id)) : candidates(policy.navigation === 'pane' ? previous?.paneId : undefined);
+    const from = logicalSpatial ? pool.find(record=>record.id===focusId) : previous;
+    const select = id => {
+      if (!setFocus(id)) return;
+      if (logicalSpatial) return [{kind:'focus',controlId:id,modelRevision:current.plan.revision}];
+    };
     if (!pool.length) return;
     if (policy.navigation !== 'spatial' || ['next', 'previous'].includes(direction) || !from) {
       const step = ['previous', 'left', 'up'].includes(direction) ? -1 : 1, index = pool.findIndex(record => record.id === focusId), raw = index + step;
-      const next = policy.wrap ? (raw + pool.length) % pool.length : Math.min(pool.length - 1, Math.max(0, raw)); setFocus(pool[next].id); return;
+      const next = policy.wrap ? (raw + pool.length) % pool.length : Math.min(pool.length - 1, Math.max(0, raw)); return select(pool[next].id);
     }
     const center = r => {
-      const p = {x: r.effectiveFocusBounds.x + r.effectiveFocusBounds.width / 2, y: r.effectiveFocusBounds.y + r.effectiveFocusBounds.height / 2};
+      const bounds=logicalSpatial?r.focusBounds:r.effectiveFocusBounds;
+      const p = {x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2};
       const c = current.contexts.get(r.semanticContextId);
       return projectPixelPoint(c, p);
     };
@@ -160,14 +186,14 @@ export function createUiInteraction(scope, policy = {}) {
       return {record, primary, cross, score: primary + 2 * cross + cross * cross / Math.max(primary, 1)};
     });
     const ranked = projected.filter(value => value.primary > 0).sort((a, b) => a.score - b.score);
-    if (ranked.length) setFocus(ranked[0].record.id);
+    if (ranked.length) return select(ranked[0].record.id);
     else if (policy.wrap && projected.length) {
       // At a directional boundary, wrap to the opposite physical edge, then
       // the nearest cross-axis center. Equal candidates keep semantic order.
       const edge = projected.reduce((min, value) => Math.min(min, value.primary), Infinity);
       let target;
       for (const value of projected) if (value.primary === edge && (!target || value.cross < target.cross)) target = value;
-      if (target) setFocus(target.record.id);
+      if (target) return select(target.record.id);
     }
   }
 
