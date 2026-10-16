@@ -11,7 +11,8 @@ export interface NativeObject {
 }
 export interface NativeImage extends NativeObject {
   setTint(color:number):this;
-  setTexture(texture:string|NativeTexture,frame?:string|number|NativeFrame):this; setCrop(x?:number,y?:number,width?:number,height?:number):this;
+  setTexture(texture:string,frame?:string|number):this;
+  setFrame(frame:string|number|NativeFrame):this; setCrop(x?:number,y?:number,width?:number,height?:number):this;
 }
 export interface NativeRectangle extends NativeObject {setSize(width:number,height:number):this;setFillStyle(color:number):this;}
 export interface NativeTexture {
@@ -28,12 +29,21 @@ export interface NativeFrame {
 /** Structural foreign-object boundary: Phaser Container.add is generic over GameObject. */
 export interface NativeParent {add(object:object):unknown;}
 export interface NativeScene {
-  readonly add:{image(x:number,y:number,texture:string|NativeTexture,frame?:string|number|NativeFrame):NativeImage;rectangle(x:number,y:number,width:number,height:number,color:number):NativeRectangle};
+  readonly add:{image(x:number,y:number,texture:string|NativeTexture,frame?:string|number):NativeImage;rectangle(x:number,y:number,width:number,height:number,color:number):NativeRectangle};
   readonly events:{on(event:'shutdown',listener:()=>void):unknown;off(event:'shutdown',listener:()=>void):unknown};
 }
 export interface AssetRequest {readonly kind:'font'|'skin'|'icon';readonly id:string;readonly tone?:string;}
 /** Asset resolution is pure and returns immutable game-owned cache references. */
 export interface BorrowedAsset {readonly ownership:'borrowed';readonly texture:NativeTexture;readonly sourceIndex?:number;}
+/** Full tightly packed RGBA8 source plane. Never an output-sized/widget raster.
+ * The identity must be the requested TextureSource. Bytes are copied by the host;
+ * the game guarantees its borrowed source remains immutable for that identity. */
+export interface SourceRGBA {readonly source:unknown;readonly width:number;readonly height:number;readonly data:Uint8Array|Uint8ClampedArray;}
+export interface SourceRGBARequest extends AssetRequest {
+  readonly texture:NativeTexture;readonly sourceIndex:number;readonly source:unknown;
+  /** Remaining per-mount byte budget. Return null when readback is unavailable. */
+  readonly maxBytes:number;
+}
 export type ContextAttachment = {readonly ownership:'borrowed';readonly parent:NativeParent}
   | {readonly ownership:'owned';readonly parent:NativeParent;readonly release:()=>void};
 export interface OwnershipScope {
@@ -57,6 +67,10 @@ export interface NativeExtension<F=unknown> extends ExtensionDefinition {
 }
 export interface NativePorts<F=unknown> {
   resolveAsset(request:AssetRequest):BorrowedAsset;
+  /** Optional pure acquisition from immutable borrowed art. No uniformity flags
+   * are accepted: the painter checks identity, dimensions, RGBA8 length and every
+   * compared byte itself. SharedArrayBuffer planes reject. */
+  readSourceRGBA?(request:SourceRGBARequest):SourceRGBA|null|undefined;
   /** One attachment per declared context, reused while its descriptor is compatible. Parent/camera transforms must realize that context exactly. */
   attachContext(request:{readonly context:ResolvedContext;readonly parent:NativeParent;readonly scope:string},owner:OwnershipScope):ContextAttachment;
   /** Game-declared narrow extension API. In particular this must not expand Space's seven-operation chart authority. */
@@ -81,4 +95,4 @@ export interface PhaserUi<F=unknown> {
   registerExtension(id:`${string}:${string}`,definition:NativeExtension<F>):()=>void;
   dispose():void;
 }
-export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly limits?:{readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number}}):PhaserUi<F>;
+export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly limits?:{readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number;readonly sourceBytes?:number}}):PhaserUi<F>;

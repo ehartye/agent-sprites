@@ -37,6 +37,11 @@ function prepare(scope) {
     for (const [id, revision] of Object.entries(record.contextRevisions)) if (!contexts.has(id) || contexts.get(id).revision !== revision) throw new TypeError(`Stale or unknown control context ${id}`);
     records.set(record.id, record);
   }
+  for(const record of records.values())if(record.metadata?.['ui:stateOwner']!==undefined) {
+    const id=record.metadata['ui:stateOwner'],owner=records.get(id);
+    if(typeof id!=='string'||!owner||owner.kind!=='button'||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon'].includes(record.kind)||record.focusable||record.actionId!==undefined||record.focus!==undefined)throw new TypeError('Invalid same-mount state-owner link or authority');
+    if(plan.focus?.order?.includes(record.id)||['initialId','defaultId','cancelId'].some(key=>plan.focus?.[key]===record.id))throw new TypeError('State-owner consumer cannot gain focus authority');
+  }
   plan.focus ??= {};
   uiKeys(plan.focus, ['initialId', 'defaultId', 'cancelId', 'order'], 'focus');
   if (plan.focus.order !== undefined) {

@@ -19,6 +19,7 @@ function fixture() {
   const make = kind => {
     const obj = {kind, destroyed:0, setOrigin() {return this;}, setPosition(x,y) {Object.assign(this,{x,y});return this;},
       setScale(x,y=x) {Object.assign(this,{scaleX:x,scaleY:y});return this;}, setTexture(key,frame) {Object.assign(this,{texture:key,frame:typeof frame==='string'?frame:frame.name});return this;},
+      setFrame(frame) {this.frame=typeof frame==='object'?frame.name:frame;return this;},
       setCrop(...crop) {this.crop=crop;return this;}, setVisible(visible) {this.visible=visible;return this;},
       setTint(tint) {this.tint=tint;return this;},
       setSize(width,height) {Object.assign(this,{width,height});return this;}, setFillStyle(color) {this.color=color;return this;},
@@ -39,6 +40,244 @@ async function api() {
   expect(existsSync(url),'shared native host public seam exists').toBe(true);
   return import(url.href);
 }
+
+function uniformFixture(nonuniform=false) {
+  const f=fixture(), source={width:12,height:12}; f.texture.source=[source];
+  const data=new Uint8Array(12*12*4);
+  for(let y=0;y<12;y++)for(let x=0;x<12;x++)data.set([x===11?99:23,y===11?91:37,53,(nonuniform&&x===5&&y===5)?127:193],(y*12+x)*4);
+  f.ports.readSourceRGBA=({source:identity})=>({source:identity,width:12,height:12,data});
+  f.theme=defineTheme({version:1,id:'test:uniform',skins:{paper:{frame:{x:2,y:2,width:6,height:6},insets:1}},roles:{button:{alternatives:[{kind:'skin',id:'paper'}]}}});
+  f.snapshot=()=>({revision:1,context:{...f.context,viewport:{x:0,y:0,width:200,height:100}},tree:button({id:'ok',actionId:'game:ok',layout:{width:101,height:53}})});
+  return {...f,data};
+}
+
+test('proven constant axes bound stock objects while alpha detail retains exact tiling',async()=>{
+  const {createPhaserUi}=await api();
+  for(const detailed of [false,true]){
+    const f=uniformFixture(detailed),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:uniform'});
+    const images=f.objects.filter(o=>o.kind==='image');
+    expect(images.length).toBe(detailed?4+2+2+Math.ceil(99/4)*Math.ceil(51/4):9);
+    expect(f.texture.frameTotal).toBe(1);m.dispose();ui.dispose();expect(f.fragments.size).toBe(0);
+  }
+});
+
+test('authored transient skin and offset preserve a held activation across hover and release',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:states',skins:{normal:{frame:{x:2,y:2,width:3,height:3},insets:1},hover:{frame:{x:5,y:2,width:3,height:3},insets:1},down:{frame:{x:8,y:2,width:3,height:3},insets:1}},roles:{button:{alternatives:[{kind:'skin',id:'normal'}],placement:{nativeStates:{focus:{skin:'hover'},hover:{skin:'hover'},pressed:{skin:'down',paintOffset:{x:0,y:1}},disabled:{visible:false}}}}}});
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:states'});
+  const first=()=>f.objects.find(o=>!o.destroyed&&o.kind==='image');
+  expect(f.fragments.get(first().frame).cutX).toBe(5); // initial focus
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});
+  expect(f.fragments.get(first().frame).cutX).toBe(8);expect(first().y).toBe(1);
+  m.handle({type:'hover',point:{x:6,y:6},pointSpace:'physical'});
+  expect(m.inspect({limit:1}).heldCount).toBe(1);
+  expect(m.handle({type:'release',inputId:'p',point:{x:6,y:6},pointSpace:'physical'})).toHaveLength(1);
+  expect(m.handle({type:'release',inputId:'p',point:{x:6,y:6},pointSpace:'physical'})).toEqual([]);
+  expect(first().y).toBe(0);m.dispose();ui.dispose();
+});
+
+test('same-mount label and shadow consume button state with authored tone pixels and no hit authority',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const font=normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{normal:{},hover:{},down:{}},glyphs:{'?':{advance:4,frames:{normal:'a',hover:'b',down:'c'}}}},atlas:{frames:{a:{frame:{x:0,y:0,w:4,h:6}},b:{frame:{x:4,y:0,w:4,h:6}},c:{frame:{x:8,y:0,w:4,h:6}}}}});
+  f.theme=defineTheme({version:1,id:'test:linked',fonts:{body:{font}},roles:{absolute:{},button:{alternatives:[{kind:'flat',color:'#123456'}]},text:{font:'body',tone:'normal',placement:{nativeStates:{hover:{tone:'hover'},focus:{tone:'hover'},pressed:{tone:'down',paintOffset:{x:0,y:1}}}}},shadow:{font:'body',tone:'normal',placement:{nativeStates:{pressed:{paintOffset:{x:0,y:1}},disabled:{visible:false}}}}}});
+  const snapshot=(revision=1,enabled=true)=>({revision,context:f.context,tree:u.absolute({id:'screen',children:[button({id:'ok',enabled,actionId:'game:ok',layout:{width:20,height:10}}),u.text({id:'label',label:'?',metadata:{'ui:stateOwner':'ok'},layout:{width:20,height:10}}),u.text({id:'shadow',appearanceRole:'shadow',label:'?',metadata:{'ui:stateOwner':'ok'},layout:{width:20,height:10}})]})});
+  const ui=createPhaserUi(f),m=ui.mount(snapshot(),{parent:f.parent,scope:'test:linked'});
+  const images=()=>f.objects.filter(o=>o.kind==='image'&&!o.destroyed);
+  expect(f.fragments.get(images()[0].frame).cutX).toBe(4);
+  m.handle({type:'press',inputId:'p',point:{x:2,y:2},pointSpace:'physical'});
+  expect(f.fragments.get(images()[0].frame).cutX).toBe(8);expect(images().map(o=>o.y)).toEqual([1,1]);
+  expect(m.handle({type:'release',inputId:'p',point:{x:2,y:2},pointSpace:'physical'})).toMatchObject([{controlId:'ok'}]);
+  m.update(snapshot(2,false));expect(images()[1].visible).toBe(false);
+  expect(m.inspect({limit:10}).controls.filter(c=>c.focused).map(c=>c.id)).toEqual(['ok']);
+  ui.dispose();
+});
+
+test.each(['missing','cycle','authority','cross-scope','not-sibling'])('rejects $0 transient state-owner references before allocation',async mode=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const owner=button({id:'ok',actionId:'game:ok',...(mode==='cycle'?{metadata:{'ui:stateOwner':'label'}}:{})});
+  const label=u.text({id:'label',label:'?',metadata:{'ui:stateOwner':mode==='missing'?'absent':mode==='cross-scope'?'another:scope:ok':'ok'},...(mode==='authority'?{actionId:'game:bad'}:{})});
+  const tree=u.absolute({id:'root',children:[owner,mode==='not-sibling'?u.absolute({id:'nested',children:[label]}):label]});
+  const ui=createPhaserUi(f);
+  expect(()=>ui.mount({revision:1,context:f.context,tree},{parent:f.parent,scope:'test:links'})).toThrow(/state.owner|sibling/i);
+  expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test('every appearance variant validates assets and total budgets before native mutation',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  // The normal face compresses, but the not-yet-active down skin has an alpha
+  // detail that exceeds the admitted object budget. Focus must not conceal it.
+  f.data[(5*12+5)*4+3]=127;
+  f.theme=defineTheme({version:1,id:'test:preflight',skins:{normal:{frame:{x:2,y:2,width:3,height:3},insets:1},down:{frame:{x:2,y:2,width:6,height:6},insets:1}},roles:{button:{alternatives:[{kind:'skin',id:'normal'}],placement:{nativeStates:{pressed:{skin:'down'}}}}}});
+  const ui=createPhaserUi({...f,limits:{objects:20}});
+  expect(()=>ui.mount(f.snapshot(),{parent:f.parent,scope:'test:preflight'})).toThrow(/budget/);
+  expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test.each(['identity','length','dimensions','budget'])('rejects invalid RGBA $0 before mutation',async mode=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.ports.readSourceRGBA=({source})=>({source:mode==='identity'?{}:source,width:mode==='dimensions'?13:12,height:12,data:mode==='length'?new Uint8Array(3):f.data});
+  const ui=createPhaserUi({...f,limits:mode==='budget'?{sourceBytes:575}:{}});
+  expect(()=>ui.mount(f.snapshot(),{parent:f.parent,scope:'test:plane'})).toThrow(/source|RGBA/);expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test('stale source identity cannot reuse a compiled plane or a cloned frame',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture(),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:stale'});
+  f.texture.source[0]={width:12,height:12};
+  expect(()=>m.handle({type:'hover',point:{x:4,y:4},pointSpace:'physical'})).toThrow(/stale source/i);
+  expect(m.inspect({limit:1}).native.lifecycle).toBe('retired');
+  expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);ui.dispose();
+});
+
+test('an unknown dormant variant asset fails before initial native allocation',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:unknownVariant',skins:f.theme.skins,roles:{button:{alternatives:[{kind:'skin',id:'paper'}],placement:{nativeStates:{pressed:{skin:'absent'}}}}}});
+  const ui=createPhaserUi(f);expect(()=>ui.mount(f.snapshot(),{parent:f.parent,scope:'test:unknown'})).toThrow(/variant skin/i);expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test.each(['flat','x-strip','y-strip','period-two','alpha-detail','unavailable'])('exact source sampling preserves $0 periods offsets tails clipping and fractional density',async mode=>{
+  const {createPhaserUi}=await api();
+  function make(compress) {
+    const f=uniformFixture();
+    for(let y=0;y<12;y++)for(let x=0;x<12;x++)f.data.set([mode==='y-strip'?x*11:mode==='period-two'?(x%2)*97:23,mode==='x-strip'?y*13:37,53,mode==='alpha-detail'?(x*17+y*23)%256:193],(y*12+x)*4);
+    if(!compress||mode==='unavailable')delete f.ports.readSourceRGBA;
+    f.context={...f.context,localToPhysical:{scale:1.5,x:0.25,y:-0.5},sourcePixelPhysicalSize:2,viewport:{x:1.25,y:2.75,width:90,height:40}};
+    const s={revision:1,context:f.context,tree:button({id:'ok',actionId:'game:ok',layout:{x:-1.25,y:-2.75,width:101,height:53}})};
+    const ui=createPhaserUi(f),m=ui.mount(s,{parent:f.parent,scope:'test:sampling'});
+    return {...f,ui,m};
+  }
+  const exact=make(false),optimized=make(true);
+  function sample(f,x,y) {
+    for(const o of f.objects.filter(o=>o.kind==='image'&&!o.destroyed&&o.visible).reverse()){
+      const frame=f.fragments.get(o.frame),sx=(x-o.x)/o.scaleX,sy=(y-o.y)/o.scaleY;
+      const [cx=0,cy=0,cw=frame.width,ch=frame.height]=o.crop;
+      if(sx>=cx&&sy>=cy&&sx<cx+cw&&sy<cy+ch&&sx>=0&&sy>=0&&sx<frame.width&&sy<frame.height){const i=((frame.cutY+Math.floor(sy))*12+frame.cutX+Math.floor(sx))*4;return [...f.data.slice(i,i+4)];}
+    }
+    return null;
+  }
+  for(let py=3;py<62;py+=2)for(let px=2;px<145;px+=2){const x=(px+0.5-0.25)/1.5,y=(py+0.5+0.5)/1.5;expect(sample(optimized,x,y)).toEqual(sample(exact,x,y));}
+  const count=f=>f.objects.filter(o=>o.kind==='image').length;
+  if(['flat','x-strip','y-strip'].includes(mode))expect(count(optimized)).toBeLessThan(count(exact));
+  if(['alpha-detail','unavailable'].includes(mode))expect(count(optimized)).toBe(count(exact));
+  exact.ui.dispose();optimized.ui.dispose();
+});
+
+test('source RGBA is copied once and large unavailable tiling retains the default 8192 object budget',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();let reads=0;
+  f.ports.readSourceRGBA=({source})=>{reads++;return {source,width:12,height:12,data:f.data};};
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:copy'});
+  f.data.fill(0);f.data[(5*12+5)*4+3]=255;
+  m.update({...f.snapshot(),revision:2});expect(reads).toBe(1);expect(f.objects.filter(o=>o.kind==='image'&&!o.destroyed)).toHaveLength(9);
+  ui.dispose();
+  const g=uniformFixture();delete g.ports.readSourceRGBA;
+  const legacy=createPhaserUi(g),s=g.snapshot();s.tree=button({id:'ok',layout:{width:1000,height:1000}});
+  expect(()=>legacy.mount(s,{parent:g.parent,scope:'test:budget'})).toThrow(/object budget/);expect(g.objects).toHaveLength(0);legacy.dispose();
+});
+
+test('appearance transitions reuse Images at the exact admitted fragment budget',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:fragmentSwitch',skins:{a:{frame:{x:2,y:2,width:3,height:3},insets:1},b:{frame:{x:6,y:2,width:3,height:3},insets:1}},roles:{button:{alternatives:[{kind:'skin',id:'a'}],placement:{nativeStates:{pressed:{skin:'b'}}}}}});
+  const ui=createPhaserUi({...f,limits:{fragments:9}}),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:fragments'}),created=f.objects.length;
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});
+  expect(f.objects.length).toBe(created);expect(m.inspect({limit:1}).heldCount).toBe(1);
+  expect(m.handle({type:'release',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toHaveLength(1);
+  expect(f.objects.length).toBe(created);expect(f.fragments.size).toBe(9);ui.dispose();
+});
+
+test('mixed independent appearance states reserve their simultaneous fragments before allocating',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:mixedFragments',skins:{a:{frame:{x:2,y:2,width:3,height:3},insets:1},b:{frame:{x:6,y:2,width:3,height:3},insets:1}},roles:{absolute:{},button:{alternatives:[{kind:'skin',id:'a'}],placement:{nativeStates:{pressed:{skin:'b'}}}}}});
+  const snapshot={revision:1,context:f.context,tree:u.absolute({id:'screen',children:[button({id:'a',actionId:'game:a',layout:{width:20,height:10}}),button({id:'b',actionId:'game:b',layout:{x:30,width:20,height:10}})]})};
+  const ui=createPhaserUi({...f,limits:{fragments:9}});
+  expect(()=>ui.mount(snapshot,{parent:f.parent,scope:'test:mixedFragments'})).toThrow(/variant.*fragment/i);
+  expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test('shared fragment identities are counted once across independent controls',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:sharedFragments',skins:{a:{frame:{x:2,y:2,width:3,height:3},insets:1}},roles:{absolute:{},button:{alternatives:[{kind:'skin',id:'a'}],placement:{nativeStates:{pressed:{skin:'a'}}}}}});
+  const snapshot={revision:1,context:f.context,tree:u.absolute({id:'screen',children:[button({id:'a',actionId:'game:a',layout:{width:20,height:10}}),button({id:'b',actionId:'game:b',layout:{x:30,width:20,height:10}})]})};
+  const ui=createPhaserUi({...f,limits:{fragments:9}}),m=ui.mount(snapshot,{parent:f.parent,scope:'test:sharedFragments'});
+  m.handle({type:'press',inputId:'a',point:{x:4,y:4},pointSpace:'physical'});
+  expect(m.inspect({limit:2}).heldCount).toBe(1);expect(f.fragments.size).toBe(9);ui.dispose();
+});
+
+function transactionalSourceFixture(){
+  const f=uniformFixture(),reads=[];
+  const assets=Object.fromEntries(['a','b','c'].map(id=>[id,{texture:{...f.texture,key:id,source:[{width:12,height:12}]},data:new Uint8Array(f.data)}]));
+  f.ports.resolveAsset=({id})=>({ownership:'borrowed',texture:assets[id].texture});
+  f.ports.readSourceRGBA=({id,source,maxBytes})=>{reads.push({id,maxBytes});return maxBytes<576?null:{source,width:12,height:12,data:assets[id].data};};
+  const skins=Object.fromEntries(['a','b','c'].map(id=>[id,{frame:{x:2,y:2,width:6,height:6},insets:1}]));
+  const roles=Object.fromEntries(['a','b','c'].map(id=>[id,{alternatives:[{kind:'skin',id}]}]));
+  roles.bad={alternatives:[{kind:'skin',id:'b'}],placement:{nativeStates:{pressed:{paintOffset:{x:0,y:.25}}}}};
+  f.theme=defineTheme({version:1,id:'test:sourceTransaction',skins,roles});
+  const snapshot=(revision,role)=>({...f.snapshot(),revision,tree:button({id:'ok',actionId:'game:ok',appearanceRole:role,layout:{width:101,height:53}})});
+  return {...f,reads,snapshot};
+}
+
+test('failed appearance preparation cannot retain source planes or cancel the published hold',async()=>{
+  const {createPhaserUi}=await api(),f=transactionalSourceFixture(),ui=createPhaserUi({...f,limits:{sourceBytes:1152,objects:20}}),m=ui.mount(f.snapshot(1,'a'),{parent:f.parent,scope:'test:sourceTransaction'});
+  m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'});
+  expect(()=>m.update(f.snapshot(2,'bad'))).toThrow(/physical.*offset|offset.*physical/i);
+  expect(m.inspect({limit:1})).toMatchObject({modelRevision:1,heldCount:1});
+  expect(()=>m.update(f.snapshot(2,'c'))).not.toThrow();
+  expect(m.inspect({limit:1})).toMatchObject({modelRevision:2,heldCount:0,native:{lifecycle:'mounted'}});
+  expect(f.reads.findLast(r=>r.id==='c').maxBytes).toBeGreaterThanOrEqual(576);ui.dispose();
+});
+
+test('successful appearance replacement releases the old source byte reservation',async()=>{
+  const {createPhaserUi}=await api(),f=transactionalSourceFixture(),ui=createPhaserUi({...f,limits:{sourceBytes:576,objects:20}}),m=ui.mount(f.snapshot(1,'a'),{parent:f.parent,scope:'test:sourceReplacement'});
+  for(const [i,id]of ['b','c','a'].entries()){
+    expect(()=>m.update(f.snapshot(i+2,id))).not.toThrow();
+    expect(m.inspect({limit:1}).native.lifecycle).toBe('mounted');
+  }
+  expect(f.reads.map(r=>r.maxBytes)).toEqual([576,576,576,576]);ui.dispose();
+});
+
+test('nonphysical paint offsets reject before native allocation',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  f.theme=defineTheme({version:1,id:'test:offset',skins:f.theme.skins,roles:{button:{alternatives:[{kind:'skin',id:'paper'}],placement:{nativeStates:{pressed:{paintOffset:{x:0,y:.25}}}}}}});
+  const ui=createPhaserUi(f);expect(()=>ui.mount(f.snapshot(),{parent:f.parent,scope:'test:offset'})).toThrow(/physical.*offset|offset.*physical/i);expect(f.objects).toHaveLength(0);ui.dispose();
+});
+
+test('painter uses the installed public factory and setFrame declarations without widened Frame arguments',async()=>{
+  const {createPhaserUi}=await api(),f=fixture(),image=f.scene.add.image;
+  f.scene.add.image=(x,y,texture,frame)=>{
+    if(frame!==undefined && !['string','number'].includes(typeof frame))throw Error('public factory frame argument');
+    const object=image(x,y,texture,frame),setTexture=object.setTexture;
+    object.setTexture=(key,nextFrame)=>{if(typeof key!=='string'||typeof nextFrame==='object')throw Error('public setTexture argument');return setTexture.call(object,key,nextFrame);};
+    return object;
+  };
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:actualPublic'});
+  expect(f.objects.some(o=>o.kind==='image'&&typeof o.frame==='string')).toBe(true);
+  m.update(f.snapshot(2));m.dispose();expect(f.fragments.size).toBe(0);ui.dispose();
+});
+
+test('authored state precedence retains held input until model or resize cancellation',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();
+  const skin=x=>({frame:{x,y:2,width:3,height:3},insets:1});
+  f.theme=defineTheme({version:1,id:'test:precedence',skins:{normal:skin(0),focus:skin(2),hover:skin(5),pressed:skin(8)},roles:{button:{alternatives:[{kind:'skin',id:'normal'}],placement:{nativeStates:{focus:{skin:'focus'},hover:{skin:'hover'},pressed:{skin:'pressed'},disabled:{skin:'normal'}}}}}});
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:precedence'});
+  const firstX=()=>f.fragments.get(f.objects.find(o=>o.kind==='image'&&!o.destroyed).frame).cutX;
+  expect(firstX()).toBe(2);m.handle({type:'hover',point:{x:4,y:4},pointSpace:'physical'});expect(firstX()).toBe(5);
+  m.handle({type:'press',inputId:'a',point:{x:4,y:4},pointSpace:'physical'});expect(firstX()).toBe(8);
+  m.handle({type:'hover',point:{x:6,y:6},pointSpace:'physical'});expect(firstX()).toBe(8);expect(m.inspect({limit:1}).heldCount).toBe(1);
+  const disabled={...f.snapshot(),revision:2,tree:button({id:'ok',enabled:false,actionId:'game:ok',layout:{width:101,height:53}})};
+  m.update(disabled);expect(firstX()).toBe(0);expect(m.inspect({limit:1}).heldCount).toBe(0);
+  expect(m.handle({type:'release',inputId:'a',point:{x:6,y:6},pointSpace:'physical'})).toEqual([]);
+  const enabled={...f.snapshot(),revision:3};m.update(enabled);m.handle({type:'press',inputId:'b',point:{x:4,y:4},pointSpace:'physical'});
+  m.update({...enabled,context:{...enabled.context,revision:2,localToPhysical:{scale:3,x:0,y:0}}});
+  expect(m.inspect({limit:1}).heldCount).toBe(0);expect(m.handle({type:'release',inputId:'b',point:{x:4,y:4},pointSpace:'physical'})).toEqual([]);ui.dispose();
+});
+
+test('a transient fragment allocation failure retires held state and drains owned resources',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture(),get=f.texture.get;
+  f.theme=defineTheme({version:1,id:'test:stateFailure',skins:{a:{frame:{x:2,y:2,width:3,height:3},insets:1},b:{frame:{x:8,y:2,width:3,height:3},insets:1}},roles:{button:{alternatives:[{kind:'skin',id:'a'}],placement:{nativeStates:{pressed:{skin:'b'}}}}}});
+  f.texture.get=()=>({clone(){const frame=get().clone(),setSize=frame.setSize;frame.setSize=function(w,h,x,y){setSize.call(this,w,h,x,y);if(x>=8)throw Error('state fragment failed');return this;};return frame;}});
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:stateFailure'});
+  expect(()=>m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physical'})).toThrow(/state fragment failed/);
+  expect(m.inspect({limit:1})).toMatchObject({heldCount:0,disposed:true,native:{lifecycle:'retired',objects:0,fragments:0,attachments:0}});
+  expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);expect(f.texture.frameTotal).toBe(1);ui.dispose();
+});
 
 test('authored glyph tint reaches only lettering and clears on a reused image',async()=>{
   const {createPhaserUi}=await api(),f=fixture();

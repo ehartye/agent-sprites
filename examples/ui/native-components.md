@@ -27,6 +27,87 @@ integrity receipts include every software file.
 
 ## Assets, contexts and the single game router
 
+The native port can opt into exact source-axis compression with
+`readSourceRGBA({kind,id,tone,texture,sourceIndex,source,maxBytes})`. Return
+`{source,width,height,data}` for a full, tightly packed immutable RGBA8 source,
+or `null` when unavailable. `source` must be the requested native TextureSource;
+width and height must equal that source's dimensions. Data must be a Uint8Array
+or Uint8ClampedArray of exactly `width * height * 4` bytes, backed by an ordinary
+ArrayBuffer. A port may opt in only for skin requests. It must honor the remaining
+`maxBytes` before acquiring bytes. No output surface or borrowed atlas mutation
+is needed. Readback/acquisition belongs to the existing immutable asset owner.
+
+The host validates identity, source/frame bounds and byte length, copies admitted
+bytes into a private per-mount cache (default `limits.sourceBytes = 4194304`),
+and compares every RGBA byte of each nine-slice source region. Only an identical
+column or row along an actually repeated axis may become a one-source-pixel
+stock Image strip. Two proven axes allow one Image fill. Other axes retain their
+original repeat period and partial-tail crops. Shorter patterns such as ABAB
+never authorize a one-pixel stretch. Unavailable data keeps exact existing tiling
+and its existing budgets. Source offsets, alpha, paint/clip geometry and physical
+origin remain unchanged. These calculations and seam sampling are source proof;
+actual native WebGL/Canvas pixels remain consumer acceptance gates.
+
+Cache identity includes the borrowed texture, source index and source object;
+source replacement invalidates compiled appearance rather than reusing a stale
+frame. The game must replace the source identity when immutable source art changes.
+Disposal/retirement clears copied planes and compiled commands. State changes
+reuse stock Images and unregistered Frame clones without texture registration.
+
+Immutable theme roles may reserve `placement.nativeStates` for `hover`, `focus`,
+`pressed` and `disabled`. Each override accepts only `skin`, `tone`, `glyphTint`,
+`paintOffset: {x,y}` and `visible`. A skin override selects another prepared skin;
+tone selects authored glyph frames in the same font, retaining glyph geometry.
+Offsets translate paint in each part's local coordinates, leaving semantic bounds
+and clips fixed; each offset must map to whole physical pixels in that context.
+Precedence is **disabled, pressed, hover, focus, base**. The selected
+override merges only with base appearance, never with another transient override.
+Source-plane reservations are transactional: rejected preparation leaves the
+published cache and input state intact; successful replacement retains only the
+sources referenced by its prepared variants.
+
+Variants and their assets, minimum geometry and worst-case object budgets validate
+before native mutation. Transient input selects prepared commands; it does not
+republish the model or cancel the existing interaction engine's held token.
+Fragment preflight reserves a conservative bound across independent state owners:
+the sum of each owner's largest simultaneous set, capped by the global frame
+union. Linked label/shadow records share their owner's state. This avoids an
+exponential search; unusually tight custom limits may reject conservatively.
+Shared frames count once, and one control can switch skins at its exact limit.
+
+```js
+// These IDs must name the consumer's already-authored skins and font tones.
+const controlPlacement = {nativeStates: {
+  hover: {skin: 'btn_hover'}, focus: {skin: 'btn_hover'},
+  pressed: {skin: 'btn_down'}, disabled: {skin: 'btn_disabled'}
+}};
+const labelPlacement = {nativeStates: {
+  hover: {tone: 'hover'}, focus: {tone: 'hover'},
+  pressed: {tone: 'down', paintOffset: {x: 0, y: 1}},
+  disabled: {tone: 'faint'}
+}};
+// Ordinary node metadata; validated at layout and interaction publication.
+const label = text({id: 'confirm:label', label: 'Confirm',
+  appearanceRole: 'controlLabel', metadata: {'ui:stateOwner': 'confirm'}});
+```
+
+The label and its button must be siblings in one mounted tree. Only text/icon
+consumers without independent focus/action authority qualify. Dangling, chained,
+cyclic, cross-mount references and focus-role/order targets reject. The link is
+part of immutable semantic identity, so rebinding requires a model revision and
+cancels held activation. Omission preserves existing control IDs and snapshots.
+Each mount continues to own one portable interaction engine and no input listeners.
+
+Cyber's original `PixelUI.paintControl` can be represented by normal primary
+`panel_neon`, secondary `panel_dark`, other `btn_normal`, then the control overrides
+above. Its authored hover/focus tone is `#e6fbff`, down tone `#ffd0f4`, and disabled
+tone faint. Canvas requires corresponding source-art tone frames because its Image
+renderer ignores tint. Give label and shadow siblings the same owner link and
+pressed offset `{x:0,y:1}`; the shadow's disabled override is `{visible:false}`.
+Keep all geometry and original game action routing in the consumer. No Cyber
+projection/theme or art was changed by this producer candidate. Native backend
+state/pixel/input proof, timing, consumer adoption and release remain separate gates.
+
 ```js
 import {createPhaserUi, defineTheme, button} from './vendor/agent-sprites-ui/ui-index.mjs';
 

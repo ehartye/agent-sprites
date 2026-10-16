@@ -69,6 +69,16 @@ export function layoutUi(tree, environment) {
     for (const child of node.children) prepare(child, ids.semantic);
   }
   prepare(root, contexts[0].id);
+  // Reserved semantic metadata grants appearance consumption only.
+  const parents=new Map();
+  function parentIds(node,parent=null){parents.set(node.id,parent);for(const child of node.children)parentIds(child,node.id);}
+  parentIds(root);
+  for(const {node} of prepared.values())if(node.metadata?.['ui:stateOwner']!==undefined) {
+    const id=node.metadata['ui:stateOwner'],owner=prepared.get(id)?.node;
+    if(typeof id!=='string'||!owner||owner.kind!=='button'||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon'].includes(node.kind)||node.focusable||node.actionId!==undefined||node.focus!==undefined)throw new TypeError('Invalid state-owner link or authority');
+    if(parents.get(node.id)!==parents.get(id))throw new TypeError('State-owner must be a same-mount sibling');
+    for(const {node:ancestor}of prepared.values())if(ancestor.focus && (ancestor.focus.order?.includes(node.id)||['initialId','defaultId','cancelId'].some(key=>ancestor.focus[key]===node.id)))throw new TypeError('State-owner consumer cannot gain focus authority');
+  }
 
   const measurements = new Map();
   const ratio = (child, parentContext) => prepared.get(child.id).context.localToPhysical.scale / parentContext.localToPhysical.scale;

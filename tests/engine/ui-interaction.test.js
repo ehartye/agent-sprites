@@ -23,6 +23,21 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('state-owner identity participates in revision validation and linked labels never become input owners',async()=>{
+  const {createUiInteraction}=await api();
+  const linked=control('label',0,{kind:'text',role:'text',focusable:false,actionId:undefined,metadata:{'ui:stateOwner':'a'}});
+  const s=scope([control('a',0),control('b',20),linked]),ui=createUiInteraction(s);
+  ui.handle({type:'press',inputId:'p',point:{x:2,y:2}});ui.handle({type:'hover',point:{x:2,y:2}});
+  expect(ui.inspect({limit:10}).heldCount).toBe(1);
+  expect(ui.handle({type:'release',inputId:'p',point:{x:2,y:2}})).toMatchObject([{controlId:'a'}]);
+  const rebound=structuredClone(s);rebound.plan.records[2].metadata['ui:stateOwner']='b';
+  expect(()=>ui.update(rebound)).toThrow(/revision/);
+  ui.handle({type:'press',inputId:'p2',point:{x:2,y:2}});rebound.plan.revision=2;ui.update(rebound);
+  expect(ui.handle({type:'release',inputId:'p2',point:{x:2,y:2}})).toEqual([]);
+  const forged=structuredClone(s);forged.plan.focus.order=['a','label'];
+  expect(()=>createUiInteraction(forged)).toThrow(/state.owner|authority/);
+});
+
 test('declared semantic navigation requests off-page reveal without granting activation and preserves cyclic order',async()=>{
   const {createUiInteraction}=await api(),s=scope([control('a',0),control('pager',20),control('c',40)]);
   s.plan.focus.order=['a','off-page','c'];const ui=createUiInteraction(s,{navigation:'ordered',wrap:true});

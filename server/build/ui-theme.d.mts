@@ -28,6 +28,18 @@ export type Appearance = {readonly kind: 'skin'; readonly id: string; readonly s
 /** Native stock colors are explicit #RRGGBB values; no color is inferred by the host. */
 export type UiColors = Readonly<Partial<Record<'focus'|'hover'|'pressed'|'disabled'|'selection'|'caret'|'indicator'|'separator'|'track'|'fill'|'selected'|'adjust',string>>>;
 export interface ThemeIcon {readonly width:number;readonly height:number;readonly frame?:Rect;readonly [key:string]:UiData|Rect;}
+/** Transient appearance has no layout, hit, focus, action or revision fields. */
+export interface NativeAppearanceVariant {
+  readonly skin?:string;readonly tone?:string;readonly glyphTint?:string;
+  /** Translation in this painted part's local context. Clip/hit bounds stay fixed. */
+  readonly paintOffset?:{readonly x:number;readonly y:number};readonly visible?:boolean;
+}
+/** Reserved appearance extension of the existing immutable placement policy.
+ * Precedence: disabled > pressed > hover > focus > base. Missing state overrides
+ * use base appearance; lower-priority overrides are never merged. */
+export interface NativeAppearancePlacement {
+  readonly nativeStates?:Readonly<Partial<Record<'hover'|'focus'|'pressed'|'disabled',NativeAppearanceVariant>>>;
+}
 export interface ThemeRole {
   readonly extends?: string; readonly font?: string; readonly tone?: string; readonly alternatives?: readonly AppearanceAlternative[];
   /** Optional WebGL multiplicative #RRGGBB glyph tint, matching Phaser Image/BitmapText. Canvas requires authored source tones. Does not tint skins or icons. */
@@ -35,7 +47,7 @@ export interface ThemeRole {
   /** Positive field caret width in label-context local units; omitted means one physical pixel. */
   readonly caretWidth?: number;
   readonly padding?: Padding; readonly minWidth?: number; readonly minHeight?: number; readonly density?: number;
-  readonly colors?: UiColors; readonly edge?: UiData; readonly icons?: Readonly<{checked?:string;unchecked?:string}>; readonly placement?: UiData;
+  readonly colors?: UiColors; readonly edge?: UiData; readonly icons?: Readonly<{checked?:string;unchecked?:string}>; readonly placement?: UiData|NativeAppearancePlacement;
 }
 export type PreparedThemeRole = DeepReadonly<Omit<ThemeRole, 'extends' | 'padding'> & {padding?: Insets; appearance?: Appearance}>;
 export interface ThemeInput {

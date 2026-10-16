@@ -17,12 +17,16 @@ export interface FocusRoles {
   readonly order?: readonly string[];
 }
 export interface Selection {readonly start: number; readonly end: number; readonly direction: 'none' | 'forward' | 'backward'}
+/** Reserved link is validated at layout/interaction publication. Only text/icon
+ * siblings without focus/action authority may consume a same-mount button state.
+ * The metadata remains part of immutable semantic identity and model revisions. */
+export type UiMetadata = Readonly<Record<`${string}:${string}`,UiData> & {'ui:stateOwner'?:string}>;
 export interface BaseProps {
   readonly id: string; readonly role?: string; readonly appearanceRole?: string; readonly variant?: string;
   readonly label?: string; readonly children?: readonly UiNode[]; readonly layout?: Layout; readonly enabled?: boolean;
   readonly focusable?: boolean; readonly selected?: boolean; readonly actionId?: string; readonly paneId?: string;
   readonly contextId?: string; readonly labelContextId?: string; readonly skinContextId?: string;
-  readonly focus?: FocusRoles; readonly metadata?: Readonly<Record<`${string}:${string}`, UiData>>; readonly hidden?: boolean;
+  readonly focus?: FocusRoles; readonly metadata?: UiMetadata; readonly hidden?: boolean;
 }
 export interface TabOption {readonly id: string; readonly label: string; readonly enabled?: boolean}
 export interface NumericProps {readonly value: number; readonly min?: number; readonly max?: number; readonly step?: number}

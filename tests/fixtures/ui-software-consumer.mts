@@ -1,5 +1,8 @@
-import {defineTheme,normalizeBitmapFont,button,field,absolute,extension,layoutUi,createPhaserUi,createUiInteraction,pixelResolution,projectPixelPoint,placeBitmapText,planActionGroup} from '../../server/build/ui-index.mjs';
-import type {NativeScene,NativeParent,NativePorts,UiSnapshot,NativeExtension,UiIntent} from '../../server/build/ui-index.mjs';
+import {defineTheme,normalizeBitmapFont,button,text,field,absolute,extension,layoutUi,createPhaserUi,createUiInteraction,pixelResolution,projectPixelPoint,placeBitmapText,planActionGroup} from '../../server/build/ui-index.mjs';
+import type {NativeScene,NativeParent,NativePorts,UiSnapshot,NativeExtension,UiIntent,NativeAppearancePlacement,SourceRGBA} from '../../server/build/ui-index.mjs';
+// The coordinator resolves this to the actual installed Phaser 4.2.1 declaration
+// package. This fixture requires a separately verified TypeScript compiler.
+import type Phaser from 'phaser';
 import {publishUiSoftware} from '../../server/build/ui-software.mjs';
 
 const font=normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}}}}});
@@ -33,3 +36,23 @@ button({id:'bad',gameDispatch:()=>{}});
 field({id:'bad',value:17});
 // @ts-expect-error physical/source resolution options are mutually exclusive
 placeBitmapText(font,'?',0,0,{resolution,scale:2});
+
+declare const actualScene:Phaser.Scene;
+declare const actualParent:Phaser.GameObjects.Container;
+declare const actualTexture:Phaser.Textures.Texture;
+declare const sourcePixels:Omit<SourceRGBA,'source'>;
+const structuralScene:NativeScene=actualScene;
+const structuralParent:NativeParent=actualParent;
+const nativePorts:NativePorts={
+  resolveAsset:()=>({ownership:'borrowed',texture:actualTexture}),
+  readSourceRGBA:request=>request.kind==='skin'?{...sourcePixels,source:request.source}:null,
+  attachContext:()=>({ownership:'borrowed',parent:actualParent})};
+const placement={nativeStates:{hover:{tone:'cream'},focus:{tone:'cream'},pressed:{paintOffset:{x:0,y:1}},disabled:{visible:false}}} satisfies NativeAppearancePlacement;
+const linked=absolute({id:'linked',children:[button({id:'owner',actionId:'game:ok'}),text({id:'linked-label',label:'?',metadata:{'ui:stateOwner':'owner'}})]});
+void linked;void placement;
+createPhaserUi({scene:structuralScene,theme,ports:nativePorts,limits:{sourceBytes:4194304}}).mount(snapshot,{parent:structuralParent,scope:'consumer:actual'});
+// @ts-expect-error reserved state-owner identity must be a string
+button({id:'bad-state-owner',metadata:{'ui:stateOwner':17}});
+// @ts-expect-error transient appearance cannot grant action authority
+const invalidPlacement:NativeAppearancePlacement={nativeStates:{pressed:{actionId:'game:bad'}}};
+void invalidPlacement;

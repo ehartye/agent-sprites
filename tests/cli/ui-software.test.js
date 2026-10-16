@@ -7,7 +7,9 @@ const names=['ui-runtime','ui-action-group','ui-theme','ui-components','ui-layou
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function api(){const url=new URL('../../server/build/ui-software.mjs',import.meta.url);expect(existsSync(url),'standalone software publisher exists').toBe(true);return import(url.href);}
 
-test.each([...names.flatMap(n=>[n+'.mjs',n+'.d.mts']),'ui-software-manifest.json'])('first publication rejects dangling ownership link %s without writing its target',async name=>{
+// A scoped producer may explicitly forbid creating filesystem links. Preserve
+// the default gate; report these cases as unverified when that policy is active.
+test.skipIf(process.env.UI_SOFTWARE_NO_LINKS==='1').each([...names.flatMap(n=>[n+'.mjs',n+'.d.mts']),'ui-software-manifest.json'])('first publication rejects dangling ownership link %s without writing its target',async name=>{
   const {publishUiSoftware}=await api();const temp=resolve('.tmp');mkdirSync(temp,{recursive:true});const dir=mkdtempSync(join(temp,'ui-dangling-'));
   if(!dir.startsWith(temp+sep))throw Error('Fixture escaped its owned temporary root');
   try{
