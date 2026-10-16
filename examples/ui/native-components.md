@@ -94,6 +94,9 @@ each record keeps its own continuous semantic bounds and inherited mapping depen
 
 The root's optional `focus.order` lists the game's current eligible semantic IDs,
 including controls on other pages or outside the painted clip. Ordered navigation
+may retain such an ID as `initialId` and logical focus without a painted control.
+Activation of logical-only focus is refused until the host reveals a live control.
+Navigation
 uses that order and the mount's `wrap` policy, returning a revision-bound `focus`
 intent. The game routes it through its existing semantic focus/reveal owner, then
 publishes the newly visible snapshot. Unpainted targets gain no fake geometry or

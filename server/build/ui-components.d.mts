@@ -10,7 +10,7 @@ export interface Layout {
   readonly overflow?: Overflow; readonly scrollX?: number; readonly scrollY?: number; readonly page?: number;
   readonly align?: 'start' | 'center' | 'end' | 'stretch'; readonly justify?: 'start' | 'center' | 'end' | 'space-between';
 }
-/** Initial focus requires focusability. Default/cancel roles require a declared node, independently of focusability. */
+/** Initial focus requires focusability or a declared semantic order target. Default/cancel require a declared painted node. */
 export interface FocusRoles {
   readonly initialId?: string; readonly defaultId?: string; readonly cancelId?: string;
   /** Authoritative semantic traversal order. Absent/clipped targets emit a focus intent for host reveal, never an activation. */

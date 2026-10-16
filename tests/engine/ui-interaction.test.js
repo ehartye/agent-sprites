@@ -27,7 +27,7 @@ test('declared semantic navigation requests off-page reveal without granting act
   const {createUiInteraction}=await api(),s=scope([control('a',0),control('pager',20),control('c',40)]);
   s.plan.focus.order=['a','off-page','c'];const ui=createUiInteraction(s,{navigation:'ordered',wrap:true});
   expect(ui.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'off-page',modelRevision:1}]);
-  expect(ui.inspect({limit:10}).focusId).toBe(null);
+  expect(ui.inspect({limit:10}).focusId).toBe('off-page');
   expect(ui.handle({type:'activate',inputId:'no-stale-focus'})).toEqual([]);
   expect(ui.handle({type:'activate',controlId:'off-page',inputId:'not-painted'})).toEqual([]);
   const next=scope([control('a',0),control('off-page',20),control('c',40)]);next.plan.revision=2;next.plan.focus={initialId:'off-page',order:['a','off-page','c']};
@@ -42,6 +42,10 @@ test('declared semantic navigation requests off-page reveal without granting act
   expect(reveal.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'clipped',modelRevision:1}]);
   expect(reveal.handle({type:'activate',inputId:'clipped'})).toEqual([]);
   const changed=structuredClone(next);changed.plan.focus.order=['c','off-page','a'];expect(()=>ui.update(changed)).toThrow(/revision/i);
+  const anchored=scope([control('c',40)]);anchored.plan.focus={initialId:'off-page',order:['a','off-page','c']};
+  const logical=createUiInteraction(anchored,{navigation:'ordered',wrap:true});expect(logical.inspect({limit:10}).focusId).toBe('off-page');
+  expect(logical.handle({type:'activate',inputId:'logical-only'})).toEqual([]);
+  expect(logical.handle({type:'navigate',direction:'next'})).toEqual([{kind:'focus',controlId:'c',modelRevision:1}]);
 });
 
 test('disabled focus remains readable; ordered, spatial and pane movement share one focus owner',async()=>{

@@ -2,7 +2,7 @@ import {test,expect} from 'vitest';
 
 test('focus order declares immutable semantic reveal targets without inventing painted nodes',async()=>{
   const {panel,button}=await import('../../server/build/ui-components.mjs');
-  const order=['visible','off-page'];const tree=panel({id:'root',focus:{order},children:[button({id:'visible',label:'Go'})]});
+  const order=['visible','off-page'];const tree=panel({id:'root',focus:{order,initialId:'off-page'},children:[button({id:'visible',label:'Go'})]});
   order.push('later');expect(tree.focus.order).toEqual(['visible','off-page']);expect(tree.children).toHaveLength(1);
   for(const invalid of [['visible','visible'],[null],'visible'])expect(()=>panel({id:'root',focus:{order:invalid}})).toThrow(/order|ID/i);
 });

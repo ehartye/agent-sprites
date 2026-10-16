@@ -95,7 +95,7 @@ export function validateUiTree(tree) {
       if (!Array.isArray(focus.order) || focus.order.length > 10000 || new Set(focus.order).size !== focus.order.length) throw new TypeError('Invalid or duplicate focus order');
       for (const id of focus.order) uiId(id, 'Focus order ID');
     }
-    for (const [role, id] of Object.entries(focus)) if (role !== 'order' && id !== undefined && (!ids.has(id) || role === 'initialId' && !ids.get(id).focusable)) throw new TypeError(`Unknown or unfocusable focus ID: ${id}`);
+    for (const [role, id] of Object.entries(focus)) if (role !== 'order' && id !== undefined && !(role === 'initialId' && focus.order?.includes(id)) && (!ids.has(id) || role === 'initialId' && !ids.get(id).focusable)) throw new TypeError(`Unknown or unfocusable focus ID: ${id}`);
   }
   return freezeUiData(result);
 }

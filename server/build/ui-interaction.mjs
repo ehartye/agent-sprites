@@ -43,7 +43,7 @@ function prepare(scope) {
     if (!Array.isArray(plan.focus.order) || plan.focus.order.length > 10000 || new Set(plan.focus.order).size !== plan.focus.order.length) throw new TypeError('Invalid or duplicate focus order');
     for (const id of plan.focus.order) uiId(id, 'Focus order ID');
   }
-  for (const [role, id] of Object.entries(plan.focus)) if (role !== 'order' && id !== undefined && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
+  for (const [role, id] of Object.entries(plan.focus)) if (role !== 'order' && id !== undefined && !(role === 'initialId' && plan.focus.order?.includes(id)) && (!records.has(id) || role === 'initialId' && !records.get(id).focusable)) throw new TypeError(`Unknown focus ID ${id}`);
   freezeUiData(source);
   return {source, plan, contexts, records, semantic: semantic(plan)};
 }
@@ -58,6 +58,7 @@ export function createUiInteraction(scope, policy = {}) {
   function candidates(pane) { return (current.plan.focus.order?.map(id => current.records.get(id)) ?? current.plan.records).filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
   function setFocus(id) {
     const record = current.records.get(id);
+    if (current.plan.focus.order?.includes(id) && !eligible(record)) {focusId = id; return true;}
     if (!eligible(record) || current.plan.focus.order && !current.plan.focus.order.includes(id)) return false;
     focusId = id; paneFocus.set(record.paneId, id); return true;
   }
