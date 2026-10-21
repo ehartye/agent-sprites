@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": ["dusk-shrine.json"],
+  "inputs": ["drawing.mjs", "scenes.mjs", "dusk-shrine.json"],
+  "output": ".build/dusk-shrine",
+  "expectedTags": ["ambience"],
+  "scale": 2
+}

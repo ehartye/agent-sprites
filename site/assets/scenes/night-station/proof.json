@@ -1,0 +1,547 @@
+{
+  "ok": true,
+  "version": 1,
+  "scene": "night-station",
+  "title": "The last train home",
+  "canvas": {
+    "w": 192,
+    "h": 128
+  },
+  "scale": 2,
+  "width": 384,
+  "height": 256,
+  "frameCount": 32,
+  "durationMs": 3200,
+  "loop": true,
+  "timeline": {
+    "durationMs": 3200,
+    "loop": true,
+    "steps": [
+      {
+        "atMs": 0,
+        "durationMs": 100,
+        "frames": [
+          32
+        ]
+      },
+      {
+        "atMs": 100,
+        "durationMs": 100,
+        "frames": [
+          33
+        ]
+      },
+      {
+        "atMs": 200,
+        "durationMs": 100,
+        "frames": [
+          34
+        ]
+      },
+      {
+        "atMs": 300,
+        "durationMs": 100,
+        "frames": [
+          35
+        ]
+      },
+      {
+        "atMs": 400,
+        "durationMs": 100,
+        "frames": [
+          36
+        ]
+      },
+      {
+        "atMs": 500,
+        "durationMs": 100,
+        "frames": [
+          37
+        ]
+      },
+      {
+        "atMs": 600,
+        "durationMs": 100,
+        "frames": [
+          38
+        ]
+      },
+      {
+        "atMs": 700,
+        "durationMs": 100,
+        "frames": [
+          39
+        ]
+      },
+      {
+        "atMs": 800,
+        "durationMs": 100,
+        "frames": [
+          40
+        ]
+      },
+      {
+        "atMs": 900,
+        "durationMs": 100,
+        "frames": [
+          41
+        ]
+      },
+      {
+        "atMs": 1000,
+        "durationMs": 100,
+        "frames": [
+          42
+        ]
+      },
+      {
+        "atMs": 1100,
+        "durationMs": 100,
+        "frames": [
+          43
+        ]
+      },
+      {
+        "atMs": 1200,
+        "durationMs": 100,
+        "frames": [
+          44
+        ]
+      },
+      {
+        "atMs": 1300,
+        "durationMs": 100,
+        "frames": [
+          45
+        ]
+      },
+      {
+        "atMs": 1400,
+        "durationMs": 100,
+        "frames": [
+          46
+        ]
+      },
+      {
+        "atMs": 1500,
+        "durationMs": 100,
+        "frames": [
+          47
+        ]
+      },
+      {
+        "atMs": 1600,
+        "durationMs": 100,
+        "frames": [
+          48
+        ]
+      },
+      {
+        "atMs": 1700,
+        "durationMs": 100,
+        "frames": [
+          49
+        ]
+      },
+      {
+        "atMs": 1800,
+        "durationMs": 100,
+        "frames": [
+          50
+        ]
+      },
+      {
+        "atMs": 1900,
+        "durationMs": 100,
+        "frames": [
+          51
+        ]
+      },
+      {
+        "atMs": 2000,
+        "durationMs": 100,
+        "frames": [
+          52
+        ]
+      },
+      {
+        "atMs": 2100,
+        "durationMs": 100,
+        "frames": [
+          53
+        ]
+      },
+      {
+        "atMs": 2200,
+        "durationMs": 100,
+        "frames": [
+          54
+        ]
+      },
+      {
+        "atMs": 2300,
+        "durationMs": 100,
+        "frames": [
+          55
+        ]
+      },
+      {
+        "atMs": 2400,
+        "durationMs": 100,
+        "frames": [
+          56
+        ]
+      },
+      {
+        "atMs": 2500,
+        "durationMs": 100,
+        "frames": [
+          57
+        ]
+      },
+      {
+        "atMs": 2600,
+        "durationMs": 100,
+        "frames": [
+          58
+        ]
+      },
+      {
+        "atMs": 2700,
+        "durationMs": 100,
+        "frames": [
+          59
+        ]
+      },
+      {
+        "atMs": 2800,
+        "durationMs": 100,
+        "frames": [
+          60
+        ]
+      },
+      {
+        "atMs": 2900,
+        "durationMs": 100,
+        "frames": [
+          61
+        ]
+      },
+      {
+        "atMs": 3000,
+        "durationMs": 100,
+        "frames": [
+          62
+        ]
+      },
+      {
+        "atMs": 3100,
+        "durationMs": 100,
+        "frames": [
+          63
+        ]
+      }
+    ]
+  },
+  "gif": {
+    "loop": true,
+    "pages": 32,
+    "delaysMs": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "durationMs": 3200,
+    "requestedDurationMs": 3200,
+    "driftMs": 0,
+    "timing": [
+      {
+        "atMs": 0,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      }
+    ],
+    "pixelComparison": {
+      "exact": true,
+      "differentPixels": 0,
+      "maxChannelError": 0,
+      "transparentPixels": "RGB ignored where alpha is zero"
+    },
+    "paletteLimit": 256
+  },
+  "contact": {
+    "tiles": 32,
+    "columns": 5,
+    "width": 1932,
+    "height": 1934
+  },
+  "source": {
+    "config": "../../../../examples/showcase/night-station.build.json",
+    "palette": "Midnight indigo, oxidized teal, coral neon and warm window light",
+    "motion": [
+      "rain",
+      "puddle rings",
+      "neon reflections",
+      "signal light"
+    ]
+  },
+  "tracks": [
+    {
+      "name": "station",
+      "atlas": "atlas.json",
+      "image": "sheet.png",
+      "tag": "ambience",
+      "loop": true
+    }
+  ],
+  "files": {
+    "gif": "scene.gif",
+    "poster": "poster.png",
+    "sheet": "sheet.png",
+    "atlas": "atlas.json",
+    "project": "project.json",
+    "contact": "contact.png"
+  },
+  "integrity": {
+    "scene.gif": {
+      "sha256": "c109cba58427b7210b6b12b651df5f583fade02ccd06dff4867fad32f9c8c7fb",
+      "bytes": 69451
+    },
+    "poster.png": {
+      "sha256": "d82e9ff2df6ea163b5c88c46da581798885a7c8343643e88734b996f481c8578",
+      "bytes": 5800
+    },
+    "sheet.png": {
+      "sha256": "2d7904ee73f04bf2e992317b8c1a594eb6c550d6a7f3e8b4e432a3f1b3a3aed1",
+      "bytes": 57027
+    },
+    "atlas.json": {
+      "sha256": "0a46e3d4ef5eaaab17305d0fed4dc092a39086d57be00b88a7b09d592512380c",
+      "bytes": 36688
+    },
+    "project.json": {
+      "sha256": "a4b28d804d3ff30f54cafa0fc12ac8f1ff77e7d67962495a74669d9e8c53c939",
+      "bytes": 2024059
+    },
+    "contact.png": {
+      "sha256": "4cf6303f5d0417433ecceb5614690ffb0c1b94cf5e9642ef6695f72416b1755e",
+      "bytes": 126554
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "canvas": { "w": 192, "h": 128 },
+  "scale": 2,
+  "tracks": [{ "name": "shrine", "atlas": ".build/dusk-shrine/dusk-shrine.atlas.json", "tag": "ambience", "x": 0, "y": 0 }]
+}

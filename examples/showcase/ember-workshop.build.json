@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": ["ember-workshop.json"],
+  "inputs": ["drawing.mjs", "scenes.mjs", "ember-workshop.json"],
+  "output": ".build/ember-workshop",
+  "expectedTags": ["ambience"],
+  "scale": 2
+}

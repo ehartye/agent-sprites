@@ -1,5 +1,12 @@
 # agent-sprites
 
+<a href="https://ehartye.github.io/agent-sprites/"><img src="site/assets/scenes/night-station/scene.gif" width="49%" alt="Rain and neon reflections at a quiet night station"></a>
+<a href="https://ehartye.github.io/agent-sprites/"><img src="site/assets/scenes/glasshouse/scene.gif" width="49%" alt="Sunlit glasshouse with butterflies and a rippling fountain"></a>
+<a href="https://ehartye.github.io/agent-sprites/"><img src="site/assets/scenes/ember-workshop/scene.gif" width="49%" alt="An ember-lit workshop with forge sparks and curling steam"></a>
+<a href="https://ehartye.github.io/agent-sprites/"><img src="site/assets/scenes/dusk-shrine/scene.gif" width="49%" alt="A floating shrine with falling water, lanterns and drifting petals"></a>
+
+**[Explore the interactive field guide →](https://ehartye.github.io/agent-sprites/)** · Eight marquee features, four animated worlds, and editable source for everything above.
+
 A pixel-art sprite authoring toolset for coding agents and 2D game projects, with a CLI, a live web UI, and a Claude Code plugin. Human collaborators watch and edit through the web UI while their agent works the CLI.
 
 Built and battle-tested by shipping real games with it (SNES-style dungeon crawlers, a rhythm brawler) — every tool exists because a real build needed it.
