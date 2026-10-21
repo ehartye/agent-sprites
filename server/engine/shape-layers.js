@@ -4,7 +4,7 @@ function integer(value, label) {
   if (!Number.isSafeInteger(value)) throw new Error(`${label} must be a safe integer`);
 }
 
-function apply(cell, changes) {
+function apply(cell, changes, options = {}) {
   const proposed = cell.shapes.listByZ().map(shape => ({ ...shape, params: changes.get(shape.id) ?? shape.params }));
   buildLayerTree(proposed, cell.width, cell.height);
   return cell.transaction(() => {
@@ -12,6 +12,7 @@ function apply(cell, changes) {
     for (const shape of cell.shapes.listByZ()) if (changes.has(shape.id)) {
       cell.updateShapeParams(shape.id, changes.get(shape.id)); shapes.push(shape.toJSON());
     }
+    if (Object.hasOwn(options, 'lighting')) cell.setLighting(options.lighting);
     return { changed: shapes.length, shapes };
   });
 }
@@ -64,7 +65,7 @@ export function moveLayerSelection(cell, refs, dx, dy) {
 }
 
 /** Transform every primitive and its global layer rectangles together, atomically. */
-export function transformLayerCell(cell, transform) {
+export function transformLayerCell(cell, transform, options = {}) {
   const changes = new Map();
   for (const shape of cell.shapes.listByZ()) {
     const params = structuredClone(shape.params);
@@ -72,5 +73,5 @@ export function transformLayerCell(cell, transform) {
     for (const layer of params.layers ?? []) transform(layer);
     changes.set(shape.id, params);
   }
-  return apply(cell, changes);
+  return apply(cell, changes, options);
 }

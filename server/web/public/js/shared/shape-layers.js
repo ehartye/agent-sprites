@@ -1,3 +1,4 @@
+import { translateSurface } from './surface-model.js';
 // Pure retained layer planning shared by the server and every native browser raster.
 export const LAYER_LIMITS = Object.freeze({ depth: 8, count: 8192, dimension: 2048, rasterWork: 64_000_000 });
 
@@ -26,6 +27,7 @@ export function validateLayers(layers) {
 /** Copy global primitive geometry to a new origin. Layer origins move only explicitly. */
 export function translateParams(params, dx, dy, { layers = false } = {}) {
   const p = structuredClone(params);
+  if (Object.hasOwn(p, 'surface')) p.surface = translateSurface(p.surface, dx, dy);
   for (const key of ['x', 'x1', 'x2', 'cx']) if (key in p) p[key] += dx;
   for (const key of ['y', 'y1', 'y2', 'cy']) if (key in p) p[key] += dy;
   if (p.points) for (const point of p.points) { point.x += dx; point.y += dy; }

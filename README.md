@@ -11,6 +11,7 @@ Open the server's preview URL to work on the same live draft as your agent.
 - **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
 - **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.
 - **ASCII** reads a bounded region as text, reports unmapped RGBA colors, and applies one undoable patch with explicit keep and erase symbols.
+- **Lighting** edits retained shape normals, material flags and attached lamps, enables cell lighting with an explicit palette policy, and previews color/normal/light channels through the shared server.
 - **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace, atlas proof and verification forms run file workflows from the server's localhost page; restart remains a terminal command.
 - **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
 - Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
@@ -31,6 +32,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 
 - **Compact composition** — reusable named parts, stamps, tiling and explicitly seeded scatter expand into editable shapes. Revisions retain IDs, reconcile owned output and undo together. See [the create/revise example](examples/composition/README.md).
 - **Independent animation composition** — combine timed child projects through stamps, tiles and seeded scatter, retaining exact frame durations, isolated editable layers and each child's palette. See [the lantern garden example](examples/animated-composition/README.md).
+- **Editable surface lighting** — flat/grid/bevel/dome/luma normals, solid/wall/unlit materials and attached colored lamps with bounded offline 2D diffusion. Color and normal atlases share packing, timing and pivots. See [the lighting example](examples/surface-lighting/README.md).
 - **Regional text edits** — canonical ASCII readback and patches preserve source shapes; `.` keeps, `_` erases and `?` discloses unmapped pixels. See [ASCII region editing](skills/sprite-editing/references/ascii-regions.md).
 - **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
 - **Native 16×32 mannequins** — editable adult/child/large mannequins with eight-direction walk cycles and face-construction references, four-direction fitted wardrobes and animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
@@ -347,6 +349,16 @@ with an animated preview, pause/play and GIF download. See the
 resolution and palette colors can change; the report measures both after decoding.
 Partial alpha requires an explicit matte. PNG frames retain canonical colors.
 
+### Author editable surface lighting
+
+For retained normals, lamps and an offline color bake, use the browser's Lighting
+tab or `surface`/`lighting` CLI commands. An explicit `rgb` or `nearest` policy
+controls palette conversion. Visible authored normals automatically export a
+matching `.normal.png` and `.normal.atlas.json`; `--normal true|false` overrides
+automatic inclusion. Normal directions retain source alpha and use green-up
+encoding. Read [surface authoring and paired exports](skills/sprite-shading/references/surface-lighting.md)
+for complete schemas, transform behavior, bounds and review steps.
+
 ### Trace a reference into editable shapes
 
 `Invoke-Sprite trace .\reference.webp --out .\reference-baseline --name reference --json`
@@ -594,7 +606,7 @@ project. These native skills call the same managed CLI:
 | `sprite-setup` | External CLI installation, npm linking, dependency checks and plugin/CLI/server version sync |
 | `sprite-editing` | Full tool workflow: drawing, shape editing, groups, animation, export |
 | `sprite-character` | Anime/16-bit RPG characters: adult/child proportions, faces, hair, outfits and consistent front/profile studies |
-| `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
+| `sprite-shading` | Painted shading plus editable normals, materials, lamps, offline lighting and paired normal exports |
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses, independent child animation composition |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
 | `sprite-craft` | Expert craft rules and critique order: silhouette, value, outlines, clusters, dithering, small-sprite motion |

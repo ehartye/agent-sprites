@@ -1,12 +1,15 @@
+import { validateSurface } from '../web/public/js/shared/surface-model.js';
 let nextId = 1;
 
 export class Shape {
   constructor(type, params, color, opts = {}) {
+    const savedParams = structuredClone(params);
+    if (savedParams && Object.hasOwn(savedParams, 'surface')) savedParams.surface = validateSurface(savedParams.surface);
     if (!Number.isSafeInteger(nextId) || nextId >= Number.MAX_SAFE_INTEGER) throw new Error('Shape ID space exhausted');
     this.id = `s${nextId++}`;
     this.type = type;
     // Deep copy: params may hold nested structures (polygon points)
-    this.params = structuredClone(params);
+    this.params = savedParams;
     this.color = color;
     this.name = opts.name ?? null;
     this.zIndex = opts.zIndex ?? 0;

@@ -1,6 +1,8 @@
 import { patternTest } from './patterns.js';
 import { snapParams } from '../web/public/js/shared/raster.js';
 import { validateLayers, translateParams, buildLayerTree } from '../web/public/js/shared/shape-layers.js';
+import { validateSurface } from '../web/public/js/shared/surface-model.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 
 const MAX_SHAPES = 4096;
 const MAX_WORK = 16_777_216;
@@ -44,8 +46,9 @@ function descriptor(palette, shape, source, sourceZ) {
   const params = structuredClone(shape.params);
   // Copies acquire their own ownership; source metadata is never a live link.
   if (source && params) { delete params.composition; delete params.asciiPatch; }
-  object(params, [...fields, 'layers', ...(FILLABLE.includes(shape.type) ? ['filled', 'pattern', 'color2'] : []), ...(shape.type === 'fill' ? [] : ['erase'])], 'shape parameter');
+  object(params, [...fields, 'layers', 'surface', ...(FILLABLE.includes(shape.type) ? ['filled', 'pattern', 'color2'] : []), ...(shape.type === 'fill' ? [] : ['erase'])], 'shape parameter');
   if (Object.hasOwn(params, 'layers')) validateLayers(params.layers);
+  if (Object.hasOwn(params, 'surface')) params.surface = validateSurface(params.surface);
   for (const key of fields) {
     if (key === 'points') {
       if (!Array.isArray(params.points) || params.points.length < (shape.type === 'polygon' ? 3 : 2) || params.points.length > 256) throw new Error('Polygon/polyline points must contain 3/2 through 256 vertices');
@@ -210,6 +213,7 @@ export function compileComposition(project, spec) {
     if (shapes[i].params.layers) operations[i].layers = structuredClone(shapes[i].params.layers);
   }
   if (shapes.length) work += buildLayerTree(shapes, cell.width, cell.height).rasterWork;
+  if (cell.lighting !== undefined || shapes.some(shape=>shape.params.surface !== undefined)) work = validateSurfaceScene({shapes,width:cell.width,height:cell.height,lighting:cell.lighting,background:project.background,palette:project.palette.toJSON()}).rasterWork;
   if (!Number.isSafeInteger(work) || work > MAX_WORK) throw new Error(`Composition exceeds its ${MAX_WORK}-pixel raster work budget`);
   return { shapes, instances, operations };
 }
@@ -231,6 +235,8 @@ export function applyComposition(project, spec) {
   // Validate the reconciled destination, counting replacement surfaces once
   // and excluding obsolete output before any state or history can change.
   buildLayerTree([...previous.filter(shape => !owned(shape, spec.prefix)), ...compiled.shapes], cell.width, cell.height);
+  const reconciled=[...previous.filter(shape=>!owned(shape,spec.prefix)),...compiled.shapes];
+  if(cell.lighting!==undefined||reconciled.some(shape=>shape.params.surface!==undefined))validateSurfaceScene({shapes:reconciled,width:cell.width,height:cell.height,lighting:cell.lighting,background:project.background,palette:project.palette.toJSON()});
   const shapes = cell.transaction(() => {
     for (const shape of obsolete) cell.deleteShape(shape.name);
     if (compiled.shapes.length) cell._nextZ = Math.max(cell._nextZ, ...compiled.shapes.map(shape => shape.zIndex + 1));

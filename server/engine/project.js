@@ -4,6 +4,7 @@ import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 import { validateConstructionReplay } from './construction-replay.js';
 import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops, validateAnimationFps, ANIMATION_DIRECTIONS, resolveAnimationDirection } from '../web/public/js/shared/timing.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 
 /** Tag playback directions shared by project authoring, preview and atlas output. */
 export const TAG_DIRECTIONS = ANIMATION_DIRECTIONS;
@@ -31,6 +32,11 @@ export class Project {
     this.frameDurations = validateFrameDurations(frameDurations, this);
     this.animationLoops = validateAnimationLoops(animationLoops);
     this.shapeGroups = shapeGroups ?? {};
+    cells.surfaceContext = () => ({ background: this.background, palette: this.palette.toJSON() });
+    for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
+      const cell=cells.getCell(`${row},${col}`);
+      if(cell.lighting!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:cell.shapes.listByZ(),width:cell.width,height:cell.height,lighting:cell.lighting,background:this.background,palette:palette.toJSON()});
+    }
     this.review = review ?? null;
     this.constructionReplay = constructionReplay === undefined ? null : validateConstructionReplay(constructionReplay, this);
     this.path = null;

@@ -3,6 +3,7 @@ import { element, button, input, field, setStatus, jsonReport, animationProof } 
 import { RegionEditor } from './region-editor.js';
 import { ConstructionReplayPanel } from './construction-replay.js';
 import { FrameTimingPanel } from './frame-timing.js';
+import { SurfacePanel } from './surface-panel.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -27,7 +28,7 @@ export class Workbench {
     this.mount.append(element('h2', 'Design workbench'));
     this.mount.append(button('Close', () => this.close(), 'drawer-close'));
     this.nav = element('nav', null, 'workbench-tabs');
-    for (const tab of ['sessions', 'palettes', 'ascii', 'replay', 'timing', 'tools', 'handoff']) {
+    for (const tab of ['sessions', 'palettes', 'ascii', 'replay', 'timing', 'lighting', 'tools', 'handoff']) {
       const btn = button(tab === 'ascii' ? 'ASCII' : tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
       btn.dataset.panel = tab;
       this.nav.append(btn);
@@ -77,6 +78,10 @@ export class Workbench {
         this.timingPanel = new FrameTimingPanel({ request: this.request, getProject: () => this.project, getSessionId: () => this.sessionId, refresh: this.refresh, preview: sequenceId => { this.preview(sequenceId); this.close(); }, isCurrent: () => sequence === this.sequence && this.tab === 'timing' });
         this.timingPanel.render(this.body);
       }
+      if (tab === 'lighting') {
+        this.lightingPanel = new SurfacePanel({ request: this.request, getProject: () => this.project, getCell: this.getCell, getShape: this.getShape, getSessionId: () => this.sessionId, refresh: this.refresh, isCurrent: () => sequence === this.sequence && this.tab === 'lighting' });
+        this.lightingPanel.render(this.body);
+      }
       if (tab === 'handoff') this.renderHandoff();
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
@@ -86,10 +91,12 @@ export class Workbench {
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
     if (!this.mount.hidden && (changed || this.tab === 'sessions')) this.show(this.tab);
-    else {
-      this.refreshReplay();
-      if (!this.mount.hidden && this.tab === 'timing') this.timingPanel?.updateProject(project);
-    }
+    else this.refreshProjectPanels();
+  }
+  refreshProjectPanels() {
+    this.refreshReplay();
+    if (!this.mount.hidden && this.tab === 'timing') this.timingPanel?.updateProject(this.project);
+    if (!this.mount.hidden && this.tab === 'lighting') this.lightingPanel?.updateProject(this.project);
   }
   refreshReplay() { if (!this.mount.hidden && this.tab === 'replay') this.replayPanel?.refreshCurrent(); }
   renderSessions(sessions) {
@@ -330,6 +337,30 @@ export class Workbench {
       this.notify(`Imported ${file.name} as a new session.`); this.refresh();
     }));
     this.body.append(actions, element('label', 'Import an editable project'), upload);
+    const exportSection = element('section', null, 'surface-section');
+    exportSection.append(element('h3', 'Export PNG and atlas on disk'), element('p', 'Write the sheet and atlas to the session export folder, or choose another destination. Auto includes normal assets when the design has authored normals.', 'workbench-hint'));
+    const destination = input('export-dest', '', { placeholder: 'Use session export folder' });
+    const trim = input('export-trim', '', { type: 'checkbox' });
+    const normal = element('select'); normal.name = 'export-normal';
+    for (const [value, label] of [['auto', 'Auto · authored metadata'], ['include', 'Include normal assets'], ['omit', 'Omit normal assets']]) {
+      const option = element('option', label); option.value = value; normal.append(option);
+    }
+    const report = jsonReport({ onDownload: data => download('export-report.json', data) });
+    const sequence = this.sequence, sessionId = this.sessionId;
+    const exportButton = button('Export to disk', () => this.run(async () => {
+      if (exportButton.disabled || this.sessionId !== sessionId || sequence !== this.sequence) return;
+      exportButton.disabled = true;
+      try {
+        const result = await this.request('/session/export', { ...(destination.value.trim() ? { dest: destination.value.trim() } : {}), trim: trim.checked, normal: normal.value === 'auto' ? undefined : normal.value === 'include' }, { sessionId });
+        if (this.sessionId !== sessionId || sequence !== this.sequence) return;
+        report.set(result); this.notify('Export completed. See artifact paths below.');
+      } catch (error) {
+        if (this.sessionId === sessionId && sequence === this.sequence) throw error;
+      } finally { if (this.sessionId === sessionId && sequence === this.sequence) exportButton.disabled = !sessionId; }
+    }));
+    exportButton.dataset.action = 'handoff-export'; exportButton.disabled = !sessionId;
+    exportSection.append(field('Destination folder (optional)', destination), field('Trim transparent bounds', trim), field('Normal export', normal), exportButton, report.node);
+    this.body.append(exportSection);
     const noteLabel = element('label', 'Review note');
     const note = element('textarea'); note.rows = 7; note.maxLength = 20000; note.placeholder = 'What should the next pass change or preserve?';
     const draftKey = `sprite-review-${this.sessionId}`;

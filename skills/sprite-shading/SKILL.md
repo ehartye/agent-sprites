@@ -1,6 +1,6 @@
 ---
 name: sprite-shading
-description: Shade pixel-art sprites with highlights, shadows, and tone ramps. Use when a sprite looks flat, needs volume or rim/specular light, or sphere-shade/highlight/shadow placement needs adjustment; not general CSS shadows or 3D rendering.
+description: Shade pixel-art sprites with highlights, shadows, tone ramps and editable surface lighting. Use for flat-looking sprites, rim/specular placement, normal maps, bevel/dome/luma relief, material flags, attached lamps, offline 2D diffusion or paired normal atlases; not CSS shadows or 3D scenes.
 ---
 
 # Sprite Shading
@@ -15,6 +15,13 @@ load that setup before running commands and stop on command failure.
 
 Give flat shapes visible form. Works with the `draw highlight` and `draw shadow` commands from `sprite-editing`.
 For what to aim for and how to judge the result (silhouette, value structure, outlines, clusters), see [sprite craft](../sprite-craft/SKILL.md).
+
+For editable normal maps, solid/wall/unlit materials, attached lamps and offline
+2D light baking, read [surface lighting](references/surface-lighting.md) directly.
+It covers authoring, transforms, palette policy, browser channel review and
+frame-aligned normal export. Enable lighting explicitly on each cell; source
+colors remain editable. Painted highlight/shadow operations below remain useful
+for deliberate pixel-art clusters.
 
 ## Small RPG characters
 

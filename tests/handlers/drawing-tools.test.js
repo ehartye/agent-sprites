@@ -53,7 +53,7 @@ describe('Drawing tools', () => {
   it('throws without a project', () => {
     state.project = null;
     expect(() => handleDraw(state, 'point', { cell: '0,0', x: 0, y: 0, color: '#ff0000' }))
-      .toThrow('No project');
+      .toThrow('No active project');
   });
 
   it('throws for unknown draw type', () => {

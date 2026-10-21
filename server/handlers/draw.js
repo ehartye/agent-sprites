@@ -2,6 +2,9 @@ import { patternTest } from '../engine/patterns.js';
 import { snapParams, rasterShape } from '../web/public/js/shared/raster.js';
 import { CanvasRenderer } from '../engine/canvas-renderer.js';
 import { validateLayers, buildLayerTree } from '../web/public/js/shared/shape-layers.js';
+import { validateSurface, SURFACE_LIMITS } from '../web/public/js/shared/surface-model.js';
+import { validateSurfaceScene, surfacePrimitiveWork } from '../web/public/js/shared/surface-raster.js';
+import { editCells } from './edit.js';
 
 /**
  * Compute bounding box from shape type + params.
@@ -590,6 +593,49 @@ function _applyAutoGroupings(state, params, result) {
   }
 }
 
+/** Bound temporary path/coverage work before compound helpers allocate it.
+ * The completed retained scene is validated separately by the cell edit. */
+function preflightSurfaceExpansion(type, params, cell) {
+  if (cell.lighting === undefined && !cell._hasSurfaceData && params.surface === undefined) return;
+  let work = 0;
+  const charge = count => {
+    work += count;
+    if (!Number.isSafeInteger(work) || work < 0 || work > SURFACE_LIMITS.maxWork) throw new Error(`Surface preparatory raster work exceeds ${SURFACE_LIMITS.maxWork}-pixel budget`);
+  };
+  const geometry = shape => surfacePrimitiveWork(shape, cell.width, cell.height);
+  const area = shape => geometry({ ...shape, params: { ...shape.params, filled: true } });
+  const target = ref => {
+    const shape = cell.shapes.get(ref);
+    if (!shape) throw new Error(`Shape "${ref}" not found`);
+    return shape;
+  };
+  if (type === 'arc') {
+    const rx = params.rx ?? params.r, ry = params.ry ?? params.r;
+    let span = (params.to_deg - params.from_deg) * Math.PI / 180;
+    if (span <= 0) span += 2 * Math.PI;
+    charge((Math.max(8, Math.ceil(span * Math.max(rx, ry) * 2)) + 1) * (1 + (params.width ?? 1) ** 2));
+  } else if (['line', 'polyline'].includes(type) && (params.width ?? 1) > 1) {
+    const points = type === 'line' ? [{ x: params.x1, y: params.y1 }, { x: params.x2, y: params.y2 }] : parsePoints(params.points);
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1], b = points[i];
+      const length = Math.max(Math.abs(Math.round(b.x) - Math.round(a.x)), Math.abs(Math.round(b.y) - Math.round(a.y))) + 1;
+      charge(length * (1 + params.width ** 2));
+    }
+  } else if (['ellipse', 'circle'].includes(type) && params.clip_to && params.filled === false) {
+    charge(geometry({ type, params }));
+  } else if (['highlight', 'shadow', 'sphere-shade'].includes(type)) {
+    const shape = target(params.shape), bbox = getBoundingBox(shape);
+    const count = params.count == null ? getPixelCount(bbox?.sizeMetric ?? 0) : Math.max(1, Math.round(params.count));
+    charge(Math.ceil(count * (params.dither ? 2.5 : 1)) * (type === 'sphere-shade' ? 5 : 1));
+    charge(area(shape) * (type === 'sphere-shade' ? 10 : 1));
+  } else if (type === 'border' || type === 'ring') {
+    const names = String(type === 'ring' ? params.shape : params.shapes ?? '').split(',').map(name => name.trim()).filter(Boolean);
+    const shapes = params.shape_prefix ? cell.shapes.listByZ().filter(shape => shape.name?.startsWith(params.shape_prefix)) : names.map(target);
+    for (const shape of shapes) charge(geometry(shape) * 5); // coverage and four dilation neighbors
+  }
+  if (params.clip_to) charge(area(target(params.clip_to)));
+}
+
 /**
  * Shared draw handler — called by REST API and WebSocket dispatch.
  * Wraps _handleDrawInner and applies any --group / --cell-group auto-enrollments.
@@ -598,14 +644,17 @@ export function handleDraw(state, type, params) {
   if (!state.project) throw new Error('No active project');
   if (params.visible !== undefined && typeof params.visible !== 'boolean') throw new Error('visible must be a boolean');
   if (params.composition !== undefined && (!params.composition || typeof params.composition !== 'object' || Array.isArray(params.composition))) throw new Error('composition metadata must be an object');
+  if (params.surface !== undefined) validateSurface(params.surface);
   if (params.layers !== undefined) {
     validateLayers(params.layers);
     const cell = state.project.cells.getCell(params.cell);
     buildLayerTree([...cell.shapes.listByZ(), { params: { layers: params.layers, erase: params.erase } }], cell.width, cell.height);
   }
-  const explicitState = params.visible !== undefined || params.composition !== undefined || params.layers !== undefined || params.z !== undefined;
+  const explicitState = params.visible !== undefined || params.composition !== undefined || params.layers !== undefined || params.surface !== undefined || params.z !== undefined;
   if (explicitState && (!['point','line','rect','circle','ellipse','polygon','polyline','fill'].includes(type) || params.clip_to != null || (params.width != null && params.width !== 1))) throw new Error('Explicit z-order, visibility and composition metadata require a single primitive draw operation');
-  const result = _handleDrawInner(state, type, params);
+  const cell = state.project.cells.getCell(params.cell);
+  preflightSurfaceExpansion(type, params, cell);
+  const result = editCells(state, [cell], scoped => _handleDrawInner(scoped, type, params));
   _applyAutoGroupings(state, params, result);
   return result;
 }
@@ -765,6 +814,8 @@ function _handleDrawInner(state, type, params) {
   if (params.erase) drawParams.erase = true;
   if (params.composition !== undefined) drawParams.composition = structuredClone(params.composition);
   if (params.layers !== undefined) drawParams.layers = structuredClone(params.layers);
+  if (params.surface !== undefined) drawParams.surface = validateSurface(params.surface);
+  if(cell.lighting!==undefined||drawParams.surface!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:[...cell.shapes.listByZ(),{type,params:drawParams,color:params.color,visible:params.visible,zIndex:params.z??cell._nextZ}],width:cell.width,height:cell.height,lighting:cell.lighting,background:state.project.background,palette:state.project.palette.toJSON()});
   const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null, { visible: params.visible, zIndex: params.z });
   state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
   return { shapeId: shape.id, shapeName: shape.name };

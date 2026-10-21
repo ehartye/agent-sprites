@@ -114,7 +114,7 @@ test('character output cannot contain its inline source configuration', async ()
   writeConfig();
   const result = await buildProject(configPath);
   expect(result.ok).toBe(false);
-  expect(JSON.stringify(result.errors)).toContain('Output cannot contain the config or source files');
+  expect(JSON.stringify(result.errors)).toContain('Output cannot contain the config or source input files.');
   expect(readJson(configPath)).toEqual(config);
 });
 

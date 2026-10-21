@@ -89,7 +89,9 @@ async function ensureServer() {
   throw startupFailure('timed out waiting for verified service health', logPath);
 }
 
-async function api(method, path, body, { sessionId } = {}) {
+const invocation = parseArgs(process.argv.slice(3));
+
+async function api(method, path, body, { sessionId = invocation.args.session } = {}) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (sessionId) opts.headers['X-Sprite-Session'] = sessionId;
   if (body) opts.body = JSON.stringify(body);
@@ -260,7 +262,7 @@ SESSION
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
   save                   write editable project JSON (drafts already persist automatically)
-  export [--dest <folder>] [--trim true]  export gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
+  export [--dest <folder>] [--trim true] [--normal true|false]  color atlas plus automatic authored normal atlas
                          --trim packs each cell's opaque bounds with spriteSourceSize offsets
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
@@ -345,6 +347,11 @@ CELLS
   ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
   ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
   duration read --cell <ref> [--group <name>] [--session ID]
+  surface read|clear --cell <ref> --shape <name> [--session ID]
+  surface set --cell <ref> --shape <name> --file surface.json [--session ID]
+    Use --shape-id <ID> instead of --shape for an unnamed shape.
+  lighting read|clear --cell <ref> [--session ID]
+  lighting set --cell <ref> --file lighting.json [--session ID]
   duration set <ms> --cell <ref> [--session ID]   positive safe-integer milliseconds
   duration clear --cell <ref> [--session ID]       restore group FPS or default 8 FPS
   compose --file composition.json [--plan] [--cell R,C] [--session ID]   parts, stamps, tile, seeded scatter
@@ -356,7 +363,8 @@ CELLS
   rotate-cell --cell --deg 90|180|270           rotate every shape about cell center
   ref set <image.png> --cell [--opacity 0.35]   attach a tracing reference image
   ref clear --cell                              shown under shapes in view + web UI, never exported
-  view  --cell [--png true] [--scale N] [--out f.png]   view --sheet [--scale N] [--out f.png]
+  view  --cell [--channel color|normal|light] [--png true] [--scale N] [--out f.png]
+  view --sheet [--channel color|normal|light] [--scale N] [--out f.png]
   view  --stack sky,swirl_0,land [--scale N] [--out f.png]   composite cells as layers, first at the bottom
   view-anim <group> [--fps N] [--loops N] [--session ID]   exact frame ms; 0 loops means infinite
     persisted order/direction and loop policy; --fps changes only frames without explicit ms
@@ -415,7 +423,7 @@ async function run() {
     return;
   }
 
-  const { args, positional } = parseArgs(process.argv.slice(3));
+  const { args, positional } = invocation;
   if (cmd === 'replay') {
     for (const key of Object.keys(args)) if (!['list', 'cell', 'step', 'out', 'scale', 'json'].includes(key)) throw new Error(`Unknown replay option: --${key}`);
     const listing = bool(args.list);
@@ -617,8 +625,9 @@ async function run() {
       break;
     }
     case 'open':
+      // For open, --session selects the destination rather than pinning the active session.
       result = args.session
-        ? await api('POST', '/api/session/open-session', { ref: args.session })
+        ? await api('POST', '/api/session/open-session', { ref: args.session }, { sessionId: null })
         : await api('POST', '/api/session/open', { path: sub });
       break;
     case 'cast': {
@@ -664,6 +673,7 @@ async function run() {
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
         trim: args.trim !== undefined ? bool(args.trim) : undefined,
+        normal: args.normal !== undefined ? bool(args.normal) : undefined,
       }, { sessionId: args.session });
       break;
     case 'skin-tone':
@@ -775,6 +785,24 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'surface':
+    case 'lighting': {
+      if(typeof args.cell!=='string'||!args.cell.length)throw new Error(`${cmd} requires --cell <ref>`);
+      const selection={cell:args.cell,...(cmd==='surface'?{
+        ...(args.shape===undefined?{}:{shape:args.shape}),
+        ...(args['shape-id']===undefined?{}:{shapeId:args['shape-id']}),
+      }:{})};
+      let operation;
+      if(sub==='read')operation={command:cmd,sub:'read',...selection};
+      else if(sub==='clear')operation={command:cmd,...selection,[cmd]:null};
+      else if(sub==='set'){
+        if(!args.file)throw new Error(`${cmd} set requires --file <JSON file>`);
+        operation={command:cmd,...selection,[cmd]:JSON.parse(readFileSync(resolve(args.file),'utf8'))};
+      } else throw new Error(`Usage: ${cmd} read|clear --cell <ref> | ${cmd} set --cell <ref> --file <JSON file>`);
+      const {mapCommandToApi}=await import('./batch-commands.js'),mapped=mapCommandToApi(operation);
+      result=await api(mapped.method,mapped.path,mapped.body,{sessionId:args.session});
+      break;
+    }
     case 'duration': {
       if (typeof args.cell !== 'string' || !args.cell.length) throw new Error('duration requires --cell <ref>');
       const { mapCommandToApi } = await import('./batch-commands.js');
@@ -847,16 +875,16 @@ async function run() {
     case 'view': {
       const out = args.out ? resolve(args.out) : undefined;
       if (bool(args.sheet)) {
-        result = await api('POST', '/api/view/sheet', { scale: num(args.scale), out });
+        result = await api('POST', '/api/view/sheet', { scale: num(args.scale), out, channel: args.channel });
         break;
       }
       if (args.stack) {
         // Commas or spaces; R,C pairs survive: --stack sky,0,1,land
-        result = await api('POST', '/api/view/stack', { cells: args.stack, scale: num(args.scale), out });
+        result = await api('POST', '/api/view/stack', { cells: args.stack, scale: num(args.scale), out, channel: args.channel });
         break;
       }
       const format = (args.png || args.out) ? 'png' : 'terminal';
-      result = await api('POST', '/api/cell/view', { cell: args.cell, format, scale: num(args.scale), out });
+      result = await api('POST', '/api/cell/view', { cell: args.cell, format, scale: num(args.scale), out, channel: args.channel });
       if (result.ok && result.data?.terminal) {
         console.log(result.data.terminal);
         return;
@@ -1036,7 +1064,7 @@ async function run() {
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
-              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (cmd.command === 'duration' && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
+              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (['duration','surface','lighting'].includes(cmd.command) && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
                 (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
                 if (!quiet) console.log(JSON.stringify(res.data));
               }

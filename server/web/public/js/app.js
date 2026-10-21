@@ -248,6 +248,9 @@ function onProjectData(data) {
   const cellH = data.cellHeight ?? data.cellSize ?? cellW;
   editor.setPalette(state.palette);
   editor.setBackground(data.background);
+  cellNav.setBackground(data.background);
+  animPreview.setBackground(data.background);
+  fullPreview.setBackground(data.background);
   editor.setCellSize(cellW, cellH);
   shapePanel.setPalette(state.palette);
   cellNav.setPalette(state.palette);
@@ -290,7 +293,7 @@ const redraw = createRedrawScheduler(refs => {
   cellNav.refresh(refs);
   animPreview.setCells(cells);
   fullPreview.setCells(cells);
-  workbench.refreshReplay();
+  workbench.refreshProjectPanels();
 });
 
 function onDrawUpdate(data) {
@@ -397,6 +400,7 @@ function selectCell(ref) {
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
   refreshShapeGroups();
+  workbench.refreshProjectPanels();
 }
 
 function syncPreviewSequence() {

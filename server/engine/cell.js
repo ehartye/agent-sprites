@@ -1,6 +1,9 @@
 import { Shape } from './shape.js';
 import { ShapeRegistry } from './shape-registry.js';
 import { flipParams, mirrorSum, rotateParams, rotatePivot } from './transform.js';
+import { validateSurface, validateLighting } from '../web/public/js/shared/surface-model.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
+import { translateParams } from '../web/public/js/shared/shape-layers.js';
 
 export class Cell {
   constructor(size, opts = {}) {
@@ -10,15 +13,19 @@ export class Cell {
     this.height = h;
     this.name = opts.name ?? null;
     this.reference = opts.reference ?? null; // { path, opacity } tracing underlay; never exported
+    this.lighting = validateLighting(opts.lighting);
     this.shapes = new ShapeRegistry();
     this._undoStack = [];
     this._redoStack = [];
     this._maxUndo = opts.maxUndo ?? 50;
     this._nextZ = 0;
+    // Conservative fast-path hint; false guarantees no retained surface data.
+    this._hasSurfaceData = false;
   }
 
   /** Reserve root paint order in constant time, independently of a member's z. */
   _reserveShapeZ(shape) {
+    if (shape.params?.surface !== undefined) this._hasSurfaceData = true;
     const outerZ = shape.params?.layers?.[0]?.z;
     const next = Math.max(this._nextZ, Math.floor(shape.zIndex) + 1, Number.isSafeInteger(outerZ) ? outerZ + 1 : 0);
     // An exhausted imported/reordered surface stays editable, but a later draw
@@ -37,28 +44,63 @@ export class Cell {
     this._redoStack.length = 0;
   }
 
+  /** Current project context is supplied by CellManager, including after copy. */
+  validateSurfaceState(shapes, lighting = this.lighting) {
+    if (!shapes && lighting === undefined && !this._hasSurfaceData) return;
+    shapes ??= this.shapes.listByZ();
+    if (lighting === undefined && !shapes.some(shape => shape.params.surface !== undefined)) return;
+    validateSurfaceScene({ shapes, width: this.width, height: this.height, lighting, ...this.surfaceContext?.() });
+  }
+
+  _preflightShape(before, after) {
+    if (this._transaction || (this.lighting === undefined && !this._hasSurfaceData && after.params.surface === undefined)) return;
+    const shapes = this.shapes.listByZ().map(shape => shape === before ? after : shape);
+    if (!before) shapes.push(after);
+    this.validateSurfaceState(shapes);
+  }
+
+  _recordTransaction(commands) {
+    if (!commands.length) return;
+    this._undoStack.push({
+      execute: () => { for (const command of commands) command.execute(); },
+      undo: () => { for (const command of commands.toReversed()) command.undo(); },
+    });
+    if (this._undoStack.length > this._maxUndo) this._undoStack.shift();
+    this._redoStack.length = 0;
+  }
+
+  /** Validate every participating cell before committing any history entry. */
+  static editAll(cells, edit) {
+    const edits = [...new Set(cells)].map(cell => ({cell, commands: [], nextZ: cell._nextZ, surface: cell._hasSurfaceData}));
+    if (edits.some(({cell}) => cell._transaction)) throw new Error('A multi-cell edit cannot join an active transaction');
+    for (const {cell, commands} of edits) cell._transaction = commands;
+    let result;
+    try {
+      result = edit();
+      for (const {cell} of edits) cell.validateSurfaceState();
+    } catch (error) {
+      for (const {cell, commands, nextZ, surface} of edits.toReversed()) {
+        for (const command of commands.toReversed()) command.undo();
+        cell._nextZ = nextZ; cell._hasSurfaceData = surface;
+      }
+      throw error;
+    } finally { for (const {cell} of edits) cell._transaction = null; }
+    for (const {cell, commands} of edits) cell._recordTransaction(commands);
+    return result;
+  }
+
   /** Group synchronous edits into one undo entry; a failed edit rolls back. */
   transaction(edit) {
-    if (this._transaction) throw new Error('Nested cell transactions are not supported');
-    const commands = [], nextZ = this._nextZ;
-    this._transaction = commands;
-    let result;
-    try { result = edit(); }
+    if (!this._transaction) return Cell.editAll([this], edit);
+    // Nested helpers share the outer publication boundary, with a savepoint if
+    // their caller catches an error and continues the enclosing edit.
+    const start = this._transaction.length, nextZ = this._nextZ, surface = this._hasSurfaceData;
+    try { return edit(); }
     catch (error) {
-      for (const command of commands.toReversed()) command.undo();
-      this._nextZ = nextZ;
+      for (const command of this._transaction.splice(start).toReversed()) command.undo();
+      this._nextZ = nextZ; this._hasSurfaceData = surface;
       throw error;
-    } finally { this._transaction = null; }
-    if (commands.length) {
-      // Edits already ran. Register the compound command without executing twice.
-      this._undoStack.push({
-        execute: () => { for (const command of commands) command.execute(); },
-        undo: () => { for (const command of commands.toReversed()) command.undo(); },
-      });
-      if (this._undoStack.length > this._maxUndo) this._undoStack.shift();
-      this._redoStack.length = 0;
     }
-    return result;
   }
 
   draw(type, params, color, shapeName = null, opts = {}) {
@@ -70,6 +112,7 @@ export class Cell {
       zIndex,
       visible: opts.visible ?? true,
     });
+    this._preflightShape(null, shape);
     this._exec({
       execute: () => { this.shapes.add(shape); this._reserveShapeZ(shape); },
       undo: () => this.shapes.remove(shape.id),
@@ -81,18 +124,10 @@ export class Cell {
     const shape = this.shapes.get(ref);
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldParams = structuredClone(shape.params);
-    const applyMove = () => {
-      if ('x' in shape.params) shape.params.x += dx;
-      if ('y' in shape.params) shape.params.y += dy;
-      if ('x1' in shape.params) { shape.params.x1 += dx; shape.params.y1 += dy; }
-      if ('x2' in shape.params) { shape.params.x2 += dx; shape.params.y2 += dy; }
-      if ('cx' in shape.params) { shape.params.cx += dx; shape.params.cy += dy; }
-      if ('points' in shape.params) {
-        for (const pt of shape.params.points) { pt.x += dx; pt.y += dy; }
-      }
-    };
+    const proposed = { ...shape, params: translateParams(oldParams, dx, dy) };
+    this._preflightShape(shape, proposed);
     this._exec({
-      execute: applyMove,
+      execute: () => { shape.params = structuredClone(proposed.params); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
@@ -129,6 +164,8 @@ export class Cell {
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldParams = structuredClone(shape.params);
     const savedUpdates = structuredClone(updates);
+    if (Object.hasOwn(savedUpdates, 'surface')) savedUpdates.surface = validateSurface(savedUpdates.surface);
+    this._preflightShape(shape, { ...shape, params: { ...oldParams, ...savedUpdates } });
     this._exec({
       execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); this._reserveShapeZ(shape); },
       undo: () => { shape.params = structuredClone(oldParams); },
@@ -141,6 +178,8 @@ export class Cell {
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const before = { type: shape.type, params: structuredClone(shape.params), color: shape.color, visible: shape.visible };
     const after = structuredClone({ type, params, color, visible });
+    if (Object.hasOwn(after.params, 'surface')) after.params.surface = validateSurface(after.params.surface);
+    this._preflightShape(shape, { ...shape, ...after });
     this._exec({
       execute: () => { Object.assign(shape, structuredClone(after)); this._reserveShapeZ(shape); },
       undo: () => Object.assign(shape, structuredClone(before)),
@@ -153,8 +192,11 @@ export class Cell {
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const about = opts.about ?? 'self';
     const oldParams = structuredClone(shape.params);
+    const after = structuredClone(oldParams);
+    flipParams(after, axis, mirrorSum(after, axis, about, axis === 'horizontal' ? this.width : this.height));
+    this._preflightShape(shape, { ...shape, params: after });
     this._exec({
-      execute: () => flipParams(shape.params, axis, mirrorSum(shape.params, axis, about, axis === 'horizontal' ? this.width : this.height)),
+      execute: () => { shape.params = structuredClone(after); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
@@ -164,11 +206,11 @@ export class Cell {
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const about = opts.about ?? 'self';
     const oldParams = structuredClone(shape.params);
+    const after = structuredClone(oldParams), [px, py] = rotatePivot(after, about, this.width, this.height);
+    rotateParams(after, deg, px, py);
+    this._preflightShape(shape, { ...shape, params: after });
     this._exec({
-      execute: () => {
-        const [px, py] = rotatePivot(shape.params, about, this.width, this.height);
-        rotateParams(shape.params, deg, px, py);
-      },
+      execute: () => { shape.params = structuredClone(after); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
@@ -177,10 +219,36 @@ export class Cell {
     const shape = this.shapes.get(ref);
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldZ = shape.zIndex;
+    this._preflightShape(shape, { ...shape, zIndex: z });
     this._exec({
       execute: () => { shape.zIndex = z; this._reserveShapeZ(shape); },
       undo: () => { shape.zIndex = oldZ; },
     });
+  }
+
+  setLighting(value) {
+    const after = validateLighting(value), before = structuredClone(this.lighting);
+    if (JSON.stringify(after) === JSON.stringify(before)) return false;
+    if (!this._transaction && after !== undefined) this.validateSurfaceState(undefined, after);
+    this._exec({
+      execute: () => { this.lighting = structuredClone(after); },
+      undo: () => { this.lighting = structuredClone(before); },
+    });
+    return true;
+  }
+
+  /** The caller resolves names and IDs explicitly before passing a canonical shape. */
+  setShapeSurface(shape, value) {
+    if (!shape || this.shapes.getById(shape.id) !== shape) throw new Error('Surface target must belong to this cell');
+    const surface = validateSurface(value), before = structuredClone(shape.params), after = structuredClone(before);
+    if (surface === undefined) delete after.surface; else after.surface = surface;
+    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    this._preflightShape(shape, { ...shape, params: after });
+    this._exec({
+      execute: () => { shape.params = structuredClone(after); if (surface !== undefined) this._hasSurfaceData = true; },
+      undo: () => { shape.params = structuredClone(before); },
+    });
+    return true;
   }
 
   clear() {
@@ -217,11 +285,12 @@ export class Cell {
       name: this.name,
       reference: this.reference,
       shapes: this.shapes.toJSON(),
+      ...(this.lighting === undefined ? {} : { lighting: structuredClone(this.lighting) }),
     };
   }
 
   static fromJSON(json, size) {
-    const cell = new Cell(size, { name: json.name, reference: json.reference ?? null });
+    const cell = new Cell(size, { name: json.name, reference: json.reference ?? null, lighting: json.lighting });
     const shapes = ShapeRegistry.fromJSON(json.shapes);
     for (const shape of shapes.listByZ()) {
       cell.shapes.add(shape);

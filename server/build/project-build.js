@@ -20,7 +20,8 @@ import { mapCommandToApi } from '../../scripts/batch-commands.js';
 import { API_BODY_LIMIT } from '../web/api/policy.js';
 import { createPreview } from './preview.js';
 import { renderFontProof } from './font-proof.js';
-import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
+import { assertTrimOption } from '../engine/trimmed-export.js';
+import { exportSpriteAtlases } from '../engine/sprite-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
@@ -109,6 +110,7 @@ export async function buildProject(configPath) {
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
     const { sourceKind, inline, source } = resolveBuildSource(configPath, config);
     assertTrimOption(config.trim);
+    if(config.normal!==undefined&&typeof config.normal!=='boolean')throw new Error('normal must be true or false');
     // Large generated sets can leave out the bulky editable and review artifacts when only the game files are published.
     const OMITTABLE = ['project', 'operations', 'preview', 'contactSheet'];
     if (config.omit !== undefined && (!Array.isArray(config.omit) || config.omit.some(k => !OMITTABLE.includes(k)))) throw new Error(`omit must be an array drawn from: ${OMITTABLE.join(', ')}.`);
@@ -179,12 +181,13 @@ export async function buildProject(configPath) {
     const project = state.project;
     replay?.finish(project);
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
-    const { png, atlas } = config.trim
-      ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
-      : { png: renderer.renderSheet(project.cells, { gap: 0 }), atlas: project.exportAseprite({ imageName: `${name}.png` }) };
+    const { png, atlas, normalPng, normalAtlas } = await exportSpriteAtlases(project, renderer, { imageName: `${name}.png`, trim:config.trim, normal:config.normal });
     if (isUiReport(recipeReport)) await validateUiReport(recipeReport, atlas, png);
     // An environment drawn on a coarser source grid tells the game how far to scale the atlas.
-    if (recipeReport?.pixelScale !== undefined) atlas.meta.pixelScale = recipeReport.pixelScale;
+    if (recipeReport?.pixelScale !== undefined) {
+      atlas.meta.pixelScale = recipeReport.pixelScale;
+      if (normalAtlas) normalAtlas.meta.pixelScale = recipeReport.pixelScale;
+    }
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, maxAspect: config.maxAspect ?? (sourceKind === 'ui' ? 3 : undefined), contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
@@ -198,6 +201,10 @@ export async function buildProject(configPath) {
     if (sourceKind === 'native' && config.native?.only) result.warnings = verified.warnings = verified.warnings.filter(w => w.code !== 'empty-frame');
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
+    if(normalPng){
+      artifacts.normalSheet=`${name}.normal.png`;artifacts.normalAtlas=`${name}.normal.atlas.json`;
+      writeFileSync(join(stage,artifacts.normalSheet),normalPng);writeFileSync(join(stage,artifacts.normalAtlas),json(normalAtlas));
+    }
     if (replay) {
       artifacts.constructionReplay = 'construction-replay.json';
       writeFileSync(join(stage,artifacts.constructionReplay), json(project.constructionReplay));

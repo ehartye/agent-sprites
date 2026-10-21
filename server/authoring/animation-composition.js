@@ -6,6 +6,8 @@ import { compileComposition } from '../engine/composition.js';
 import { patternTest } from '../engine/patterns.js';
 import { snapParams } from '../web/public/js/shared/raster.js';
 import { composeTimeline } from '../web/public/js/shared/atlas-timeline.js';
+import { validateSurface, validateLighting } from '../web/public/js/shared/surface-model.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 import {
   resolveFrameDurationMs,
   resolveAnimationLoop,
@@ -177,6 +179,7 @@ function primitive(shape, palette) {
   if (p.pattern !== undefined) patternTest(p.pattern);
   if (p.color2 !== undefined) p.color2 = color(palette, p.color2);
   if (p.layers !== undefined) validateLayers(p.layers);
+  if (p.surface !== undefined) p.surface = validateSurface(p.surface);
   if (!Number.isFinite(shape.zIndex ?? 0))
     throw Error('Source z order must be finite');
   delete p.composition;
@@ -351,6 +354,7 @@ export function generateAnimationComposition(config, baseDirectory) {
       'seed',
       'durationMs',
       'loop',
+      'lighting',
       'parts',
       'placements'
     ],
@@ -361,6 +365,7 @@ export function generateAnimationComposition(config, baseDirectory) {
     palette = Palette.fromPreset(config.palette ?? 'pico8');
   if (config.seed !== undefined) seed(config.seed);
   if (config.loop !== undefined) bool(config.loop, 'Animation loop');
+  const lighting=validateLighting(config.lighting);
   object(config.parts, Object.keys(config.parts ?? {}), 'parts');
   const project = planningProject(palette, width, height),
     parts = new Map(),
@@ -508,6 +513,7 @@ export function generateAnimationComposition(config, baseDirectory) {
   if (cols * rows * width * height > 64_000_000)
     throw Error('Animation exceeds 64000000-pixel raster work budget');
   for (const [index, step] of timeline.steps.entries()) {
+    const frameStartWork=rasterWork;
     const cell = `${Math.floor(index / cols)},${index % cols}`,
       alias = `${config.name}_${String(index).padStart(4, '0')}`,
       shapes = [];
@@ -635,9 +641,11 @@ export function generateAnimationComposition(config, baseDirectory) {
         });
       }
     }
-    rasterWork += buildLayerTree(shapes, width, height).rasterWork;
+    if(lighting!==undefined||shapes.some(shape=>shape.params.surface!==undefined))rasterWork=frameStartWork+validateSurfaceScene({shapes,width,height,lighting,palette:palette.toJSON()}).rasterWork;
+    else rasterWork += buildLayerTree(shapes, width, height).rasterWork;
     if (rasterWork > 64_000_000)
       throw Error('Animation exceeds 64000000-pixel raster work budget');
+    if(lighting!==undefined)operations.push({command:'lighting',cell,lighting:structuredClone(lighting)});
     frames.push({
       alias,
       cell,

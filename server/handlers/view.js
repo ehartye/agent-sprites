@@ -30,7 +30,7 @@ export function handleViewCell(state, params, tmpDir) {
   if (!state.project) throw new Error('No project open');
   const cell = state.project.cells.getCell(params.cell);
   // Single-cell views include the tracing reference; export paths never do.
-  const viewOpts = { withReference: true, scale: clampScale(params.scale) };
+  const viewOpts = { withReference: true, scale: clampScale(params.scale), channel: params.channel };
 
   if (params.format === 'terminal') {
     const termRenderer = new TerminalRenderer(state.project.palette);
@@ -48,7 +48,7 @@ export function handleViewCells(state, params, tmpDir) {
   if (!state.project) throw new Error('No project open');
   const cells = params.cells.map((ref) => state.project.cells.getCell(ref));
   const renderer = getRenderer(state);
-  const buf = renderer.renderCells(cells, { scale: clampScale(params.scale) });
+  const buf = renderer.renderCells(cells, { scale: clampScale(params.scale), channel: params.channel });
   const p = outPath(params, tmpDir, 'cells');
   fs.writeFileSync(p, buf);
   return { path: p };
@@ -70,7 +70,7 @@ export function handleViewStack(state, params, tmpDir) {
   const refs = typeof params.cells === 'string' ? parseStack(params.cells) : params.cells;
   if (!Array.isArray(refs) || !refs.length) throw new Error('view --stack needs at least one cell name or R,C');
   const layers = refs.map(ref => state.project.cells.resolveRef(ref));
-  const buf = getRenderer(state).renderStack(layers.map(ref => state.project.cells.getCell(ref)), { scale: clampScale(params.scale) });
+  const buf = getRenderer(state).renderStack(layers.map(ref => state.project.cells.getCell(ref)), { scale: clampScale(params.scale), channel: params.channel });
   const p = outPath(params, tmpDir, 'stack');
   fs.writeFileSync(p, buf);
   return { path: p, layers };
@@ -79,7 +79,7 @@ export function handleViewStack(state, params, tmpDir) {
 export function handleViewSheet(state, params, tmpDir) {
   if (!state.project) throw new Error('No project open');
   const renderer = getRenderer(state);
-  const buf = renderer.renderSheet(state.project.cells, { scale: clampScale(params.scale) });
+  const buf = renderer.renderSheet(state.project.cells, { scale: clampScale(params.scale), channel: params.channel });
   const p = outPath(params, tmpDir, 'sheet');
   fs.writeFileSync(p, buf);
   return { path: p };

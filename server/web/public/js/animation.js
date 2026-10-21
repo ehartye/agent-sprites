@@ -19,6 +19,7 @@ export class AnimationPreview {
     this._cellW = 16;
     this._cellH = 16;
     this._palette = {};
+    this._background = { mode: 'transparent' };
     this._frames = [];
     this._currentFrame = 0;
     this._fps = DEFAULT_FPS;
@@ -91,6 +92,7 @@ export class AnimationPreview {
     requestAnimationFrame(() => this.fitToMount());
   }
 
+  setBackground(background) { this._background = background ?? { mode: 'transparent' }; if (this._canvas) this._renderFrame(); }
   setPalette(paletteMap) { this._palette = paletteMap; }
   setCellSize(w, h = w) {
     this._cellW = w;
@@ -309,7 +311,7 @@ export class AnimationPreview {
 
     const ref = this._frames[this._currentFrame];
     const shapes = this._getCellShapes(ref);
-    const native = renderCellNative(shapes, this._cellW, this._cellH, ref => this._resolveColor(ref));
+    const native = renderCellNative(shapes, this._cellW, this._cellH, ref => this._resolveColor(ref), { lighting: this._cells[ref]?.lighting, background: this._background, palette: this._palette });
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(native, 0, 0, this._canvas.width, this._canvas.height);
   }

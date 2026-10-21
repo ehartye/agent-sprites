@@ -83,6 +83,6 @@ test('a build publishes the pingpong tag and rejects an unknown direction', asyn
     fs.writeFileSync(join(dir, 'ops.json'), JSON.stringify(ops));
     const bad = await buildProject(join(dir, 'sprite-project.json'));
     expect(bad.ok).toBe(false);
-    expect(bad.errors[0].message).toMatch(/direction must be forward, reverse or pingpong/);
+    expect(bad.errors[0].message).toMatch(/direction must be forward, reverse, pingpong or pingpong_reverse/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }, 30000);

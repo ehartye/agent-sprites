@@ -18,7 +18,7 @@ to 3377 (`SPRITE_PORT` overrides it); a different port does not isolate SQLite d
 | `cast start` | `--file <casting.json> [--out <verdict.json>]` | Open a collaborative frame-casting session in the web UI (`/casting.html?id=…`): slots + candidate frame paths + predicted assignments; the user confirms/overrides/marks gaps. See the `sprite-verification` skill |
 | `cast status` | `--id <id>` | Poll a casting verdict: agreement score + per-slot prediction-vs-selection disagreements (detector-refinement signal) |
 | `save` | | Write project JSON to the opened file, or `<session destination>/<name>.json` for a new project. SQLite drafts are automatic and need no `save`; omit it when assets must contain only PNG + atlas. |
-| `export` | `[--dest <folder>] [--trim true]` | Export gapless sheet PNG + **Aseprite JSON atlas** (`<name>.atlas.json`) to the project's asset folder (or exactly `--dest` for this export only). The atlas carries `meta.frameTags` (one per cell group, as a contiguous appended frame run), per-frame `duration` from each group's fps, and the pivot as a slice — consumable directly by Unity/Godot/Phaser importers |
+| `export` | `[--dest <folder>] [--trim true] [--normal true\|false]` | Export color PNG + Aseprite JSON atlas; visible authored normals automatically add matching normal PNG/atlas. Explicit normal inclusion overrides auto. Frame milliseconds override group FPS; tags, trim offsets and pivot align across channels. |
 | `pivot` | `--x N --y N` \| `--anchor center\|top-center\|bottom-center\|bottom-left\|bottom-right` | Set the sprite origin exported in the atlas (characters usually want `bottom-center`). Unity/Godot importers read the exported pivot slice; **Phaser ignores slices** — set `sprite.setOrigin(...)` in game code |
 | `status` | | Show current project info |
 
@@ -165,7 +165,7 @@ sprite.js resize ball --cell 0,1 --updates '{"rx":4,"ry":5}'   # stretch mid-air
 | `name` | `--cell --as <name>` | Give cell a readable name |
 | `ref set <image.png>` | `--cell [--opacity 0.35]` | Attach a tracing reference image: rendered dimmed **under** shapes in `view` output and the web UI editor, scaled to the cell, never included in exports. Use it to copy a pose or style from an existing image |
 | `ref clear` | `--cell` | Remove the reference |
-| `view` | `--cell [--png true] [--scale N] [--out <file.png>]` | Render cell preview (includes the reference underlay if set). `--scale N` (1–32) nearest-neighbor upscales the PNG — use `--scale 8` to actually judge 16px art. `--out` writes the PNG exactly there (parents created; implies `--png`) |
+| `view` | `--cell [--channel color\|normal\|light] [--png true] [--scale N] [--out <file.png>]` | Render saved color, normal or light channel (color includes a reference underlay if set). `--scale N` (1–32) upscales by nearest neighbor. `--out` writes exactly there and implies PNG. Normal PNG preserves encoded RGB under partial alpha. |
 | `view --sheet` | `[--scale N] [--out <file.png>]` | Render the whole sheet to a PNG — a temp path by default, or exactly `--out` |
 | `view --stack` | `<cells> [--scale N] [--out <file.png>]` | Composite cells as layers, first at the bottom (`--stack sky,swirl_0,land`; names or `R,C`); each cell's erase shapes stay within its own layer |
 | `undo` | `--cell` | Undo last operation in cell |
@@ -203,11 +203,26 @@ Cell groups organize frames into animation sequences (stored in SQLite).
 |---------|-----------|-------|
 | `group create <name> <cells...>` | group name + cell coords | Create group with cells. `--fps N` sets playback speed (exported as atlas frame durations; default 8) |
 | `group fps <name> <N>` | group name + fps | Set/change a group's fps |
-| `group direction <name> <dir>` | group name + `forward`/`reverse`/`pingpong` | Set the exported Aseprite tag direction (also `group create --direction`; default `forward`) |
+| `group direction <name> <dir>` | group name + `forward`/`reverse`/`pingpong`/`pingpong_reverse` | Set browser/terminal/export direction (also `group create --direction`; default `forward`) |
+| `group loop <name> <true\|false>` | group name + loop policy | Persist repeating or once-only playback; also `group create --loop`. |
+| `duration read\|set <ms>\|clear` | `--cell <ref> [--group <name>]` | Coordinate-owned positive whole milliseconds override group FPS. Read returns effective timing/source; clear restores inheritance. |
 | `group list` | | List all cell groups |
 | `group add <name> <cells...>` | group name + cell coords | Add cells to existing group |
 | `group remove <name> <cells...>` | group name + cell coords | Remove cells from group |
 | `group delete <name>` | group name | Delete group (cells stay intact) |
+
+## Retained surface authoring
+
+| Command | Parameters | Result |
+|---|---|---|
+| `surface read\|clear` | `--cell <ref> --shape <name>` or `--shape-id ID` | Read/remove a shape's normal, material and attached lamps. |
+| `surface set` | Same selector plus `--file surface.json` | Replace surface metadata as one undoable edit. |
+| `lighting read\|clear` | `--cell <ref>` | Read or disable cell lighting, retaining shape authoring. |
+| `lighting set` | `--cell <ref> --file lighting.json` | Enable offline lighting with explicit `palettePolicy: rgb\|nearest`. |
+
+Use `--session ID` for pinned CLI requests, including transforms and channel
+views. Read [surface schemas and paired export](../../sprite-shading/references/surface-lighting.md)
+before authoring normals or lamps; the browser Lighting tab uses the same server.
 
 ## Shape Groups
 

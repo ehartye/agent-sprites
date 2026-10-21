@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "output": "dist",
+  "trim": true,
+  "normal": true,
+  "expectedTags": ["sweep"],
+  "replay": {"cells": ["0,0"], "maxSteps": 32}
+}

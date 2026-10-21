@@ -4,6 +4,8 @@ import { CanvasRenderer } from './canvas-renderer.js';
 import { Palette } from './palette.js';
 import { patternTest } from './patterns.js';
 import { buildLayerTree } from '../web/public/js/shared/shape-layers.js';
+import { validateSurface, validateLighting } from '../web/public/js/shared/surface-model.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 
 export const CONSTRUCTION_REPLAY_LIMITS = Object.freeze({ maxCells: 16, maxRecords: 2048, maxBytes: 32 * 1024 * 1024, maxPixels: 64_000_000 });
 const geometry = { point:['x','y'], fill:['x','y'], line:['x1','y1','x2','y2'], rect:['x','y','w','h'], circle:['cx','cy','r'], ellipse:['cx','cy','rx','ry'], polygon:['points'], polyline:['points'] };
@@ -105,7 +107,8 @@ export function createConstructionRecorder(config, { operations, source, inputs,
   };
 }
 
-function snapshotWork(snapshot, width, height) {
+function snapshotWork(snapshot, width, height, palette) {
+  if(snapshot.lighting!==undefined||snapshot.shapes.some(shape=>shape.params.surface!==undefined))return validateSurfaceScene({shapes:snapshot.shapes,width,height,lighting:snapshot.lighting,palette}).rasterWork;
   let work = buildLayerTree(snapshot.shapes, width, height).rasterWork;
   for (const shape of snapshot.shapes) {
     const p = shape.params;
@@ -125,8 +128,9 @@ function snapshotWork(snapshot, width, height) {
   }
   return work;
 }
-function validateSnapshot(cell, width, height) {
+function validateSnapshot(cell, width, height, palette) {
   if (!object(cell) || !Array.isArray(cell.shapes) || (cell.name !== null && typeof cell.name !== 'string')) fail('invalid cell snapshot');
+  validateLighting(cell.lighting);
   const ids = new Set(), names = new Set();
   for (const shape of cell.shapes) {
     if (!object(shape) || !text(shape.id) || ids.has(shape.id) || !Object.hasOwn(geometry, shape.type) || !object(shape.params) || !text(shape.color) || !Number.isFinite(shape.zIndex) || typeof shape.visible !== 'boolean' || (shape.name !== null && typeof shape.name !== 'string')) fail('invalid shape snapshot');
@@ -142,8 +146,9 @@ function validateSnapshot(cell, width, height) {
     for (const key of ['erase','filled']) if (key in p && typeof p[key] !== 'boolean') fail(`invalid shape ${key}`);
     if (p.pattern !== undefined) patternTest(p.pattern);
     if (p.color2 !== undefined && !text(p.color2)) fail('invalid shape secondary color');
+    if (p.surface !== undefined) validateSurface(p.surface);
   }
-  snapshotWork(cell,width,height);
+  snapshotWork(cell,width,height,palette);
 }
 
 /** Validate portable evidence without allocating Shape objects or consulting local source files. */
@@ -165,7 +170,7 @@ export function validateConstructionReplay(value, project) {
     validateSource(record.source, value.inputs);
     if (record.id !== operationIdentity(record.operation, record.operationIndex, record.source)) fail('operation identity hash does not match evidence');
     if (!object(record.cells) || Object.keys(record.cells).length !== cells.length || cells.some(ref => !Object.hasOwn(record.cells, ref))) fail('invalid selected cell snapshots');
-    for (const ref of cells) validateSnapshot(record.cells[ref], value.width, value.height);
+    for (const ref of cells) validateSnapshot(record.cells[ref], value.width, value.height, record.palette);
     if (!Array.isArray(record.palette) || record.palette.some(color => !object(color) || !text(color.name) || !text(color.color))) fail('invalid palette snapshot');
     if (!object(record.background) || !['transparent','chroma'].includes(record.background.mode) || (record.background.mode === 'chroma' && !text(record.background.color))) fail('invalid background snapshot');
   }
@@ -184,7 +189,7 @@ export function constructionReplayMetadata(project) {
     steps:trace.records.map(stepMetadata), contributionPolicy:'Canonical after RGBA at changed pixels; cleared pixels are transparent and explicitly identified by changedMask and clearedPixels.' };
 }
 function descriptor(snapshot, trace) {
-  return { width:trace.width, height:trace.height, shapes:{ listByZ:() => snapshot.shapes.toSorted((a,b) => a.zIndex - b.zIndex) } };
+  return { width:trace.width, height:trace.height, lighting:snapshot.lighting, shapes:{ listByZ:() => snapshot.shapes.toSorted((a,b) => a.zIndex - b.zIndex) } };
 }
 function raster(record, ref, trace) {
   return new CanvasRenderer(Palette.fromJSON(record.palette), { background:record.background }).renderCellRaw(descriptor(record.cells[ref], trace));
@@ -212,8 +217,8 @@ export function renderConstructionReplay(project, { cell, step, scale = 1 } = {}
   const liveCell = project.cells.getCell(cell), current = selectedState(project,[cell]);
   // Live resize/edit operations can introduce geometry that was never part of
   // the validated construction trace. Validate it before estimating any work.
-  validateSnapshot(current.cells[cell],width,height);
-  const work=[record.cells[cell],previous.cells[cell],final.cells[cell],current.cells[cell]].reduce((sum,snapshot)=>sum+snapshotWork(snapshot,width,height),4*width*height*scale*scale);
+  validateSnapshot(current.cells[cell],width,height,current.palette);
+  const work=[record,previous,final,current].reduce((sum,state)=>sum+snapshotWork(state.cells[cell],width,height,state.palette),4*width*height*scale*scale);
   if (!Number.isFinite(work) || work < 0 || work > CONSTRUCTION_REPLAY_LIMITS.maxPixels) fail('64 million replay query raster work budget exceeded');
   const after = raster(record, cell, trace);
   const before = raster(previous, cell, trace), contribution = new Uint8ClampedArray(after.length), mask = new Uint8ClampedArray(after.length);

@@ -3,6 +3,13 @@ import { resolve } from 'node:path';
 export function mapCommandToApi(cmd) {
   const { command, ...params } = cmd;
   switch (command) {
+    case 'surface':
+    case 'lighting': {
+      const {sub,...body}=params;
+      if(sub==='read')return {method:'GET',path:`/api/cell/${command}?${new URLSearchParams(body)}`};
+      if(sub!==undefined)throw new Error(`${command} batch edits use the value field (null clears), or sub: read`);
+      return {method:'POST',path:`/api/cell/${command}`,body};
+    }
     case 'layer': {
       const {sub,cell,...options}=params;
       if(sub==='list')return {method:'GET',path:`/api/cell/layers?${new URLSearchParams({cell})}`};
@@ -59,6 +66,7 @@ export function mapCommandToApi(cmd) {
       return { method: 'POST', path: '/api/session/export', body: {
         dest: params.dest ? resolve(String(params.dest)) : undefined,
         trim: params.trim,
+        normal: params.normal,
       }};
     case 'shape-group': {
       const body = { cell: params.cell, name: params.name };
@@ -122,6 +130,7 @@ export function mapCommandToApi(cmd) {
         erase: params.erase,
         composition: params.composition,
         layers: params.layers,
+        surface: params.surface,
         visible: params.visible,
         z: params.z,
         from_deg: params.from_deg,

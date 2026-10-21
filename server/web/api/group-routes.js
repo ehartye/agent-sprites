@@ -4,6 +4,7 @@ import { GroupManager } from '../../engine/group-manager.js';
 import { TAG_DIRECTIONS as DIRECTIONS } from '../../engine/project.js';
 import { moveLayerSelection } from '../../engine/shape-layers.js';
 import { durationFromFps } from '../public/js/shared/timing.js';
+import { editCells } from '../../handlers/edit.js';
 
 // Rebuild state.project.groups from SQLite and notify the browser.
 function syncCellGroups(state) {
@@ -214,14 +215,16 @@ export function groupRoutes(state) {
             return Object.hasOwn(groups, name);
           })
         : [requireGroupInCell(state, name, cell)];
-      for (const c of cellsToUpdate) {
-        const groups = state.db.getShapeGroups(state.sessionId, c);
-        const shapes = groups[name] ?? [];
-        const cellObj = state.project.cells.getCell(c);
-        if (cellObj.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) moveLayerSelection(cellObj, shapes, dx, dy);
-        else for (const shapeName of shapes) cellObj.moveShape(shapeName, dx, dy);
-        state.broadcast?.({ type: 'shape_moved', cell: c });
-      }
+      editCells(state, cellsToUpdate.map(c => state.project.cells.getCell(c)), scoped => {
+        for (const c of cellsToUpdate) {
+          const groups = state.db.getShapeGroups(state.sessionId, c);
+          const shapes = groups[name] ?? [];
+          const cellObj = state.project.cells.getCell(c);
+          if (cellObj.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) moveLayerSelection(cellObj, shapes, dx, dy);
+          else for (const shapeName of shapes) cellObj.moveShape(shapeName, dx, dy);
+          scoped.broadcast({ type: 'shape_moved', cell: c });
+        }
+      });
       saveDraft(state);
       res.json({ ok: true, data: `Moved group "${name}" by (${dx},${dy})` });
     } catch (e) { res.json({ ok: false, error: e.message }); }

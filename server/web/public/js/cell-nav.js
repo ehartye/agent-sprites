@@ -10,6 +10,7 @@ export class CellNavigator {
     this._cellW = 16;
     this._cellH = 16;
     this._palette = {};
+    this._background = { mode: 'transparent' };
     this._cells = {};
     this._activeRef = '0,0';
     this._filter = null; // null = all, or array of cell refs
@@ -30,6 +31,8 @@ export class CellNavigator {
     this._cellW = cellW;
     this._cellH = cellH;
   }
+
+  setBackground(background) { this._background = background ?? { mode: 'transparent' }; }
 
   setPalette(paletteMap) {
     this._palette = paletteMap;
@@ -150,12 +153,12 @@ export class CellNavigator {
     }
 
     const cell = this._cells[ref];
-    if (!cell || !cell.shapes || cell.shapes.length === 0) return;
+    if (!cell || !cell.shapes) return;
 
     const sorted = [...cell.shapes]
       .filter(s => s.visible !== false || s.params?.layers?.length)
       .sort((a, b) => a.zIndex - b.zIndex);
-    const native = renderCellNative(sorted, cellW, cellH, r => this._resolveColor(r));
+    const native = renderCellNative(sorted, cellW, cellH, r => this._resolveColor(r), { lighting: cell.lighting, background: this._background, palette: this._palette });
     ctx.imageSmoothingEnabled = canvas.width < cellW;
     ctx.drawImage(native, 0, 0, cellW, cellH);
   }

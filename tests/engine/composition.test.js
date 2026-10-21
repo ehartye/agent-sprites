@@ -10,6 +10,12 @@ const spec = (placements = [{ kind: 'stamp', part: 'leaf', name: 'tuft', x: 3, y
 const cell = p => p.cells.getCell('0,0');
 
 describe('compact composition', () => {
+  it('copies editable normal, material and attached lamps with translated instance coordinates',()=>{
+    const p=project(),input=spec();input.parts.leaf.shapes[0].params.surface={normal:{mode:'flat',vector:[1,0,1]},material:{wall:true},lamps:[{name:'key',x:0,y:1}]};
+    const compiled=compileComposition(p,input);
+    expect(compiled.shapes[0].params.surface).toMatchObject({normal:{mode:'flat'},material:{wall:true},lamps:[{x:3,y:3}]});
+    expect(input.parts.leaf.shapes[0].params.surface.lamps[0].x).toBe(0);
+  });
   it.each(['__proto__', 'constructor', 'toString', ['checker']].map(pattern => ({ pattern })))('rejects invalid pattern names without editing: %j', ({ pattern }) => {
     const p = project(), input = spec();
     input.parts.leaf.shapes = [{ name: 'body', type: 'rect', params: { x: 0, y: 0, w: 2, h: 2, filled: true, pattern, color2: '#ffffff' }, color: '#ff0000' }];

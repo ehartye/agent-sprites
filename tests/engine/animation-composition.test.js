@@ -153,6 +153,14 @@ test.each(['constructor', '__proto__'])('source group %s inherits forward loopin
   expect(result.operations.filter(operation => operation.command === 'duration').map(operation => operation.ms)).toEqual([125,125]);
 });
 
+test('retains translated child surface authoring and explicit parent lighting instead of baking children twice',()=>{
+  const child=source();child.cells['0,0'].shapes[0].params.surface={normal:{mode:'grid',x:0,y:0,rows:['68']},material:{wall:true},lamps:[{name:'key',x:0,y:0}]};
+  child.cells['0,0'].lighting={palettePolicy:'rgb',ambient:0.05};writeFileSync(join(dir,'child.project.json'),JSON.stringify(child));
+  const config={...scene(),lighting:{palettePolicy:'rgb',ambient:0.25}},result=generateAnimationComposition(config,dir);
+  expect(result.operations.find(operation=>operation.command==='draw').surface).toMatchObject({normal:{x:1,y:2},lamps:[{x:1,y:2}]});
+  expect(result.operations.filter(operation=>operation.command==='lighting').map(operation=>operation.lighting.ambient)).toEqual([0.25,0.25]);
+});
+
 test('retains full joint periods and offsets while stable random phases survive declaration reordering', () => {
   source('a.project.json', { frameDurations: { '0,0': 101, '0,1': 101 } });
   source('b.project.json', { frameDurations: { '0,0': 103, '0,1': 103 } });
