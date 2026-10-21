@@ -7,6 +7,7 @@ export class ShapeRegistry {
   }
 
   add(shape) {
+    if (this._byId.has(shape.id)) throw new Error(`Shape ID "${shape.id}" already exists`);
     if (shape.name && this._byName.has(shape.name)) {
       throw new Error(`Shape name "${shape.name}" already exists`);
     }

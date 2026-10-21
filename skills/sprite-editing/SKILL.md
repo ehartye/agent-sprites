@@ -1,6 +1,6 @@
 ---
 name: sprite-editing
-description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
+description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
@@ -112,6 +112,13 @@ For position-only changes across frames, `sprite.js clone` copies a single shape
 Prefer `move-to` over relative offsets when you know the target coordinate — it's idempotent and easier to reason about.
 
 ## Shape Editing
+
+For small pixel corrections, read the bounded region as text with `ascii read`,
+then apply an `ascii patch`. Read [ASCII region editing](references/ascii-regions.md)
+before using it: `.` keeps a pixel, `_` erases artwork, and `?` reports an unmapped
+color that must be resolved explicitly. One patch is one undo entry; owned pixel
+overlays remain named and editable. The browser's **ASCII** workbench uses the same
+server operations.
 
 ```
 sprite.js shapes   --cell 0,0                          # inspect shapes (z-ordered)

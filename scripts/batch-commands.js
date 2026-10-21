@@ -3,6 +3,11 @@ import { resolve } from 'node:path';
 export function mapCommandToApi(cmd) {
   const { command, ...params } = cmd;
   switch (command) {
+    case 'ascii': {
+      const { sub, ...body } = params;
+      if (!['read', 'patch'].includes(sub)) throw new Error('ascii requires read or patch');
+      return { method: 'POST', path: `/api/cell/ascii-${sub}`, body };
+    }
     case 'new': {
       const sizeMatch = typeof params.size === 'string' ? params.size.match(/^(\d+)x(\d+)$/i) : null;
       return { method: 'POST', path: '/api/session/new', body: {

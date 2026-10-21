@@ -36,6 +36,15 @@ describe('collaborative workbench', () => {
     await api('group/shape/create', { cell: '0,0', name: 'figure', shapes: ['body'] });
     return state.sessionId;
   }
+  test('serves the supported workbench commands including bounded ASCII region workflows', async () => {
+    const result = await api('workbench/commands');
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'ascii read', method: 'POST', path: '/api/cell/ascii-read' }),
+      expect.objectContaining({ id: 'ascii patch', method: 'POST', path: '/api/cell/ascii-patch' }),
+    ]));
+    expect(new Set(result.data.map(command => command.id)).size).toBe(result.data.length);
+  });
   test('copy makes an independent editable session, preserving groups and never reusing its save path', async () => {
     const original = await make();
     state.db.updateSession(original, { json_file: 'original.project.json' });

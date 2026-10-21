@@ -284,7 +284,9 @@ sprite.js batch ops.json [--vars-file frames.json | --vars k=v,k=v] [--continue-
 - `--json` emits one summary object: `ok`, `total`, `attempted`, `succeeded`, `failed`,
   `errors` (`index`, `command`, `error`), `session`, `artifacts` (`type`, `path`), and
   `exports` (export metadata). `total` counts planned ops; `attempted` may be smaller
-  after fail-fast. Check the process exit status before using artifacts.
+  after fail-fast. ASCII reads additionally return `results` entries with operation
+  `index`, `command` and exact readback `data`. Check the process exit status before
+  using artifacts.
 - No arithmetic, no conditionals, no nested interpolation. Pre-compute numeric values in the vars file.
 - **Large builds (150+ ops): generate the batch file from a small JS script** instead of hand-writing JSON — helper functions (`draw()`, a per-archetype recipe that clones rows and recolor-groups variants) keep it maintainable, and the emitted `build.json` stays the reviewable, replayable artifact. Proven shape: horde-peril's `asset-src/gen-build.mjs` (9 sheets / 12 enemy variants / 234 ops from ~200 lines of generator).
 

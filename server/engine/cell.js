@@ -19,9 +19,37 @@ export class Cell {
 
   _exec(command) {
     command.execute();
+    if (this._transaction) {
+      this._transaction.push(command);
+      return;
+    }
     this._undoStack.push(command);
     if (this._undoStack.length > this._maxUndo) this._undoStack.shift();
     this._redoStack.length = 0;
+  }
+
+  /** Group synchronous edits into one undo entry; a failed edit rolls back. */
+  transaction(edit) {
+    if (this._transaction) throw new Error('Nested cell transactions are not supported');
+    const commands = [], nextZ = this._nextZ;
+    this._transaction = commands;
+    let result;
+    try { result = edit(); }
+    catch (error) {
+      for (const command of commands.toReversed()) command.undo();
+      this._nextZ = nextZ;
+      throw error;
+    } finally { this._transaction = null; }
+    if (commands.length) {
+      // Edits already ran. Register the compound command without executing twice.
+      this._undoStack.push({
+        execute: () => { for (const command of commands) command.execute(); },
+        undo: () => { for (const command of commands.toReversed()) command.undo(); },
+      });
+      if (this._undoStack.length > this._maxUndo) this._undoStack.shift();
+      this._redoStack.length = 0;
+    }
+    return result;
   }
 
   draw(type, params, color, shapeName = null) {

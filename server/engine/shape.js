@@ -2,6 +2,7 @@ let nextId = 1;
 
 export class Shape {
   constructor(type, params, color, opts = {}) {
+    if (!Number.isSafeInteger(nextId) || nextId >= Number.MAX_SAFE_INTEGER) throw new Error('Shape ID space exhausted');
     this.id = `s${nextId++}`;
     this.type = type;
     // Deep copy: params may hold nested structures (polygon points)
@@ -39,6 +40,12 @@ export class Shape {
       visible: json.visible,
     });
     shape.id = json.id;
+    const numericId = /^s(\d+)$/.exec(shape.id);
+    if (numericId) {
+      const reserved = Number(numericId[1]) + 1;
+      if (!Number.isSafeInteger(reserved)) throw new Error('Imported shape ID exceeds the supported ID space');
+      nextId = Math.max(nextId, reserved);
+    }
     return shape;
   }
 }

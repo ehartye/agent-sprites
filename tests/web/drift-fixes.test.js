@@ -3,7 +3,7 @@ import { startWebServer } from '../../server/web/http.js';
 import { Project, TAG_DIRECTIONS } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
 import { handleDraw } from '../../server/handlers/draw.js';
-import { COMMANDS } from '../../server/web/public/js/command-catalog.js';
+import { COMMANDS } from '../../server/commands/catalog.js';
 
 let info, db, state, url;
 beforeAll(async () => {

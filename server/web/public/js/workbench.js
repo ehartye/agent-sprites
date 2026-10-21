@@ -1,17 +1,6 @@
-import { COMMANDS, commandRequest } from './command-catalog.js';
-
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text != null) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
-function button(label, action, className = '') {
-  const node = element('button', label, className);
-  node.type = 'button';
-  node.addEventListener('click', action);
-  return node;
-}
+import { commandRequest } from './command-catalog.js';
+import { element, button, input, field, setStatus } from './components.js';
+import { RegionEditor } from './region-editor.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -26,6 +15,7 @@ export class Workbench {
     this.sessionId = null;
     this.tab = null;
     this.sequence = 0;
+    this.commands = [];
   }
   init() {
     this.mount = document.getElementById('workbench-mount');
@@ -35,8 +25,8 @@ export class Workbench {
     this.mount.append(element('h2', 'Design workbench'));
     this.mount.append(button('Close', () => this.close(), 'drawer-close'));
     this.nav = element('nav', null, 'workbench-tabs');
-    for (const tab of ['sessions', 'palettes', 'tools', 'handoff']) {
-      const btn = button(tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
+    for (const tab of ['sessions', 'palettes', 'ascii', 'tools', 'handoff']) {
+      const btn = button(tab === 'ascii' ? 'ASCII' : tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
       btn.dataset.panel = tab;
       this.nav.append(btn);
     }
@@ -53,8 +43,7 @@ export class Workbench {
   }
   notify(message, error = false) {
     const status = document.getElementById('workbench-status');
-    status.textContent = message;
-    status.classList.toggle('error', error);
+    setStatus(status, message, error);
   }
   async run(action) {
     try { return await action(); }
@@ -71,11 +60,13 @@ export class Workbench {
       let data;
       if (tab === 'sessions') data = (await this.request('/session/list?limit=1000')).data;
       if (tab === 'palettes') data = (await this.request('/workbench/palettes')).data;
+      if (tab === 'tools') data = (await this.request('/workbench/commands')).data;
       if (sequence !== this.sequence) return;
       this.body.replaceChildren();
       if (tab === 'sessions') this.renderSessions(data);
       if (tab === 'palettes') this.renderPalettes(data);
-      if (tab === 'tools') this.renderTools();
+      if (tab === 'tools') this.renderTools(data);
+      if (tab === 'ascii') new RegionEditor({ request: this.request, getCell: this.getCell, getProject: () => this.project, getSessionId: () => this.sessionId, refresh: this.refresh }).render(this.body);
       if (tab === 'handoff') this.renderHandoff();
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
@@ -166,8 +157,9 @@ export class Workbench {
       section.append(colors); this.body.append(section);
     }
   }
-  renderTools() {
-    const search = element('input'); search.type = 'search'; search.placeholder = 'Find a tool or CLI command'; search.setAttribute('aria-label', 'Find a tool or CLI command');
+  renderTools(commands) {
+    this.commands = commands;
+    const search = input('tool-search', '', { type: 'search', placeholder: 'Find a tool or CLI command', 'aria-label': 'Find a tool or CLI command' });
     this.body.append(search);
     const browser = element('div', null, 'command-browser');
     const list = element('div', null, 'command-list');
@@ -177,17 +169,20 @@ export class Workbench {
       list.replaceChildren();
       const needle = search.value.toLowerCase();
       let category;
-      for (const command of COMMANDS.filter(command => `${command.id} ${command.label} ${command.category}`.toLowerCase().includes(needle))) {
+      for (const command of this.commands.filter(command => `${command.id} ${command.label} ${command.category}`.toLowerCase().includes(needle))) {
         if (category !== command.category) { category = command.category; list.append(element('h3', category)); }
         const item = button(command.label, () => this.selectCommand(command.id)); item.title = command.id; item.dataset.command = command.id;
         list.append(item);
       }
     };
     search.addEventListener('input', render); render();
-    this.selectCommand('draw rect');
+    const initial = this.commands.find(command => command.id === 'draw rect') ?? this.commands[0];
+    if (initial) this.selectCommand(initial.id);
+    else this.commandDetail.append(element('p', 'No tools are available from this server.'));
   }
   selectCommand(id) {
-    const command = COMMANDS.find(command => command.id === id);
+    const command = this.commands.find(command => command.id === id);
+    if (!command) return;
     this.commandDetail.replaceChildren(element('h3', command.label), element('code', command.id));
     this.body.querySelectorAll('[data-command]').forEach(btn => btn.classList.toggle('active', btn.dataset.command === id));
     if (command.description) this.commandDetail.append(element('p', command.description, 'workbench-hint'));
@@ -212,13 +207,12 @@ export class Workbench {
     const form = element('form', null, 'tool-form');
     const fields = [];
     for (const [key, value] of Object.entries(values)) {
-      const label = element('label', key.replaceAll('_', ' '));
       const input = element(typeof value === 'object' && value !== null ? 'textarea' : 'input');
       input.name = key;
       const kind = value === null ? 'null' : typeof value;
       if (kind === 'boolean') { input.type = 'checkbox'; input.checked = value; }
       else { if (kind === 'number') { input.type = 'number'; input.step = 'any'; } input.value = kind === 'object' ? JSON.stringify(value) : value ?? ''; }
-      label.append(input); form.append(label); fields.push({ key, input, kind });
+      form.append(field(key.replaceAll('_', ' '), input)); fields.push({ key, input, kind });
     }
     const advanced = element('details'); advanced.append(element('summary', 'All parameters (JSON)'));
     const json = element('textarea'); json.rows = 8; json.value = JSON.stringify(values, null, 2); json.setAttribute('aria-label', 'All tool parameters as JSON');
@@ -278,8 +272,9 @@ export class Workbench {
         for (const [index, request] of mapped.data.entries()) {
           try {
             if (this.sessionId !== sessionId) throw new Error('The active session changed');
-            await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
+            const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
             output.textContent += `${index + 1}. Applied ${request.path}\n`;
+            if (request.path === '/api/cell/ascii-read') output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
           } catch (error) { throw new Error(`Stopped at operation ${index + 1}: ${error.message}. ${index} earlier operations remain applied.`); }
         }
         this.refresh(); this.notify(`Applied ${mapped.data.length} operations.`);

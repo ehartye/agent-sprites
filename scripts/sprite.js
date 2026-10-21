@@ -89,8 +89,9 @@ async function ensureServer() {
   throw startupFailure('timed out waiting for verified service health', logPath);
 }
 
-async function api(method, path, body) {
+async function api(method, path, body, { sessionId } = {}) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (sessionId) opts.headers['X-Sprite-Session'] = sessionId;
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(`${BASE_URL}${path}`, opts);
   return r.json();
@@ -327,6 +328,8 @@ SHAPES
 
 CELLS
   copy  --from R,C --to R,C        clear --cell         name --cell --as <name>
+  ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
+  ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
   clone-cell --from R,C --to "R,C R,C ..."  (atomic fan-out; all-or-nothing)
   mirror --cell --axis horizontal|vertical      flip every shape across the cell
   rotate-cell --cell --deg 90|180|270           rotate every shape about cell center
@@ -707,6 +710,20 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'ascii': {
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      let params;
+      if (sub === 'read') {
+        params = { cell: args.cell, x: num(args.x), y: num(args.y), w: num(args.w), h: num(args.h),
+          ...(args.colors ? { colors: JSON.parse(args.colors) } : {}) };
+      } else if (sub === 'patch') {
+        if (!args.file) throw new Error('ascii patch requires --file patch.json (x,y,rows,colors,prefix)');
+        params = { ...JSON.parse(readFileSync(resolve(args.file), 'utf8')), cell: args.cell };
+      } else throw new Error('Usage: ascii read --cell --x --y --w --h | ascii patch --cell --file patch.json');
+      const mapped = mapCommandToApi({ command: 'ascii', sub, ...params });
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
     case 'mirror':
       result = await api('POST', '/api/cell/mirror', { cell: args.cell, axis: args.axis });
       break;
@@ -930,6 +947,10 @@ async function run() {
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
+              if (cmd.command === 'ascii' && cmd.sub === 'read') {
+                (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
+                if (!quiet) console.log(JSON.stringify(res.data));
+              }
               if (res.artifacts) report.artifacts.push(...res.artifacts);
               if (res.export) report.exports.push(res.export);
             } catch (e) {

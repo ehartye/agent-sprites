@@ -10,6 +10,7 @@ import { buildProject } from '../../build/project-build.js';
 import { traceImageFile } from '../../engine/image-trace.js';
 import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
 import { applySkinTone, skinToneState } from '../../engine/skin-tones.js';
+import { COMMANDS } from '../../commands/catalog.js';
 
 export function localFileRequestAllowed(req) {
   const remote = req.socket.remoteAddress;
@@ -57,6 +58,9 @@ export function workbenchRoutes(state) {
     captureProjectMetadata(state);
     return state.project;
   };
+  router.get('/workbench/commands', route((_req, res) => {
+    res.json({ ok: true, data: COMMANDS });
+  }));
   function activateCopy(project, origin) {
     const parent = state.sessionId ? state.db.getSession(state.sessionId) : null;
     const projectPath = parent?.project_path ?? process.cwd();
