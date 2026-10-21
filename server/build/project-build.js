@@ -17,6 +17,7 @@ import { shapeRoutes } from '../web/api/shape-routes.js';
 import { cellRoutes } from '../web/api/cell-routes.js';
 import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
+import { API_BODY_LIMIT } from '../web/api/policy.js';
 import { createPreview } from './preview.js';
 import { renderFontProof } from './font-proof.js';
 import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
@@ -149,7 +150,7 @@ export async function buildProject(configPath) {
     // Isolated builds cannot resume this in-memory session. Serialize once for
     // the final editable artifact instead of rewriting a growing draft per op.
     const state = { db, project: null, sessionId: null, persistDrafts: false };
-    const app = express(); app.use(express.json());
+    const app = express(); app.use(express.json({ limit: API_BODY_LIMIT }));
     app.use('/api/session', sessionRoutes(state));
     for (const routes of [drawRoutes, shapeRoutes, cellRoutes, groupRoutes]) app.use('/api', routes(state));
     server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', () => accept(s)); s.once('error', reject); });

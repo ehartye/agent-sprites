@@ -3,6 +3,10 @@ import { resolve } from 'node:path';
 export function mapCommandToApi(cmd) {
   const { command, ...params } = cmd;
   switch (command) {
+    case 'compose':
+      return { method: 'POST', path: '/api/cell/compose', body: params };
+    case 'compose-plan':
+      return { method: 'POST', path: '/api/cell/compose-plan', body: params };
     case 'ascii': {
       const { sub, ...body } = params;
       if (!['read', 'patch'].includes(sub)) throw new Error('ascii requires read or patch');
@@ -101,6 +105,9 @@ export function mapCommandToApi(cmd) {
         coverage: params.coverage,
         width: params.width,
         erase: params.erase,
+        composition: params.composition,
+        visible: params.visible,
+        z: params.z,
         from_deg: params.from_deg,
         to_deg: params.to_deg,
         clip_to: params.clip_to,

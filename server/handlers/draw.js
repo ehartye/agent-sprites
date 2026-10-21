@@ -594,6 +594,10 @@ function _applyAutoGroupings(state, params, result) {
  * Wraps _handleDrawInner and applies any --group / --cell-group auto-enrollments.
  */
 export function handleDraw(state, type, params) {
+  if (params.visible !== undefined && typeof params.visible !== 'boolean') throw new Error('visible must be a boolean');
+  if (params.composition !== undefined && (!params.composition || typeof params.composition !== 'object' || Array.isArray(params.composition))) throw new Error('composition metadata must be an object');
+  const explicitState = params.visible !== undefined || params.composition !== undefined || params.z !== undefined;
+  if (explicitState && (!['point','line','rect','circle','ellipse','polygon','polyline','fill'].includes(type) || params.clip_to != null || (params.width != null && params.width !== 1))) throw new Error('Explicit z-order, visibility and composition metadata require a single primitive draw operation');
   const result = _handleDrawInner(state, type, params);
   _applyAutoGroupings(state, params, result);
   return result;
@@ -752,7 +756,8 @@ function _handleDrawInner(state, type, params) {
   }
 
   if (params.erase) drawParams.erase = true;
-  const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null);
+  if (params.composition !== undefined) drawParams.composition = structuredClone(params.composition);
+  const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null, { visible: params.visible, zIndex: params.z });
   state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
   return { shapeId: shape.id, shapeName: shape.name };
 }

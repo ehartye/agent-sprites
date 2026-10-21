@@ -6,6 +6,7 @@ import { handleUndo, handleRedo } from '../../handlers/history.js';
 import { handleViewCell, handleViewSheet, handleViewStack } from '../../handlers/view.js';
 import { saveDraft } from '../http.js';
 import { handleAsciiRead, handleAsciiPatch } from '../../handlers/ascii.js';
+import { handleComposition, handleCompositionPlan } from '../../handlers/composition.js';
 
 export function cellRoutes(state) {
   const r = Router();
@@ -29,6 +30,11 @@ export function cellRoutes(state) {
     catch (error) { res.json({ ok: false, error: error.message }); }
   });
   r.post('/cell/ascii-patch', wrap(handleAsciiPatch));
+  r.post('/cell/compose', wrap(handleComposition));
+  r.post('/cell/compose-plan', (req, res) => {
+    try { res.json({ ok: true, data: handleCompositionPlan(state, req.body) }); }
+    catch (error) { res.json({ ok: false, error: error.message }); }
+  });
   r.get('/cell/reference-image', (req, res) => {
     try {
       if (!state.project) return res.status(404).end();

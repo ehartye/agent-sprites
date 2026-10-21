@@ -1,6 +1,6 @@
 ---
 name: sprite-editing
-description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
+description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
@@ -69,6 +69,12 @@ anything failed. Never publish partial exports from a failed batch. See
 [batch flags and summary fields](references/tool-reference.md#batch-mode).
 
 ## Core Drawing Workflow
+
+For repeated motifs or compact source, use [part composition](references/composition.md).
+`compose --file composition.json` expands named parts through stamps, tiles or
+explicitly seeded scatter. It can snapshot selected shapes from another cell;
+reapplying a prefix revises its owned output with stable IDs and one undo entry.
+The browser exposes the same operation under **Tools → Compose reusable parts**.
 
 For anime/16-bit RPG heroes, NPC casts, modular hair or outfit studies, load
 [sprite character](../sprite-character/SKILL.md) before constructing the character.

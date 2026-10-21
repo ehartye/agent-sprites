@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "inputs": ["composition.json"],
+  "output": "dist",
+  "expectedFrames": ["garden"],
+  "scale": 8
+}

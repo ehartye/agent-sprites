@@ -52,15 +52,20 @@ export class Cell {
     return result;
   }
 
-  draw(type, params, color, shapeName = null) {
+  draw(type, params, color, shapeName = null, opts = {}) {
+    const zIndex = opts.zIndex === undefined ? Math.ceil(this._nextZ) : opts.zIndex;
+    const nextZ = Math.max(Math.ceil(this._nextZ), zIndex + 1);
+    if (!Number.isSafeInteger(zIndex) || !Number.isSafeInteger(nextZ) || zIndex === Number.MAX_SAFE_INTEGER) throw new Error('Draw z-order must be an exact safe integer with room for the next shape');
     const shape = new Shape(type, params, color, {
       name: shapeName,
-      zIndex: this._nextZ++,
+      zIndex,
+      visible: opts.visible ?? true,
     });
     this._exec({
       execute: () => this.shapes.add(shape),
       undo: () => this.shapes.remove(shape.id),
     });
+    this._nextZ = nextZ;
     return shape;
   }
 
@@ -120,6 +125,19 @@ export class Cell {
       execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
+  }
+
+  /** Replace a shape's editable state, keeping its registry identity and name. */
+  replaceShape(ref, { type, params, color, visible = true }) {
+    const shape = this.shapes.get(ref);
+    if (!shape) throw new Error(`Shape "${ref}" not found`);
+    const before = { type: shape.type, params: structuredClone(shape.params), color: shape.color, visible: shape.visible };
+    const after = structuredClone({ type, params, color, visible });
+    this._exec({
+      execute: () => Object.assign(shape, structuredClone(after)),
+      undo: () => Object.assign(shape, structuredClone(before)),
+    });
+    return shape;
   }
 
   flipShape(ref, axis, opts = {}) {

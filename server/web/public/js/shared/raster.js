@@ -20,7 +20,7 @@ export function snapParams(params) {
 
 /** The pattern test for a shape's fill, or null. Unknown names draw solid. */
 export function fillPattern(p) {
-  return p.pattern && p.filled !== false && p.color2 != null ? PATTERNS[p.pattern] ?? null : null;
+  return typeof p.pattern === 'string' && Object.hasOwn(PATTERNS, p.pattern) && p.filled !== false && p.color2 != null ? PATTERNS[p.pattern] : null;
 }
 
 /** Rasterize one shape onto `pen`. `fill` (a flood) and unknown types draw nothing. */

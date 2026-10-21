@@ -1,5 +1,5 @@
 import { commandRequest } from './command-catalog.js';
-import { element, button, input, field, setStatus } from './components.js';
+import { element, button, input, field, setStatus, jsonReport } from './components.js';
 import { RegionEditor } from './region-editor.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
@@ -229,8 +229,9 @@ export class Workbench {
         kind === 'boolean' ? input.checked : kind === 'number' ? Number(input.value) : kind === 'object' ? JSON.parse(input.value) : kind === 'null' && !input.value ? null : input.value]));
     };
     for (const { input } of fields) input.addEventListener('input', () => { jsonEdited = false; try { json.value = JSON.stringify(read(), null, 2); } catch { /* partial field input */ } });
-    const submit = element('button', command.method === 'GET' ? 'Inspect' : 'Apply'); submit.type = 'submit'; form.append(submit);
-    const output = element('pre', null, 'tool-output'); output.setAttribute('aria-live', 'polite');
+    const submit = element('button', command.submitLabel ?? (command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
+    const report = jsonReport({ onDownload: data => download(`${command.id.replaceAll(' ', '-')}-report.json`, data) });
+    const output = report.output;
     form.addEventListener('submit', event => {
       event.preventDefault();
       this.run(async () => {
@@ -238,7 +239,7 @@ export class Workbench {
         try {
           const request = commandRequest(command, read());
           const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
-          output.textContent = JSON.stringify(result.data ?? result, null, 2).slice(0, 24_000);
+          report.set(result.data ?? result);
           if (result.data?.ok === false) {
             this.notify(`${command.label} failed. See the report below.`, true);
             return;
@@ -257,7 +258,7 @@ export class Workbench {
         } finally { submit.disabled = false; }
       });
     });
-    this.commandDetail.append(form, output);
+    this.commandDetail.append(form, report.node);
   }
   renderBatch(mount) {
     const input = element('textarea'); input.rows = 12; input.value = JSON.stringify([{ command: 'draw', type: 'point', cell: this.getCell(), x: 8, y: 8, color: this.getColor() ?? '#ffccaa', name: 'review-mark' }], null, 2);
@@ -274,7 +275,7 @@ export class Workbench {
             if (this.sessionId !== sessionId) throw new Error('The active session changed');
             const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
             output.textContent += `${index + 1}. Applied ${request.path}\n`;
-            if (request.path === '/api/cell/ascii-read') output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
+            if (['/api/cell/ascii-read', '/api/cell/compose-plan'].includes(request.path)) output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
           } catch (error) { throw new Error(`Stopped at operation ${index + 1}: ${error.message}. ${index} earlier operations remain applied.`); }
         }
         this.refresh(); this.notify(`Applied ${mapped.data.length} operations.`);

@@ -1,0 +1,30 @@
+{
+  "cell": "0,0",
+  "prefix": "garden",
+  "parts": {
+    "flower": {
+      "shapes": [
+        {"name":"stem","type":"line","params":{"x1":0,"y1":1,"x2":0,"y2":9},"color":"#37946e"},
+        {"name":"leaf","type":"polygon","params":{"points":[{"x":0,"y":6},{"x":-3,"y":3},{"x":-3,"y":5}],"filled":true},"color":"#6abe30"},
+        {"name":"petals","type":"circle","params":{"cx":0,"cy":0,"r":3,"filled":true},"color":"#d77bba"},
+        {"name":"center","type":"circle","params":{"cx":0,"cy":0,"r":1,"filled":true},"color":"#fbf236"}
+      ]
+    },
+    "grass": {
+      "shapes": [
+        {"name":"blade","type":"polyline","params":{"points":[{"x":0,"y":2},{"x":1,"y":0},{"x":1,"y":3}]},"color":"#99e550"}
+      ]
+    },
+    "stone": {
+      "shapes": [
+        {"name":"rock","type":"rect","params":{"x":0,"y":0,"w":2,"h":1,"filled":true},"color":"#847e87"}
+      ]
+    }
+  },
+  "placements": [
+    {"kind":"stamp","part":"flower","name":"hero","x":7,"y":13},
+    {"kind":"tile","part":"flower","name":"border","x":18,"y":15,"cols":2,"rows":1,"stepX":8,"stepY":0},
+    {"kind":"tile","part":"grass","name":"lawn","x":0,"y":23,"cols":11,"rows":1,"stepX":3,"stepY":0},
+    {"kind":"scatter","part":"stone","name":"pebbles","x":1,"y":27,"w":29,"h":4,"count":10,"seed":"garden-path"}
+  ]
+}

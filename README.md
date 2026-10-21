@@ -10,6 +10,7 @@ Open the server's preview URL to work on the same live draft as your agent.
 
 - **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
 - **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.
+- **ASCII** reads a bounded region as text, reports unmapped RGBA colors, and applies one undoable patch with explicit keep and erase symbols.
 - **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace and verification forms run existing file workflows from the server's localhost page; restart remains a terminal command.
 - **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
 - Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
@@ -28,6 +29,8 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 
 ## Highlights
 
+- **Compact composition** — reusable named parts, stamps, tiling and explicitly seeded scatter expand into editable shapes. Revisions retain IDs, reconcile owned output and undo together. See [the create/revise example](examples/composition/README.md).
+- **Regional text edits** — canonical ASCII readback and patches preserve source shapes; `.` keeps, `_` erases and `?` discloses unmapped pixels. See [ASCII region editing](skills/sprite-editing/references/ascii-regions.md).
 - **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
 - **Native 16×32 mannequins** — editable adult/child/large mannequins with eight-direction walk cycles and face-construction references, four-direction fitted wardrobes and animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
 

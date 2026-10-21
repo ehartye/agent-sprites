@@ -14,7 +14,6 @@ export const PATTERNS = {
 export const PATTERN_NAMES = Object.keys(PATTERNS);
 
 export function patternTest(name) {
-  const test = PATTERNS[name];
-  if (!test) throw new Error(`Unknown pattern "${name}" (expected one of ${PATTERN_NAMES.join(', ')})`);
-  return test;
+  if (typeof name !== 'string' || !Object.hasOwn(PATTERNS, name)) throw new Error(`Unknown pattern "${name}" (expected one of ${PATTERN_NAMES.join(', ')})`);
+  return PATTERNS[name];
 }

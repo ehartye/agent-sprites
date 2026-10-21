@@ -4,8 +4,19 @@ import { Workbench } from '../../server/web/public/js/workbench.js';
 import { COMMANDS } from '../../server/commands/catalog.js';
 import { commandRequest } from '../../server/web/public/js/command-catalog.js';
 import { ShapePanel } from '../../server/web/public/js/panels.js';
+import { jsonReport } from '../../server/web/public/js/components.js';
 
 let bench, request, color;
+test('large shared reports disclose preview limits and retain the complete downloadable result', () => {
+  const onDownload = vi.fn(), report = jsonReport({ onDownload });
+  const data = { instances: [{ name: 'one' }], shapes: [], detail: 'x'.repeat(30000) };
+  report.set(data); document.body.append(report.node);
+  expect(report.output.textContent).toContain('1 instance');
+  expect(report.output.textContent).toContain('Showing first');
+  const download = report.node.querySelector('button');
+  expect(download.hidden).toBe(false); download.click();
+  expect(onDownload).toHaveBeenCalledWith(data);
+});
 beforeEach(() => {
   document.body.innerHTML = '<div id="workbench-mount"></div><div id="workbench-status"></div>';
   color = vi.fn();
@@ -176,6 +187,20 @@ test('batch ASCII reads expose their exact rows, palette and unmapped diagnostic
   await vi.waitFor(() => expect(document.querySelector('.tool-output').textContent).toContain('#123456ff'));
   expect(document.querySelector('.tool-output').textContent).toContain('R?');
   expect(document.querySelector('.tool-output').textContent).toContain('#ff0000');
+});
+
+test('composition controls edit reusable parts and placements through the shared server form', async () => {
+  await bench.show('tools'); bench.selectCommand('compose');
+  const parts = { leaf: { shapes: [{ name: 'blade', type: 'point', params: { x: 0, y: 0 }, color: '#00ff00' }] } };
+  const placements = [{ kind: 'stamp', part: 'leaf', name: 'front', x: 3, y: 2 }];
+  expect(document.querySelector('textarea[name="parts"]')).not.toBeNull();
+  const partInput = document.querySelector('textarea[name="parts"]');
+  partInput.value = JSON.stringify(parts); partInput.dispatchEvent(new Event('input'));
+  const placementInput = document.querySelector('textarea[name="placements"]');
+  placementInput.value = JSON.stringify(placements); placementInput.dispatchEvent(new Event('input'));
+  document.querySelector('.tool-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/cell/compose', expect.objectContaining({ cell: '1,2', parts, placements })));
+  expect(bench.refresh).toHaveBeenCalled();
 });
 test('large traces render bounded shape pages with a searchable full list', () => {
   document.body.innerHTML = '<input id="shape-search"><div id="shape-pagination"></div><ul id="shape-items"></ul>';

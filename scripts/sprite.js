@@ -330,6 +330,7 @@ CELLS
   copy  --from R,C --to R,C        clear --cell         name --cell --as <name>
   ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
   ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
+  compose --file composition.json [--plan] [--cell R,C] [--session ID]   parts, stamps, tile, seeded scatter
   clone-cell --from R,C --to "R,C R,C ..."  (atomic fan-out; all-or-nothing)
   mirror --cell --axis horizontal|vertical      flip every shape across the cell
   rotate-cell --cell --deg 90|180|270           rotate every shape about cell center
@@ -620,6 +621,8 @@ async function run() {
         w: num(args.w), h: num(args.h),
         points: args.points,
         filled: args.filled !== undefined ? bool(args.filled) : undefined,
+        visible: args.visible !== undefined ? bool(args.visible) : undefined,
+        z: num(args.z),
         pattern: args.pattern, color2: args.color2,
         // highlight/shadow params
         shape: args.shape, direction: args.direction,
@@ -710,6 +713,15 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'compose': {
+      if (!args.file) throw new Error('compose requires --file composition.json (cell,prefix,parts,placements)');
+      const spec = JSON.parse(readFileSync(resolve(args.file), 'utf8'));
+      if (args.cell) spec.cell = args.cell;
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      const mapped = mapCommandToApi({ ...spec, command: bool(args.plan) ? 'compose-plan' : 'compose' });
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
     case 'ascii': {
       const { mapCommandToApi } = await import('./batch-commands.js');
       let params;
@@ -947,7 +959,7 @@ async function run() {
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
-              if (cmd.command === 'ascii' && cmd.sub === 'read') {
+              if ((cmd.command === 'ascii' && cmd.sub === 'read') || cmd.command === 'compose-plan') {
                 (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
                 if (!quiet) console.log(JSON.stringify(res.data));
               }

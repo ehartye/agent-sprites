@@ -4,9 +4,17 @@ const post = (id, category, label, path, body, description = '') => ({ id, categ
 const get = (id, category, label, path, query = {}) => ({ id, category, label, method: 'GET', path, body: query });
 const cell = '0,0';
 const shape = 'body';
-const draw = (type, label, params, description = '') => post(`draw ${type}`, 'Draw', label, '/api/draw', { type, cell, shape_name: type, color: '#ffccaa', ...params }, description);
+const draw = (type, label, params, description = '') => post(`draw ${type}`, 'Draw', label, '/api/draw', { type, cell, shape_name: type, color: '#ffccaa', ...params }, [description,
+  ...(['point','line','rect','circle','ellipse','fill','polygon','polyline'].includes(type)
+    ? ['For a single primitive, JSON also accepts "z": 100 for explicit integer paint order and "visible": false to retain a hidden editable shape.'] : []),
+].filter(Boolean).join(' '));
 const ERASE_NOTE = 'Add "erase": true to cut a hole through the shapes below it instead of painting.';
 const WIDTH_NOTE = 'Add "width": 2–4 for a thicker brush stroke (emitted as named points).';
+const COMPOSITION_SAMPLE = {
+  cell, prefix: 'garden',
+  parts: { tuft: { shapes: [{ name: 'stem', type: 'line', params: { x1: 0, y1: 0, x2: 0, y2: 2 }, color: '#6abe30' }] } },
+  placements: [{ kind: 'tile', part: 'tuft', name: 'bed', x: 2, y: 2, rows: 2, cols: 3, stepX: 4, stepY: 4 }],
+};
 export const COMMANDS = [
   post('new', 'Session', 'New design', '/api/session/new', { name: 'New design', width: 32, height: 48, rows: 1, cols: 4, palette: 'db-32' }),
   post('open', 'Session', 'Open project on disk', '/api/session/open', { path: '' }),
@@ -50,6 +58,8 @@ export const COMMANDS = [
   post('clear', 'Cells', 'Clear cell', '/api/cell/clear', { cell }),
   post('ascii read', 'Cells', 'Read ASCII region', '/api/cell/ascii-read', { cell, x: 0, y: 0, w: 8, h: 8 }, 'Reads up to 4096 canonical pixels as editable text. Unmapped colors are shown as ? with their exact RGBA values. Use the ASCII tab for a region editor.'),
   post('ascii patch', 'Cells', 'Patch ASCII region', '/api/cell/ascii-patch', { cell, x: 0, y: 0, rows: ['.AA.', 'A__A'], colors: { A: '#ffccaa' }, prefix: 'patch' }, 'One undoable edit: . keeps the existing pixel; _ erases it; each mapped character paints its color. Spaces are preserved. ? must be replaced before applying.'),
+  { ...post('compose-plan', 'Composition', 'Plan reusable parts', '/api/cell/compose-plan', COMPOSITION_SAMPLE, 'Read-only compilation returns exact placements, expanded shapes and operations without editing the project or consuming history.'), submitLabel: 'Plan' },
+  post('compose', 'Composition', 'Compose reusable parts', '/api/cell/compose', COMPOSITION_SAMPLE, 'Stamp, tile or scatter named parts using an explicit seed. Parts can snapshot selected shapes from another cell. Reapplying this prefix revises matching shapes with stable IDs and removes its obsolete output; source edits affect copies only when reapplied. One undo restores the complete edit.'),
   post('name', 'Cells', 'Name cell', '/api/cell/name', { cell, name: 'front-idle' }),
   post('mirror', 'Cells', 'Mirror cell', '/api/cell/mirror', { cell, axis: 'horizontal' }),
   post('shift', 'Cells', 'Shift cell', '/api/cell/shift', { cell, dx: 1, dy: 0 }),

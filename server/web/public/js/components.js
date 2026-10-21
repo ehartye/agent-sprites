@@ -40,3 +40,22 @@ export function setStatus(node, message, error = false) {
   node.textContent = message;
   node.classList.toggle('error', error);
 }
+
+/** Bound the visible JSON while preserving the complete result for download. */
+export function jsonReport({ onDownload, limit = 24_000 }) {
+  const node = element('div', null, 'json-report');
+  const output = element('pre', null, 'tool-output');
+  output.setAttribute('aria-live', 'polite');
+  let data;
+  const full = button('Download full report', () => onDownload(data));
+  full.hidden = true;
+  node.append(output, full);
+  return { node, output, set(value) {
+    data = value;
+    const text = JSON.stringify(value, null, 2) ?? '';
+    const count = value?.instances?.length;
+    const summary = Array.isArray(value?.instances) ? `${count} instance${count === 1 ? '' : 's'} · ${value.shapes?.length ?? 0} shapes\n\n` : '';
+    full.hidden = text.length <= limit;
+    output.textContent = summary + text.slice(0, limit) + (full.hidden ? '' : `\n\nShowing first ${limit.toLocaleString()} characters. Download the full report for every record.`);
+  } };
+}
