@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": ["glasshouse.json"],
+  "inputs": ["drawing.mjs", "scenes.mjs", "glasshouse.json"],
+  "output": ".build/glasshouse",
+  "expectedTags": ["ambience"],
+  "scale": 2
+}

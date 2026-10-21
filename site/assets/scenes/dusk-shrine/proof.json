@@ -1,0 +1,547 @@
+{
+  "ok": true,
+  "version": 1,
+  "scene": "dusk-shrine",
+  "title": "Where the evening rests",
+  "canvas": {
+    "w": 192,
+    "h": 128
+  },
+  "scale": 2,
+  "width": 384,
+  "height": 256,
+  "frameCount": 32,
+  "durationMs": 3200,
+  "loop": true,
+  "timeline": {
+    "durationMs": 3200,
+    "loop": true,
+    "steps": [
+      {
+        "atMs": 0,
+        "durationMs": 100,
+        "frames": [
+          32
+        ]
+      },
+      {
+        "atMs": 100,
+        "durationMs": 100,
+        "frames": [
+          33
+        ]
+      },
+      {
+        "atMs": 200,
+        "durationMs": 100,
+        "frames": [
+          34
+        ]
+      },
+      {
+        "atMs": 300,
+        "durationMs": 100,
+        "frames": [
+          35
+        ]
+      },
+      {
+        "atMs": 400,
+        "durationMs": 100,
+        "frames": [
+          36
+        ]
+      },
+      {
+        "atMs": 500,
+        "durationMs": 100,
+        "frames": [
+          37
+        ]
+      },
+      {
+        "atMs": 600,
+        "durationMs": 100,
+        "frames": [
+          38
+        ]
+      },
+      {
+        "atMs": 700,
+        "durationMs": 100,
+        "frames": [
+          39
+        ]
+      },
+      {
+        "atMs": 800,
+        "durationMs": 100,
+        "frames": [
+          40
+        ]
+      },
+      {
+        "atMs": 900,
+        "durationMs": 100,
+        "frames": [
+          41
+        ]
+      },
+      {
+        "atMs": 1000,
+        "durationMs": 100,
+        "frames": [
+          42
+        ]
+      },
+      {
+        "atMs": 1100,
+        "durationMs": 100,
+        "frames": [
+          43
+        ]
+      },
+      {
+        "atMs": 1200,
+        "durationMs": 100,
+        "frames": [
+          44
+        ]
+      },
+      {
+        "atMs": 1300,
+        "durationMs": 100,
+        "frames": [
+          45
+        ]
+      },
+      {
+        "atMs": 1400,
+        "durationMs": 100,
+        "frames": [
+          46
+        ]
+      },
+      {
+        "atMs": 1500,
+        "durationMs": 100,
+        "frames": [
+          47
+        ]
+      },
+      {
+        "atMs": 1600,
+        "durationMs": 100,
+        "frames": [
+          48
+        ]
+      },
+      {
+        "atMs": 1700,
+        "durationMs": 100,
+        "frames": [
+          49
+        ]
+      },
+      {
+        "atMs": 1800,
+        "durationMs": 100,
+        "frames": [
+          50
+        ]
+      },
+      {
+        "atMs": 1900,
+        "durationMs": 100,
+        "frames": [
+          51
+        ]
+      },
+      {
+        "atMs": 2000,
+        "durationMs": 100,
+        "frames": [
+          52
+        ]
+      },
+      {
+        "atMs": 2100,
+        "durationMs": 100,
+        "frames": [
+          53
+        ]
+      },
+      {
+        "atMs": 2200,
+        "durationMs": 100,
+        "frames": [
+          54
+        ]
+      },
+      {
+        "atMs": 2300,
+        "durationMs": 100,
+        "frames": [
+          55
+        ]
+      },
+      {
+        "atMs": 2400,
+        "durationMs": 100,
+        "frames": [
+          56
+        ]
+      },
+      {
+        "atMs": 2500,
+        "durationMs": 100,
+        "frames": [
+          57
+        ]
+      },
+      {
+        "atMs": 2600,
+        "durationMs": 100,
+        "frames": [
+          58
+        ]
+      },
+      {
+        "atMs": 2700,
+        "durationMs": 100,
+        "frames": [
+          59
+        ]
+      },
+      {
+        "atMs": 2800,
+        "durationMs": 100,
+        "frames": [
+          60
+        ]
+      },
+      {
+        "atMs": 2900,
+        "durationMs": 100,
+        "frames": [
+          61
+        ]
+      },
+      {
+        "atMs": 3000,
+        "durationMs": 100,
+        "frames": [
+          62
+        ]
+      },
+      {
+        "atMs": 3100,
+        "durationMs": 100,
+        "frames": [
+          63
+        ]
+      }
+    ]
+  },
+  "gif": {
+    "loop": true,
+    "pages": 32,
+    "delaysMs": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "durationMs": 3200,
+    "requestedDurationMs": 3200,
+    "driftMs": 0,
+    "timing": [
+      {
+        "atMs": 0,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      }
+    ],
+    "pixelComparison": {
+      "exact": true,
+      "differentPixels": 0,
+      "maxChannelError": 0,
+      "transparentPixels": "RGB ignored where alpha is zero"
+    },
+    "paletteLimit": 256
+  },
+  "contact": {
+    "tiles": 32,
+    "columns": 5,
+    "width": 1932,
+    "height": 1934
+  },
+  "source": {
+    "config": "../../../../examples/showcase/dusk-shrine.build.json",
+    "palette": "Dusk violet, weathered jade, blossom rose and lantern peach",
+    "motion": [
+      "waterfall",
+      "spray",
+      "swaying lanterns",
+      "windblown petals"
+    ]
+  },
+  "tracks": [
+    {
+      "name": "shrine",
+      "atlas": "atlas.json",
+      "image": "sheet.png",
+      "tag": "ambience",
+      "loop": true
+    }
+  ],
+  "files": {
+    "gif": "scene.gif",
+    "poster": "poster.png",
+    "sheet": "sheet.png",
+    "atlas": "atlas.json",
+    "project": "project.json",
+    "contact": "contact.png"
+  },
+  "integrity": {
+    "scene.gif": {
+      "sha256": "abef119257c8ad8071c58b9e3a89255b9db85c90e5521821736e33cc8d20e721",
+      "bytes": 31020
+    },
+    "poster.png": {
+      "sha256": "0f5e2e0cb4ff2eb17039fa93ed6d4a98b2404323169db24def18de17d321d7e8",
+      "bytes": 6709
+    },
+    "sheet.png": {
+      "sha256": "6f220d65a36a85e5872808498fe594e4d8edeacc09e3baafcb6f8962c73bed04",
+      "bytes": 49273
+    },
+    "atlas.json": {
+      "sha256": "eef0ae12f454cd675439f218aa42f7717308920ba1c9d501738773d35ae976eb",
+      "bytes": 36624
+    },
+    "project.json": {
+      "sha256": "3c93ac6ba693bc445a94517c3ff34ef8825dda6cd0a68bcab46326fd367667e1",
+      "bytes": 1719282
+    },
+    "contact.png": {
+      "sha256": "8f81e1f97f14d872a8867931c6182ba7d66768bd09a5d2e810fd9f9ed68aedd9",
+      "bytes": 123968
+    }
+  }
+}

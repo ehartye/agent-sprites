@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "args": ["night-station.json"],
+  "inputs": ["drawing.mjs", "scenes.mjs", "night-station.json"],
+  "output": ".build/night-station",
+  "expectedTags": ["ambience"],
+  "scale": 2
+}

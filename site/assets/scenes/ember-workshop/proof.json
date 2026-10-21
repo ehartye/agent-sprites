@@ -1,0 +1,547 @@
+{
+  "ok": true,
+  "version": 1,
+  "scene": "ember-workshop",
+  "title": "While the iron is warm",
+  "canvas": {
+    "w": 192,
+    "h": 128
+  },
+  "scale": 2,
+  "width": 384,
+  "height": 256,
+  "frameCount": 32,
+  "durationMs": 3200,
+  "loop": true,
+  "timeline": {
+    "durationMs": 3200,
+    "loop": true,
+    "steps": [
+      {
+        "atMs": 0,
+        "durationMs": 100,
+        "frames": [
+          32
+        ]
+      },
+      {
+        "atMs": 100,
+        "durationMs": 100,
+        "frames": [
+          33
+        ]
+      },
+      {
+        "atMs": 200,
+        "durationMs": 100,
+        "frames": [
+          34
+        ]
+      },
+      {
+        "atMs": 300,
+        "durationMs": 100,
+        "frames": [
+          35
+        ]
+      },
+      {
+        "atMs": 400,
+        "durationMs": 100,
+        "frames": [
+          36
+        ]
+      },
+      {
+        "atMs": 500,
+        "durationMs": 100,
+        "frames": [
+          37
+        ]
+      },
+      {
+        "atMs": 600,
+        "durationMs": 100,
+        "frames": [
+          38
+        ]
+      },
+      {
+        "atMs": 700,
+        "durationMs": 100,
+        "frames": [
+          39
+        ]
+      },
+      {
+        "atMs": 800,
+        "durationMs": 100,
+        "frames": [
+          40
+        ]
+      },
+      {
+        "atMs": 900,
+        "durationMs": 100,
+        "frames": [
+          41
+        ]
+      },
+      {
+        "atMs": 1000,
+        "durationMs": 100,
+        "frames": [
+          42
+        ]
+      },
+      {
+        "atMs": 1100,
+        "durationMs": 100,
+        "frames": [
+          43
+        ]
+      },
+      {
+        "atMs": 1200,
+        "durationMs": 100,
+        "frames": [
+          44
+        ]
+      },
+      {
+        "atMs": 1300,
+        "durationMs": 100,
+        "frames": [
+          45
+        ]
+      },
+      {
+        "atMs": 1400,
+        "durationMs": 100,
+        "frames": [
+          46
+        ]
+      },
+      {
+        "atMs": 1500,
+        "durationMs": 100,
+        "frames": [
+          47
+        ]
+      },
+      {
+        "atMs": 1600,
+        "durationMs": 100,
+        "frames": [
+          48
+        ]
+      },
+      {
+        "atMs": 1700,
+        "durationMs": 100,
+        "frames": [
+          49
+        ]
+      },
+      {
+        "atMs": 1800,
+        "durationMs": 100,
+        "frames": [
+          50
+        ]
+      },
+      {
+        "atMs": 1900,
+        "durationMs": 100,
+        "frames": [
+          51
+        ]
+      },
+      {
+        "atMs": 2000,
+        "durationMs": 100,
+        "frames": [
+          52
+        ]
+      },
+      {
+        "atMs": 2100,
+        "durationMs": 100,
+        "frames": [
+          53
+        ]
+      },
+      {
+        "atMs": 2200,
+        "durationMs": 100,
+        "frames": [
+          54
+        ]
+      },
+      {
+        "atMs": 2300,
+        "durationMs": 100,
+        "frames": [
+          55
+        ]
+      },
+      {
+        "atMs": 2400,
+        "durationMs": 100,
+        "frames": [
+          56
+        ]
+      },
+      {
+        "atMs": 2500,
+        "durationMs": 100,
+        "frames": [
+          57
+        ]
+      },
+      {
+        "atMs": 2600,
+        "durationMs": 100,
+        "frames": [
+          58
+        ]
+      },
+      {
+        "atMs": 2700,
+        "durationMs": 100,
+        "frames": [
+          59
+        ]
+      },
+      {
+        "atMs": 2800,
+        "durationMs": 100,
+        "frames": [
+          60
+        ]
+      },
+      {
+        "atMs": 2900,
+        "durationMs": 100,
+        "frames": [
+          61
+        ]
+      },
+      {
+        "atMs": 3000,
+        "durationMs": 100,
+        "frames": [
+          62
+        ]
+      },
+      {
+        "atMs": 3100,
+        "durationMs": 100,
+        "frames": [
+          63
+        ]
+      }
+    ]
+  },
+  "gif": {
+    "loop": true,
+    "pages": 32,
+    "delaysMs": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "durationMs": 3200,
+    "requestedDurationMs": 3200,
+    "driftMs": 0,
+    "timing": [
+      {
+        "atMs": 0,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      }
+    ],
+    "pixelComparison": {
+      "exact": true,
+      "differentPixels": 0,
+      "maxChannelError": 0,
+      "transparentPixels": "RGB ignored where alpha is zero"
+    },
+    "paletteLimit": 256
+  },
+  "contact": {
+    "tiles": 32,
+    "columns": 5,
+    "width": 1932,
+    "height": 1934
+  },
+  "source": {
+    "config": "../../../../examples/showcase/ember-workshop.build.json",
+    "palette": "Soot violet, worn copper, ember gold and moonlit steel",
+    "motion": [
+      "forge flames",
+      "rising sparks",
+      "kettle steam",
+      "hearth light"
+    ]
+  },
+  "tracks": [
+    {
+      "name": "workshop",
+      "atlas": "atlas.json",
+      "image": "sheet.png",
+      "tag": "ambience",
+      "loop": true
+    }
+  ],
+  "files": {
+    "gif": "scene.gif",
+    "poster": "poster.png",
+    "sheet": "sheet.png",
+    "atlas": "atlas.json",
+    "project": "project.json",
+    "contact": "contact.png"
+  },
+  "integrity": {
+    "scene.gif": {
+      "sha256": "7b4866bfc23eccf1f4bea7e94f71af7831f555d4dfec0f765d7bf63acd79cd57",
+      "bytes": 26413
+    },
+    "poster.png": {
+      "sha256": "bcfb9d0d7ff8810d037010a4f4dcbfcc77a050d519c1d6a6f797ae12cff86202",
+      "bytes": 6563
+    },
+    "sheet.png": {
+      "sha256": "d1e09dc7ae373ee5922cc8c52345e79337f39d438a7d358a390dee0b05b80362",
+      "bytes": 49096
+    },
+    "atlas.json": {
+      "sha256": "3a6a9cad348d6f19bfa3d86e40d38dceed3d2fa63d03a12feb16cff1b09acf23",
+      "bytes": 36720
+    },
+    "project.json": {
+      "sha256": "c442471d4ab3acde316e10ec89a57b811bcb7e8f89409840644fbf9668d041dd",
+      "bytes": 1680273
+    },
+    "contact.png": {
+      "sha256": "d3f5ee1c1b2b7c48f7c08cc8fd59c448eca3fcdac591e4dcc1a47efa0c7b74fd",
+      "bytes": 122630
+    }
+  }
+}

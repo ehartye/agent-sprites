@@ -1,0 +1,547 @@
+{
+  "ok": true,
+  "version": 1,
+  "scene": "glasshouse",
+  "title": "A little borrowed sunlight",
+  "canvas": {
+    "w": 192,
+    "h": 128
+  },
+  "scale": 2,
+  "width": 384,
+  "height": 256,
+  "frameCount": 32,
+  "durationMs": 3200,
+  "loop": true,
+  "timeline": {
+    "durationMs": 3200,
+    "loop": true,
+    "steps": [
+      {
+        "atMs": 0,
+        "durationMs": 100,
+        "frames": [
+          32
+        ]
+      },
+      {
+        "atMs": 100,
+        "durationMs": 100,
+        "frames": [
+          33
+        ]
+      },
+      {
+        "atMs": 200,
+        "durationMs": 100,
+        "frames": [
+          34
+        ]
+      },
+      {
+        "atMs": 300,
+        "durationMs": 100,
+        "frames": [
+          35
+        ]
+      },
+      {
+        "atMs": 400,
+        "durationMs": 100,
+        "frames": [
+          36
+        ]
+      },
+      {
+        "atMs": 500,
+        "durationMs": 100,
+        "frames": [
+          37
+        ]
+      },
+      {
+        "atMs": 600,
+        "durationMs": 100,
+        "frames": [
+          38
+        ]
+      },
+      {
+        "atMs": 700,
+        "durationMs": 100,
+        "frames": [
+          39
+        ]
+      },
+      {
+        "atMs": 800,
+        "durationMs": 100,
+        "frames": [
+          40
+        ]
+      },
+      {
+        "atMs": 900,
+        "durationMs": 100,
+        "frames": [
+          41
+        ]
+      },
+      {
+        "atMs": 1000,
+        "durationMs": 100,
+        "frames": [
+          42
+        ]
+      },
+      {
+        "atMs": 1100,
+        "durationMs": 100,
+        "frames": [
+          43
+        ]
+      },
+      {
+        "atMs": 1200,
+        "durationMs": 100,
+        "frames": [
+          44
+        ]
+      },
+      {
+        "atMs": 1300,
+        "durationMs": 100,
+        "frames": [
+          45
+        ]
+      },
+      {
+        "atMs": 1400,
+        "durationMs": 100,
+        "frames": [
+          46
+        ]
+      },
+      {
+        "atMs": 1500,
+        "durationMs": 100,
+        "frames": [
+          47
+        ]
+      },
+      {
+        "atMs": 1600,
+        "durationMs": 100,
+        "frames": [
+          48
+        ]
+      },
+      {
+        "atMs": 1700,
+        "durationMs": 100,
+        "frames": [
+          49
+        ]
+      },
+      {
+        "atMs": 1800,
+        "durationMs": 100,
+        "frames": [
+          50
+        ]
+      },
+      {
+        "atMs": 1900,
+        "durationMs": 100,
+        "frames": [
+          51
+        ]
+      },
+      {
+        "atMs": 2000,
+        "durationMs": 100,
+        "frames": [
+          52
+        ]
+      },
+      {
+        "atMs": 2100,
+        "durationMs": 100,
+        "frames": [
+          53
+        ]
+      },
+      {
+        "atMs": 2200,
+        "durationMs": 100,
+        "frames": [
+          54
+        ]
+      },
+      {
+        "atMs": 2300,
+        "durationMs": 100,
+        "frames": [
+          55
+        ]
+      },
+      {
+        "atMs": 2400,
+        "durationMs": 100,
+        "frames": [
+          56
+        ]
+      },
+      {
+        "atMs": 2500,
+        "durationMs": 100,
+        "frames": [
+          57
+        ]
+      },
+      {
+        "atMs": 2600,
+        "durationMs": 100,
+        "frames": [
+          58
+        ]
+      },
+      {
+        "atMs": 2700,
+        "durationMs": 100,
+        "frames": [
+          59
+        ]
+      },
+      {
+        "atMs": 2800,
+        "durationMs": 100,
+        "frames": [
+          60
+        ]
+      },
+      {
+        "atMs": 2900,
+        "durationMs": 100,
+        "frames": [
+          61
+        ]
+      },
+      {
+        "atMs": 3000,
+        "durationMs": 100,
+        "frames": [
+          62
+        ]
+      },
+      {
+        "atMs": 3100,
+        "durationMs": 100,
+        "frames": [
+          63
+        ]
+      }
+    ]
+  },
+  "gif": {
+    "loop": true,
+    "pages": 32,
+    "delaysMs": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "durationMs": 3200,
+    "requestedDurationMs": 3200,
+    "driftMs": 0,
+    "timing": [
+      {
+        "atMs": 0,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2200,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2300,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2400,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2500,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2600,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2700,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2800,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 2900,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3000,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 3100,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      }
+    ],
+    "pixelComparison": {
+      "exact": true,
+      "differentPixels": 0,
+      "maxChannelError": 0,
+      "transparentPixels": "RGB ignored where alpha is zero"
+    },
+    "paletteLimit": 256
+  },
+  "contact": {
+    "tiles": 32,
+    "columns": 5,
+    "width": 1932,
+    "height": 1934
+  },
+  "source": {
+    "config": "../../../../examples/showcase/glasshouse.build.json",
+    "palette": "Sage, celadon glass, terracotta and pale honey",
+    "motion": [
+      "fountain",
+      "water glints",
+      "butterfly",
+      "sunlit motes"
+    ]
+  },
+  "tracks": [
+    {
+      "name": "garden",
+      "atlas": "atlas.json",
+      "image": "sheet.png",
+      "tag": "ambience",
+      "loop": true
+    }
+  ],
+  "files": {
+    "gif": "scene.gif",
+    "poster": "poster.png",
+    "sheet": "sheet.png",
+    "atlas": "atlas.json",
+    "project": "project.json",
+    "contact": "contact.png"
+  },
+  "integrity": {
+    "scene.gif": {
+      "sha256": "d2518ae05120545ee1192391b5c9527dfbf821ca0e8e8456f40d6797b8ba6177",
+      "bytes": 27284
+    },
+    "poster.png": {
+      "sha256": "1f2f85795b9e07d9b3652280c5da7cb65422d101025f9da02f0b315ea3ee9d16",
+      "bytes": 9164
+    },
+    "sheet.png": {
+      "sha256": "ebb83f2430c50a82ba0c07f5a32a86679f90078fc5ca1fc56fe749480ef1c583",
+      "bytes": 59420
+    },
+    "atlas.json": {
+      "sha256": "cb1bbe97b9e92ae512cf77d477793d2df54481e10273b1f4dd5339e1e0394fe6",
+      "bytes": 36592
+    },
+    "project.json": {
+      "sha256": "a535ac54544dee0a0e583051447f3c2cd04de6edb3f1f7ef0a21e2c70b743af0",
+      "bytes": 1934955
+    },
+    "contact.png": {
+      "sha256": "113ae531575e5c29a0a101adf7afebb0e7bd4b12ef51fba81efe41d5f051169e",
+      "bytes": 148639
+    }
+  }
+}
