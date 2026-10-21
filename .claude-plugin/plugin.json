@@ -1,7 +1,7 @@
 {
   "name": "agent-sprites",
-  "version": "0.93.0",
-  "description": "Pixel-art sprite authoring toolset for 2D game projects — parametric shapes, ramp-aware lighting, animation groups, Aseprite JSON atlas export, and a live collaborative web UI",
+  "version": "0.94.0",
+  "description": "Editable pixel-art authoring for agents: reusable parts, independent child animation, exact frame timing, construction replay, offline normal-map lighting, paired atlases, GIF proofs and a shared live workbench",
   "author": {
     "name": "ehartye"
   },
