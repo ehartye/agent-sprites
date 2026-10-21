@@ -52,7 +52,7 @@ export class Cell {
     };
     this._exec({
       execute: applyMove,
-      undo: () => { Object.assign(shape.params, oldParams); },
+      undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
 
@@ -76,7 +76,10 @@ export class Cell {
     const snapshot = shape.toJSON();
     this._exec({
       execute: () => this.shapes.remove(shape.id),
-      undo: () => this.shapes.add(Shape.fromJSON(snapshot)),
+      undo: () => {
+        Object.assign(shape, structuredClone(snapshot));
+        this.shapes.add(shape);
+      },
     });
   }
 
@@ -84,9 +87,10 @@ export class Cell {
     const shape = this.shapes.get(ref);
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldParams = structuredClone(shape.params);
+    const savedUpdates = structuredClone(updates);
     this._exec({
-      execute: () => { Object.assign(shape.params, updates); },
-      undo: () => { Object.assign(shape.params, oldParams); },
+      execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); },
+      undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
 
@@ -97,7 +101,7 @@ export class Cell {
     const oldParams = structuredClone(shape.params);
     this._exec({
       execute: () => flipParams(shape.params, axis, mirrorSum(shape.params, axis, about, axis === 'horizontal' ? this.width : this.height)),
-      undo: () => { Object.assign(shape.params, oldParams); },
+      undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
 
@@ -111,7 +115,7 @@ export class Cell {
         const [px, py] = rotatePivot(shape.params, about, this.width, this.height);
         rotateParams(shape.params, deg, px, py);
       },
-      undo: () => { Object.assign(shape.params, oldParams); },
+      undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
 
@@ -126,11 +130,14 @@ export class Cell {
   }
 
   clear() {
-    const snapshot = this.shapes.toJSON();
+    const snapshot = this.shapes.listByZ().map(shape => ({ shape, data: shape.toJSON() }));
     this._exec({
       execute: () => this.shapes.clear(),
       undo: () => {
-        for (const data of snapshot) this.shapes.add(Shape.fromJSON(data));
+        for (const { shape, data } of snapshot) {
+          Object.assign(shape, structuredClone(data));
+          this.shapes.add(shape);
+        }
       },
     });
   }
