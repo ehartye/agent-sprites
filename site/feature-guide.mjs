@@ -246,6 +246,7 @@ export const examples = [
     folder: "tileset/dist",
     name: "tiles",
     kind: "tileset",
+    omitProject: true,
   },
   {
     id: "animated-composition",

@@ -450,7 +450,9 @@ export async function mountLab(
         font,
         entries = [];
       const render = () => {
+        if (!a || !img || !entries.length) return;
         if (q("#recipe").value === "ui-font") {
+          if (!font) return;
           canvas.width = 320;
           canvas.height = 160;
           const c = canvas.getContext("2d");
@@ -567,6 +569,7 @@ export async function mountLab(
         lastIndex = i;
       };
       const reset = () => {
+        if (!a) return;
         const tag = (a.meta.frameTags ?? []).find(
             (t) => t.name === q("#tag").value,
           ),

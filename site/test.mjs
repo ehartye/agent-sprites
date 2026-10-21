@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  statSync,
+  existsSync,
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
-import { resolve, join, dirname } from "node:path";
+import { resolve, join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMANDS } from "../server/commands/catalog.js";
 import { features, scenes, examples } from "./feature-guide.mjs";
+import { readExampleArtifacts } from "./example-artifacts.mjs";
 import {
   atlasFrames,
   orderedFrames,
@@ -17,6 +27,31 @@ const root = fileURLToPath(new URL("..", import.meta.url)),
 const read = (p) => readFileSync(p, "utf8"),
   json = (p) => JSON.parse(read(p));
 const hash = (b) => createHash("sha256").update(b).digest("hex");
+const fixture = mkdtempSync(join(tmpdir(), "sprites-site-refresh-"));
+try {
+  const example = { name: "sample" };
+  assert.throws(() => readExampleArtifacts(fixture, example), /sample\.png/);
+  writeFileSync(join(fixture, "sample.png"), "pixels");
+  assert.throws(
+    () => readExampleArtifacts(fixture, example),
+    /sample\.atlas\.json/,
+  );
+  writeFileSync(join(fixture, "sample.atlas.json"), "{}");
+  assert.throws(
+    () => readExampleArtifacts(fixture, example),
+    /sample\.project\.json/,
+  );
+  assert.equal(
+    readExampleArtifacts(fixture, { ...example, omitProject: true }).length,
+    2,
+  );
+  writeFileSync(join(fixture, "sample.project.json"), "{}");
+  assert.equal(readExampleArtifacts(fixture, example).length, 3);
+} finally {
+  assert.equal(dirname(resolve(fixture)), resolve(tmpdir()));
+  assert(basename(fixture).startsWith("sprites-site-refresh-"));
+  rmSync(fixture, { recursive: true, force: true });
+}
 const coverage = json(join(dist, "coverage.json"));
 for (const folder of [".build", ".reviews"])
   assert(
