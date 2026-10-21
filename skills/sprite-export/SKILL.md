@@ -1,6 +1,6 @@
 ---
 name: sprite-export
-description: Export the active sprite project as a PNG sheet and Aseprite JSON atlas. Use when sprite artwork is ready for game integration or an explicit export destination is requested.
+description: Export PNG sheets and Aseprite JSON atlases, or composite exported base and overlay animations into a GIF proof. Use when sprite artwork is ready for game integration, an explicit export destination is requested, or atlas alignment and timing need review.
 ---
 
 Export the current sprite project. Usage: /sprite-export [dest folder]
@@ -21,5 +21,10 @@ node "<plugin-root>/scripts/run-managed.js" export [--dest <folder>]
 This writes a gapless sheet PNG plus `<name>.atlas.json` (Aseprite JSON: frames, `meta.frameTags` from cell groups, durations, pivot slice) to the project's asset folder under the current directory, or exactly `--dest`. Add `--trim true` for a smaller, trimmed atlas: each cell is packed as its opaque bounding box with real `spriteSourceSize` offsets and `trimmed: true`, and empty cells share a 1×1 transparent pixel. Frame names, tags, durations and the cell-relative pivot slice are unchanged. It needs a transparent background. Draw trimmed frames at `spriteSourceSize.x/y` within the cell (the build `playback-runtime.mjs` does). UI font and skin builds do not trim. Unity, Godot, and Phaser importers consume it directly — see the `game-integration` skill for wiring exports into a game project.
 
 Then run the managed launcher with `verify <exported-name>.atlas.json --contact-sheet review.png --report review.json --json` and any required `--expect-tags idle,walk`. A zero exit confirms structure; follow [sprite verification](../sprite-verification/SKILL.md) to inspect every frame and animation before integration.
+
+For an exported base plus animated overlays, use the offline `atlas-proof` workflow.
+Read [atlas composition proofs](references/atlas-proof.md) for the config, whole-pixel
+anchors, timing/alpha limits and complete artifact review. It reads the exported
+PNG/atlas files and does not change the live session. Use a new output directory.
 
 Resolve <plugin-root> from this loaded skill's directory (two parents up), not from PATH or the current project. Follow [sprite setup](../sprite-setup/SKILL.md) and use the absolute managed launcher. For PowerShell invocation, read [CLI setup](../sprite-editing/references/cli-setup.md).

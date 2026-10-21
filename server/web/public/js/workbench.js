@@ -1,5 +1,5 @@
 import { commandRequest } from './command-catalog.js';
-import { element, button, input, field, setStatus, jsonReport } from './components.js';
+import { element, button, input, field, setStatus, jsonReport, animationProof } from './components.js';
 import { RegionEditor } from './region-editor.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
@@ -231,15 +231,18 @@ export class Workbench {
     for (const { input } of fields) input.addEventListener('input', () => { jsonEdited = false; try { json.value = JSON.stringify(read(), null, 2); } catch { /* partial field input */ } });
     const submit = element('button', command.submitLabel ?? (command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
     const report = jsonReport({ onDownload: data => download(`${command.id.replaceAll(' ', '-')}-report.json`, data) });
+    const animation = animationProof();
     const output = report.output;
     form.addEventListener('submit', event => {
       event.preventDefault();
       this.run(async () => {
         submit.disabled = true;
+        animation.set(null);
         try {
           const request = commandRequest(command, read());
           const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
           report.set(result.data ?? result);
+          animation.set(result.preview, result.previewPoster);
           if (result.data?.ok === false) {
             this.notify(`${command.label} failed. See the report below.`, true);
             return;
@@ -258,7 +261,7 @@ export class Workbench {
         } finally { submit.disabled = false; }
       });
     });
-    this.commandDetail.append(form, report.node);
+    this.commandDetail.append(form, animation.node, report.node);
   }
   renderBatch(mount) {
     const input = element('textarea'); input.rows = 12; input.value = JSON.stringify([{ command: 'draw', type: 'point', cell: this.getCell(), x: 8, y: 8, color: this.getColor() ?? '#ffccaa', name: 'review-mark' }], null, 2);

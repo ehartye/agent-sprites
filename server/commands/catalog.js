@@ -90,6 +90,7 @@ export const COMMANDS = [
   post('build', 'Files', 'Build a project', '/api/workbench/build', { path: '' }, 'Choose a local build configuration. Runs an isolated build, including any configured local generator. Available from localhost; the live design stays unchanged.'),
   post('verify', 'Files', 'Verify exported pixels', '/api/workbench/verify', { path: '', expectedTags: [], expectedFrames: [], outlineColors: [], scale: 4 }, 'Choose a local atlas JSON file. Checks its PNG and metadata. Add outline colors to check continuous outlines. Available from localhost.'),
   post('trace', 'Files', 'Trace an image into shapes', '/api/workbench/trace', { path: '', out: '', name: 'image-trace' }, 'Choose a local PNG or WebP and a new output directory. Preserves decoded pixels and emits an editable project. Available from localhost.'),
+  post('atlas-proof', 'Files', 'Preview base and overlay atlases', '/api/workbench/atlas-proof', { path: '', out: '' }, 'Choose a proof JSON and a new output directory in an existing parent folder. Composites atlas tags or explicit frames with trim offsets, anchors and timing. Returns a verified GIF, complete PNG frames, contact sheet and timing/color report. Available from localhost; the live design stays unchanged.'),
   ...[
     ['restart', 'Restart the server', 'agent-sprites restart', 'Run in a terminal so the process can reconnect after shutdown.'],
     ['help', 'Full command reference', 'agent-sprites --help', 'All live editing commands have controls here. Offline file workflows and server lifecycle stay in the terminal.'],

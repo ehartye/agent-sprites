@@ -276,6 +276,8 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          compares decoded pixels with the files on disk and writes nothing
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
+  atlas-proof <proof.json> --out <new-directory> [--json]
+    Composite exported atlas tracks into verified GIF, PNG frames and a contact sheet.
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
@@ -393,6 +395,22 @@ async function run() {
   }
 
   const { args, positional } = parseArgs(process.argv.slice(3));
+  if (cmd === 'atlas-proof') {
+    for (const key of Object.keys(args)) {
+      if (!['out', 'json'].includes(key)) throw new Error(`Unknown atlas-proof option: --${key}`);
+    }
+    if (positional.length !== 1 || typeof args.out !== 'string' || !args.out.trim()) {
+      throw new Error('Usage: agent-sprites atlas-proof <proof.json> --out <new-directory> [--json]');
+    }
+    const { renderAtlasProof } = await import('../server/engine/atlas-proof.js');
+    const report = await renderAtlasProof(positional[0], { output: args.out });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Atlas proof: ${report.frameCount} frames, ${report.durationMs} ms, ${report.width}×${report.height}, ${report.loop ? 'looping' : 'once'}.`);
+      for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${Array.isArray(path) ? `${path.length} PNG files` : path}`);
+    }
+    return;
+  }
   if (cmd === 'trace') {
     for (const key of Object.keys(args)) {
       if (!['out', 'name', 'json'].includes(key)) throw new Error(`Unknown trace option: --${key}`);

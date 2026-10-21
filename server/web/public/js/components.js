@@ -41,6 +41,35 @@ export function setStatus(node, message, error = false) {
   node.classList.toggle('error', error);
 }
 
+/** Display only server-produced GIF data, with a pause control and direct download. */
+export function animationProof() {
+  const node = element('figure', null, 'animation-proof'); node.hidden = true;
+  const image = element('img'); image.alt = 'Composited atlas animation proof';
+  const link = element('a', 'Download GIF'); link.download = 'atlas-proof.gif';
+  let gif, poster, playing;
+  const pause = button('Pause animation', () => {
+    playing = !playing;
+    if (playing) { image.src = gif; image.hidden = false; }
+    else if (poster) image.src = poster;
+    else { image.removeAttribute('src'); image.hidden = true; }
+    pause.textContent = playing ? 'Pause animation' : 'Play animation';
+    pause.setAttribute('aria-pressed', String(!playing));
+  });
+  const caption = element('figcaption'); caption.append(pause, link); node.append(image, caption);
+  return { node, set(value, still) {
+    gif = typeof value === 'string' && /^data:image\/gif;base64,[A-Za-z0-9+/]+=*$/.test(value) ? value : null;
+    poster = typeof still === 'string' && /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(still) ? still : null;
+    node.hidden = !gif; playing = Boolean(gif) && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    image.removeAttribute('src'); link.removeAttribute('href');
+    if (gif) {
+      link.href = gif; image.hidden = false;
+      if (playing || poster) image.src = playing ? gif : poster;
+      else image.hidden = true;
+    }
+    pause.textContent = playing ? 'Pause animation' : 'Play animation'; pause.setAttribute('aria-pressed', String(!playing));
+  } };
+}
+
 /** Bound the visible JSON while preserving the complete result for download. */
 export function jsonReport({ onDownload, limit = 24_000 }) {
   const node = element('div', null, 'json-report');

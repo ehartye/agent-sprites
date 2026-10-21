@@ -11,7 +11,7 @@ Open the server's preview URL to work on the same live draft as your agent.
 - **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
 - **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.
 - **ASCII** reads a bounded region as text, reports unmapped RGBA colors, and applies one undoable patch with explicit keep and erase symbols.
-- **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace and verification forms run existing file workflows from the server's localhost page; restart remains a terminal command.
+- **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace, atlas proof and verification forms run file workflows from the server's localhost page; restart remains a terminal command.
 - **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
 - Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
 
@@ -307,6 +307,24 @@ with a gutter between cards so a label always belongs to the art above it, in a 
 Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
+
+### Preview exported base and overlay atlases
+
+`Invoke-Sprite atlas-proof .\proof.json --out .\review-01 --json`
+
+Compose exported atlas tags or explicit frames into a verified GIF, complete PNG
+frames, contact sheet and timing/color report. It restores trim offsets and packed
+rotation, supports source-size anchors and frame-specific pivots, and includes
+the complete joint period of looping tracks. One-shot tracks hold their last pose.
+The output directory must be new, inside an existing parent directory. Inputs
+are hash-checked again before publication; the active session stays unchanged.
+
+The browser's **Preview base and overlay atlases** tool runs the same service,
+with an animated preview, pause/play and GIF download. See the
+[proof config and limits](skills/sprite-export/references/atlas-proof.md) and
+[two-source example](examples/atlas-proof/README.md). GIF timing has 10 ms
+resolution and palette colors can change; the report measures both after decoding.
+Partial alpha requires an explicit matte. PNG frames retain canonical colors.
 
 ### Trace a reference into editable shapes
 

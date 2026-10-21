@@ -4,7 +4,7 @@ import { Workbench } from '../../server/web/public/js/workbench.js';
 import { COMMANDS } from '../../server/commands/catalog.js';
 import { commandRequest } from '../../server/web/public/js/command-catalog.js';
 import { ShapePanel } from '../../server/web/public/js/panels.js';
-import { jsonReport } from '../../server/web/public/js/components.js';
+import { jsonReport, animationProof } from '../../server/web/public/js/components.js';
 
 let bench, request, color;
 test('large shared reports disclose preview limits and retain the complete downloadable result', () => {
@@ -16,6 +16,41 @@ test('large shared reports disclose preview limits and retain the complete downl
   const download = report.node.querySelector('button');
   expect(download.hidden).toBe(false); download.click();
   expect(onDownload).toHaveBeenCalledWith(data);
+});
+test('atlas proof uses a separate animated preview and keeps binary data out of the readable report', async () => {
+  const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  request.mockImplementation(async path => path === '/workbench/commands' ? { data: COMMANDS } : {
+    data: { ok: true, frameCount: 2, durationMs: 200, artifacts: { gif: '/review/proof.gif' } }, preview: gif,
+  });
+  await bench.show('tools'); bench.selectCommand('atlas-proof');
+  document.querySelector('[name="path"]').value = '/source/proof.json';
+  document.querySelector('[name="out"]').value = '/review';
+  document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await vi.waitFor(() => expect(document.querySelector('.animation-proof img')?.src).toBe(gif));
+  expect(document.querySelector('.tool-output').textContent).toContain('frameCount');
+  expect(document.querySelector('.tool-output').textContent).not.toContain('base64');
+  expect(document.querySelector('.animation-proof img').alt).toContain('atlas');
+  expect(document.querySelector('.animation-proof a').download).toBe('atlas-proof.gif');
+  expect(request).toHaveBeenCalledWith('/workbench/atlas-proof', { path: '/source/proof.json', out: '/review' });
+});
+test('shared animation preview pauses at the poster and clears rejected or stale media', () => {
+  const view = animationProof(), gif = 'data:image/gif;base64,R0lGODlh', poster = 'data:image/png;base64,iVBORw0KGgo=';
+  view.set(gif, poster); document.body.append(view.node);
+  const image = view.node.querySelector('img'), pause = view.node.querySelector('button');
+  pause.click(); expect(image.src).toBe(poster); expect(pause.textContent).toBe('Play animation');
+  pause.click(); expect(image.src).toBe(gif);
+  view.set('https://foreign.example/proof.gif');
+  expect(view.node.hidden).toBe(true); expect(image.hasAttribute('src')).toBe(false);
+  expect(view.node.querySelector('a').hasAttribute('href')).toBe(false);
+});
+test('shared animation preview respects reduced motion and starts on a still poster', () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true }));
+  try {
+    const view = animationProof(), gif = 'data:image/gif;base64,R0lGODlh', poster = 'data:image/png;base64,iVBORw0KGgo=';
+    view.set(gif, poster);
+    expect(view.node.querySelector('img').src).toBe(poster);
+    expect(view.node.querySelector('button').textContent).toBe('Play animation');
+  } finally { vi.unstubAllGlobals(); }
 });
 beforeEach(() => {
   document.body.innerHTML = '<div id="workbench-mount"></div><div id="workbench-status"></div>';
