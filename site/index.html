@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f2e8" />
+    <meta
+      name="description"
+      content="An interactive field guide to Agent Sprites. Explore editable pixel art, animated worlds, character builders, lighting and game-ready exports."
+    />
+    <title>Agent Sprites — Small pixels. Entire worlds.</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%232e4be8' d='M4 1h8v3h3v8h-3v3H4v-3H1V4h3z'/%3E%3Cpath fill='%23f5f2e8' d='M4 6h2v3H4zm6 0h2v3h-2zM6 11h4v1H6z'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#field-guide">Skip to the examples</a>
+    <header class="masthead wrap">
+      <a class="brand" href="#"
+        ><span class="brand-mark" aria-hidden="true">✦</span> agent sprites<span
+          class="edition"
+          >FIELD GUIDE / 01</span
+        ></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="#field-guide"
+          >Explore the tools <span aria-hidden="true">↓</span></a
+        ><a href="https://github.com/ehartye/agent-sprites"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main>
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="status-dot"></span> PIXEL ART, WITH SOMETHING
+            UNDERNEATH
+          </p>
+          <h1 id="hero-title">
+            Small pixels.<br />Entire<br /><span>worlds.</span>
+          </h1>
+          <p class="lede">
+            Draw with intent. Animate with character.<br />Keep every little
+            piece editable.
+          </p>
+          <p class="hero-description">
+            A pixel-art workshop for coding agents and their human
+            collaborators. Named shapes in, living worlds out.
+          </p>
+          <a class="button primary" href="#field-guide"
+            >Try the eight essentials <span aria-hidden="true">↘</span></a
+          >
+          <div class="hero-foot">
+            <span class="tiny-cross" aria-hidden="true">✣</span>
+            <p>
+              Four little places, made of named shapes.<br /><span
+                >Actual exports. Playable loops. Editable source.</span
+              >
+            </p>
+          </div>
+        </div>
+        <div class="specimen-board">
+          <div class="board-top">
+            <span>STUDIES IN SMALL WORLDS</span
+            ><button
+              id="motion-toggle"
+              class="text-button"
+              aria-pressed="false"
+            >
+              Pause motion <span aria-hidden="true">Ⅱ</span>
+            </button>
+          </div>
+          <div
+            id="scene-grid"
+            class="scene-grid"
+            aria-label="Four animated pixel-art scenes"
+          ></div>
+          <div class="board-bottom">
+            <span>192 × 128 / 32 FRAMES / HAND-AUTHORED GEOMETRY</span
+            ><span>SELECT A SCENE TO INSPECT ↗</span>
+          </div>
+        </div>
+      </section>
+      <div class="ribbon">
+        <div class="wrap">
+          <span>MADE TO BE TAKEN APART.</span>
+          <p>
+            Not a flat image. <strong>A design you can keep working on.</strong>
+          </p>
+          <a href="#scene-inspector">Look inside a scene ↗</a>
+        </div>
+      </div>
+      <section
+        id="scene-inspector"
+        class="scene-inspector wrap"
+        aria-labelledby="scene-name"
+      >
+        <div>
+          <p class="eyebrow">
+            OPEN SPECIMEN / <span id="scene-number">01</span>
+          </p>
+          <h2 id="scene-name">The last train</h2>
+          <p id="scene-caption">Rain, reflections & a little anticipation</p>
+        </div>
+        <div class="scene-downloads" id="scene-downloads"></div>
+        <p class="inspection-note">
+          Each project contains the named shapes for every frame. Open it in
+          your local Agent Sprites workbench to make it your own.
+        </p>
+      </section>
+      <section
+        id="field-guide"
+        class="field-guide wrap"
+        aria-labelledby="guide-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE FIELD GUIDE</p>
+            <h2 id="guide-title">
+              Eight ways to make<br />something <em>your own.</em>
+            </h2>
+          </div>
+          <p>
+            Start with a little experiment.<br />Take the source. Keep building.
+          </p>
+        </div>
+        <div class="guide-layout">
+          <div
+            class="chapter-nav"
+            role="tablist"
+            aria-label="Feature chapters"
+            aria-orientation="vertical"
+            id="feature-tabs"
+          ></div>
+          <article
+            id="feature-panel"
+            class="feature-panel"
+            role="tabpanel"
+            tabindex="0"
+          >
+            <div class="feature-intro">
+              <p class="eyebrow" id="feature-eyebrow"></p>
+              <h3 id="feature-title"></h3>
+              <p id="feature-description"></p>
+            </div>
+            <div id="lab" class="lab"></div>
+            <p id="lab-error" class="error" role="alert"></p>
+            <div class="lab-caption">
+              <span class="status-dot"></span>
+              <p id="feature-try"></p>
+            </div>
+            <ul id="feature-includes" class="feature-includes"></ul>
+            <div class="takeaway">
+              <div>
+                <p class="eyebrow">TAKE IT WITH YOU</p>
+                <h4>Build this on your machine.</h4>
+                <p>
+                  The experiment runs here in your browser. These commands run
+                  against your local installation.
+                </p>
+              </div>
+              <div id="feature-links" class="download-links"></div>
+            </div>
+            <div class="code-example">
+              <div>
+                <span>TERMINAL / LOCAL INSTALL REQUIRED</span
+                ><button class="text-button" id="copy-example">
+                  Copy commands
+                </button>
+              </div>
+              <pre><code id="feature-command"></code></pre>
+            </div>
+          </article>
+        </div>
+      </section>
+      <section class="workshop wrap" aria-labelledby="workshop-title">
+        <div class="workshop-art" aria-hidden="true">
+          <span>✦</span><span>✧</span><span>+</span>
+        </div>
+        <div>
+          <p class="eyebrow">THE FULL WORKSHOP</p>
+          <h2 id="workshop-title">
+            An agent at the CLI.<br />You at the canvas.
+          </h2>
+          <p>
+            The local workbench mirrors edits as they happen. Switch sessions,
+            inspect shapes, compare palettes, leave review notes and pass the
+            design back. One shared draft, real collaboration.
+          </p>
+          <a href="./source/skills/sprite-setup/SKILL.md" class="button dark"
+            >Set up Agent Sprites ↗</a
+          ><a
+            class="inline-link"
+            href="https://github.com/ehartye/agent-sprites#collaborative-preview-workbench"
+            >See the workbench guide ↗</a
+          >
+        </div>
+        <aside>
+          <span class="workshop-tag">LOCAL FIRST</span>
+          <p>
+            This is a static, read-only showcase. Your experiments stay in this
+            tab. Session storage, filesystem workflows and live collaboration
+            run in the local server.
+          </p>
+        </aside>
+      </section>
+      <section class="reference wrap" aria-labelledby="reference-title">
+        <details id="command-reference">
+          <summary>
+            <div>
+              <p class="eyebrow">FOR THE CURIOUS</p>
+              <h2 id="reference-title">The whole toolbox.</h2>
+            </div>
+            <span class="summary-right"
+              ><span id="command-total">94</span> commands
+              <span aria-hidden="true">+</span></span
+            >
+          </summary>
+          <p class="reference-intro">
+            Examples generated from the actual workbench command catalog. Fill
+            in file paths, session IDs and shape names for your own local
+            design. These requests are shown for reference; this page never
+            sends them.
+          </p>
+          <div class="reference-filter">
+            <label
+              >Find a tool<input
+                type="search"
+                id="command-search"
+                placeholder="Try “tween”, “normal” or “undo”…" /></label
+            ><label
+              >Category<select id="command-category">
+                <option value="">All categories</option>
+              </select></label
+            >
+          </div>
+          <p id="command-count" aria-live="polite"></p>
+          <div id="command-list"></div>
+        </details>
+      </section>
+      <section class="closing wrap">
+        <p class="eyebrow">
+          SMALL ENOUGH TO UNDERSTAND. OPEN ENOUGH TO CHANGE.
+        </p>
+        <h2>Make a little<br /><span>world of your own.</span></h2>
+        <a
+          href="https://github.com/ehartye/agent-sprites"
+          class="button primary"
+          >Get the open-source workshop ↗</a
+        >
+      </section>
+    </main>
+    <footer class="wrap">
+      <a class="brand" href="#">✦ agent sprites</a>
+      <p>Made of pixels. Kept as possibilities.</p>
+      <div>
+        <a href="./LICENSE">MIT license</a
+        ><a href="https://github.com/ehartye/agent-sprites/issues"
+          >Feedback ↗</a
+        ><a href="./coverage.json">Example inventory</a>
+      </div>
+    </footer>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <noscript
+      ><p class="wrap">
+        Enable JavaScript for the interactive examples. The
+        <a href="https://github.com/ehartye/agent-sprites/tree/main/examples"
+          >editable examples</a
+        >
+        and
+        <a href="https://github.com/ehartye/agent-sprites">documentation</a> are
+        available on GitHub.
+      </p></noscript
+    >
+  </body>
+</html>
