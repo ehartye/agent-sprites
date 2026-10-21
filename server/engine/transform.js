@@ -1,3 +1,4 @@
+import { flipSurface, rotateSurface } from '../web/public/js/shared/surface-model.js';
 // Pure param transforms shared by Cell (per-shape, undoable) and
 // CellManager (whole-cell). All mutate params in place.
 
@@ -36,6 +37,7 @@ export function mirrorSum(p, axis, about, extent) {
 }
 
 export function flipParams(p, axis, m) {
+  const surface = Object.hasOwn(p, 'surface') ? flipSurface(p.surface, axis === 'horizontal' ? 'x' : axis === 'vertical' ? 'y' : axis, m) : undefined;
   if (axis === 'horizontal') {
     if ('points' in p) { for (const pt of p.points) pt.x = m - pt.x; }
     else if ('x1' in p) { p.x1 = m - p.x1; p.x2 = m - p.x2; }
@@ -51,6 +53,7 @@ export function flipParams(p, axis, m) {
   } else {
     throw new Error(`Unknown axis "${axis}" (use horizontal|vertical)`);
   }
+  if (surface !== undefined) p.surface = surface;
 }
 
 /** Pivot point for rotation. about: 'self' (bbox center) | 'cell' (cell center). */
@@ -67,6 +70,7 @@ export function rotateParams(p, deg, px, py) {
   if (deg !== 90 && deg !== 180 && deg !== 270) {
     throw new Error('Rotation must be 90, 180, or 270 degrees');
   }
+  const surface = Object.hasOwn(p, 'surface') ? rotateSurface(p.surface, deg, px, py) : undefined;
   const rotRaw = (x, y) => {
     const dx = x - px, dy = y - py;
     if (deg === 90) return [px - dy, py + dx];
@@ -94,4 +98,5 @@ export function rotateParams(p, deg, px, py) {
   } else {
     [p.x, p.y] = rot(p.x, p.y);
   }
+  if (surface !== undefined) p.surface = surface;
 }

@@ -1,5 +1,7 @@
 import { Cell } from './cell.js';
-import { rotateParams } from './transform.js';
+import { rotateParams, flipParams } from './transform.js';
+import { transformLayerCell } from './shape-layers.js';
+import { translateParams } from '../web/public/js/shared/shape-layers.js';
 
 export class CellManager {
   constructor(cellSize, rows, cols) {
@@ -47,25 +49,32 @@ export class CellManager {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) {
       throw new Error(`Cell ${r},${c} out of bounds (grid is ${this.rows}x${this.cols})`);
     }
-    return this._grid[r][c];
+    const cell = this._grid[r][c];
+    cell.surfaceContext = this.surfaceContext;
+    return cell;
   }
 
   copyCell(fromRef, toRef) {
     const src = this.getCell(fromRef);
     const { r, c } = this._parseCoord(toRef);
-    const dest = new Cell({ w: this.cellWidth, h: this.cellHeight }, { reference: src.reference });
+    const dest = new Cell({ w: this.cellWidth, h: this.cellHeight }, { reference: src.reference, lighting: src.lighting });
+    dest.surfaceContext = this.surfaceContext;
     for (const shape of src.shapes.listByZ()) {
       const clone = shape.clone();
       dest.shapes.add(clone);
-      // Keep the z counter above every cloned shape, or later draws on the
-      // destination would render beneath the clones.
-      if (clone.zIndex >= dest._nextZ) dest._nextZ = clone.zIndex + 1;
+      // Reserve both primitive and retained root-surface paint order.
+      dest._reserveShapeZ(clone);
     }
     this._grid[r][c] = dest;
   }
 
   shiftCell(ref, dx, dy) {
     const cell = this.getCell(ref);
+    if (cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers') || Object.hasOwn(shape.params, 'surface'))) {
+      return transformLayerCell(cell, p => {
+        Object.assign(p, translateParams(p, dx, dy));
+      });
+    }
     for (const shape of cell.shapes.listByZ()) {
       const p = shape.params;
       if ('x' in p) { p.x += dx; p.y += dy; }
@@ -81,6 +90,10 @@ export class CellManager {
   mirrorCell(ref, axis) {
     const cell = this.getCell(ref);
     const max = (axis === 'horizontal' ? this.cellWidth : this.cellHeight) - 1;
+    if (cell.lighting || cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers') || Object.hasOwn(shape.params, 'surface'))) {
+      const options = cell.lighting ? { lighting: { ...cell.lighting, skyDir: cell.lighting.skyDir.map((value,index)=>index === (axis === 'horizontal' ? 0 : 1) ? -value : value) } } : {};
+      return transformLayerCell(cell, p => flipParams(p, axis, max), options);
+    }
     for (const shape of cell.shapes.listByZ()) {
       const p = shape.params;
       if (axis === 'horizontal') {
@@ -103,6 +116,12 @@ export class CellManager {
     const cell = this.getCell(ref);
     const px = (this.cellWidth - 1) / 2;
     const py = (this.cellHeight - 1) / 2;
+    if (cell.lighting || cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers') || Object.hasOwn(shape.params, 'surface'))) {
+      if (![90,180,270].includes(deg)) throw new Error('Rotation must be 90, 180, or 270 degrees');
+      const [x,y] = cell.lighting?.skyDir ?? [0,-1];
+      const options = cell.lighting ? { lighting: { ...cell.lighting, skyDir: deg === 90 ? [-y,x] : deg === 180 ? [-x,-y] : [y,-x] } } : {};
+      return transformLayerCell(cell, p => rotateParams(p, deg, px, py), options);
+    }
     for (const shape of cell.shapes.listByZ()) {
       rotateParams(shape.params, deg, px, py);
     }
@@ -128,7 +147,7 @@ export class CellManager {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const cell = this._grid[r][c];
-        if (cell.shapes.listByZ().length > 0 || cell.name) {
+        if (cell.shapes.listByZ().length > 0 || cell.name || cell.lighting !== undefined) {
           cells[`${r},${c}`] = cell.toJSON();
         }
       }

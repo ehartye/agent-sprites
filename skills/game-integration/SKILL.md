@@ -10,7 +10,7 @@ first-time installation and version sync after plugin updates. Always invoke thi
 plugin's absolute scripts/run-managed.js with Node; never use a PATH executable,
 checkout CLI, or plugin-cache CLI. All sprite.js examples mean that launcher.
 
-Patterns for taking agent-sprites exports into a real game project. Everything here shipped in production games (horde-peril, thrill-peril) — prefer these shapes over inventing new ones.
+Patterns for taking agent-sprites exports into a game project, covering replayable builds, atlas loading and runtime drawing.
 
 `sprite.js` means the invocation resolved by [sprite editing](../sprite-editing/SKILL.md).
 Stop on failed CLI commands; see its PowerShell helper before running a build sequence.
@@ -128,7 +128,7 @@ Omit `save` when no project JSON should enter assets; drafts persist automatical
 
 ## Full-game asset builds: generate, don't hand-write
 
-A game's asset set is hundreds of ops (thrill-peril: ~760 across 9 sheets). Keep one
+A larger asset set can contain hundreds of operations across several sheets. Keep one
 build config per sheet and use the managed `sprite.js build <config> --json`.
 
 For human casts start with the inline `native` source (16×32, primary; JSON only, with motif library,
@@ -220,7 +220,7 @@ sprite.js view --cell 0,0 --scale 16 --out icon-512.png    # 32 × 16
 
 Reference the PNGs from the web manifest (192 + 512, `"purpose": "any maskable"` — keep important detail inside the inner ~80% for maskable) and `<link rel="icon">`. Proven on two shipped PWAs.
 
-### A full brand set (Fallow Valley's recipe)
+### A complete pixel-art brand set
 
 When the icon is a real picture rather than a glyph, build it as a `tileset` project (a `.pxl` tile per size, see the [tileset recipe](../../examples/tileset/README.md)) and let `agent-sprites app-icons` scale it, by whole numbers only. The config names the built atlas (`atlas`), the output folder (`output`), the three tiles (`tiles`: `master` default `icon_master` 64x64, `mid` `icon_32`, `tiny` `icon_16`) and an optional `card` (`width`, `height`, `scale`, `sceneWidth`, `masterX`, `horizon`, `stars: {sample, at}`, `logo: {image, scale, x}`); it writes icon-192/512, icon-maskable-512, apple-touch-icon (RGB, no alpha), favicon-16/32/48, favicon.ico and og-card.png, and `--check` compares decoded pixels with the files on disk (use it in a test). The rules it applies:
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
 
 describe('AnimationPreview (browser)', () => {
@@ -15,6 +15,39 @@ describe('AnimationPreview (browser)', () => {
     expect(document.querySelector('.anim-fps-label').textContent).toBe('6 FPS');
     ap.play(); ap.setFrames([]);
     expect(ap._intervalId).toBeNull();
+  });
+  it('plays exact mixed milliseconds and stops after the final one-shot hold', () => {
+    vi.useFakeTimers();
+    try {
+      const ap = new AnimationPreview({ mountId: 'anim-panel' }); ap.init();
+      ap.setFrames(['0,0','0,1','0,2'], { durations: [75,125,200], loop: false });
+      ap.play(); vi.advanceTimersByTime(74); expect(ap._currentFrame).toBe(0);
+      vi.advanceTimersByTime(1); expect(ap._currentFrame).toBe(1);
+      vi.advanceTimersByTime(124); expect(ap._currentFrame).toBe(1);
+      vi.advanceTimersByTime(1); expect(ap._currentFrame).toBe(2);
+      vi.advanceTimersByTime(199); expect(ap._playing).toBe(true);
+      vi.advanceTimersByTime(1); expect(ap._playing).toBe(false); expect(ap._currentFrame).toBe(2);
+      expect(ap._fpsSlider.disabled).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+  it('rejects an unrepresentable timeline before replacing current playback state',()=>{
+    const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0'],{durations:[75]});
+    expect(()=>ap.setFrames(['0,0','0,1'],{durations:[Number.MAX_SAFE_INTEGER,1]})).toThrow(/safe|duration/);
+    expect(ap._frames).toEqual(['0,0']);expect(ap._playing).toBe(false);
+  });
+  it('rejects an inherited FPS whose aggregate is unsafe before changing rate or play state',()=>{
+    const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1']);
+    expect(()=>ap.setFps(2e-13)).toThrow(/safe|duration/);expect(ap._fps).toBe(8);expect(ap._playing).toBe(false);expect(ap._intervalId).toBeNull();
+  });
+  it('pause and resume preserve the remaining milliseconds of the current hold',()=>{
+    vi.useFakeTimers();
+    try {
+      const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1'],{durations:[75,125],loop:false});
+      ap.play();vi.advanceTimersByTime(50);ap.pause();vi.advanceTimersByTime(1000);ap.play();
+      vi.advanceTimersByTime(24);expect(ap._currentFrame).toBe(0);
+      vi.advanceTimersByTime(1);expect(ap._currentFrame).toBe(1);
+      vi.advanceTimersByTime(125);expect(ap._playing).toBe(false);ap.play();expect(ap._currentFrame).toBe(0);ap.stop();
+    } finally {vi.useRealTimers();}
   });
 
   it('snaps the canvas to an integer pixel scale of the cell dims', () => {

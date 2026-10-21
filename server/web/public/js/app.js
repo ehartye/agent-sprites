@@ -52,7 +52,10 @@ const workbench = new Workbench({
   setColor: setActiveColor,
   getShape: () => state.selectedShape,
   refresh: () => ws.send({ action: 'get_project' }),
-  preview: () => document.querySelector('[data-tab="preview"]').click(),
+  preview: sequenceId => {
+    if(typeof sequenceId==='string'){state.previewSequence=sequenceId;syncPreviewSequence();}
+    document.querySelector('[data-tab="preview"]').click();
+  },
 });
 
 async function requestApi(path, body, { sessionId = state.sessionId } = {}) {
@@ -104,7 +107,7 @@ function init() {
     'cell_shifted', 'cell_mirrored', 'cell_rotated', 'cell_copied', 'cell_cleared', 'cell_named',
     'cell_cloned_fanout', 'cell_reference',
     'group_created', 'group_cells_added', 'group_cells_removed', 'group_deleted',
-    'palette', 'undo', 'redo',
+    'palette', 'undo', 'redo', 'animation_timing',
   ];
   for (const evt of refreshEvents) {
     ws.on(evt, () => {
@@ -118,6 +121,7 @@ function init() {
     getCellRef: () => state.activeCell,
     getColor: () => state.activeColor,
     getShapes: () => viewCell(state.activeCell)?.shapes || [],
+    getCellSize: () => ({width:state.project?.cellWidth,height:state.project?.cellHeight}),
   });
   tools.onToolChange((toolId) => { state.activeTool = toolId; });
   tools.onSelectionChange((shape) => { state.selectedShape = shape; editor.setSelectedShape(shape); shapePanel.setSelected(shape?.id); });
@@ -244,6 +248,9 @@ function onProjectData(data) {
   const cellH = data.cellHeight ?? data.cellSize ?? cellW;
   editor.setPalette(state.palette);
   editor.setBackground(data.background);
+  cellNav.setBackground(data.background);
+  animPreview.setBackground(data.background);
+  fullPreview.setBackground(data.background);
   editor.setCellSize(cellW, cellH);
   shapePanel.setPalette(state.palette);
   cellNav.setPalette(state.palette);
@@ -286,6 +293,7 @@ const redraw = createRedrawScheduler(refs => {
   cellNav.refresh(refs);
   animPreview.setCells(cells);
   fullPreview.setCells(cells);
+  workbench.refreshProjectPanels();
 });
 
 function onDrawUpdate(data) {
@@ -392,6 +400,7 @@ function selectCell(ref) {
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
   refreshShapeGroups();
+  workbench.refreshProjectPanels();
 }
 
 function syncPreviewSequence() {
@@ -407,9 +416,9 @@ function syncPreviewSequence() {
   state.previewSequence = selected.id; select.value = selected.id;
   groupPanel.setActiveGroup(selected.group ?? null);
   cellNav.setFilter(selected.group ? selected.frames : null);
-  const key = JSON.stringify([selected.id, selected.frames, selected.fps]);
+  const key = JSON.stringify([selected.id, selected.frames, selected.fps, selected.durations, selected.loop]);
   if (key !== state.previewSequenceKey) {
-    animPreview.setFrames(selected.frames); fullPreview.setFrames(selected.frames);
+    animPreview.setFrames(selected.frames, selected); fullPreview.setFrames(selected.frames, selected);
     animPreview.setFps(selected.fps); fullPreview.setFps(selected.fps);
     state.previewSequenceKey = key;
   }

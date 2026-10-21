@@ -1,0 +1,4 @@
+{
+  "version": 1, "generator": "overlay.mjs", "inputs": ["generate.mjs"],
+  "output": "overlay-dist", "trim": true, "expectedTags": ["idle"]
+}

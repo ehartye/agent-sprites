@@ -1,0 +1,8 @@
+[
+  { "command": "new", "name": "face", "size": 16, "rows": 1, "cols": 1, "palette": "db-32" },
+  { "command": "draw", "type": "rect", "name": "head", "cell": "0,0", "x": 3, "y": 3, "w": 10, "h": 10, "color": "#ffccaa", "filled": true, "replay": { "label": "Head silhouette" } },
+  { "command": "draw", "type": "point", "name": "left-eye", "cell": "0,0", "x": 6, "y": 6, "color": "#222034", "replay": { "label": "Left eye detail" } },
+  { "command": "draw", "type": "point", "name": "right-eye", "cell": "0,0", "x": 10, "y": 6, "color": "#222034", "replay": { "label": "Right eye detail" } },
+  { "command": "draw", "type": "rect", "name": "mouth", "cell": "0,0", "x": 7, "y": 10, "w": 3, "h": 1, "color": "#ac3232", "filled": true, "replay": { "label": "Mouth detail" } },
+  { "command": "name", "cell": "0,0", "as": "face" }
+]

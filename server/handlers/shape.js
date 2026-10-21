@@ -1,3 +1,5 @@
+import { editCells } from './edit.js';
+
 export function handleNameShape(state, params) {
   if (!state.project) throw new Error('No project open');
   const cell = state.project.cells.getCell(params.cell);
@@ -99,10 +101,12 @@ export function handleDuplicateShape(state, params) {
   const src = cell.shapes.get(params.shape);
   if (!src) throw new Error(`Shape "${params.shape}" not found`);
   const name = params.as ?? `${params.shape}_copy`;
-  const copy = cell.draw(src.type, src.params, src.color, name);
-  if (params.mirror) cell.flipShape(name, params.mirror, { about: 'cell' });
-  state.broadcast?.({ type: 'draw', cell: params.cell, shape: copy.toJSON() });
-  return { shapeId: copy.id, shapeName: name };
+  return editCells(state, [cell], scoped => {
+    const copy = cell.draw(src.type, src.params, src.color, name);
+    if (params.mirror) cell.flipShape(name, params.mirror, { about: 'cell' });
+    scoped.broadcast({ type: 'draw', cell: params.cell, shape: copy.toJSON() });
+    return { shapeId: copy.id, shapeName: name };
+  });
 }
 
 const TWEEN_EASE = {
@@ -179,32 +183,34 @@ export function handleTweenShape(state, params) {
     }
   }
 
-  const n = cells.length;
-  for (let i = 0; i < n; i++) {
-    const t = ease(i / (n - 1));
-    const cell = cells[i];
-    if (to) {
-      handleMoveShapeTo(state, {
-        cell,
-        shape: shapeName,
-        x: Math.round(start.x + (to.x - start.x) * t),
-        y: Math.round(start.y + (to.y - start.y) * t),
-      });
-    }
-    if (to_updates) {
-      const updates = {};
-      for (const k of Object.keys(to_updates)) {
-        updates[k] = k === 'points'
-          ? startUpdates.points.map((point, j) => ({
-            x: Math.round(point.x + (to_updates.points[j].x - point.x) * t),
-            y: Math.round(point.y + (to_updates.points[j].y - point.y) * t),
-          }))
-          : Math.round(startUpdates[k] + (to_updates[k] - startUpdates[k]) * t);
+  return editCells(state, cells.map(ref => state.project.cells.getCell(ref)), scoped => {
+    const n = cells.length;
+    for (let i = 0; i < n; i++) {
+      const t = ease(i / (n - 1));
+      const cell = cells[i];
+      if (to) {
+        handleMoveShapeTo(scoped, {
+          cell,
+          shape: shapeName,
+          x: Math.round(start.x + (to.x - start.x) * t),
+          y: Math.round(start.y + (to.y - start.y) * t),
+        });
       }
-      handleResizeShape(state, { cell, shape: shapeName, updates });
+      if (to_updates) {
+        const updates = {};
+        for (const k of Object.keys(to_updates)) {
+          updates[k] = k === 'points'
+            ? startUpdates.points.map((point, j) => ({
+              x: Math.round(point.x + (to_updates.points[j].x - point.x) * t),
+              y: Math.round(point.y + (to_updates.points[j].y - point.y) * t),
+            }))
+            : Math.round(startUpdates[k] + (to_updates[k] - startUpdates[k]) * t);
+        }
+        handleResizeShape(scoped, { cell, shape: shapeName, updates });
+      }
     }
-  }
-  return { frames: n };
+    return { frames: n };
+  });
 }
 
 /** Move a shape one step up or down in z-order by swapping with its neighbor. */

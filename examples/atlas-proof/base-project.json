@@ -1,0 +1,4 @@
+{
+  "version": 1, "generator": "base.mjs", "inputs": ["generate.mjs"],
+  "output": "base-dist", "trim": true, "expectedTags": ["idle"]
+}

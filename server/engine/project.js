@@ -2,24 +2,43 @@ import fs from 'fs';
 import { Palette } from './palette.js';
 import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
+import { validateConstructionReplay } from './construction-replay.js';
+import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops, validateAnimationFps, ANIMATION_DIRECTIONS, resolveAnimationDirection } from '../web/public/js/shared/timing.js';
+import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 
-/** Tag playback directions this tool produces; the verifier also accepts Aseprite's pingpong_reverse. */
-export const TAG_DIRECTIONS = ['forward', 'reverse', 'pingpong'];
+/** Tag playback directions shared by project authoring, preview and atlas output. */
+export const TAG_DIRECTIONS = ANIMATION_DIRECTIONS;
+
+function canonicalGroups(cells,groups) {
+  if(!groups||typeof groups!=='object'||Array.isArray(groups))throw new Error('Animation groups must map names to cell arrays');
+  return Object.fromEntries(Object.entries(groups).map(([name,refs])=>{
+    if(!Array.isArray(refs))throw new Error(`Animation group "${name}" must contain cell references`);
+    return [name,refs.map(ref=>cells.resolveRef(ref))];
+  }));
+}
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
     this.cells = cells;
     this.palette = palette;
-    this.groups = groups;
+    this.groups = GroupManager.fromJSON(canonicalGroups(cells,groups.toJSON()));
     this.background = background ?? { mode: 'transparent' };
     this.pivot = pivot ?? null;
-    this.animationFps = animationFps ?? {};
+    this.animationFps = validateAnimationFps(animationFps);
     this.animationDirections = animationDirections ?? {};
+    this.frameDurations = validateFrameDurations(frameDurations, this);
+    this.animationLoops = validateAnimationLoops(animationLoops);
     this.shapeGroups = shapeGroups ?? {};
+    cells.surfaceContext = () => ({ background: this.background, palette: this.palette.toJSON() });
+    for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
+      const cell=cells.getCell(`${row},${col}`);
+      if(cell.lighting!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:cell.shapes.listByZ(),width:cell.width,height:cell.height,lighting:cell.lighting,background:this.background,palette:palette.toJSON()});
+    }
     this.review = review ?? null;
+    this.constructionReplay = constructionReplay === undefined ? null : validateConstructionReplay(constructionReplay, this);
     this.path = null;
   }
 
@@ -48,12 +67,15 @@ export class Project {
       pivot: this.pivot,
       palette: this.palette.toJSON(),
       cells: this.cells.toJSON().cells,
-      groups: this.groups.toJSON(),
+      groups: canonicalGroups(this.cells,this.groups.toJSON()),
       animationFps: this.animationFps,
       // Omitted when empty so existing project files stay byte-identical.
       ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
+      ...(Object.keys(this.frameDurations).length ? { frameDurations: { ...this.frameDurations } } : {}),
+      ...(Object.keys(this.animationLoops).length ? { animationLoops: { ...this.animationLoops } } : {}),
       shapeGroups: this.shapeGroups,
       ...(this.review ? { review: this.review } : {}),
+      ...(this.constructionReplay ? { constructionReplay: structuredClone(this.constructionReplay) } : {}),
     };
   }
 
@@ -66,7 +88,7 @@ export class Project {
 
   static fromJSON(data) {
     for (const [name, direction] of Object.entries(data.animationDirections ?? {})) {
-      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse or pingpong`);
+      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse, pingpong or pingpong_reverse`);
     }
     const w = data.cellWidth ?? data.cellSize;
     const h = data.cellHeight ?? data.cellSize ?? w;
@@ -81,8 +103,11 @@ export class Project {
       pivot: data.pivot,
       animationFps: data.animationFps,
       animationDirections: data.animationDirections,
+      frameDurations: data.frameDurations,
+      animationLoops: data.animationLoops,
       shapeGroups: data.shapeGroups,
       review: data.review,
+      constructionReplay: data.constructionReplay,
     });
   }
 
@@ -117,7 +142,6 @@ export class Project {
     const frames = [];
     const baseIndex = new Map();
     const namedCells = [];
-    const defDur = Math.round(1000 / defaultFps);
     // Frame filenames are the frame's own array index — the Aseprite
     // "{frame}" convention that Phaser's createFromAseprite resolves
     // tag ranges against.
@@ -127,32 +151,31 @@ export class Project {
         const cell = this.cells.getCell(ref);
         const rect = { x: c * this.cellWidth, y: r * this.cellHeight, w: this.cellWidth, h: this.cellHeight };
         baseIndex.set(ref, frames.length);
-        if (cell.name) namedCells.push({ name: cell.name, rect });
-        frames.push(this._asepriteFrame(String(frames.length), rect, defDur));
+        if (cell.name) namedCells.push({ name: cell.name, rect, ref });
+        frames.push(this._asepriteFrame(String(frames.length), rect, resolveFrameDurationMs(this, ref, { defaultFps })));
       }
     }
 
     const frameTags = [];
-    for (const [name, cells] of Object.entries(groups)) {
+    for (const [name, cells] of Object.entries(canonicalGroups(this.cells,groups))) {
       if (!cells || cells.length === 0) continue;
-      const dur = Math.round(1000 / (fpsMap[name] ?? defaultFps));
       const from = frames.length;
       for (const ref of cells) {
         const bi = baseIndex.get(ref);
         if (bi === undefined) throw new Error(`Group "${name}" references unknown cell "${ref}"`);
-        frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, dur));
+        frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, resolveFrameDurationMs(this, ref, { group: name, defaultFps, fpsMap })));
       }
-      frameTags.push({ name, from, to: frames.length - 1, direction: directionMap[name] ?? 'forward' });
+      frameTags.push({ name, from, to: frames.length - 1, direction: resolveAnimationDirection(this, name, directionMap), ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name] } : {}) });
     }
 
     // Named cells become alias frames AFTER every tag run, so tools that look
     // up frames by name (e.g. Phaser's add.image(x, y, key, 'girder')) work
     // without disturbing the numeric tag indexing.
     const usedNames = new Set();
-    for (const { name, rect } of namedCells) {
+    for (const { name, rect, ref } of namedCells) {
       if (usedNames.has(name)) continue;
       usedNames.add(name);
-      frames.push(this._asepriteFrame(name, { ...rect }, defDur));
+      frames.push(this._asepriteFrame(name, { ...rect }, resolveFrameDurationMs(this, ref, { defaultFps })));
     }
 
     const slices = this.pivot

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "ops": "operations.json",
+  "output": "dist",
+  "expectedFrames": ["face"],
+  "scale": 8,
+  "replay": { "cells": ["0,0"], "maxSteps": 16 }
+}

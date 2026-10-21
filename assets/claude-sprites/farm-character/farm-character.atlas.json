@@ -1,0 +1,81 @@
+{
+  "frames": [
+    {
+      "filename": "0",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 48
+      },
+      "duration": 125
+    },
+    {
+      "filename": "1",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 32,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 48
+      },
+      "duration": 125
+    }
+  ],
+  "meta": {
+    "app": "https://github.com/ehartye/claude-sprites",
+    "version": "1.0",
+    "image": "farm-character.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 64,
+      "h": 48
+    },
+    "scale": "1",
+    "frameTags": [],
+    "slices": [
+      {
+        "name": "pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 0,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 48
+            },
+            "pivot": {
+              "x": 16,
+              "y": 47
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

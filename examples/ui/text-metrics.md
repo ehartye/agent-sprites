@@ -73,7 +73,7 @@ code points may reuse a validated advance. No font tones or atlas frames are nee
 import {textMetricsLineWidth, wrapTextMetrics, measureTextMetrics}
   from './ui-runtime.mjs';
 
-// Space2grow's Face seam also works with its headless fixtures.
+// The face metrics adapter also works with headless fixtures.
 const metrics = {lineHeight: face.line, advanceOf: codePoint => face.advanceOf(codePoint)};
 const width = textMetricsLineWidth(metrics, 'A label');
 const {sourceLines} = wrapTextMetrics(metrics, 'Long copy', 120);

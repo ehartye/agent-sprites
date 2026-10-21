@@ -15,7 +15,7 @@
 .workbench-drawer[hidden] { display: none; }
 .workbench-drawer > h2 { padding: 1rem; font-size: 1rem; letter-spacing: -.03em; }
 .workbench-drawer .drawer-close { position: absolute; right: .7rem; top: .6rem; }
-.workbench-tabs { display: flex; gap: .35rem; padding: 0 1rem .7rem; border-bottom: 1px solid var(--border); }
+.workbench-tabs { display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 1rem .7rem; border-bottom: 1px solid var(--border); }
 .workbench-drawer button.active { border-color: var(--accent); background: var(--accent-dim); }
 .workbench-content { overflow: auto; flex: 1; padding: 1rem; display: flex; flex-direction: column; align-items: stretch; gap: .8rem; min-height: 0; }
 .workbench-hint { color: var(--text-secondary); font-size: .75rem; line-height: 1.55; }
@@ -44,6 +44,50 @@
 .tool-form details { font-size: .7rem; }
 .tool-form summary { cursor: pointer; padding: .4rem 0; }
 .tool-output { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .65rem; max-height: 250px; overflow: auto; color: var(--text-secondary); }
+.animation-proof { margin: 0; max-width: 100%; }
+.animation-proof img { display: block; max-width: 100%; max-height: 40vh; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#41414b 0% 25%, #33333d 0% 50%) 0 / 16px 16px; }
+.animation-proof figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; padding: .5rem 0; font-size: .7rem; }
+.pixel-proof { display: block; max-width: 100%; max-height: 45vh; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#41414b 0% 25%, #33333d 0% 50%) 0 / 16px 16px; }
+.replay-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; margin: .7rem 0; }
+.replay-controls label { display: grid; gap: .3rem; font-size: .7rem; }
+.replay-source { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .65rem; }
+.frame-timing { display: flex; flex-direction: column; gap: .8rem; }
+.surface-panel { display: flex; flex-direction: column; gap: .8rem; }
+.surface-section { display: flex; flex-direction: column; gap: .65rem; border-top: 1px solid var(--border); padding-top: .75rem; min-width: 0; }
+.surface-section[hidden], .normal-fields[hidden], .surface-panel label[hidden] { display: none; }
+.surface-panel select, .surface-section select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px; }
+.surface-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: .65rem; align-items: end; }
+.surface-checks { display: flex; flex-wrap: wrap; gap: .65rem 1rem; }
+.surface-checks label { flex-direction: row; align-items: center; }
+.surface-panel textarea, .surface-panel input[name=normal-vector] { font-family: 'Cascadia Code', 'Consolas', monospace; }
+.surface-panel textarea[name=normal-rows] { white-space: pre; line-height: 1.25; letter-spacing: .1em; }
+.surface-advanced { font-size: .72rem; }
+.surface-advanced summary { cursor: pointer; padding: .3rem 0; color: var(--text-secondary); }
+.surface-preview { border-top: 1px solid var(--border); padding-top: .75rem; }
+.surface-preview .pixel-proof { margin-top: .65rem; min-width: 96px; }
+.frame-timing select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px; }
+.timing-group-controls { display: flex; align-items: end; flex-wrap: wrap; gap: .6rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
+.timing-group-controls[hidden] { display: none; }
+.timing-group-controls label:first-child { width: 100px; }
+.timing-rows { display: flex; flex-direction: column; }
+.timing-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto auto; align-items: center; gap: .6rem; padding: .7rem 0; border-bottom: 1px solid var(--border); }
+.timing-cell-details { min-width: 0; overflow-wrap: anywhere; }
+.timing-cell-details strong { font-size: .76rem; font-variant-numeric: tabular-nums; }
+.timing-effective, .timing-cell-details small { font-size: .68rem; color: var(--text-secondary); line-height: 1.5; }
+.timing-effective { font-variant-numeric: tabular-nums; }
+.timing-pagination { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .68rem; color: var(--text-secondary); }
+.frame-timing > button { align-self: start; }
+.ascii-editor { display: flex; flex-direction: column; align-items: stretch; gap: .7rem; }
+.ascii-bounds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+.ascii-target { font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ascii-legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .7rem; color: var(--text-secondary); }
+.ascii-legend code { display: inline-block; min-width: 1.4em; text-align: center; background: var(--bg-primary); border: 1px solid var(--border); }
+.ascii-editor textarea[name=rows] { font-family: 'Cascadia Code', 'Consolas', monospace; line-height: 1.2; letter-spacing: .15em; white-space: pre; overflow: auto; min-height: 12rem; }
+.ascii-editor textarea[name=colors] { font-family: 'Cascadia Code', 'Consolas', monospace; }
+.ascii-unmapped { font-size: .7rem; color: var(--text-secondary); }
+.ascii-unmapped summary { cursor: pointer; }
+.ascii-unmapped ul { max-height: 12rem; overflow: auto; padding-left: 1.5rem; font-family: 'Cascadia Code', 'Consolas', monospace; }
+.ascii-editor > button { align-self: flex-start; }
 .workbench-drawer button:disabled, #shape-pagination button:disabled { opacity: .45; cursor: default; }
 #shape-search { width: calc(100% - 1rem); margin: .1rem .5rem .35rem; font-size: .65rem; }
 #shape-pagination { display: flex; align-items: center; justify-content: space-between; gap: .3rem; padding: 0 .5rem .35rem; font-size: .58rem; color: var(--text-secondary); }
@@ -71,6 +115,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   .command-list button { font-size: .65rem; padding: .4rem; }
   .library-swatches { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .workbench-tabs { padding-left: .65rem; gap: .2rem; }
+  .timing-row { grid-template-columns: minmax(0, 1fr) 85px auto; gap: .4rem; }
+  .timing-cell-details { grid-column: 1 / -1; }
 }
 .skin-tone-picker { margin-bottom: 20px; }
 .skin-tone-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }

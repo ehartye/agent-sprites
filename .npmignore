@@ -1,0 +1,23 @@
+# Ship these plugin content roots; other root files are development inputs.
+/*
+!/.claude-plugin/
+!/scripts/
+!/server/
+!/skills/
+!/assets/
+!/examples/
+!/recipes/
+!/docs/
+!/LICENSE
+!/README.md
+
+# Generated review/test outputs are never package inputs.
+**/.superpowers/
+**/.tmp/
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/dist/
+**/dist-*/
+**/*.build-lock
+*.tgz

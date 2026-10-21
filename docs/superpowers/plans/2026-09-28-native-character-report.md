@@ -42,8 +42,10 @@
 
 Before touching code, record every native build output hash:
 
+`<agent-sprites-checkout>` means the reader's checkout root; substitute that path before running the command.
+
 ```bash
-cd C:/Users/ehart/repos/claude-sprites
+cd <agent-sprites-checkout>
 for f in examples/native-character/*.build.json; do node scripts/run-managed.js build "$f" --json >/dev/null; done
 node -e "const fs=require('fs'),c=require('crypto');const out={};for(const d of fs.readdirSync('examples/native-character/dist')){const p='examples/native-character/dist/'+d;for(const f of fs.readdirSync(p))if(/\.(png|atlas\.json)$/.test(f))out[d+'/'+f]=c.createHash('sha256').update(fs.readFileSync(p+'/'+f)).digest('hex');}fs.writeFileSync(process.env.TEMP+'/native-baseline.json',JSON.stringify(out,null,1));console.log(Object.keys(out).length,'files hashed')"
 ```
@@ -232,7 +234,7 @@ Create `examples/native-character/drafts/joints.html` that loads `../dist/adult/
 
 - [ ] **Step 2: Ask the owner to review**
 
-Share `http://hal9000:8765/drafts/joints.html`. Point out the two `// review` rows (child `right_1`, `right_3`). **Stop until the owner confirms or corrects landmarks.** Apply any corrections to `JOINTS`, rerun Task 1 Steps 6–8.
+Share the review server URL for `/drafts/joints.html`. Point out the two `// review` rows (child `right_1`, `right_3`). **Stop until the owner confirms or corrects landmarks.** Apply any corrections to `JOINTS`, rerun Task 1 Steps 6–8.
 
 - [ ] **Step 3: Merge Task 1**
 

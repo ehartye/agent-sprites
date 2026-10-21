@@ -17,9 +17,11 @@ import { shapeRoutes } from '../web/api/shape-routes.js';
 import { cellRoutes } from '../web/api/cell-routes.js';
 import { groupRoutes } from '../web/api/group-routes.js';
 import { mapCommandToApi } from '../../scripts/batch-commands.js';
+import { API_BODY_LIMIT } from '../web/api/policy.js';
 import { createPreview } from './preview.js';
 import { renderFontProof } from './font-proof.js';
-import { exportTrimmed, assertTrimOption } from '../engine/trimmed-export.js';
+import { assertTrimOption } from '../engine/trimmed-export.js';
+import { exportSpriteAtlases } from '../engine/sprite-export.js';
 import { generateCharacterRecipe } from '../authoring/character.js';
 import { generateEnvironmentRecipe } from '../authoring/environment.js';
 import { generateUIRecipe } from '../authoring/ui.js';
@@ -28,8 +30,10 @@ import { isUiReport, validateUiReport } from './ui-report.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { generateNativeRecipe } from '../authoring/native-recipe.js';
+import { generateAnimationComposition } from '../authoring/animation-composition.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 import { buildMarker as marker, buildManifest, snapshotArtifactIntegrity } from './artifact-integrity.js';
+import { createConstructionRecorder } from '../engine/construction-replay.js';
 
 const exec = promisify(execFile);
 const json = value => JSON.stringify(value, null, 2) + '\n';
@@ -106,6 +110,7 @@ export async function buildProject(configPath) {
     if (typeof config.output !== 'string' || !config.output) throw new Error('Build config requires an explicit output directory.');
     const { sourceKind, inline, source } = resolveBuildSource(configPath, config);
     assertTrimOption(config.trim);
+    if(config.normal!==undefined&&typeof config.normal!=='boolean')throw new Error('normal must be true or false');
     // Large generated sets can leave out the bulky editable and review artifacts when only the game files are published.
     const OMITTABLE = ['project', 'operations', 'preview', 'contactSheet'];
     if (config.omit !== undefined && (!Array.isArray(config.omit) || config.omit.some(k => !OMITTABLE.includes(k)))) throw new Error(`omit must be an array drawn from: ${OMITTABLE.join(', ')}.`);
@@ -113,16 +118,20 @@ export async function buildProject(configPath) {
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const provenance = snapshotBuildInputs(configPath, config, source, tool);
+    const inputPaths = provenance.inputs.flatMap(input => {
+      const path = resolve(base, input.path);
+      return [path, realpathSync(path)];
+    });
     let output = resolve(base, config.output);
-    if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
+    if (inputPaths.some(path => inside(output, path))) throw new Error('Output cannot contain the config or source input files.');
     mkdirSync(dirname(output), { recursive: true });
     output = join(realpathSync(dirname(output)), basename(output));
-    if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files through a linked directory.');
+    if (inputPaths.some(path => inside(output, path))) throw new Error('Output cannot contain the config or source input files through a linked directory.');
     lockPath = output + '.build-lock'; lock = openSync(lockPath, 'wx');
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, native: generateNativeRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe}[sourceKind];
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, native: generateNativeRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe, animation: generateAnimationComposition}[sourceKind];
       ({ operations, report: recipeReport } = generate(config[sourceKind], base));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
@@ -140,16 +149,23 @@ export async function buildProject(configPath) {
     if (!Array.isArray(operations) || !operations.length || operations[0]?.command !== 'new') throw new Error('Build operations must start with exactly one new project.');
     const name = operations[0].name;
     if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error('Build project names must use letters, digits, hyphens or underscores.');
+    const annotatedSources = new Set(operations.map(operation => operation?.replay?.source?.path));
+    const replay = config.replay === undefined ? null : createConstructionRecorder(config.replay, {
+      operations, inputs:provenance.inputs,
+      source:{kind:inline ? 'recipe' : config.generator ? 'generator' : 'ops', path:relative(base,source).split(sep).join('/'), ...(inline ? {pointer:`/${sourceKind}`} : {})},
+      sourceContents:Object.fromEntries(provenance.inputs.filter(input => annotatedSources.has(input.path)).map(input => [input.path, readFileSync(resolve(base,input.path),'utf8')])),
+    });
     const mapped = operations.map((op, i) => {
       if (!op || typeof op !== 'object' || Array.isArray(op) || ['save', 'export', 'ref'].includes(op.command) || (i > 0 && op.command === 'new')) throw new Error(`Operation ${i + 1}: build owns project lifecycle and output; remove new/save/export/ref operations after initial new.`);
-      return mapCommandToApi(op);
+      const { replay: annotation, ...command } = op;
+      return mapCommandToApi(command);
     });
     stage = mkdtempSync(output + '.staging-');
     db = new SessionDB(':memory:');
     // Isolated builds cannot resume this in-memory session. Serialize once for
     // the final editable artifact instead of rewriting a growing draft per op.
     const state = { db, project: null, sessionId: null, persistDrafts: false };
-    const app = express(); app.use(express.json());
+    const app = express(); app.use(express.json({ limit: API_BODY_LIMIT }));
     app.use('/api/session', sessionRoutes(state));
     for (const routes of [drawRoutes, shapeRoutes, cellRoutes, groupRoutes]) app.use('/api', routes(state));
     server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', () => accept(s)); s.once('error', reject); });
@@ -159,28 +175,40 @@ export async function buildProject(configPath) {
       const response = await requestOperation(url, op, agent);
       const { value } = response;
       if (!response.ok || !value.ok) throw new Error(`Operation ${i + 1} (${operations[i].command}): ${value.error ?? response.statusText}`);
+      replay?.capture(state.project, i);
     }
     captureProjectMetadata(state);
     const project = state.project;
+    replay?.finish(project);
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
-    const { png, atlas } = config.trim
-      ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
-      : { png: renderer.renderSheet(project.cells, { gap: 0 }), atlas: project.exportAseprite({ imageName: `${name}.png` }) };
+    const { png, atlas, normalPng, normalAtlas } = await exportSpriteAtlases(project, renderer, { imageName: `${name}.png`, trim:config.trim, normal:config.normal });
     if (isUiReport(recipeReport)) await validateUiReport(recipeReport, atlas, png);
     // An environment drawn on a coarser source grid tells the game how far to scale the atlas.
-    if (recipeReport?.pixelScale !== undefined) atlas.meta.pixelScale = recipeReport.pixelScale;
+    if (recipeReport?.pixelScale !== undefined) {
+      atlas.meta.pixelScale = recipeReport.pixelScale;
+      if (normalAtlas) normalAtlas.meta.pixelScale = recipeReport.pixelScale;
+    }
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, maxAspect: config.maxAspect ?? (sourceKind === 'ui' ? 3 : undefined), contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
     result.warnings = verified.warnings;
     // Cells that only pad the last grid row are not art: do not ask the author to confirm they are empty.
     if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
+    if (recipeReport?.kind === 'animation') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
     // A near-square UI sheet pads its last row with unnamed cells; every named frame is real art.
     if (sourceKind === 'ui') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && /^Frame \d+ /.test(w.message)));
     // A native overlay (native.only) is sparse by design: a back view has no facial hair, so empty frames are expected.
     if (sourceKind === 'native' && config.native?.only) result.warnings = verified.warnings = verified.warnings.filter(w => w.code !== 'empty-frame');
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
+    if(normalPng){
+      artifacts.normalSheet=`${name}.normal.png`;artifacts.normalAtlas=`${name}.normal.atlas.json`;
+      writeFileSync(join(stage,artifacts.normalSheet),normalPng);writeFileSync(join(stage,artifacts.normalAtlas),json(normalAtlas));
+    }
+    if (replay) {
+      artifacts.constructionReplay = 'construction-replay.json';
+      writeFileSync(join(stage,artifacts.constructionReplay), json(project.constructionReplay));
+    }
     for (const key of omit) delete artifacts[key];
     if (omit.has('contactSheet')) rmSync(join(stage, 'contact.png'), { force: true });
     // Inline recipes name their report by source; generator reports are character reports.

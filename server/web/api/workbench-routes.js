@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Project } from '../../engine/project.js';
 import { Palette } from '../../engine/palette.js';
@@ -9,7 +10,9 @@ import { mapCommandToApi } from '../../../scripts/batch-commands.js';
 import { buildProject } from '../../build/project-build.js';
 import { traceImageFile } from '../../engine/image-trace.js';
 import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
+import { renderAtlasProof } from '../../engine/atlas-proof.js';
 import { applySkinTone, skinToneState } from '../../engine/skin-tones.js';
+import { COMMANDS } from '../../commands/catalog.js';
 
 export function localFileRequestAllowed(req) {
   const remote = req.socket.remoteAddress;
@@ -57,6 +60,9 @@ export function workbenchRoutes(state) {
     captureProjectMetadata(state);
     return state.project;
   };
+  router.get('/workbench/commands', route((_req, res) => {
+    res.json({ ok: true, data: COMMANDS });
+  }));
   function activateCopy(project, origin) {
     const parent = state.sessionId ? state.db.getSession(state.sessionId) : null;
     const projectPath = parent?.project_path ?? process.cwd();
@@ -138,10 +144,17 @@ export function workbenchRoutes(state) {
     if (!localFileRequestAllowed(req)) return res.status(403).json({ ok: false, error: 'Local file tools require this server’s localhost page and a matching origin.' });
     next();
   };
-  for (const command of ['build', 'trace', 'verify']) {
+  for (const command of ['build', 'trace', 'verify', 'atlas-proof']) {
     router.post(`/workbench/${command}`, localFilesOnly, route(async (req, res) => {
       if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
       let report;
+      if (command === 'atlas-proof') {
+        report = await renderAtlasProof(req.body.path, { output: req.body.out });
+        return res.json({ ok: true, data: report,
+          preview: `data:image/gif;base64,${readFileSync(report.artifacts.gif).toString('base64')}`,
+          previewPoster: `data:image/png;base64,${readFileSync(report.artifacts.frames[0]).toString('base64')}`,
+        });
+      }
       if (command === 'build') report = await buildProject(req.body.path);
       if (command === 'trace') report = await traceImageFile(req.body.path, { output: req.body.out, name: req.body.name || 'image-trace' });
       if (command === 'verify') {

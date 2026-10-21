@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "canvas": { "w": 20, "h": 20 },
+  "scale": 6,
+  "tracks": [
+    { "name": "body", "atlas": "base-dist/body.atlas.json", "tag": "idle", "x": 10, "y": 17, "anchor": "pivot" },
+    { "name": "hat", "atlas": "overlay-dist/hat.atlas.json", "tag": "idle", "x": 10, "y": 17, "anchor": "pivot" }
+  ]
+}

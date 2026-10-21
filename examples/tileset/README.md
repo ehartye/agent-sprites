@@ -112,7 +112,7 @@ report's `animations[name].frames` gives the cell indices if you want to drive a
 | `gate` | `<prefix>`, `<prefix>_open` | a fence-line gate in the material's fence style: a post each side and a leaf between them; open, the leaf stands edge-on against the west post |
 
 Materials: `scrap wood brick concrete glass planks slab tile scrap-plate thatch sheet roof-tile`, and a second family in
-the Fallow Valley building-tier ramps: `adobe` (mud brick) `rammed` (rammed earth) `timber` (vertical planks) `shingle`
+the built-in building-material ramps: `adobe` (mud brick) `rammed` (rammed earth) `timber` (vertical planks) `shingle`
 `cinder` (16x8 blocks with rust rebar flecks) `flags` (flagstones) `plate` (riveted plate) `tread` (diamond tread plate)
 `lapped` (lapped sheet roof) `ceramic` (seamless glaze) `panel` (tall panels with an accent light) `glasshouse`
 (long panes with glints). Fence presets set a drawing as well as colours: `wattle` (woven stakes) `paling` (pickets)

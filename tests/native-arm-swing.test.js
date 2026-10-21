@@ -19,18 +19,18 @@ function arm(px,side,[y0,y1]){
     count++;bottom=Math.max(bottom,y);}
   return {count,bottom};
 }
-const CASES=[['farmer','adult',[15,27]],['mara','adult',[15,27]],['nine','adult',[15,27]],['pip','child',[20,28]],['nori','child',[20,28]]];
+const CASES=[['gardener','adult',[15,27]],['mechanic','adult',[15,27]],['survey-robot','adult',[15,27]],['cook','child',[20,28]],['child','child',[20,28]]];
 
 for(const [id,kind,rows] of CASES)for(const facing of ['front','back'])test(`${id} ${facing}: the forward arm foreshortens and the sides alternate`,()=>{
   const ops=castTemplate(id),f=n=>frame(ops,`${facing}_walk_${n}`);
   const L=n=>arm(f(n),'L',rows),R=n=>arm(f(n),'R',rows);
-  const gear=id==='nine'; // Nine's specimen case hangs at the right hip and adds arm-column pixels there.
+  const gear=id==='survey-robot'; // The survey robot's specimen case hangs at the right hip and adds arm-column pixels there.
   const min=gear?2:kind==='adult'?5:4;
   // Passing poses: both arms at the sides, same size and length.
   for(const n of [0,2]){expect(L(n).count).toBe(R(n).count);expect(L(n).bottom).toBe(R(n).bottom);}
   // Contact poses: one arm has clearly fewer pixels than the other.
   for(const n of [1,3])expect(Math.abs(L(n).count-R(n).count),`${id} ${facing} frame ${n}`).toBeGreaterThanOrEqual(min);
-  // The short arm also ends higher, hand tucked at the hip (not for Nine, whose case hides the right hand).
+  // The short arm also ends higher, hand tucked at the hip (except the survey robot, whose case hides the right hand).
   if(!gear)for(const n of [1,3]){
     const [short,long]=L(n).count<R(n).count?[L(n),R(n)]:[R(n),L(n)];
     expect(long.bottom-short.bottom,`${id} ${facing} frame ${n}`).toBeGreaterThanOrEqual(kind==='adult'?3:2);

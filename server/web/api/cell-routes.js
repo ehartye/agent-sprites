@@ -5,6 +5,11 @@ import { handleShiftCell, handleMirrorCell, handleCopyCell,
 import { handleUndo, handleRedo } from '../../handlers/history.js';
 import { handleViewCell, handleViewSheet, handleViewStack } from '../../handlers/view.js';
 import { saveDraft } from '../http.js';
+import { handleAsciiRead, handleAsciiPatch } from '../../handlers/ascii.js';
+import { handleComposition, handleCompositionPlan } from '../../handlers/composition.js';
+import { handleDuration, handleDurationRead } from '../../handlers/timing.js';
+import { handleLayerList, handleLayerEdit } from '../../handlers/layers.js';
+import { handleSurfaceRead, handleSurfaceWrite, handleLightingRead, handleLightingWrite, handleSurfacePreview } from '../../handlers/surface.js';
 
 export function cellRoutes(state) {
   const r = Router();
@@ -23,6 +28,32 @@ export function cellRoutes(state) {
   r.post('/cell/mirror', wrap(handleMirrorCell));
   r.post('/cell/rotate', wrap(handleRotateCell));
   r.post('/cell/reference', wrap(handleSetReference));
+  r.post('/cell/duration', wrap(handleDuration));
+  r.post('/cell/layer', wrap(handleLayerEdit));
+  r.post('/cell/surface', wrap(handleSurfaceWrite));
+  r.post('/cell/lighting', wrap(handleLightingWrite));
+  for (const [path,handler] of [['surface',handleSurfaceRead],['lighting',handleLightingRead],['surface-preview',handleSurfacePreview]]) r.get(`/cell/${path}`, (req,res) => {
+    try { res.json({ok:true,data:handler(state,req.query)}); }
+    catch(error) { res.json({ok:false,error:error.message}); }
+  });
+  r.get('/cell/layers', (req,res) => {
+    try {res.json({ok:true,data:handleLayerList(state,req.query)});}
+    catch(error) {res.json({ok:false,error:error.message});}
+  });
+  r.get('/cell/duration', (req, res) => {
+    try { res.json({ ok: true, data: handleDurationRead(state, req.query) }); }
+    catch (error) { res.json({ ok: false, error: error.message }); }
+  });
+  r.post('/cell/ascii-read', (req, res) => {
+    try { res.json({ ok: true, data: handleAsciiRead(state, req.body) }); }
+    catch (error) { res.json({ ok: false, error: error.message }); }
+  });
+  r.post('/cell/ascii-patch', wrap(handleAsciiPatch));
+  r.post('/cell/compose', wrap(handleComposition));
+  r.post('/cell/compose-plan', (req, res) => {
+    try { res.json({ ok: true, data: handleCompositionPlan(state, req.body) }); }
+    catch (error) { res.json({ ok: false, error: error.message }); }
+  });
   r.get('/cell/reference-image', (req, res) => {
     try {
       if (!state.project) return res.status(404).end();

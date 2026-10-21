@@ -1,5 +1,5 @@
 {
-  "title": "Space to Grow — native cast concepts",
+  "title": "Native costume sample cast",
   "characters": [
     {
       "status": "concept",
@@ -17,10 +17,10 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "farmer",
-      "name": "The Grower",
-      "role": "Plot 7B · player concept",
-      "description": "A field jacket, seed pouch, and sun cap built for an asteroid garden.",
+      "id": "gardener",
+      "name": "Gardener",
+      "role": "Field clothing and equipment sample",
+      "description": "A copper field jacket, teal overalls, sun cap and sampling pack.",
       "details": [
         "Copper jacket / oxidized teal overalls",
         "Soft cap with a seedling-green tab",
@@ -215,10 +215,10 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "mara",
-      "name": "Mara",
-      "role": "Shipwright · practical gardener",
-      "description": "A copper work jacket and worn pressure fittings, with goggles ready for the next repair.",
+      "id": "mechanic",
+      "name": "Mechanic",
+      "role": "Work clothing and tools sample",
+      "description": "A work jacket with goggles, tool harness and a rear service pack.",
       "details": [
         "Warm brown skin / compact dark braids",
         "Teal work trousers and brass tools",
@@ -425,10 +425,10 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "pip",
-      "name": "Pip",
-      "role": "Cook · soft-bodied neighbor",
-      "description": "A small lilac resident in a cream kitchen tunic, with a pressure-safe chef cap and a little herb pocket.",
+      "id": "cook",
+      "name": "Cook",
+      "role": "Compact nonhuman costume sample",
+      "description": "A small lilac figure in a cream kitchen apron and chef cap.",
       "details": [
         "Soft lilac skin and short rounded proportions",
         "Cream apron / plum sleeves",
@@ -600,14 +600,14 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "clementine",
-      "name": "Clementine",
-      "role": "Aunt · explorer of impossible gardens",
-      "description": "Silver hair, a sage field coat, and an Almanac satchel with too many seed envelopes.",
+      "id": "explorer",
+      "name": "Explorer",
+      "role": "Layered field clothing sample",
+      "description": "Silver hair, a sage field coat, plum trousers and a sample satchel.",
       "details": [
         "Silver waves and warm, weathered face",
         "Sage coat / plum trousers",
-        "Amber sample vial and leather Almanac bag"
+        "Amber sample vial and leather sample bag"
       ],
       "materials": {
         "skin": {
@@ -711,7 +711,7 @@
           }
         },
         {
-          "name": "almanac-strap",
+          "name": "satchel-strap",
           "directions": [
             "front"
           ],
@@ -729,7 +729,7 @@
           "colors": {}
         },
         {
-          "name": "almanac-bag",
+          "name": "satchel-bag",
           "directions": [
             "front",
             "back"
@@ -747,7 +747,7 @@
           "colors": {}
         },
         {
-          "name": "almanac-bag",
+          "name": "satchel-bag",
           "directions": [
             "right"
           ],
@@ -797,11 +797,11 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "sprocket",
-      "name": "Sprocket",
-      "role": "Farm droid · mostly functional",
+      "id": "utility-robot",
+      "name": "Utility robot",
+      "role": "Tracked robot casing sample",
       "bodyMaterial": "casing",
-      "description": "A dented mustard droid with a green display, grasping hands, and little tracked feet.",
+      "description": "A mustard casing with a teal display, antenna and animated treads.",
       "details": [
         "Mustard casing / teal status display",
         "Red antenna beacon and seed drawer",
@@ -1054,11 +1054,11 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "nine",
-      "name": "Registrar Nine",
-      "role": "Retired survey robot · aspiring botanist",
+      "id": "survey-robot",
+      "name": "Survey robot",
+      "role": "Tall robot casing sample",
       "bodyMaterial": "casing",
-      "description": "An ivory survey shell, a cyan optical slit, and the smallest possible field filing system.",
+      "description": "An ivory casing with an optical band, survey aerial and specimen case.",
       "details": [
         "Ivory panels / midnight-blue joints",
         "One optical band, directional in profile",
@@ -1180,7 +1180,7 @@
           "colors": {}
         },
         {
-          "name": "nine-badge",
+          "name": "survey-badge",
           "directions": [
             "front"
           ],
@@ -1267,10 +1267,10 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "vey",
-      "name": "Vey",
-      "role": "Four-armed mothlike wayfinder",
-      "description": "A mint-faced traveler with a plum wing mantle and two pairs of hands for a complicated universe.",
+      "id": "wayfinder",
+      "name": "Wayfinder",
+      "role": "Four-armed nonhuman motif sample",
+      "description": "Mint chitin, compound eyes, folded plum wings and four arms.",
       "details": [
         "Mint chitin / dark compound eyes",
         "Folded plum wings and four visible arms",
@@ -1586,10 +1586,10 @@
         "l": "#a4d4c4",
         "p": "#8b667f"
       },
-      "id": "nori",
-      "name": "Nori",
-      "role": "Child neighbor · provisional concept",
-      "description": "An eager seed-exchange helper in yellow sleeves and teal overalls, with a tiny sample satchel.",
+      "id": "child",
+      "name": "Child",
+      "role": "Child body and clothing sample",
+      "description": "Child proportions, dark hair puffs, yellow sleeves and teal overalls.",
       "details": [
         "Child mannequin proportions / dark curls",
         "Butter-yellow work top and teal overalls",
@@ -1759,7 +1759,7 @@
     {
       "id": "everyday",
       "label": "Everyday",
-      "description": "Working clothes and personal equipment for life beneath the canopy.",
+      "description": "Everyday clothing and equipment variants for costume comparison.",
       "details": []
     },
     {

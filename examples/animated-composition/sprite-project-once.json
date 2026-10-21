@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "output": "dist-once",
+  "scale": 8,
+  "animation": {
+    "name": "delayed-firefly",
+    "size": "16x12",
+    "parts": {
+      "firefly": { "project": "firefly.project.json", "group": "flutter" }
+    },
+    "placements": [
+      { "kind": "stamp", "name": "near", "part": "firefly", "x": 1, "y": 3, "loop": false },
+      { "kind": "stamp", "name": "late", "part": "firefly", "x": 9, "y": 3, "loop": false, "delayMs": 120 }
+    ]
+  },
+  "expectedTags": ["delayed-firefly"]
+}

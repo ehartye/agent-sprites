@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { Project } from '../../engine/project.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
-import { exportTrimmed, assertTrimOption } from '../../engine/trimmed-export.js';
+import { exportSpriteAtlases } from '../../engine/sprite-export.js';
+import { anchorPoint } from '../public/js/shared/atlas-timeline.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
@@ -109,15 +110,8 @@ export function sessionRoutes(state) {
       let pivot;
       if (anchor) {
         const w = state.project.cellWidth, h = state.project.cellHeight;
-        const presets = {
-          'center': { x: Math.floor(w / 2), y: Math.floor(h / 2) },
-          'top-center': { x: Math.floor(w / 2), y: 0 },
-          'bottom-center': { x: Math.floor(w / 2), y: h - 1 },
-          'bottom-left': { x: 0, y: h - 1 },
-          'bottom-right': { x: w - 1, y: h - 1 },
-        };
-        pivot = presets[anchor];
-        if (!pivot) return res.json({ ok: false, error: `Unknown anchor "${anchor}" (use ${Object.keys(presets).join('|')})` });
+        if (typeof anchor !== 'string' || anchor === 'pivot') throw new Error('Use a named pixel anchor: top-left|center|top-center|bottom-center|bottom-left|bottom-right');
+        pivot = anchorPoint(anchor, w, h);
       } else if (x !== undefined && y !== undefined) {
         pivot = { x, y };
       } else {
@@ -136,7 +130,6 @@ export function sessionRoutes(state) {
       // One-off destination override; the session's stored folder is untouched.
       const dest = req.body?.dest ?? session.destination_folder;
       const renderer = new CanvasRenderer(state.project.palette, { background: state.project.background });
-      assertTrimOption(req.body?.trim);
       const options = {
         imageName: `${session.project_name}.png`,
         groups: state.db.getCellGroups(state.sessionId),
@@ -144,18 +137,22 @@ export function sessionRoutes(state) {
         directionMap: state.db.getCellGroupDirections(state.sessionId),
       };
       // gap: 0 — the atlas rects are gapless, so the sheet must be too
-      const { png, atlas } = req.body?.trim
-        ? await exportTrimmed(state.project, renderer, options)
-        : { png: renderer.renderSheet(state.project.cells, { gap: 0 }), atlas: state.project.exportAseprite(options) };
+      const { png, atlas, normalPng, normalAtlas } = await exportSpriteAtlases(state.project, renderer, { ...options, trim:req.body?.trim, normal:req.body?.normal });
       mkdirSync(dest, { recursive: true });
       const pngPath = join(dest, `${session.project_name}.png`);
       const atlasPath = join(dest, `${session.project_name}.atlas.json`);
       writeFileSync(pngPath, png);
       writeFileSync(atlasPath, JSON.stringify(atlas, null, 2));
+      const artifacts=[{type:'sheet',path:resolve(pngPath)},{type:'atlas',path:resolve(atlasPath)}];
+      if(normalPng){
+        const normalPath=join(dest,`${session.project_name}.normal.png`),normalAtlasPath=join(dest,`${session.project_name}.normal.atlas.json`);
+        writeFileSync(normalPath,normalPng);writeFileSync(normalAtlasPath,JSON.stringify(normalAtlas,null,2));
+        artifacts.push({type:'normal-sheet',path:resolve(normalPath)},{type:'normal-atlas',path:resolve(normalAtlasPath)});
+      }
       res.json({
         ok: true,
         data: `Exported sheet ${pngPath} + atlas ${atlasPath}`,
-        artifacts: [{ type: 'sheet', path: resolve(pngPath) }, { type: 'atlas', path: resolve(atlasPath) }],
+        artifacts,
         export: { session_id: state.sessionId, size: atlas.meta.size, frameTags: atlas.meta.frameTags },
       });
     } catch (e) { res.json({ ok: false, error: e.message }); }

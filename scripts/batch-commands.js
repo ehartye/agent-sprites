@@ -3,6 +3,37 @@ import { resolve } from 'node:path';
 export function mapCommandToApi(cmd) {
   const { command, ...params } = cmd;
   switch (command) {
+    case 'surface':
+    case 'lighting': {
+      const {sub,...body}=params;
+      if(sub==='read')return {method:'GET',path:`/api/cell/${command}?${new URLSearchParams(body)}`};
+      if(sub!==undefined)throw new Error(`${command} batch edits use the value field (null clears), or sub: read`);
+      return {method:'POST',path:`/api/cell/${command}`,body};
+    }
+    case 'layer': {
+      const {sub,cell,...options}=params;
+      if(sub==='list')return {method:'GET',path:`/api/cell/layers?${new URLSearchParams({cell})}`};
+      if(sub==='edit')return {method:'POST',path:'/api/cell/layer',body:{cell,...options}};
+      throw new Error('layer requires list or edit');
+    }
+    case 'duration': {
+      const { sub, ...body } = params;
+      if (sub === 'read') {
+        const query = new URLSearchParams({ cell: body.cell, ...(body.group === undefined ? {} : { group: body.group }) });
+        return { method: 'GET', path: `/api/cell/duration?${query}` };
+      }
+      if (sub !== undefined) throw new Error('duration batch operations use cell and ms (null clears), or sub: read');
+      return { method: 'POST', path: '/api/cell/duration', body };
+    }
+    case 'compose':
+      return { method: 'POST', path: '/api/cell/compose', body: params };
+    case 'compose-plan':
+      return { method: 'POST', path: '/api/cell/compose-plan', body: params };
+    case 'ascii': {
+      const { sub, ...body } = params;
+      if (!['read', 'patch'].includes(sub)) throw new Error('ascii requires read or patch');
+      return { method: 'POST', path: `/api/cell/ascii-${sub}`, body };
+    }
     case 'new': {
       const sizeMatch = typeof params.size === 'string' ? params.size.match(/^(\d+)x(\d+)$/i) : null;
       return { method: 'POST', path: '/api/session/new', body: {
@@ -35,6 +66,7 @@ export function mapCommandToApi(cmd) {
       return { method: 'POST', path: '/api/session/export', body: {
         dest: params.dest ? resolve(String(params.dest)) : undefined,
         trim: params.trim,
+        normal: params.normal,
       }};
     case 'shape-group': {
       const body = { cell: params.cell, name: params.name };
@@ -96,6 +128,11 @@ export function mapCommandToApi(cmd) {
         coverage: params.coverage,
         width: params.width,
         erase: params.erase,
+        composition: params.composition,
+        layers: params.layers,
+        surface: params.surface,
+        visible: params.visible,
+        z: params.z,
         from_deg: params.from_deg,
         to_deg: params.to_deg,
         clip_to: params.clip_to,
@@ -164,8 +201,9 @@ export function mapCommandToApi(cmd) {
       const sub = params.sub;
       const name = params.name;
       switch (sub) {
-        case 'create': return { method: 'POST', path: '/api/group/cell/create', body: { name, cells: params.cells, fps: params.fps, direction: params.direction } };
+        case 'create': return { method: 'POST', path: '/api/group/cell/create', body: { name, cells: params.cells, fps: params.fps, direction: params.direction, loop: params.loop } };
         case 'fps':    return { method: 'POST', path: '/api/group/cell/fps', body: { name, fps: params.fps } };
+        case 'loop':   return { method: 'POST', path: '/api/group/cell/loop', body: { name, loop: params.loop } };
         case 'direction': return { method: 'POST', path: '/api/group/cell/direction', body: { name, direction: params.direction } };
         case 'add':    return { method: 'POST', path: '/api/group/cell/add', body: { name, cells: params.cells } };
         case 'remove': return { method: 'POST', path: '/api/group/cell/remove', body: { name, cells: params.cells } };

@@ -36,6 +36,15 @@ describe('collaborative workbench', () => {
     await api('group/shape/create', { cell: '0,0', name: 'figure', shapes: ['body'] });
     return state.sessionId;
   }
+  test('serves the supported workbench commands including bounded ASCII region workflows', async () => {
+    const result = await api('workbench/commands');
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'ascii read', method: 'POST', path: '/api/cell/ascii-read' }),
+      expect.objectContaining({ id: 'ascii patch', method: 'POST', path: '/api/cell/ascii-patch' }),
+    ]));
+    expect(new Set(result.data.map(command => command.id)).size).toBe(result.data.length);
+  });
   test('copy makes an independent editable session, preserving groups and never reusing its save path', async () => {
     const original = await make();
     state.db.updateSession(original, { json_file: 'original.project.json' });
@@ -62,6 +71,25 @@ describe('collaborative workbench', () => {
     await api('session/open-session', { ref: original });
     expect((await api('workbench/project')).data.review.author).toBe('Artist');
     expect(Project.fromJSON(packet.data).toJSON().review).toEqual(packet.data.review);
+  });
+  test('group loop creation and deletion persist immediately across session switching',async()=>{
+    const original=await make();
+    expect((await api('group/cell/create',{name:'once',cells:['0,0','0,1'],loop:false})).ok).toBe(true);
+    expect(JSON.parse(state.db.getSession(original).draft_json).animationLoops).toEqual({once:false});
+    await api('session/copy',{name:'Loop variation'});const copy=state.sessionId;
+    await api('session/open-session',{ref:original});expect(state.project.animationLoops.once).toBe(false);
+    expect((await api('group/cell/delete',{name:'once'})).ok).toBe(true);
+    expect(JSON.parse(state.db.getSession(original).draft_json).animationLoops?.once).toBeUndefined();
+    await api('session/open-session',{ref:copy});expect(state.project.animationLoops.once).toBe(false);
+    await api('session/open-session',{ref:original});expect(state.project.animationLoops.once).toBeUndefined();
+  });
+  test('prototype-like group names retain their explicit one-shot metadata',async()=>{
+    await make();
+    expect((await api('group/cell/create',{name:'__proto__',cells:['0,0'],loop:false})).ok).toBe(true);
+    const packet=await api('workbench/project');
+    expect(Object.hasOwn(packet.data.groups,'__proto__')).toBe(true);
+    expect(Object.hasOwn(packet.data.animationLoops,'__proto__')).toBe(true);
+    expect(packet.data.animationLoops.__proto__).toBe(false);
   });
   test('rejects malformed imports before replacing the current project', async () => {
     const original = await make();

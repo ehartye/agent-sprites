@@ -1,6 +1,7 @@
 import { paintShapes } from './erase-layer.js';
-import { pen } from './cell-raster.js';
+import { pen, renderCellNative } from './cell-raster.js';
 import { snapParams, rasterShape } from './shared/raster.js';
+import { hasSurfaceData } from './shared/surface-raster.js';
 
 /**
  * Canvas editor — pixel grid with zoom, pan, and shape rendering.
@@ -66,8 +67,9 @@ export class CanvasEditor {
   /* -- Public API -- */
 
   setCell(cellData) {
+    this._lighting = cellData?.lighting;
     this._shapes = cellData
-      ? (cellData.shapes || []).filter(s => s.visible !== false).sort((a, b) => a.zIndex - b.zIndex)
+      ? (cellData.shapes || []).filter(s => s.visible !== false || s.params?.layers?.length).sort((a, b) => a.zIndex - b.zIndex)
       : [];
     this.render();
   }
@@ -169,10 +171,14 @@ export class CanvasEditor {
     }
 
     // Shapes — pass 1: full extent at reduced opacity (shows overhang dimmed)
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    this._renderShapes(ctx, ox, oy, z);
-    ctx.restore();
+    // Retained surfaces already contain their own clips. Paint their native
+    // raster once so translucent child pixels keep their original alpha.
+    if (!hasSurfaceData(this._shapes, this._lighting) && !this._shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      this._renderShapes(ctx, ox, oy, z);
+      ctx.restore();
+    }
 
     // Shapes — pass 2: clipped to grid at full opacity (overwrites in-bounds pixels)
     ctx.save();
@@ -236,6 +242,12 @@ export class CanvasEditor {
   }
 
   _renderShapes(ctx, ox, oy, z) {
+    if (hasSurfaceData(this._shapes, this._lighting) || this._shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) {
+      const native = renderCellNative(this._shapes, this.cellW, this.cellH, ref => this._resolveColor(ref), { lighting: this._lighting, background: this._refImage ? { mode: 'transparent' } : this._background, palette: this._palette });
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
+      return;
+    }
     if (z < 1) {
       // Fit large traces using nearest-neighbor sampling of the native raster.
       // Fractional fillRect edges would otherwise introduce seams between runs.

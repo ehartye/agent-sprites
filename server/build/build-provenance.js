@@ -6,14 +6,14 @@ import { acquireBuildTool } from './producer-identity.js';
 export { buildTool } from './producer-identity.js';
 
 export function resolveBuildSource(configPath, config) {
-  const hasInline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset'].some(key => Object.hasOwn(config, key));
+  const hasInline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset', 'animation'].some(key => Object.hasOwn(config, key));
   // Legacy file recipes permit an empty unused source. Inline declarations
   // remain strict so malformed/mixed declarations never select another source.
   const sources = hasInline
-    ? ['ops', 'generator', 'character', 'environment', 'native', 'ui', 'creature', 'tileset'].filter(key => Object.hasOwn(config, key))
+    ? ['ops', 'generator', 'character', 'environment', 'native', 'ui', 'creature', 'tileset', 'animation'].filter(key => Object.hasOwn(config, key))
     : ['ops', 'generator'].filter(key => Boolean(config[key]));
-  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, native recipe, UI recipe, creature recipe, or tileset recipe.');
-  const sourceKind = sources[0], inline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset'].includes(sourceKind);
+  if (sources.length !== 1) throw new Error('Specify exactly one ops JSON file, Node generator script, character recipe, environment recipe, native recipe, UI recipe, creature recipe, tileset recipe, or animation composition.');
+  const sourceKind = sources[0], inline = ['character', 'environment', 'native', 'ui', 'creature', 'tileset', 'animation'].includes(sourceKind);
   if (config.trim && sourceKind === 'ui') throw new Error('trim is not supported for UI builds: the UI runtime composites whole glyph and skin cells.');
   if (inline) {
     if (!config[sourceKind] || typeof config[sourceKind] !== 'object' || Array.isArray(config[sourceKind])) throw new Error(`${sourceKind} source must be an inline object.`);
@@ -42,7 +42,17 @@ export function snapshotBuildInputs(configPath, config, source, tool = acquireBu
     const image = JSON.parse(readFileSync(atlas, 'utf8'))?.meta?.image;
     return typeof image === 'string' ? [atlas, resolve(dirname(atlas), image)] : [atlas];
   }) : [];
-  for (const path of [configPath, source, ...tilesetSources, ...tilesetImports, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
+  // Child projects are actual animation inputs, even when the declaration has no explicit inputs list.
+  const animationSources = config.animation?.parts && typeof config.animation.parts === 'object'
+    ? Object.entries(config.animation.parts).flatMap(([name, part]) => {
+      if (!part || typeof part !== 'object' || !Object.hasOwn(part, 'project')) return [];
+      const path = part.project;
+      if (typeof path !== 'string' || !path.length || path.includes('\\') || path.includes('\0') || /^(?:\/|[a-z]:)/i.test(path)) throw new Error(`animation.parts.${name}.project must use a portable relative path.`);
+      const full = resolve(base, path);
+      if (!existsSync(full) || !statSync(full).isFile()) throw new Error(`animation.parts.${name}.project "${path}" is not a file.`);
+      return [full];
+    }) : [];
+  for (const path of [configPath, source, ...tilesetSources, ...tilesetImports, ...animationSources, ...(config.inputs ?? []).map(path => resolve(base, path))]) {
     const canonical = realpathSync(path), key = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
     if (seen.has(key)) continue;
     if (!statSync(canonical).isFile()) throw new Error(`Build input must be a file: ${path}`);

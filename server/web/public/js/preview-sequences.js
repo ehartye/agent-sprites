@@ -9,12 +9,17 @@ export function previewSequences(project, activeCell = '0,0') {
   ];
   // Same rule as the exported preview's animationSequence: pingpong omits both repeated ends.
   const play = (frames, direction) => {
-    const order = direction === 'reverse' ? [...frames].reverse() : frames;
-    return direction === 'pingpong' ? order.concat(order.slice(1, -1).reverse()) : order;
+    const order = direction === 'reverse'||direction==='pingpong_reverse' ? [...frames].reverse() : frames;
+    return direction === 'pingpong'||direction==='pingpong_reverse' ? order.concat(order.slice(1, -1).reverse()) : order;
   };
-  for (const [name, frames] of Object.entries(project.groups ?? {})) options.push({ id: `group:${name}`, group: name, label: name, frames: play(frames, project.animationDirections?.[name]), fps: project.animationFps?.[name] ?? 8 });
+  for (const [name, frames] of Object.entries(project.groups ?? {})) options.push({ id: `group:${name}`, group: name, label: name, frames: play(frames, resolveAnimationDirection(project, name)), fps: resolveGroupFps(project, name) });
+  for (const option of options) {
+    option.durations = option.frames.map(ref => resolveFrameDurationMs(project, ref, { group: option.group }));
+    option.loop = resolveAnimationLoop(project, option.group);
+  }
   return options;
 }
 export function selectPreviewSequence(options, id) {
   return options.find(option => option.id === id) ?? options[0] ?? null;
 }
+import { resolveFrameDurationMs, resolveAnimationLoop, resolveAnimationDirection, resolveGroupFps } from './shared/timing.js';

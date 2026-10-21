@@ -73,9 +73,9 @@ Get-ChildItem examples/native-character/*.build.json | ForEach-Object {
 
 The review page shows eight synchronized views for bare adult/child/large bodies, independent clothing and hair selectors, playback speed, idle mode, and clickable frame strips. Selecting clothing or a wig shows the four facings those overlays currently support. Its large canvases display native pixels at 8×. This is an asset inspection page, not a game character replacement or a full customization system. Generated `dist` files must be rebuilt after source changes; refresh the page after rebuilding.
 
-## Space to Grow cast concepts
+## Native costume sample cast
 
-The [cast example](cast/README.md) applies the new format to eight residents: the Grower, Mara, Pip, Clementine, Sprocket, Registrar Nine, Vey, and a provisional child neighbor. Build `cast-*.build.json` and open `cast.html` for a synchronized lineup and selected-character turnaround. Its shared costume adapter supports semantic material ramps, landmark-attached pixel motifs, rear layers, replacement heads and robot casings while retaining the mannequin's walk aliases and pivot.
+The [cast example](cast/README.md) applies the format to eight sample roles: gardener, mechanic, cook, explorer, utility robot, survey robot, wayfinder and child. Build `cast-*.build.json` and open `cast.html` for a synchronized lineup and selected-character turnaround. Its shared costume adapter supports semantic material ramps, landmark-attached pixel motifs, rear layers, replacement heads and robot casings while retaining the mannequin's walk aliases and pivot.
 
 ## Large-build mannequin
 
@@ -166,9 +166,9 @@ same frames, tags and cells as the full character (walk, swing, water, hurt and 
 recipe and filters at the end. Build a bare-headed body (`"wig": "none"`) plus one overlay sheet per hair style, facial hair
 and headwear, then composite them in the game in a fixed order (body, hair, facial hair, headwear) and recolour at runtime by
 swapping exact key colours (hard alpha, no tint, no blending). Draw the sheets in distinctive key ramps so a swap can never
-touch an unrelated pixel. Overlay builds suppress the "empty frame" warning (a back view has no beard). Fallow Valley's
-wardrobe (28 sheets cover 5 outfits x 3 gear tiers x 7 hair styles x 5 facial hairs x 4 headwear x any colours) is the
-reference: `tools/build-wardrobe.mjs` there generates the profiles.
+touch an unrelated pixel. Overlay builds suppress the "empty frame" warning (a back view has no beard).
+Generate each body and overlay from shared profiles, composite them in a fixed order, and verify that recoloring one
+material leaves every other material unchanged.
 
 ### Action poses
 

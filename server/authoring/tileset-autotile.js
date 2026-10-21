@@ -49,7 +49,7 @@ const PATTERNS = {
   glass: (x, y) => { if (x % 8 === 7 || y % 8 === 7) return 's'; if (x % 8 === 0 || y % 8 === 0) return 'b'; if ((x % 8 + y % 8 === 3) || (x % 8 + y % 8 === 5 && x % 8 > 0 && y % 8 > 0 && x % 8 < 4)) return 'b'; return 'a'; },
 };
 
-// Defaults follow the Fallow Valley ramps (docs/ART-DIRECTION.md) but every role is overridable per set.
+// Default wasteland ramps; every role is overridable per set.
 export const MATERIALS = {
   scrap:         {pattern: 'corrugated', a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#b5532f', s: '#3c3c3a', o: '#26262a'},
   wood:          {pattern: 'planksV',    a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#6b5033', s: '#6b5033', o: '#4a3624'},
@@ -63,7 +63,7 @@ export const MATERIALS = {
   thatch:        {pattern: 'thatch',     a: '#c9a869', b: '#e3cf93', c: '#8f6f45', d: '#b08d57', s: '#6b5033', o: '#4a3624'},
   sheet:         {pattern: 'ridged',     a: '#85847c', b: '#a8a79e', c: '#5f5f5a', d: '#b5532f', s: '#3c3c3a', o: '#26262a'},
   'roof-tile':   {pattern: 'scales',     a: '#b5532f', b: '#d98b4a', c: '#8c3b25', d: '#5e2a1f', s: '#8c3b25', o: '#5e2a1f'},
-  // Fallow Valley building tiers (adobe, timber, masonry, steel, alloy). Wall, floor and roof presets share a tier's ramp steps.
+  // Building material tiers (adobe, timber, masonry, steel, alloy). Wall, floor and roof presets share a tier's ramp steps.
   adobe:         {pattern: 'bricks',     a: '#c9a869', b: '#e3cf93', c: '#b08d57', d: '#b08d57', s: '#b08d57', o: '#6b5033'},
   rammed:        {pattern: 'rammed',     a: '#b08d57', b: '#c9a869', c: '#8f6f45', d: '#c9a869', s: '#b08d57', o: '#6b5033'},
   timber:        {pattern: 'planksV',    a: '#b08d57', b: '#c9a869', c: '#6b5033', d: '#6b5033', s: '#6b5033', o: '#4a3624'},

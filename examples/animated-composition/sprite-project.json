@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "output": "dist",
+  "scale": 6,
+  "animation": {
+    "name": "lantern-garden",
+    "size": "48x32",
+    "palette": "pico8",
+    "seed": "garden-motion-v1",
+    "parts": {
+      "garden": {
+        "shapes": [
+          { "name": "sky", "type": "rect", "params": { "x": 0, "y": 0, "w": 48, "h": 32 }, "color": "#141f36" },
+          { "name": "moon", "type": "circle", "params": { "cx": 7, "cy": 6, "r": 3 }, "color": "#b9d3db" },
+          { "name": "moon-cutout", "type": "circle", "params": { "cx": 9, "cy": 5, "r": 3 }, "color": "#141f36" },
+          { "name": "ground", "type": "rect", "params": { "x": 0, "y": 27, "w": 48, "h": 5 }, "color": "#25454a" },
+          { "name": "horizon", "type": "line", "params": { "x1": 0, "y1": 27, "x2": 47, "y2": 27 }, "color": "#467261" }
+        ]
+      },
+      "post": {
+        "shapes": [
+          { "name": "stem", "type": "rect", "params": { "x": 3, "y": 12, "w": 2, "h": 3 }, "color": "#6b7183" }
+        ]
+      },
+      "lantern": { "project": "lantern.project.json", "group": "glow" },
+      "firefly": { "project": "firefly.project.json", "frames": ["closed", "open", "rise"] }
+    },
+    "placements": [
+      { "kind": "stamp", "name": "backdrop", "part": "garden", "x": 0, "y": 0 },
+      { "kind": "tile", "name": "posts", "part": "post", "x": 8, "y": 13, "cols": 2, "rows": 1, "stepX": 24, "stepY": 0 },
+      { "kind": "tile", "name": "lanterns", "part": "lantern", "x": 8, "y": 13, "cols": 2, "rows": 1, "stepX": 24, "stepY": 0, "phaseMs": 20 },
+      { "kind": "stamp", "name": "guide", "part": "firefly", "x": 21, "y": 8, "phaseMs": 40 },
+      { "kind": "scatter", "name": "flies", "part": "firefly", "x": 2, "y": 3, "w": 40, "h": 18, "count": 3, "seed": "moon-garden", "randomPhase": true }
+    ]
+  },
+  "expectedTags": ["lantern-garden"]
+}

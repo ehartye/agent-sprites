@@ -148,7 +148,7 @@ procedural map the way a game would (`node compose-map.mjs`; committed proof ima
 `terrain` (and `terrain-overlay`) accept `dust`, `sand`, `gravel`, `rubble`, `concrete` (expansion seam and cracks),
 `asphalt` (variants 1-2 cracked, variant 3 carries faded lane paint), `ash`, `mud`, `slag` (dark, bubbled, orange
 glints), `fused-glass` (glossy streaks), `salt-crust` (polygonal cracked plates), `clay` (cracked red-brown), `water`,
-`tilled-soil` (furrow rows) and `tilled-soil-wet` (darker, glints). They use the Fallow Valley palette ramps and are
+`tilled-soil` (furrow rows) and `tilled-soil-wet` (darker, glints). They use the built-in wasteland palette ramps and are
 authored on a 16x16 source grid (a 32x32 screen tile at `pixelScale: 2`; at `pixelScale: 1` each source pixel is
 2x2). Opposite edge pixels match and every variant of a material shares the same edge pixels, so any variant tiles
 beside any other; natural surfaces use sparse low-contrast clusters, hard surfaces keep seams; no dither, hard alpha,
@@ -272,7 +272,7 @@ exported per material and variant. Note that "all eight neighbours" normalises t
 {
   "version": 1, "output": "./dist", "scale": 1,
   "environment": {
-    "name": "fallow-terrain", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 4,
+    "name": "sample-terrain", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 4,
     "materials": ["dust","sand","gravel","rubble","concrete","asphalt","ash","mud","slag","fused-glass",
                   "water","salt-crust","clay","tilled-soil","tilled-soil-wet"]
   }

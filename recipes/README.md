@@ -2,7 +2,7 @@
 
 Shareable `batch` files that demonstrate the per-frame parameterization workflow.
 
-## fallow-valley
+## farm-showcase
 
 High-detail showcase (32×48 character + 128×96 environment, db-32) built with
 the generator-script pattern — `gen-hero.mjs` and `gen-farm.mjs` emit build

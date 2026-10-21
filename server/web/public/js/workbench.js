@@ -1,17 +1,9 @@
-import { COMMANDS, commandRequest } from './command-catalog.js';
-
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text != null) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
-function button(label, action, className = '') {
-  const node = element('button', label, className);
-  node.type = 'button';
-  node.addEventListener('click', action);
-  return node;
-}
+import { commandRequest } from './command-catalog.js';
+import { element, button, input, field, setStatus, jsonReport, animationProof } from './components.js';
+import { RegionEditor } from './region-editor.js';
+import { ConstructionReplayPanel } from './construction-replay.js';
+import { FrameTimingPanel } from './frame-timing.js';
+import { SurfacePanel } from './surface-panel.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -26,6 +18,7 @@ export class Workbench {
     this.sessionId = null;
     this.tab = null;
     this.sequence = 0;
+    this.commands = [];
   }
   init() {
     this.mount = document.getElementById('workbench-mount');
@@ -35,8 +28,8 @@ export class Workbench {
     this.mount.append(element('h2', 'Design workbench'));
     this.mount.append(button('Close', () => this.close(), 'drawer-close'));
     this.nav = element('nav', null, 'workbench-tabs');
-    for (const tab of ['sessions', 'palettes', 'tools', 'handoff']) {
-      const btn = button(tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
+    for (const tab of ['sessions', 'palettes', 'ascii', 'replay', 'timing', 'lighting', 'tools', 'handoff']) {
+      const btn = button(tab === 'ascii' ? 'ASCII' : tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
       btn.dataset.panel = tab;
       this.nav.append(btn);
     }
@@ -53,8 +46,7 @@ export class Workbench {
   }
   notify(message, error = false) {
     const status = document.getElementById('workbench-status');
-    status.textContent = message;
-    status.classList.toggle('error', error);
+    setStatus(status, message, error);
   }
   async run(action) {
     try { return await action(); }
@@ -71,11 +63,25 @@ export class Workbench {
       let data;
       if (tab === 'sessions') data = (await this.request('/session/list?limit=1000')).data;
       if (tab === 'palettes') data = (await this.request('/workbench/palettes')).data;
+      if (tab === 'tools') data = (await this.request('/workbench/commands')).data;
       if (sequence !== this.sequence) return;
       this.body.replaceChildren();
       if (tab === 'sessions') this.renderSessions(data);
       if (tab === 'palettes') this.renderPalettes(data);
-      if (tab === 'tools') this.renderTools();
+      if (tab === 'tools') this.renderTools(data);
+      if (tab === 'ascii') new RegionEditor({ request: this.request, getCell: this.getCell, getProject: () => this.project, getSessionId: () => this.sessionId, refresh: this.refresh }).render(this.body);
+      if (tab === 'replay') {
+        this.replayPanel = new ConstructionReplayPanel({ request: this.request, getCell: this.getCell, getSessionId: () => this.sessionId, isCurrent: () => sequence === this.sequence && this.tab === 'replay' });
+        this.replayPanel.render(this.body);
+      }
+      if (tab === 'timing') {
+        this.timingPanel = new FrameTimingPanel({ request: this.request, getProject: () => this.project, getSessionId: () => this.sessionId, refresh: this.refresh, preview: sequenceId => { this.preview(sequenceId); this.close(); }, isCurrent: () => sequence === this.sequence && this.tab === 'timing' });
+        this.timingPanel.render(this.body);
+      }
+      if (tab === 'lighting') {
+        this.lightingPanel = new SurfacePanel({ request: this.request, getProject: () => this.project, getCell: this.getCell, getShape: this.getShape, getSessionId: () => this.sessionId, refresh: this.refresh, isCurrent: () => sequence === this.sequence && this.tab === 'lighting' });
+        this.lightingPanel.render(this.body);
+      }
       if (tab === 'handoff') this.renderHandoff();
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
@@ -85,7 +91,14 @@ export class Workbench {
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
     if (!this.mount.hidden && (changed || this.tab === 'sessions')) this.show(this.tab);
+    else this.refreshProjectPanels();
   }
+  refreshProjectPanels() {
+    this.refreshReplay();
+    if (!this.mount.hidden && this.tab === 'timing') this.timingPanel?.updateProject(this.project);
+    if (!this.mount.hidden && this.tab === 'lighting') this.lightingPanel?.updateProject(this.project);
+  }
+  refreshReplay() { if (!this.mount.hidden && this.tab === 'replay') this.replayPanel?.refreshCurrent(); }
   renderSessions(sessions) {
     this.body.append(element('p', 'Everyone connected to this server follows the active session. Copy a design before exploring a variation.', 'workbench-hint'));
     const actions = element('div', null, 'workbench-actions');
@@ -166,8 +179,9 @@ export class Workbench {
       section.append(colors); this.body.append(section);
     }
   }
-  renderTools() {
-    const search = element('input'); search.type = 'search'; search.placeholder = 'Find a tool or CLI command'; search.setAttribute('aria-label', 'Find a tool or CLI command');
+  renderTools(commands) {
+    this.commands = commands;
+    const search = input('tool-search', '', { type: 'search', placeholder: 'Find a tool or CLI command', 'aria-label': 'Find a tool or CLI command' });
     this.body.append(search);
     const browser = element('div', null, 'command-browser');
     const list = element('div', null, 'command-list');
@@ -177,17 +191,20 @@ export class Workbench {
       list.replaceChildren();
       const needle = search.value.toLowerCase();
       let category;
-      for (const command of COMMANDS.filter(command => `${command.id} ${command.label} ${command.category}`.toLowerCase().includes(needle))) {
+      for (const command of this.commands.filter(command => `${command.id} ${command.label} ${command.category}`.toLowerCase().includes(needle))) {
         if (category !== command.category) { category = command.category; list.append(element('h3', category)); }
         const item = button(command.label, () => this.selectCommand(command.id)); item.title = command.id; item.dataset.command = command.id;
         list.append(item);
       }
     };
     search.addEventListener('input', render); render();
-    this.selectCommand('draw rect');
+    const initial = this.commands.find(command => command.id === 'draw rect') ?? this.commands[0];
+    if (initial) this.selectCommand(initial.id);
+    else this.commandDetail.append(element('p', 'No tools are available from this server.'));
   }
   selectCommand(id) {
-    const command = COMMANDS.find(command => command.id === id);
+    const command = this.commands.find(command => command.id === id);
+    if (!command) return;
     this.commandDetail.replaceChildren(element('h3', command.label), element('code', command.id));
     this.body.querySelectorAll('[data-command]').forEach(btn => btn.classList.toggle('active', btn.dataset.command === id));
     if (command.description) this.commandDetail.append(element('p', command.description, 'workbench-hint'));
@@ -204,6 +221,10 @@ export class Workbench {
     if ('from_cell' in values) values.from_cell = this.getCell();
     if ('color' in values) values.color = this.getColor() ?? values.color;
     const selected = this.getShape();
+    if(id==='layer edit'||id==='layer order') {
+      const layer=selected?.params?.layers?.at(-1);
+      if(layer) {values.id=layer.id;if('z' in values) values.z=layer.z??0;}
+    }
     if (selected) {
       if ('shape' in values) values.shape = selected.name ?? selected.id;
       if ('shape_id' in values) values.shape_id = selected.id;
@@ -212,13 +233,12 @@ export class Workbench {
     const form = element('form', null, 'tool-form');
     const fields = [];
     for (const [key, value] of Object.entries(values)) {
-      const label = element('label', key.replaceAll('_', ' '));
       const input = element(typeof value === 'object' && value !== null ? 'textarea' : 'input');
       input.name = key;
       const kind = value === null ? 'null' : typeof value;
       if (kind === 'boolean') { input.type = 'checkbox'; input.checked = value; }
       else { if (kind === 'number') { input.type = 'number'; input.step = 'any'; } input.value = kind === 'object' ? JSON.stringify(value) : value ?? ''; }
-      label.append(input); form.append(label); fields.push({ key, input, kind });
+      form.append(field(key.replaceAll('_', ' '), input)); fields.push({ key, input, kind });
     }
     const advanced = element('details'); advanced.append(element('summary', 'All parameters (JSON)'));
     const json = element('textarea'); json.rows = 8; json.value = JSON.stringify(values, null, 2); json.setAttribute('aria-label', 'All tool parameters as JSON');
@@ -235,16 +255,20 @@ export class Workbench {
         kind === 'boolean' ? input.checked : kind === 'number' ? Number(input.value) : kind === 'object' ? JSON.parse(input.value) : kind === 'null' && !input.value ? null : input.value]));
     };
     for (const { input } of fields) input.addEventListener('input', () => { jsonEdited = false; try { json.value = JSON.stringify(read(), null, 2); } catch { /* partial field input */ } });
-    const submit = element('button', command.method === 'GET' ? 'Inspect' : 'Apply'); submit.type = 'submit'; form.append(submit);
-    const output = element('pre', null, 'tool-output'); output.setAttribute('aria-live', 'polite');
+    const submit = element('button', command.submitLabel ?? (command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
+    const report = jsonReport({ onDownload: data => download(`${command.id.replaceAll(' ', '-')}-report.json`, data) });
+    const animation = animationProof();
+    const output = report.output;
     form.addEventListener('submit', event => {
       event.preventDefault();
       this.run(async () => {
         submit.disabled = true;
+        animation.set(null);
         try {
           const request = commandRequest(command, read());
           const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
-          output.textContent = JSON.stringify(result.data ?? result, null, 2).slice(0, 24_000);
+          report.set(result.data ?? result);
+          animation.set(result.preview, result.previewPoster);
           if (result.data?.ok === false) {
             this.notify(`${command.label} failed. See the report below.`, true);
             return;
@@ -263,7 +287,7 @@ export class Workbench {
         } finally { submit.disabled = false; }
       });
     });
-    this.commandDetail.append(form, output);
+    this.commandDetail.append(form, animation.node, report.node);
   }
   renderBatch(mount) {
     const input = element('textarea'); input.rows = 12; input.value = JSON.stringify([{ command: 'draw', type: 'point', cell: this.getCell(), x: 8, y: 8, color: this.getColor() ?? '#ffccaa', name: 'review-mark' }], null, 2);
@@ -278,8 +302,9 @@ export class Workbench {
         for (const [index, request] of mapped.data.entries()) {
           try {
             if (this.sessionId !== sessionId) throw new Error('The active session changed');
-            await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
+            const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
             output.textContent += `${index + 1}. Applied ${request.path}\n`;
+            if (['/api/cell/ascii-read', '/api/cell/compose-plan'].includes(request.path)||request.path.startsWith('/api/cell/layers?')) output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
           } catch (error) { throw new Error(`Stopped at operation ${index + 1}: ${error.message}. ${index} earlier operations remain applied.`); }
         }
         this.refresh(); this.notify(`Applied ${mapped.data.length} operations.`);
@@ -312,6 +337,30 @@ export class Workbench {
       this.notify(`Imported ${file.name} as a new session.`); this.refresh();
     }));
     this.body.append(actions, element('label', 'Import an editable project'), upload);
+    const exportSection = element('section', null, 'surface-section');
+    exportSection.append(element('h3', 'Export PNG and atlas on disk'), element('p', 'Write the sheet and atlas to the session export folder, or choose another destination. Auto includes normal assets when the design has authored normals.', 'workbench-hint'));
+    const destination = input('export-dest', '', { placeholder: 'Use session export folder' });
+    const trim = input('export-trim', '', { type: 'checkbox' });
+    const normal = element('select'); normal.name = 'export-normal';
+    for (const [value, label] of [['auto', 'Auto · authored metadata'], ['include', 'Include normal assets'], ['omit', 'Omit normal assets']]) {
+      const option = element('option', label); option.value = value; normal.append(option);
+    }
+    const report = jsonReport({ onDownload: data => download('export-report.json', data) });
+    const sequence = this.sequence, sessionId = this.sessionId;
+    const exportButton = button('Export to disk', () => this.run(async () => {
+      if (exportButton.disabled || this.sessionId !== sessionId || sequence !== this.sequence) return;
+      exportButton.disabled = true;
+      try {
+        const result = await this.request('/session/export', { ...(destination.value.trim() ? { dest: destination.value.trim() } : {}), trim: trim.checked, normal: normal.value === 'auto' ? undefined : normal.value === 'include' }, { sessionId });
+        if (this.sessionId !== sessionId || sequence !== this.sequence) return;
+        report.set(result); this.notify('Export completed. See artifact paths below.');
+      } catch (error) {
+        if (this.sessionId === sessionId && sequence === this.sequence) throw error;
+      } finally { if (this.sessionId === sessionId && sequence === this.sequence) exportButton.disabled = !sessionId; }
+    }));
+    exportButton.dataset.action = 'handoff-export'; exportButton.disabled = !sessionId;
+    exportSection.append(field('Destination folder (optional)', destination), field('Trim transparent bounds', trim), field('Normal export', normal), exportButton, report.node);
+    this.body.append(exportSection);
     const noteLabel = element('label', 'Review note');
     const note = element('textarea'); note.rows = 7; note.maxLength = 20000; note.placeholder = 'What should the next pass change or preserve?';
     const draftKey = `sprite-review-${this.sessionId}`;

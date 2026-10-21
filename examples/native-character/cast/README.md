@@ -1,17 +1,17 @@
-# Space to Grow cast concepts
+# Native costume and cast examples
 
-Eight characters use the native 16×32 adult/child mannequins and their four-direction walks. The owner accepted this format to replace Room2Grow's previous 40×56 cast. Nori is a provisional child-neighbor design; the other names come from the game's brief and existing art studies. An available character model does not establish their presence in the playable story: Clementine remains missing.
+Eight sample profiles use the native 16×32 adult/child mannequins and their four-direction walks. They demonstrate layered outfits, replacement heads, robot casings and nonhuman motifs. Names describe reusable visual roles; the examples do not define a game cast or story.
 
 | Character | Visual idea |
 |---|---|
-| The Grower | Copper field jacket, teal overalls, sun cap, seed pack |
-| Mara | Dark tied hair, work goggles, tool harness, service pack |
-| Pip | Short lilac body, cream kitchen apron, sealed chef cap |
-| Clementine | Silver hair, sage field coat, plum trousers, Almanac bag |
-| Sprocket | Mustard casing, teal display, antenna, animated treads |
-| Registrar Nine | Ivory casing, optical band, survey aerial, specimen case |
-| Vey | Mint chitin, compound eyes, folded plum wings, four arms |
-| Nori | Child proportions, dark hair puffs, yellow top, teal overalls |
+| Gardener | Copper field jacket, teal overalls, sun cap, seed pack |
+| Mechanic | Dark tied hair, work goggles, tool harness, service pack |
+| Cook | Short lilac body, cream kitchen apron, sealed chef cap |
+| Explorer | Silver hair, sage field coat, plum trousers, sample satchel |
+| Utility robot | Mustard casing, teal display, antenna, animated treads |
+| Survey robot | Ivory casing, optical band, survey aerial, specimen case |
+| Wayfinder | Mint chitin, compound eyes, folded plum wings, four arms |
+| Child | Child proportions, dark hair puffs, yellow top, teal overalls |
 
 From the repository root, build the eight cast presets:
 
@@ -28,9 +28,9 @@ Serve `examples/native-character` over HTTP and open `cast.html`. The gallery of
 
 The **Outfit** selector compares everyday clothing with **Field suit**, **Service shell**, and **Retro ribbed** across all eight characters. Open `cast.html?outfit=field` (or `service` / `retro`) to start suited. The glob above builds all 32 cast/outfit presets. The 24 suit presets use the same generator with `[characterId, suitId]`; their output names add `-field`, `-service`, or `-retro`.
 
-**Robots generally do not need vacuum suits.** Sprocket and Registrar Nine normally operate in vacuum in their own casings. Their shell variants are optional protection against specific hazards, such as corrosive environments, rather than mandatory breathing or pressure equipment. Organic characters use pressure gear when the destination requires it. Portal travel alone does not require a suit; the prototype's Upside has breathable air. These are Space to Grow design rules, not general engineering claims about robots.
+Robot shrouds and organic pressure suits demonstrate distinct costume variants. The field, service and retro options exercise shared attachment and coverage rules. Environmental requirements and equipment behavior belong to the integrating game's design.
 
-`pressure-suit.mjs` owns the shared fit. Field suits combine teal fabric and rounded cream helmets; service shells use angular helmets and harder chest panels; retro suits use copper fabric, ribbed chest panels and paired rear tanks. Head, collar, chest and pack attachments follow each pose's landmarks. Adult/child dimensions use their respective mannequins. Source skin outside the head becomes a separate pressure-fabric material, including hands and neck; it is removed from skin-role groups so later skin edits cannot uncover gloves. Robots keep their face displays inside environmental shrouds. Vey retains four arms with suited sleeves and gloves; antennae and the everyday wing mantle are enclosed or stowed.
+`pressure-suit.mjs` owns the shared fit. Field suits combine teal fabric and rounded cream helmets; service shells use angular helmets and harder chest panels; retro suits use copper fabric, ribbed chest panels and paired rear tanks. Head, collar, chest and pack attachments follow each pose's landmarks. Adult/child dimensions use their respective mannequins. Source skin outside the head becomes a separate pressure-fabric material, including hands and neck; it is removed from skin-role groups so later skin edits cannot uncover gloves. Robots keep their face displays inside environmental shrouds. Wayfinder retains four arms with suited sleeves and gloves; antennae and the everyday wing mantle are enclosed or stowed.
 
 Front visors reveal the face. Profile helmets have opaque rear casing and glass only on the forward side; they never reuse the front oval. Rear helmets are opaque. A colored collar joins the helmet rim to the torso and life-support pack, avoiding the floating-head reading caused by two adjacent dark outline rows. All four directions, both strides, and the repeated passing pose share that rule.
 
@@ -51,4 +51,4 @@ These are visual pressure-suit concepts, not technical life-support specificatio
 
 Newly exposed costume pixels are outlined after rear/body/front composition. This catches edges where a motif protrudes beyond the base silhouette. It does not repair a disconnected shape or invent an anatomically appropriate attachment; inspect all four directions and both stride poses.
 
-The shared recipe supports palette changes, anchored details and layered silhouettes. It is not a general skeletal rig. Vey's extra arms use authored motifs; Sprocket's lower limbs use tread overlays. Their motion is a compact concept treatment, not a claim of biomechanical fidelity or a complete species animation set. Everyday outfits suggest space equipment; the separate suit variants add closed helmets and body coverage.
+The shared recipe supports palette changes, anchored details and layered silhouettes. It is not a general skeletal rig. Wayfinder's extra arms use authored motifs; Utility robot's lower limbs use tread overlays. Their motion is a compact concept treatment, not a claim of biomechanical fidelity or a complete species animation set. Everyday outfits suggest space equipment; the separate suit variants add closed helmets and body coverage.

@@ -2,7 +2,7 @@
 // scripts/sprite.js — CLI entry point for agent-sprites
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, basename } from 'path';
 import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync, realpathSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 
@@ -89,8 +89,11 @@ async function ensureServer() {
   throw startupFailure('timed out waiting for verified service health', logPath);
 }
 
-async function api(method, path, body) {
+const invocation = parseArgs(process.argv.slice(3));
+
+async function api(method, path, body, { sessionId = invocation.args.session } = {}) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (sessionId) opts.headers['X-Sprite-Session'] = sessionId;
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(`${BASE_URL}${path}`, opts);
   return r.json();
@@ -123,6 +126,15 @@ function parseArgs(argv) {
 
 function num(v) { return v !== undefined ? Number(v) : undefined; }
 function bool(v) { return v === 'true' || v === true; }
+function explicitBoolean(value) {
+  if (value === 'true' || value === true) return true;
+  if (value === 'false' || value === false) return false;
+  throw new Error('Animation loop must be true or false');
+}
+function timingNumber(value, label) {
+  if (typeof value !== 'string' || !value.trim() || !Number.isFinite(Number(value))) throw new Error(`${label} must be a finite number`);
+  return Number(value);
+}
 
 // A file transports exact IDs without the operating system's argv length cap.
 // Bound the actual read, including growth after fstat, rather than only its size.
@@ -250,7 +262,7 @@ SESSION
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
   save                   write editable project JSON (drafts already persist automatically)
-  export [--dest <folder>] [--trim true]  export gapless sheet PNG + Aseprite JSON atlas (<name>.atlas.json)
+  export [--dest <folder>] [--trim true] [--normal true|false]  color atlas plus automatic authored normal atlas
                          --trim packs each cell's opaque bounds with spriteSourceSize offsets
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
   pivot [--x N --y N | --anchor center|top-center|bottom-center|bottom-left|bottom-right]
@@ -275,6 +287,11 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          compares decoded pixels with the files on disk and writes nothing
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
+  atlas-proof <proof.json> --out <new-directory> [--json]
+    Composite exported atlas tracks into verified GIF, PNG frames and a contact sheet.
+  replay <project.json> --list [--json]
+  replay <project.json> --cell R,C --step N --out <new-directory> [--scale N] [--json]
+    Inspect recorded construction sources or export a step and its actual pixel contribution.
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
@@ -327,14 +344,31 @@ SHAPES
 
 CELLS
   copy  --from R,C --to R,C        clear --cell         name --cell --as <name>
+  ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
+  ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
+  duration read --cell <ref> [--group <name>] [--session ID]
+  surface read|clear --cell <ref> --shape <name> [--session ID]
+  surface set --cell <ref> --shape <name> --file surface.json [--session ID]
+    Use --shape-id <ID> instead of --shape for an unnamed shape.
+  lighting read|clear --cell <ref> [--session ID]
+  lighting set --cell <ref> --file lighting.json [--session ID]
+  duration set <ms> --cell <ref> [--session ID]   positive safe-integer milliseconds
+  duration clear --cell <ref> [--session ID]       restore group FPS or default 8 FPS
+  compose --file composition.json [--plan] [--cell R,C] [--session ID]   parts, stamps, tile, seeded scatter
+  layer list --cell R,C             inspect retained child layers and member names
+  layer edit <id> --cell R,C [--dx N --dy N --z N] [--session ID]
+                                    move/order a whole isolated child as one undoable edit
   clone-cell --from R,C --to "R,C R,C ..."  (atomic fan-out; all-or-nothing)
   mirror --cell --axis horizontal|vertical      flip every shape across the cell
   rotate-cell --cell --deg 90|180|270           rotate every shape about cell center
   ref set <image.png> --cell [--opacity 0.35]   attach a tracing reference image
   ref clear --cell                              shown under shapes in view + web UI, never exported
-  view  --cell [--png true] [--scale N] [--out f.png]   view --sheet [--scale N] [--out f.png]
+  view  --cell [--channel color|normal|light] [--png true] [--scale N] [--out f.png]
+  view --sheet [--channel color|normal|light] [--scale N] [--out f.png]
   view  --stack sky,swirl_0,land [--scale N] [--out f.png]   composite cells as layers, first at the bottom
-  view-anim <group>                undo/redo --cell
+  view-anim <group> [--fps N] [--loops N] [--session ID]   exact frame ms; 0 loops means infinite
+    persisted order/direction and loop policy; --fps changes only frames without explicit ms
+  undo/redo --cell
 
 TWEEN
   tween <shape> --group <cellgroup> [--to X,Y] [--from X,Y] [--ease linear|in|out|in-out]
@@ -345,11 +379,12 @@ TWEEN
                 frame of a cell group (draw frame 1, clone-cell fan-out, then tween)
 
 GROUPS (cells)
-  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong]
+  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong|pingpong_reverse] [--loop true|false]
   group add/remove <name> R,C ...
   group delete <name>                 group list
   group fps <name> <N>                set playback fps (exported as frame durations)
-  group direction <name> forward|reverse|pingpong   Aseprite tag direction (default forward)
+  group loop <name> true|false [--session ID]   repeat or play once
+  group direction <name> forward|reverse|pingpong|pingpong_reverse   Aseprite tag direction
 
 SHAPE GROUPS (within a cell)
   shape-group create <name> <shapes...> --cell
@@ -388,7 +423,46 @@ async function run() {
     return;
   }
 
-  const { args, positional } = parseArgs(process.argv.slice(3));
+  const { args, positional } = invocation;
+  if (cmd === 'replay') {
+    for (const key of Object.keys(args)) if (!['list', 'cell', 'step', 'out', 'scale', 'json'].includes(key)) throw new Error(`Unknown replay option: --${key}`);
+    const listing = bool(args.list);
+    if (positional.length !== 1 || (listing ? ['cell', 'step', 'out', 'scale'].some(key => args[key] !== undefined)
+      : typeof args.cell !== 'string' || args.step === undefined || typeof args.out !== 'string')) {
+      throw new Error('Usage: agent-sprites replay <project.json> --list OR --cell R,C --step N --out <new-directory> [--scale N] [--json]');
+    }
+    const { Project } = await import('../server/engine/project.js');
+    const { constructionReplayMetadata, renderConstructionReplay } = await import('../server/engine/construction-replay.js');
+    const project = Project.load(positional[0]);
+    if (listing) { console.log(JSON.stringify(constructionReplayMetadata(project))); return; }
+    const { images, ...report } = renderConstructionReplay(project, { cell: args.cell, step: Number(args.step), scale: args.scale === undefined ? 1 : Number(args.scale) });
+    const { writeArtifactDirectory } = await import('../server/engine/write-artifacts.js');
+    const replayOutput = resolve(realpathSync(dirname(resolve(args.out))), basename(resolve(args.out)));
+    report.artifacts = Object.fromEntries([...Object.keys(images).map(name => [name, resolve(replayOutput, `${name}.png`)]), ['report', resolve(replayOutput, 'replay.json')]]);
+    writeArtifactDirectory(args.out, { ...Object.fromEntries(Object.entries(images).map(([name, png]) => [`${name}.png`, png])), 'replay.json': JSON.stringify(report, null, 2) + '\n' });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Construction step ${args.step}: ${report.changedPixels} changed pixels. Live pixels ${report.current.samePixels ? 'match' : 'differ from'} the final construction.`);
+      for (const [name, path] of Object.entries(report.artifacts)) console.log(`${name}: ${path}`);
+    }
+    return;
+  }
+  if (cmd === 'atlas-proof') {
+    for (const key of Object.keys(args)) {
+      if (!['out', 'json'].includes(key)) throw new Error(`Unknown atlas-proof option: --${key}`);
+    }
+    if (positional.length !== 1 || typeof args.out !== 'string' || !args.out.trim()) {
+      throw new Error('Usage: agent-sprites atlas-proof <proof.json> --out <new-directory> [--json]');
+    }
+    const { renderAtlasProof } = await import('../server/engine/atlas-proof.js');
+    const report = await renderAtlasProof(positional[0], { output: args.out });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Atlas proof: ${report.frameCount} frames, ${report.durationMs} ms, ${report.width}×${report.height}, ${report.loop ? 'looping' : 'once'}.`);
+      for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${Array.isArray(path) ? `${path.length} PNG files` : path}`);
+    }
+    return;
+  }
   if (cmd === 'trace') {
     for (const key of Object.keys(args)) {
       if (!['out', 'name', 'json'].includes(key)) throw new Error(`Unknown trace option: --${key}`);
@@ -551,8 +625,9 @@ async function run() {
       break;
     }
     case 'open':
+      // For open, --session selects the destination rather than pinning the active session.
       result = args.session
-        ? await api('POST', '/api/session/open-session', { ref: args.session })
+        ? await api('POST', '/api/session/open-session', { ref: args.session }, { sessionId: null })
         : await api('POST', '/api/session/open', { path: sub });
       break;
     case 'cast': {
@@ -598,7 +673,8 @@ async function run() {
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
         trim: args.trim !== undefined ? bool(args.trim) : undefined,
-      });
+        normal: args.normal !== undefined ? bool(args.normal) : undefined,
+      }, { sessionId: args.session });
       break;
     case 'skin-tone':
       result = await api('POST', '/api/workbench/skin-tone', { tone: sub });
@@ -617,6 +693,8 @@ async function run() {
         w: num(args.w), h: num(args.h),
         points: args.points,
         filled: args.filled !== undefined ? bool(args.filled) : undefined,
+        visible: args.visible !== undefined ? bool(args.visible) : undefined,
+        z: num(args.z),
         pattern: args.pattern, color2: args.color2,
         // highlight/shadow params
         shape: args.shape, direction: args.direction,
@@ -707,6 +785,68 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'surface':
+    case 'lighting': {
+      if(typeof args.cell!=='string'||!args.cell.length)throw new Error(`${cmd} requires --cell <ref>`);
+      const selection={cell:args.cell,...(cmd==='surface'?{
+        ...(args.shape===undefined?{}:{shape:args.shape}),
+        ...(args['shape-id']===undefined?{}:{shapeId:args['shape-id']}),
+      }:{})};
+      let operation;
+      if(sub==='read')operation={command:cmd,sub:'read',...selection};
+      else if(sub==='clear')operation={command:cmd,...selection,[cmd]:null};
+      else if(sub==='set'){
+        if(!args.file)throw new Error(`${cmd} set requires --file <JSON file>`);
+        operation={command:cmd,...selection,[cmd]:JSON.parse(readFileSync(resolve(args.file),'utf8'))};
+      } else throw new Error(`Usage: ${cmd} read|clear --cell <ref> | ${cmd} set --cell <ref> --file <JSON file>`);
+      const {mapCommandToApi}=await import('./batch-commands.js'),mapped=mapCommandToApi(operation);
+      result=await api(mapped.method,mapped.path,mapped.body,{sessionId:args.session});
+      break;
+    }
+    case 'duration': {
+      if (typeof args.cell !== 'string' || !args.cell.length) throw new Error('duration requires --cell <ref>');
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      let operation;
+      if (sub === 'read') operation = { command: 'duration', sub: 'read', cell: args.cell, ...(args.group === undefined ? {} : { group: args.group }) };
+      else if (sub === 'clear') operation = { command: 'duration', cell: args.cell, ms: null };
+      else if (sub === 'set') {
+        const ms = timingNumber(name, 'Frame duration');
+        if (!Number.isSafeInteger(ms) || ms < 1) throw new Error('Frame duration must be positive safe-integer milliseconds');
+        operation = { command: 'duration', cell: args.cell, ms };
+      } else throw new Error('Usage: duration read|clear --cell <ref> | duration set <ms> --cell <ref>');
+      const mapped = mapCommandToApi(operation);
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
+    case 'layer': {
+      const {mapCommandToApi}=await import('./batch-commands.js');
+      const mapped=mapCommandToApi({command:'layer',sub,cell:args.cell,...(sub==='edit'?{id:name,...(args.dx!==undefined?{dx:num(args.dx)}:{}),...(args.dy!==undefined?{dy:num(args.dy)}:{}),...(args.z!==undefined?{z:num(args.z)}:{})}:{})});
+      result=await api(mapped.method,mapped.path,mapped.body,{sessionId:args.session});
+      break;
+    }
+    case 'compose': {
+      if (!args.file) throw new Error('compose requires --file composition.json (cell,prefix,parts,placements)');
+      const spec = JSON.parse(readFileSync(resolve(args.file), 'utf8'));
+      if (args.cell) spec.cell = args.cell;
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      const mapped = mapCommandToApi({ ...spec, command: bool(args.plan) ? 'compose-plan' : 'compose' });
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
+    case 'ascii': {
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      let params;
+      if (sub === 'read') {
+        params = { cell: args.cell, x: num(args.x), y: num(args.y), w: num(args.w), h: num(args.h),
+          ...(args.colors ? { colors: JSON.parse(args.colors) } : {}) };
+      } else if (sub === 'patch') {
+        if (!args.file) throw new Error('ascii patch requires --file patch.json (x,y,rows,colors,prefix)');
+        params = { ...JSON.parse(readFileSync(resolve(args.file), 'utf8')), cell: args.cell };
+      } else throw new Error('Usage: ascii read --cell --x --y --w --h | ascii patch --cell --file patch.json');
+      const mapped = mapCommandToApi({ command: 'ascii', sub, ...params });
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
     case 'mirror':
       result = await api('POST', '/api/cell/mirror', { cell: args.cell, axis: args.axis });
       break;
@@ -735,16 +875,16 @@ async function run() {
     case 'view': {
       const out = args.out ? resolve(args.out) : undefined;
       if (bool(args.sheet)) {
-        result = await api('POST', '/api/view/sheet', { scale: num(args.scale), out });
+        result = await api('POST', '/api/view/sheet', { scale: num(args.scale), out, channel: args.channel });
         break;
       }
       if (args.stack) {
         // Commas or spaces; R,C pairs survive: --stack sky,0,1,land
-        result = await api('POST', '/api/view/stack', { cells: args.stack, scale: num(args.scale), out });
+        result = await api('POST', '/api/view/stack', { cells: args.stack, scale: num(args.scale), out, channel: args.channel });
         break;
       }
       const format = (args.png || args.out) ? 'png' : 'terminal';
-      result = await api('POST', '/api/cell/view', { cell: args.cell, format, scale: num(args.scale), out });
+      result = await api('POST', '/api/cell/view', { cell: args.cell, format, scale: num(args.scale), out, channel: args.channel });
       if (result.ok && result.data?.terminal) {
         console.log(result.data.terminal);
         return;
@@ -760,13 +900,14 @@ async function run() {
 
     case 'group':
       switch (sub) {
-        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction }); break;
-        case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }); break;
-        case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }); break;
-        case 'list':   result = await api('GET', '/api/group/cell/list'); break;
-        case 'add':    result = await api('POST', '/api/group/cell/add', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;
-        case 'remove': result = await api('POST', '/api/group/cell/remove', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;
-        case 'delete': result = await api('POST', '/api/group/cell/delete', { name: name }); break;
+        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction, ...(args.loop===undefined?{}:{loop:explicitBoolean(args.loop)}) }, { sessionId: args.session }); break;
+        case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }, { sessionId: args.session }); break;
+        case 'loop':   result = await api('POST', '/api/group/cell/loop', { name, loop: explicitBoolean(positional[2]) }, { sessionId: args.session }); break;
+        case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }, { sessionId: args.session }); break;
+        case 'list':   result = await api('GET', '/api/group/cell/list',undefined, { sessionId: args.session }); break;
+        case 'add':    result = await api('POST', '/api/group/cell/add', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }, { sessionId: args.session }); break;
+        case 'remove': result = await api('POST', '/api/group/cell/remove', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }, { sessionId: args.session }); break;
+        case 'delete': result = await api('POST', '/api/group/cell/delete', { name: name }, { sessionId: args.session }); break;
       }
       break;
 
@@ -834,36 +975,29 @@ async function run() {
 
     case 'view-anim': {
       const groupName = sub;
-      const groupResult = await api('GET', '/api/group/cell/list');
-      if (!groupResult.ok) { console.error(groupResult.error); process.exitCode = 1; return; }
-      const cellRefs = groupResult.data[groupName];
-      if (!cellRefs || cellRefs.length === 0) {
-        console.error(`Group "${groupName}" not found or empty`);
-        process.exitCode = 1;
-        return;
-      }
-
+      const { buildTerminalPlaybackPlan, waitForFrame } = await import('../server/engine/animation-playback.js');
+      const fps = args.fps === undefined ? undefined : timingNumber(args.fps, 'Animation FPS');
+      const loops = args.loops === undefined ? undefined : timingNumber(args.loops, 'Animation loops');
+      const snapshot = await api('GET', '/api/workbench/project', undefined, { sessionId: args.session });
+      if (!snapshot.ok) throw new Error(snapshot.error);
+      const plan = buildTerminalPlaybackPlan(snapshot.data, groupName, { fps, loops });
+      const sessionId = args.session ?? snapshot.session_id;
       const frames = [];
-      for (const cellRef of cellRefs) {
-        const viewResult = await api('POST', '/api/cell/view', { cell: cellRef, format: 'terminal' });
+      for (const cellRef of plan.frames) {
+        const viewResult = await api('POST', '/api/cell/view', { cell: cellRef, format: 'terminal' }, { sessionId });
         if (!viewResult.ok) { console.error(viewResult.error); process.exitCode = 1; return; }
         frames.push(viewResult.data.terminal);
       }
-
-      const fps = num(args.fps) ?? 8;
-      const loops = num(args.loops) ?? 3;
       const totalFrames = frames.length;
-      const delay = Math.round(1000 / fps);
-
       let loopsPlayed = 0;
-      while (loops === 0 || loopsPlayed < loops) {
+      while (plan.loops === 0 || loopsPlayed < plan.loops) {
         for (let i = 0; i < totalFrames; i++) {
           if (loopsPlayed > 0 || i > 0) {
             process.stdout.write('\x1b[H\x1b[2J');
           }
           process.stdout.write(frames[i]);
-          process.stdout.write(`\nFrame ${i + 1}/${totalFrames} — ${groupName} @ ${fps}fps\n`);
-          await new Promise(r => setTimeout(r, delay));
+          process.stdout.write(`\nFrame ${i + 1}/${totalFrames} — ${groupName} · ${plan.frames[i]} · ${plan.durations[i]} ms\n`);
+          await waitForFrame(plan.durations[i]);
         }
         loopsPlayed++;
       }
@@ -926,10 +1060,14 @@ async function run() {
               if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) throw new Error('Batch operation must be an object');
               label = describeBatchCommand(cmd);
               const { method, path, body } = mapCommandToApi(cmd);
-              const res = await api(method, path, body);
+              const res = await api(method, path, body, { sessionId: args.session });
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
+              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (['duration','surface','lighting'].includes(cmd.command) && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
+                (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
+                if (!quiet) console.log(JSON.stringify(res.data));
+              }
               if (res.artifacts) report.artifacts.push(...res.artifacts);
               if (res.export) report.exports.push(res.export);
             } catch (e) {

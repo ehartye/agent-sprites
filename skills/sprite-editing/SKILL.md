@@ -1,6 +1,6 @@
 ---
 name: sprite-editing
-description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
+description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, source-aware construction replay, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
@@ -58,6 +58,10 @@ from live editing, verifies before publishing, and emits PNG, atlas, editable
 project, contact sheet and self-contained preview. Inspect both contact sheet and
 animation before integration. See the [build config](../../README.md#build-a-repeatable-asset-project).
 
+For source-linked construction steps and pixel contributions, enable bounded
+`replay` in the build config, then read [construction replay](references/construction-replay.md).
+This is immutable build evidence, separate from live editing and undo.
+
 The config/ops/generator is canonical. Rebuild replaces its generated directory;
 copy the editable project elsewhere before making a separate manual variant.
 For operations on the existing live session, use `batch` below.
@@ -69,6 +73,12 @@ anything failed. Never publish partial exports from a failed batch. See
 [batch flags and summary fields](references/tool-reference.md#batch-mode).
 
 ## Core Drawing Workflow
+
+For repeated motifs or compact source, use [part composition](references/composition.md).
+`compose --file composition.json` expands named parts through stamps, tiles or
+explicitly seeded scatter. It can snapshot selected shapes from another cell;
+reapplying a prefix revises its owned output with stable IDs and one undo entry.
+The browser exposes the same operation under **Tools → Compose reusable parts**.
 
 For anime/16-bit RPG heroes, NPC casts, modular hair or outfit studies, load
 [sprite character](../sprite-character/SKILL.md) before constructing the character.
@@ -112,6 +122,13 @@ For position-only changes across frames, `sprite.js clone` copies a single shape
 Prefer `move-to` over relative offsets when you know the target coordinate — it's idempotent and easier to reason about.
 
 ## Shape Editing
+
+For small pixel corrections, read the bounded region as text with `ascii read`,
+then apply an `ascii patch`. Read [ASCII region editing](references/ascii-regions.md)
+before using it: `.` keeps a pixel, `_` erases artwork, and `?` reports an unmapped
+color that must be resolved explicitly. One patch is one undo entry; owned pixel
+overlays remain named and editable. The browser's **ASCII** workbench uses the same
+server operations.
 
 ```
 sprite.js shapes   --cell 0,0                          # inspect shapes (z-ordered)

@@ -25,6 +25,18 @@ describe('ShapeRegistry', () => {
     ).toThrow('already exists');
   });
 
+  it('rejects duplicate IDs without replacing an existing named shape', () => {
+    const reg = new ShapeRegistry();
+    const original = new Shape('point', { x: 0, y: 0 }, 'red', { name: 'original' });
+    reg.add(original);
+    const duplicate = new Shape('point', { x: 1, y: 1 }, 'blue', { name: 'other' });
+    duplicate.id = original.id;
+    expect(() => reg.add(duplicate)).toThrow('already exists');
+    expect(reg.get(original.id)).toBe(original);
+    expect(reg.get('original')).toBe(original);
+    expect(reg.get('other')).toBeNull();
+  });
+
   it('names an existing shape', () => {
     const reg = new ShapeRegistry();
     const shape = new Shape('rect', { x: 0, y: 0, w: 5, h: 5, filled: true }, 'red');

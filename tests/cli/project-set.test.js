@@ -179,14 +179,19 @@ test('check refuses an unlisted output file and detects changed valid digest or 
   expect(snapshotTree(join(dir, '..'))).toEqual(before);
 });
 
-test('check refuses byte-identical linked artifacts, marker and manifest', async () => {
+test('check refuses byte-identical linked artifacts, marker and manifest', async ({ skip }) => {
   writeFileSync(list, JSON.stringify({ version: 1, projects: ['a/sprite-project.json'] }));
   const built = await buildProject(a), output = join(dir, '..', 'out', 'a');
   for (const path of [built.artifacts.sheet, join(output, '.agent-sprites-build.json'), built.artifacts.manifest]) {
     const bytes = readFileSync(path), target = join(dir, 'linked-target');
     writeFileSync(target, bytes); rmSync(path);
     try {
-      symlinkSync(target, path, 'file');
+      try {
+        symlinkSync(target, path, 'file');
+      } catch (error) {
+        if (['EPERM', 'ENOSYS', 'ENOTSUP'].includes(error.code)) return skip(`File symlinks unavailable: ${error.code}`);
+        throw error;
+      }
       const checked = await buildSet(list, { check: true });
       expect(checked.ok, path).toBe(false);
       expect(checked.projects[0].reasons.map(reason => reason.code), path).toContain('manifest-invalid');

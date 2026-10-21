@@ -3,7 +3,7 @@ import { startWebServer } from '../../server/web/http.js';
 import { Project, TAG_DIRECTIONS } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
 import { handleDraw } from '../../server/handlers/draw.js';
-import { COMMANDS } from '../../server/web/public/js/command-catalog.js';
+import { COMMANDS } from '../../server/commands/catalog.js';
 
 let info, db, state, url;
 beforeAll(async () => {
@@ -31,8 +31,8 @@ test('fps and direction changes reach the live project the editor preview reads,
 
 test('project files with an unknown tag direction are rejected, not exported verbatim', () => {
   const p = Project.create({ name: 'x', cellSize: 8, rows: 1, cols: 1 });
-  expect(TAG_DIRECTIONS).toEqual(['forward', 'reverse', 'pingpong']);
-  expect(() => Project.fromJSON({ ...p.toJSON(), animationDirections: { walk: 'sideways' } })).toThrow(/Animation "walk" direction must be forward, reverse or pingpong/);
+  expect(TAG_DIRECTIONS).toEqual(['forward', 'reverse', 'pingpong', 'pingpong_reverse']);
+  expect(() => Project.fromJSON({ ...p.toJSON(), animationDirections: { walk: 'sideways' } })).toThrow(/Animation "walk" direction must be forward, reverse, pingpong or pingpong_reverse/);
 });
 
 test('an eraser cannot be combined with clip-to, which would emit opaque pixels', () => {

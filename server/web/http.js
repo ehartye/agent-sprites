@@ -16,6 +16,8 @@ import { groupRoutes } from './api/group-routes.js';
 import { controlRoutes } from './api/control-routes.js';
 import { castingRoutes } from './api/casting-routes.js';
 import { workbenchRoutes } from './api/workbench-routes.js';
+import { constructionReplayRoutes } from './api/construction-replay-routes.js';
+import { API_BODY_LIMIT } from './api/policy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
@@ -58,7 +60,7 @@ export function dispatchWebMessage(state, msg) {
 
 export async function startWebServer(state, port) {
   const app = express();
-  app.use(express.json({ limit: '64mb' }));
+  app.use(express.json({ limit: API_BODY_LIMIT }));
   // Optional optimistic session guard for the collaborative browser. CLI clients
   // remain compatible, while stale tabs cannot accidentally edit a newly opened design.
   app.use('/api', (req, res, next) => {
@@ -71,6 +73,7 @@ export async function startWebServer(state, port) {
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1, version, runtimeRoot }));
   app.use('/api/session', sessionRoutes(state));
   app.use('/api', workbenchRoutes(state));
+  app.use('/api', constructionReplayRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));
   app.use('/api', cellRoutes(state));

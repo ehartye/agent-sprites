@@ -6,7 +6,23 @@ export function animationSequence(tag) {
     ? order.concat(order.slice(1, -1).reverse()) : order;
 }
 
+/** Advance by elapsed milliseconds, including a suspended tab, without dropping time. */
+export function advancePreview(sequence, frames, cursor, elapsed, delta, loop) {
+  const ends=[];let total=0;
+  for(const index of sequence){const ms=frames[index]?.duration;if(!Number.isSafeInteger(ms)||ms<1)throw new Error('Preview frame duration must be positive safe-integer milliseconds');total+=ms;if(!Number.isSafeInteger(total))throw new Error('Preview timeline duration exceeds safe integer milliseconds');ends.push(total);}
+  const position=(cursor?ends[cursor-1]:0)+elapsed+Math.max(0,delta);
+  if(!loop&&position>=total)return {cursor:sequence.length-1,elapsed:0,ended:true};
+  const time=position%total;
+  let low=0,high=ends.length-1;
+  while(low<high){const mid=Math.floor((low+high)/2);if(time<ends[mid])high=mid;else low=mid+1;}
+  return {cursor:low,elapsed:time-(low?ends[low-1]:0),ended:false};
+}
+
 export function createPreview(atlas, png, name) {
+  if(atlas.frames.length) {
+    const tags=atlas.meta.frameTags.length?atlas.meta.frameTags:[{from:0,to:atlas.frames.length-1}];
+    for(const tag of tags)advancePreview(animationSequence(tag),atlas.frames,0,0,0,tag.loop!==false);
+  }
   const data = JSON.stringify({ atlas, image: `data:image/png;base64,${png.toString('base64')}`, name }).replaceAll('<', '\\u003c');
   return `<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -30,19 +46,21 @@ footer{border-top:1px solid var(--line);padding:16px 0;font-size:13px}@media(max
 <script>
 const data=${data};
 const animationSequence=${animationSequence.toString()};
+const advancePreview=${advancePreview.toString()};
 const atlas=data.atlas, image=new Image(), tags=document.getElementById('tags'), stage=document.getElementById('stage'), play=document.getElementById('play');
 const strip=document.getElementById('frames'), zoom=document.getElementById('zoom'), readout=document.getElementById('readout');
 document.getElementById('name').textContent=data.name;document.title=data.name+' — sprite review';
 const animations=atlas.meta.frameTags.length?atlas.meta.frameTags:[{name:'All frames',from:0,to:atlas.frames.length-1,direction:'forward'}];
 for(const [i,tag] of animations.entries()){const option=document.createElement('option');option.value=i;option.textContent=tag.name;tags.append(option)}
-let sequence=[],cursor=0,elapsed=0,last=0,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+let sequence=[],cursor=0,elapsed=0,last=null,ended=false,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches;
 const paintStates=new WeakMap();
 function paint(canvas,frame,scale){if(!paintStates.has(canvas))canvas.addEventListener('contextrestored',()=>{const current=paintStates.get(canvas);paint(canvas,current.frame,current.scale)});paintStates.set(canvas,{frame,scale});const f=frame.frame;canvas.width=frame.sourceSize.w*scale;canvas.height=frame.sourceSize.h*scale;const c=canvas.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(image,f.x,f.y,f.w,f.h,frame.spriteSourceSize.x*scale,frame.spriteSourceSize.y*scale,f.w*scale,f.h*scale)}
 function show(){const index=sequence[cursor],frame=atlas.frames[index];paint(stage,frame,Number(zoom.value));readout.textContent=(cursor+1)+' / '+sequence.length+' · '+frame.filename+' · '+frame.duration+' ms';[...strip.children].forEach((b,i)=>b.setAttribute('aria-pressed',String(i===cursor)))}
 function syncPlay(){play.textContent=playing?'Pause':'Play';play.setAttribute('aria-pressed',String(playing))}
-function select(){sequence=animationSequence(animations[Number(tags.value)]);cursor=0;elapsed=0;strip.replaceChildren();for(const [i,index] of sequence.entries()){const b=document.createElement('button'),c=document.createElement('canvas'),label=document.createElement('span');paint(c,atlas.frames[index],2);label.textContent=atlas.frames[index].filename;b.append(c,label);b.onclick=()=>{cursor=i;elapsed=0;playing=false;syncPlay();show()};strip.append(b)}show()}
-tags.onchange=select;zoom.onchange=show;play.onclick=()=>{playing=!playing;elapsed=0;syncPlay()};document.getElementById('step').onclick=()=>{playing=false;cursor=(cursor+1)%sequence.length;elapsed=0;syncPlay();show()};
-function tick(now){if(last&&playing){elapsed+=Math.min(now-last,1000);while(elapsed>=atlas.frames[sequence[cursor]].duration){elapsed-=atlas.frames[sequence[cursor]].duration;cursor=(cursor+1)%sequence.length;show()}}last=now;requestAnimationFrame(tick)}
+function select(){sequence=animationSequence(animations[Number(tags.value)]);cursor=0;elapsed=0;ended=false;last=null;strip.replaceChildren();for(const [i,index] of sequence.entries()){const b=document.createElement('button'),c=document.createElement('canvas'),label=document.createElement('span');paint(c,atlas.frames[index],2);label.textContent=atlas.frames[index].filename;b.append(c,label);b.onclick=()=>{cursor=i;elapsed=0;ended=false;playing=false;syncPlay();show()};strip.append(b)}show()}
+tags.onchange=select;zoom.onchange=show;play.onclick=()=>{const wasPlaying=playing;advance(performance.now());if(wasPlaying)playing=false;else{if(ended){cursor=0;elapsed=0;ended=false;show()}playing=true}syncPlay()};document.getElementById('step').onclick=()=>{playing=false;ended=false;cursor=(cursor+1)%sequence.length;elapsed=0;syncPlay();show()};
+function advance(now){if(last!==null&&playing){const next=advancePreview(sequence,atlas.frames,cursor,elapsed,now-last,animations[Number(tags.value)].loop!==false);const changed=cursor!==next.cursor;cursor=next.cursor;elapsed=next.elapsed;ended=next.ended;if(ended){playing=false;syncPlay()}if(changed)show()}last=now}
+function tick(now){advance(now);requestAnimationFrame(tick)}
 image.onload=()=>{select();syncPlay();requestAnimationFrame(tick)};image.src=data.image;
 </script></html>`;
 }
