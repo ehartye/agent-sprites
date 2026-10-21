@@ -41,6 +41,15 @@ export function setStatus(node, message, error = false) {
   node.classList.toggle('error', error);
 }
 
+export function pixelImage(alt, className = '') {
+  const node = element('img', null, `pixel-proof ${className}`.trim()); node.alt = alt; node.hidden = true;
+  return { node, set(value) {
+    node.removeAttribute('src');
+    node.hidden = !(typeof value === 'string' && /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(value));
+    if (!node.hidden) node.src = value;
+  } };
+}
+
 /** Display only server-produced GIF data, with a pause control and direct download. */
 export function animationProof() {
   const node = element('figure', null, 'animation-proof'); node.hidden = true;

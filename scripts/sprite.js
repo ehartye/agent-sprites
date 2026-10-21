@@ -2,7 +2,7 @@
 // scripts/sprite.js — CLI entry point for agent-sprites
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, basename } from 'path';
 import { readFileSync, existsSync, mkdtempSync, openSync, closeSync, fstatSync, readSync, realpathSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 
@@ -278,6 +278,9 @@ OFFLINE VERIFICATION (does not start or contact a server)
     Convert source pixels to editable shapes; verify exact rendering before writing.
   atlas-proof <proof.json> --out <new-directory> [--json]
     Composite exported atlas tracks into verified GIF, PNG frames and a contact sheet.
+  replay <project.json> --list [--json]
+  replay <project.json> --cell R,C --step N --out <new-directory> [--scale N] [--json]
+    Inspect recorded construction sources or export a step and its actual pixel contribution.
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
@@ -395,6 +398,29 @@ async function run() {
   }
 
   const { args, positional } = parseArgs(process.argv.slice(3));
+  if (cmd === 'replay') {
+    for (const key of Object.keys(args)) if (!['list', 'cell', 'step', 'out', 'scale', 'json'].includes(key)) throw new Error(`Unknown replay option: --${key}`);
+    const listing = bool(args.list);
+    if (positional.length !== 1 || (listing ? ['cell', 'step', 'out', 'scale'].some(key => args[key] !== undefined)
+      : typeof args.cell !== 'string' || args.step === undefined || typeof args.out !== 'string')) {
+      throw new Error('Usage: agent-sprites replay <project.json> --list OR --cell R,C --step N --out <new-directory> [--scale N] [--json]');
+    }
+    const { Project } = await import('../server/engine/project.js');
+    const { constructionReplayMetadata, renderConstructionReplay } = await import('../server/engine/construction-replay.js');
+    const project = Project.load(positional[0]);
+    if (listing) { console.log(JSON.stringify(constructionReplayMetadata(project))); return; }
+    const { images, ...report } = renderConstructionReplay(project, { cell: args.cell, step: Number(args.step), scale: args.scale === undefined ? 1 : Number(args.scale) });
+    const { writeArtifactDirectory } = await import('../server/engine/write-artifacts.js');
+    const replayOutput = resolve(realpathSync(dirname(resolve(args.out))), basename(resolve(args.out)));
+    report.artifacts = Object.fromEntries([...Object.keys(images).map(name => [name, resolve(replayOutput, `${name}.png`)]), ['report', resolve(replayOutput, 'replay.json')]]);
+    writeArtifactDirectory(args.out, { ...Object.fromEntries(Object.entries(images).map(([name, png]) => [`${name}.png`, png])), 'replay.json': JSON.stringify(report, null, 2) + '\n' });
+    if (bool(args.json)) console.log(JSON.stringify(report));
+    else {
+      console.log(`Construction step ${args.step}: ${report.changedPixels} changed pixels. Live pixels ${report.current.samePixels ? 'match' : 'differ from'} the final construction.`);
+      for (const [name, path] of Object.entries(report.artifacts)) console.log(`${name}: ${path}`);
+    }
+    return;
+  }
   if (cmd === 'atlas-proof') {
     for (const key of Object.keys(args)) {
       if (!['out', 'json'].includes(key)) throw new Error(`Unknown atlas-proof option: --${key}`);

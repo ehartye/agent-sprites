@@ -2,12 +2,13 @@ import fs from 'fs';
 import { Palette } from './palette.js';
 import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
+import { validateConstructionReplay } from './construction-replay.js';
 
 /** Tag playback directions this tool produces; the verifier also accepts Aseprite's pingpong_reverse. */
 export const TAG_DIRECTIONS = ['forward', 'reverse', 'pingpong'];
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review, constructionReplay }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -20,6 +21,7 @@ export class Project {
     this.animationDirections = animationDirections ?? {};
     this.shapeGroups = shapeGroups ?? {};
     this.review = review ?? null;
+    this.constructionReplay = constructionReplay === undefined ? null : validateConstructionReplay(constructionReplay, this);
     this.path = null;
   }
 
@@ -54,6 +56,7 @@ export class Project {
       ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
       shapeGroups: this.shapeGroups,
       ...(this.review ? { review: this.review } : {}),
+      ...(this.constructionReplay ? { constructionReplay: structuredClone(this.constructionReplay) } : {}),
     };
   }
 
@@ -83,6 +86,7 @@ export class Project {
       animationDirections: data.animationDirections,
       shapeGroups: data.shapeGroups,
       review: data.review,
+      constructionReplay: data.constructionReplay,
     });
   }
 

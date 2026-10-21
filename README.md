@@ -308,6 +308,26 @@ Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
 
+### Scrub source-linked construction
+
+Enable `"replay": { "cells": ["0,0"], "maxSteps": 512 }` in a build config.
+The build records selected-cell changes after actual operations, with source
+hashes, operation identity and exact JSON pointers or explicit source positions.
+Construction evidence is saved in the editable project and an integrity-tracked
+`construction-replay.json` artifact. Final artwork pixels stay unchanged.
+
+`Invoke-Sprite replay .\dist\hero.project.json --list --json` lists recorded
+steps. To inspect one offline, run `Invoke-Sprite replay .\dist\hero.project.json
+--cell 0,0 --step 3 --out .\step-review-01 --scale 4 --json` with a new output
+directory. The result includes Before, After, Contribution and Changed-pixel
+mask PNGs. Deletions are transparent in Contribution and visible in the mask.
+
+Open the editable project and choose Workbench → **Replay** for the same views.
+Scrubbing is read-only; live edits and undo remain separate. The panel compares
+live pixels/state against final construction. See the
+[contract and bounds](skills/sprite-editing/references/construction-replay.md)
+and [diagnosis example](examples/construction-replay/README.md).
+
 ### Preview exported base and overlay atlases
 
 `Invoke-Sprite atlas-proof .\proof.json --out .\review-01 --json`

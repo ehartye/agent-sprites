@@ -1,6 +1,6 @@
 ---
 name: sprite-editing
-description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
+description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, source-aware construction replay, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
@@ -57,6 +57,10 @@ a Node `generator` or an inline `character`, `environment`, `native` (16×32 cos
 from live editing, verifies before publishing, and emits PNG, atlas, editable
 project, contact sheet and self-contained preview. Inspect both contact sheet and
 animation before integration. See the [build config](../../README.md#build-a-repeatable-asset-project).
+
+For source-linked construction steps and pixel contributions, enable bounded
+`replay` in the build config, then read [construction replay](references/construction-replay.md).
+This is immutable build evidence, separate from live editing and undo.
 
 The config/ops/generator is canonical. Rebuild replaces its generated directory;
 copy the editable project elsewhere before making a separate manual variant.

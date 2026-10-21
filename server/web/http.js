@@ -16,6 +16,7 @@ import { groupRoutes } from './api/group-routes.js';
 import { controlRoutes } from './api/control-routes.js';
 import { castingRoutes } from './api/casting-routes.js';
 import { workbenchRoutes } from './api/workbench-routes.js';
+import { constructionReplayRoutes } from './api/construction-replay-routes.js';
 import { API_BODY_LIMIT } from './api/policy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +73,7 @@ export async function startWebServer(state, port) {
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1, version, runtimeRoot }));
   app.use('/api/session', sessionRoutes(state));
   app.use('/api', workbenchRoutes(state));
+  app.use('/api', constructionReplayRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));
   app.use('/api', cellRoutes(state));

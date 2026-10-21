@@ -1,6 +1,7 @@
 import { commandRequest } from './command-catalog.js';
 import { element, button, input, field, setStatus, jsonReport, animationProof } from './components.js';
 import { RegionEditor } from './region-editor.js';
+import { ConstructionReplayPanel } from './construction-replay.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -25,7 +26,7 @@ export class Workbench {
     this.mount.append(element('h2', 'Design workbench'));
     this.mount.append(button('Close', () => this.close(), 'drawer-close'));
     this.nav = element('nav', null, 'workbench-tabs');
-    for (const tab of ['sessions', 'palettes', 'ascii', 'tools', 'handoff']) {
+    for (const tab of ['sessions', 'palettes', 'ascii', 'replay', 'tools', 'handoff']) {
       const btn = button(tab === 'ascii' ? 'ASCII' : tab[0].toUpperCase() + tab.slice(1), () => this.show(tab));
       btn.dataset.panel = tab;
       this.nav.append(btn);
@@ -67,6 +68,10 @@ export class Workbench {
       if (tab === 'palettes') this.renderPalettes(data);
       if (tab === 'tools') this.renderTools(data);
       if (tab === 'ascii') new RegionEditor({ request: this.request, getCell: this.getCell, getProject: () => this.project, getSessionId: () => this.sessionId, refresh: this.refresh }).render(this.body);
+      if (tab === 'replay') {
+        this.replayPanel = new ConstructionReplayPanel({ request: this.request, getCell: this.getCell, getSessionId: () => this.sessionId, isCurrent: () => sequence === this.sequence && this.tab === 'replay' });
+        this.replayPanel.render(this.body);
+      }
       if (tab === 'handoff') this.renderHandoff();
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
@@ -76,7 +81,9 @@ export class Workbench {
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
     if (!this.mount.hidden && (changed || this.tab === 'sessions')) this.show(this.tab);
+    else this.refreshReplay();
   }
+  refreshReplay() { if (!this.mount.hidden && this.tab === 'replay') this.replayPanel?.refreshCurrent(); }
   renderSessions(sessions) {
     this.body.append(element('p', 'Everyone connected to this server follows the active session. Copy a design before exploring a variation.', 'workbench-hint'));
     const actions = element('div', null, 'workbench-actions');

@@ -31,6 +31,7 @@ import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { generateNativeRecipe } from '../authoring/native-recipe.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 import { buildMarker as marker, buildManifest, snapshotArtifactIntegrity } from './artifact-integrity.js';
+import { createConstructionRecorder } from '../engine/construction-replay.js';
 
 const exec = promisify(execFile);
 const json = value => JSON.stringify(value, null, 2) + '\n';
@@ -141,9 +142,16 @@ export async function buildProject(configPath) {
     if (!Array.isArray(operations) || !operations.length || operations[0]?.command !== 'new') throw new Error('Build operations must start with exactly one new project.');
     const name = operations[0].name;
     if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error('Build project names must use letters, digits, hyphens or underscores.');
+    const annotatedSources = new Set(operations.map(operation => operation?.replay?.source?.path));
+    const replay = config.replay === undefined ? null : createConstructionRecorder(config.replay, {
+      operations, inputs:provenance.inputs,
+      source:{kind:inline ? 'recipe' : config.generator ? 'generator' : 'ops', path:relative(base,source).split(sep).join('/'), ...(inline ? {pointer:`/${sourceKind}`} : {})},
+      sourceContents:Object.fromEntries(provenance.inputs.filter(input => annotatedSources.has(input.path)).map(input => [input.path, readFileSync(resolve(base,input.path),'utf8')])),
+    });
     const mapped = operations.map((op, i) => {
       if (!op || typeof op !== 'object' || Array.isArray(op) || ['save', 'export', 'ref'].includes(op.command) || (i > 0 && op.command === 'new')) throw new Error(`Operation ${i + 1}: build owns project lifecycle and output; remove new/save/export/ref operations after initial new.`);
-      return mapCommandToApi(op);
+      const { replay: annotation, ...command } = op;
+      return mapCommandToApi(command);
     });
     stage = mkdtempSync(output + '.staging-');
     db = new SessionDB(':memory:');
@@ -160,9 +168,11 @@ export async function buildProject(configPath) {
       const response = await requestOperation(url, op, agent);
       const { value } = response;
       if (!response.ok || !value.ok) throw new Error(`Operation ${i + 1} (${operations[i].command}): ${value.error ?? response.statusText}`);
+      replay?.capture(state.project, i);
     }
     captureProjectMetadata(state);
     const project = state.project;
+    replay?.finish(project);
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
     const { png, atlas } = config.trim
       ? await exportTrimmed(project, renderer, { imageName: `${name}.png` })
@@ -182,6 +192,10 @@ export async function buildProject(configPath) {
     if (sourceKind === 'native' && config.native?.only) result.warnings = verified.warnings = verified.warnings.filter(w => w.code !== 'empty-frame');
     if (!verified.ok) { result.errors = verified.errors; return result; }
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
+    if (replay) {
+      artifacts.constructionReplay = 'construction-replay.json';
+      writeFileSync(join(stage,artifacts.constructionReplay), json(project.constructionReplay));
+    }
     for (const key of omit) delete artifacts[key];
     if (omit.has('contactSheet')) rmSync(join(stage, 'contact.png'), { force: true });
     // Inline recipes name their report by source; generator reports are character reports.

@@ -286,6 +286,7 @@ const redraw = createRedrawScheduler(refs => {
   cellNav.refresh(refs);
   animPreview.setCells(cells);
   fullPreview.setCells(cells);
+  workbench.refreshReplay();
 });
 
 function onDrawUpdate(data) {
