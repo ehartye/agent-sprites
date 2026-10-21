@@ -72,10 +72,13 @@ export const COMMANDS = [
   post('undo', 'Cells', 'Undo cell edit', '/api/cell/undo', { cell }),
   post('redo', 'Cells', 'Redo cell edit', '/api/cell/redo', { cell }),
   post('tween', 'Animation', 'Tween a shape across frames', '/api/shape/tween', { group: 'idle', shape, to: { x: 8, y: 10 }, ease: 'in-out' }),
-  ...['create','add','remove','delete','fps','direction','list'].map(sub => sub === 'list'
+  get('duration read','Animation','Inspect frame timing','/api/cell/duration',{cell,group:''}),
+  post('duration set','Animation','Set frame milliseconds','/api/cell/duration',{cell,ms:125},'This cell’s override applies to every occurrence in every group. Explicit milliseconds take precedence over group FPS.'),
+  post('duration clear','Animation','Use inherited frame timing','/api/cell/duration',{cell,ms:null},'Clear this cell’s override. Each group then uses its own FPS; ungrouped playback uses 8 FPS.'),
+  ...['create','add','remove','delete','fps','loop','direction','list'].map(sub => sub === 'list'
     ? get('group list', 'Animation', 'List animation groups', '/api/group/cell/list')
     : post(`group ${sub}`, 'Animation', `${sub[0].toUpperCase() + sub.slice(1)} animation group`, `/api/group/cell/${sub}`, {
-      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}), ...(sub==='create'?{loop:true}:{}), ...(sub === 'direction' ? { direction: 'pingpong' } : {}),
+      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}), ...(['create','loop'].includes(sub)?{loop:true}:{}), ...(sub === 'direction' ? { direction: 'pingpong' } : {}),
     })),
   ...['create','add','remove','delete','list'].map(sub => sub === 'list'
     ? get('shape-group list', 'Groups', 'List shape groups', '/api/group/shape/list', { cell })

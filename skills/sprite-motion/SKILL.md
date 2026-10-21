@@ -1,6 +1,6 @@
 ---
 name: sprite-motion
-description: Plan and refine pixel-art sprite animation, or compose independently timed child sprite projects into one editable scene. Use for bounce, idle, walk cycles, key poses, animated stamps, tiles, seeded scatter, phase offsets and delayed one-shots; not for CSS/SVG animation, video editing, or general UI transitions.
+description: Plan pixel-art sprite motion, edit uneven frame holds in milliseconds, or compose independently timed child sprite projects into one editable scene. Use for bounce, idle, walk cycles, key poses, animated stamps, tiles, seeded scatter, phase offsets and delayed one-shots; not for CSS/SVG animation or video editing.
 ---
 
 # Sprite Motion
@@ -27,6 +27,14 @@ Copy `examples/animated-composition` into the user's asset source directory, exc
 generated output; build there through the managed launcher and inspect both contact
 sheet and full playback. Change source projects/config and rebuild for repeatable
 revisions; copy the generated project outside its output directory before manual edits.
+
+## Exact frame holds
+
+For uneven holds, read [frame timing](references/frame-timing.md). Set, inspect or
+clear a cell's millisecond override through the managed CLI or the browser's Timing
+tab. One cell owns its duration across every group and repeated occurrence; group
+FPS supplies timing only when that cell has no override. Preview the chosen group
+and inspect the exported atlas. GIF timing is quantized separately from source ms.
 
 ## Repeatable humanoid characters
 
@@ -105,7 +113,10 @@ Inspect a group in the terminal with `view-anim`:
 sprite.js view-anim bounce --fps 8 --loops 3
 ```
 
-Lower fps (6–10) for weighty/deliberate motion, higher (12–16) for zippy motion. The web UI at `localhost:3377` (or the selected `SPRITE_PORT`) also previews the sprite sheet.
+Lower inherited FPS (6–10) for weighty motion, higher (12–16) for zippy motion.
+Explicit cell milliseconds still take precedence over a preview FPS override.
+The web UI at `localhost:3377` (or the selected `SPRITE_PORT`) previews the same
+resolved timing; use its Timing tab to edit holds.
 
 ## Common Cycles
 

@@ -51,6 +51,19 @@
 .replay-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; margin: .7rem 0; }
 .replay-controls label { display: grid; gap: .3rem; font-size: .7rem; }
 .replay-source { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .65rem; }
+.frame-timing { display: flex; flex-direction: column; gap: .8rem; }
+.frame-timing select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px; }
+.timing-group-controls { display: flex; align-items: end; flex-wrap: wrap; gap: .6rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
+.timing-group-controls[hidden] { display: none; }
+.timing-group-controls label:first-child { width: 100px; }
+.timing-rows { display: flex; flex-direction: column; }
+.timing-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto auto; align-items: center; gap: .6rem; padding: .7rem 0; border-bottom: 1px solid var(--border); }
+.timing-cell-details { min-width: 0; overflow-wrap: anywhere; }
+.timing-cell-details strong { font-size: .76rem; font-variant-numeric: tabular-nums; }
+.timing-effective, .timing-cell-details small { font-size: .68rem; color: var(--text-secondary); line-height: 1.5; }
+.timing-effective { font-variant-numeric: tabular-nums; }
+.timing-pagination { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .68rem; color: var(--text-secondary); }
+.frame-timing > button { align-self: start; }
 .ascii-editor { display: flex; flex-direction: column; align-items: stretch; gap: .7rem; }
 .ascii-bounds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
 .ascii-target { font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
@@ -89,6 +102,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
   .command-list button { font-size: .65rem; padding: .4rem; }
   .library-swatches { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .workbench-tabs { padding-left: .65rem; gap: .2rem; }
+  .timing-row { grid-template-columns: minmax(0, 1fr) 85px auto; gap: .4rem; }
+  .timing-cell-details { grid-column: 1 / -1; }
 }
 .skin-tone-picker { margin-bottom: 20px; }
 .skin-tone-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }

@@ -52,7 +52,10 @@ const workbench = new Workbench({
   setColor: setActiveColor,
   getShape: () => state.selectedShape,
   refresh: () => ws.send({ action: 'get_project' }),
-  preview: () => document.querySelector('[data-tab="preview"]').click(),
+  preview: sequenceId => {
+    if(typeof sequenceId==='string'){state.previewSequence=sequenceId;syncPreviewSequence();}
+    document.querySelector('[data-tab="preview"]').click();
+  },
 });
 
 async function requestApi(path, body, { sessionId = state.sessionId } = {}) {

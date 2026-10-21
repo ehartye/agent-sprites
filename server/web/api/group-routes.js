@@ -3,6 +3,7 @@ import { saveDraft } from '../http.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { TAG_DIRECTIONS as DIRECTIONS } from '../../engine/project.js';
 import { moveLayerSelection } from '../../engine/shape-layers.js';
+import { durationFromFps } from '../public/js/shared/timing.js';
 
 // Rebuild state.project.groups from SQLite and notify the browser.
 function syncCellGroups(state) {
@@ -17,14 +18,26 @@ function syncCellGroups(state) {
 
 /** A single-cell group operation must name a group that exists in that cell; silently touching nothing hid real mistakes. */
 function requireGroupInCell(state, name, cell) {
-  if (!(name in state.db.getShapeGroups(state.sessionId, cell))) throw new Error(`Shape group "${name}" not found in cell ${cell}`);
+  if (!Object.hasOwn(state.db.getShapeGroups(state.sessionId, cell), name)) throw new Error(`Shape group "${name}" not found in cell ${cell}`);
   return cell;
 }
 
-const DIRECTION_ERROR = 'direction must be forward, reverse or pingpong';
+const DIRECTION_ERROR = 'direction must be forward, reverse, pingpong or pingpong_reverse';
+
+function canonicalCellRefs(state, cells) {
+  if (!Array.isArray(cells) || cells.some(cell => typeof cell !== 'string')) throw new Error('Animation group cells must be an array of cell references');
+  return cells.map(cell => state.project.cells.resolveRef(cell));
+}
 
 export function groupRoutes(state) {
   const r = Router();
+  r.use('/group/cell',(req,res,next)=>{
+    if(req.method==='POST') {
+      if(!state.project)return res.json({ok:false,error:'No active project'});
+      if(typeof req.body?.name!=='string'||!req.body.name.length)return res.json({ok:false,error:'Animation group name must be a nonempty string'});
+    }
+    next();
+  });
 
   // --- Cell groups (animation frame sets) ---
   r.post('/group/cell/create', (req, res) => {
@@ -32,8 +45,10 @@ export function groupRoutes(state) {
       const { name, cells, fps, direction, loop } = req.body;
       if (direction != null && !DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
       if (loop !== undefined && typeof loop !== 'boolean') throw new Error('Animation loop must be boolean');
-      state.db.setCellGroup(state.sessionId, name, cells);
-      if (fps != null) state.db.setCellGroupFps(state.sessionId, name, fps);
+      if (fps !== undefined) durationFromFps(fps);
+      const canonicalCells = canonicalCellRefs(state, cells);
+      state.db.setCellGroup(state.sessionId, name, canonicalCells);
+      if (fps !== undefined) state.db.setCellGroupFps(state.sessionId, name, fps);
       if (direction != null) state.db.setCellGroupDirection(state.sessionId, name, direction);
       if (loop !== undefined) state.project.animationLoops = {...state.project.animationLoops,[name]:loop};
       syncCellGroups(state);
@@ -45,11 +60,22 @@ export function groupRoutes(state) {
     try {
       const { name, fps } = req.body;
       const groups = state.db.getCellGroups(state.sessionId);
-      if (!(name in groups)) return res.json({ ok: false, error: `Group "${name}" not found` });
-      if (!Number.isFinite(fps) || fps <= 0) return res.json({ ok: false, error: 'fps must be a positive number' });
+      if (!Object.hasOwn(groups, name)) return res.json({ ok: false, error: `Group "${name}" not found` });
+      durationFromFps(fps);
       state.db.setCellGroupFps(state.sessionId, name, fps);
       syncCellGroups(state);
       res.json({ ok: true, data: `Group "${name}" fps set to ${fps}` });
+    } catch (e) { res.json({ ok: false, error: e.message }); }
+  });
+
+  r.post('/group/cell/loop', (req, res) => {
+    try {
+      const { name, loop } = req.body;
+      if (!Object.hasOwn(state.db.getCellGroups(state.sessionId), name)) throw new Error(`Group "${name}" not found`);
+      if (typeof loop !== 'boolean') throw new Error('Animation loop must be boolean');
+      state.project.animationLoops = { ...state.project.animationLoops, [name]: loop };
+      syncCellGroups(state);
+      res.json({ ok: true, data: `Group "${name}" loop set to ${loop}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
@@ -58,7 +84,7 @@ export function groupRoutes(state) {
     try {
       const { name, direction } = req.body;
       const groups = state.db.getCellGroups(state.sessionId);
-      if (!(name in groups)) return res.json({ ok: false, error: `Group "${name}" not found` });
+      if (!Object.hasOwn(groups, name)) return res.json({ ok: false, error: `Group "${name}" not found` });
       if (!DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
       state.db.setCellGroupDirection(state.sessionId, name, direction);
       syncCellGroups(state);
@@ -76,8 +102,13 @@ export function groupRoutes(state) {
     try {
       const { name, cells: newCells } = req.body;
       const groups = state.db.getCellGroups(state.sessionId);
-      const existing = groups[name] ?? [];
-      state.db.setCellGroup(state.sessionId, name, [...new Set([...existing, ...newCells])]);
+      const existing = Object.hasOwn(groups, name) ? groups[name] : [];
+      const canonicalCells = canonicalCellRefs(state, newCells);
+      const updated = [...existing], seen = new Set(existing);
+      for (const cell of canonicalCells) {
+        if (!seen.has(cell)) { updated.push(cell); seen.add(cell); }
+      }
+      state.db.setCellGroup(state.sessionId, name, updated);
       syncCellGroups(state);
       res.json({ ok: true, data: `Added to group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -87,7 +118,8 @@ export function groupRoutes(state) {
     try {
       const { name, cells: remove } = req.body;
       const groups = state.db.getCellGroups(state.sessionId);
-      const updated = (groups[name] ?? []).filter(c => !remove.includes(c));
+      const canonicalRemove = new Set(canonicalCellRefs(state, remove));
+      const updated = (Object.hasOwn(groups, name) ? groups[name] : []).filter(c => !canonicalRemove.has(c));
       state.db.setCellGroup(state.sessionId, name, updated);
       syncCellGroups(state);
       res.json({ ok: true, data: `Removed from group "${name}"` });
@@ -150,7 +182,7 @@ export function groupRoutes(state) {
     try {
       const { cell, name, shapes: newShapes } = req.body;
       const groups = state.db.getShapeGroups(state.sessionId, cell);
-      const existing = groups[name] ?? [];
+      const existing = Object.hasOwn(groups, name) ? groups[name] : [];
       state.db.setShapeGroup(state.sessionId, cell, name, [...new Set([...existing, ...newShapes])]);
       res.json({ ok: true, data: `Added shapes to group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -160,7 +192,7 @@ export function groupRoutes(state) {
     try {
       const { cell, name, shapes: remove } = req.body;
       const groups = state.db.getShapeGroups(state.sessionId, cell);
-      const updated = (groups[name] ?? []).filter(s => !remove.includes(s));
+      const updated = (Object.hasOwn(groups, name) ? groups[name] : []).filter(s => !remove.includes(s));
       state.db.setShapeGroup(state.sessionId, cell, name, updated);
       res.json({ ok: true, data: `Removed shapes from group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -179,7 +211,7 @@ export function groupRoutes(state) {
       const cellsToUpdate = all_cells
         ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
             const groups = state.db.getShapeGroups(state.sessionId, c);
-            return name in groups;
+            return Object.hasOwn(groups, name);
           })
         : [requireGroupInCell(state, name, cell)];
       for (const c of cellsToUpdate) {
@@ -200,7 +232,7 @@ export function groupRoutes(state) {
       const { name, cell, all_cells, color, color2 } = req.body;
       const cellsToUpdate = all_cells
         ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
-            return name in state.db.getShapeGroups(state.sessionId, c);
+            return Object.hasOwn(state.db.getShapeGroups(state.sessionId, c), name);
           })
         : [requireGroupInCell(state, name, cell)];
       for (const c of cellsToUpdate) {

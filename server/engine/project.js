@@ -3,10 +3,18 @@ import { Palette } from './palette.js';
 import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 import { validateConstructionReplay } from './construction-replay.js';
-import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops } from '../web/public/js/shared/timing.js';
+import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops, validateAnimationFps, ANIMATION_DIRECTIONS, resolveAnimationDirection } from '../web/public/js/shared/timing.js';
 
-/** Tag playback directions this tool produces; the verifier also accepts Aseprite's pingpong_reverse. */
-export const TAG_DIRECTIONS = ['forward', 'reverse', 'pingpong'];
+/** Tag playback directions shared by project authoring, preview and atlas output. */
+export const TAG_DIRECTIONS = ANIMATION_DIRECTIONS;
+
+function canonicalGroups(cells,groups) {
+  if(!groups||typeof groups!=='object'||Array.isArray(groups))throw new Error('Animation groups must map names to cell arrays');
+  return Object.fromEntries(Object.entries(groups).map(([name,refs])=>{
+    if(!Array.isArray(refs))throw new Error(`Animation group "${name}" must contain cell references`);
+    return [name,refs.map(ref=>cells.resolveRef(ref))];
+  }));
+}
 
 export class Project {
   constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay }) {
@@ -15,10 +23,10 @@ export class Project {
     this.cellHeight = cellHeight;
     this.cells = cells;
     this.palette = palette;
-    this.groups = groups;
+    this.groups = GroupManager.fromJSON(canonicalGroups(cells,groups.toJSON()));
     this.background = background ?? { mode: 'transparent' };
     this.pivot = pivot ?? null;
-    this.animationFps = animationFps ?? {};
+    this.animationFps = validateAnimationFps(animationFps);
     this.animationDirections = animationDirections ?? {};
     this.frameDurations = validateFrameDurations(frameDurations, this);
     this.animationLoops = validateAnimationLoops(animationLoops);
@@ -53,7 +61,7 @@ export class Project {
       pivot: this.pivot,
       palette: this.palette.toJSON(),
       cells: this.cells.toJSON().cells,
-      groups: this.groups.toJSON(),
+      groups: canonicalGroups(this.cells,this.groups.toJSON()),
       animationFps: this.animationFps,
       // Omitted when empty so existing project files stay byte-identical.
       ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
@@ -74,7 +82,7 @@ export class Project {
 
   static fromJSON(data) {
     for (const [name, direction] of Object.entries(data.animationDirections ?? {})) {
-      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse or pingpong`);
+      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse, pingpong or pingpong_reverse`);
     }
     const w = data.cellWidth ?? data.cellSize;
     const h = data.cellHeight ?? data.cellSize ?? w;
@@ -143,7 +151,7 @@ export class Project {
     }
 
     const frameTags = [];
-    for (const [name, cells] of Object.entries(groups)) {
+    for (const [name, cells] of Object.entries(canonicalGroups(this.cells,groups))) {
       if (!cells || cells.length === 0) continue;
       const from = frames.length;
       for (const ref of cells) {
@@ -151,7 +159,7 @@ export class Project {
         if (bi === undefined) throw new Error(`Group "${name}" references unknown cell "${ref}"`);
         frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, resolveFrameDurationMs(this, ref, { group: name, defaultFps, fpsMap })));
       }
-      frameTags.push({ name, from, to: frames.length - 1, direction: directionMap[name] ?? 'forward', ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name] } : {}) });
+      frameTags.push({ name, from, to: frames.length - 1, direction: resolveAnimationDirection(this, name, directionMap), ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name] } : {}) });
     }
 
     // Named cells become alias frames AFTER every tag run, so tools that look

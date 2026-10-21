@@ -145,6 +145,14 @@ test('respects reverse/pingpong groups, explicit repeated frames and independent
   expect(repeated.report.loop).toBe(false);
 });
 
+test.each(['constructor', '__proto__'])('source group %s inherits forward looping playback', name => {
+  source('child.project.json', { groups: { [name]: ['0,0','0,1'] }, animationFps: {}, animationDirections: {}, animationLoops: {}, frameDurations: {} });
+  const cfg = scene(); cfg.parts.child.group = name;
+  const result = generateAnimationComposition(cfg, dir);
+  expect(result.report.parts.child).toMatchObject({ direction: 'forward', loop: true });
+  expect(result.operations.filter(operation => operation.command === 'duration').map(operation => operation.ms)).toEqual([125,125]);
+});
+
 test('retains full joint periods and offsets while stable random phases survive declaration reordering', () => {
   source('a.project.json', { frameDurations: { '0,0': 101, '0,1': 101 } });
   source('b.project.json', { frameDurations: { '0,0': 103, '0,1': 103 } });

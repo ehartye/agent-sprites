@@ -124,6 +124,15 @@ function parseArgs(argv) {
 
 function num(v) { return v !== undefined ? Number(v) : undefined; }
 function bool(v) { return v === 'true' || v === true; }
+function explicitBoolean(value) {
+  if (value === 'true' || value === true) return true;
+  if (value === 'false' || value === false) return false;
+  throw new Error('Animation loop must be true or false');
+}
+function timingNumber(value, label) {
+  if (typeof value !== 'string' || !value.trim() || !Number.isFinite(Number(value))) throw new Error(`${label} must be a finite number`);
+  return Number(value);
+}
 
 // A file transports exact IDs without the operating system's argv length cap.
 // Bound the actual read, including growth after fstat, rather than only its size.
@@ -335,6 +344,9 @@ CELLS
   copy  --from R,C --to R,C        clear --cell         name --cell --as <name>
   ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
   ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
+  duration read --cell <ref> [--group <name>] [--session ID]
+  duration set <ms> --cell <ref> [--session ID]   positive safe-integer milliseconds
+  duration clear --cell <ref> [--session ID]       restore group FPS or default 8 FPS
   compose --file composition.json [--plan] [--cell R,C] [--session ID]   parts, stamps, tile, seeded scatter
   layer list --cell R,C             inspect retained child layers and member names
   layer edit <id> --cell R,C [--dx N --dy N --z N] [--session ID]
@@ -346,7 +358,9 @@ CELLS
   ref clear --cell                              shown under shapes in view + web UI, never exported
   view  --cell [--png true] [--scale N] [--out f.png]   view --sheet [--scale N] [--out f.png]
   view  --stack sky,swirl_0,land [--scale N] [--out f.png]   composite cells as layers, first at the bottom
-  view-anim <group>                undo/redo --cell
+  view-anim <group> [--fps N] [--loops N] [--session ID]   exact frame ms; 0 loops means infinite
+    persisted order/direction and loop policy; --fps changes only frames without explicit ms
+  undo/redo --cell
 
 TWEEN
   tween <shape> --group <cellgroup> [--to X,Y] [--from X,Y] [--ease linear|in|out|in-out]
@@ -357,11 +371,12 @@ TWEEN
                 frame of a cell group (draw frame 1, clone-cell fan-out, then tween)
 
 GROUPS (cells)
-  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong] [--loop true|false]
+  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong|pingpong_reverse] [--loop true|false]
   group add/remove <name> R,C ...
   group delete <name>                 group list
   group fps <name> <N>                set playback fps (exported as frame durations)
-  group direction <name> forward|reverse|pingpong   Aseprite tag direction (default forward)
+  group loop <name> true|false [--session ID]   repeat or play once
+  group direction <name> forward|reverse|pingpong|pingpong_reverse   Aseprite tag direction
 
 SHAPE GROUPS (within a cell)
   shape-group create <name> <shapes...> --cell
@@ -649,7 +664,7 @@ async function run() {
       result = await api('POST', '/api/session/export', {
         dest: args.dest ? resolve(args.dest) : undefined,
         trim: args.trim !== undefined ? bool(args.trim) : undefined,
-      });
+      }, { sessionId: args.session });
       break;
     case 'skin-tone':
       result = await api('POST', '/api/workbench/skin-tone', { tone: sub });
@@ -760,6 +775,21 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'duration': {
+      if (typeof args.cell !== 'string' || !args.cell.length) throw new Error('duration requires --cell <ref>');
+      const { mapCommandToApi } = await import('./batch-commands.js');
+      let operation;
+      if (sub === 'read') operation = { command: 'duration', sub: 'read', cell: args.cell, ...(args.group === undefined ? {} : { group: args.group }) };
+      else if (sub === 'clear') operation = { command: 'duration', cell: args.cell, ms: null };
+      else if (sub === 'set') {
+        const ms = timingNumber(name, 'Frame duration');
+        if (!Number.isSafeInteger(ms) || ms < 1) throw new Error('Frame duration must be positive safe-integer milliseconds');
+        operation = { command: 'duration', cell: args.cell, ms };
+      } else throw new Error('Usage: duration read|clear --cell <ref> | duration set <ms> --cell <ref>');
+      const mapped = mapCommandToApi(operation);
+      result = await api(mapped.method, mapped.path, mapped.body, { sessionId: args.session });
+      break;
+    }
     case 'layer': {
       const {mapCommandToApi}=await import('./batch-commands.js');
       const mapped=mapCommandToApi({command:'layer',sub,cell:args.cell,...(sub==='edit'?{id:name,...(args.dx!==undefined?{dx:num(args.dx)}:{}),...(args.dy!==undefined?{dy:num(args.dy)}:{}),...(args.z!==undefined?{z:num(args.z)}:{})}:{})});
@@ -842,13 +872,14 @@ async function run() {
 
     case 'group':
       switch (sub) {
-        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction, ...(args.loop===undefined?{}:{loop:bool(args.loop)}) }); break;
-        case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }); break;
-        case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }); break;
-        case 'list':   result = await api('GET', '/api/group/cell/list'); break;
-        case 'add':    result = await api('POST', '/api/group/cell/add', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;
-        case 'remove': result = await api('POST', '/api/group/cell/remove', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }); break;
-        case 'delete': result = await api('POST', '/api/group/cell/delete', { name: name }); break;
+        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction, ...(args.loop===undefined?{}:{loop:explicitBoolean(args.loop)}) }, { sessionId: args.session }); break;
+        case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }, { sessionId: args.session }); break;
+        case 'loop':   result = await api('POST', '/api/group/cell/loop', { name, loop: explicitBoolean(positional[2]) }, { sessionId: args.session }); break;
+        case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }, { sessionId: args.session }); break;
+        case 'list':   result = await api('GET', '/api/group/cell/list',undefined, { sessionId: args.session }); break;
+        case 'add':    result = await api('POST', '/api/group/cell/add', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }, { sessionId: args.session }); break;
+        case 'remove': result = await api('POST', '/api/group/cell/remove', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2) }, { sessionId: args.session }); break;
+        case 'delete': result = await api('POST', '/api/group/cell/delete', { name: name }, { sessionId: args.session }); break;
       }
       break;
 
@@ -916,36 +947,29 @@ async function run() {
 
     case 'view-anim': {
       const groupName = sub;
-      const groupResult = await api('GET', '/api/group/cell/list');
-      if (!groupResult.ok) { console.error(groupResult.error); process.exitCode = 1; return; }
-      const cellRefs = groupResult.data[groupName];
-      if (!cellRefs || cellRefs.length === 0) {
-        console.error(`Group "${groupName}" not found or empty`);
-        process.exitCode = 1;
-        return;
-      }
-
+      const { buildTerminalPlaybackPlan, waitForFrame } = await import('../server/engine/animation-playback.js');
+      const fps = args.fps === undefined ? undefined : timingNumber(args.fps, 'Animation FPS');
+      const loops = args.loops === undefined ? undefined : timingNumber(args.loops, 'Animation loops');
+      const snapshot = await api('GET', '/api/workbench/project', undefined, { sessionId: args.session });
+      if (!snapshot.ok) throw new Error(snapshot.error);
+      const plan = buildTerminalPlaybackPlan(snapshot.data, groupName, { fps, loops });
+      const sessionId = args.session ?? snapshot.session_id;
       const frames = [];
-      for (const cellRef of cellRefs) {
-        const viewResult = await api('POST', '/api/cell/view', { cell: cellRef, format: 'terminal' });
+      for (const cellRef of plan.frames) {
+        const viewResult = await api('POST', '/api/cell/view', { cell: cellRef, format: 'terminal' }, { sessionId });
         if (!viewResult.ok) { console.error(viewResult.error); process.exitCode = 1; return; }
         frames.push(viewResult.data.terminal);
       }
-
-      const fps = num(args.fps) ?? 8;
-      const loops = num(args.loops) ?? 3;
       const totalFrames = frames.length;
-      const delay = Math.round(1000 / fps);
-
       let loopsPlayed = 0;
-      while (loops === 0 || loopsPlayed < loops) {
+      while (plan.loops === 0 || loopsPlayed < plan.loops) {
         for (let i = 0; i < totalFrames; i++) {
           if (loopsPlayed > 0 || i > 0) {
             process.stdout.write('\x1b[H\x1b[2J');
           }
           process.stdout.write(frames[i]);
-          process.stdout.write(`\nFrame ${i + 1}/${totalFrames} — ${groupName} @ ${fps}fps\n`);
-          await new Promise(r => setTimeout(r, delay));
+          process.stdout.write(`\nFrame ${i + 1}/${totalFrames} — ${groupName} · ${plan.frames[i]} · ${plan.durations[i]} ms\n`);
+          await waitForFrame(plan.durations[i]);
         }
         loopsPlayed++;
       }
@@ -1008,11 +1032,11 @@ async function run() {
               if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) throw new Error('Batch operation must be an object');
               label = describeBatchCommand(cmd);
               const { method, path, body } = mapCommandToApi(cmd);
-              const res = await api(method, path, body);
+              const res = await api(method, path, body, { sessionId: args.session });
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
-              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
+              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (cmd.command === 'duration' && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
                 (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
                 if (!quiet) console.log(JSON.stringify(res.data));
               }

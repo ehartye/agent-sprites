@@ -23,15 +23,31 @@ export function validateAnimationLoops(value) {
 export function resolveAnimationLoop(project, group) {
   return group !== undefined && Object.hasOwn(project.animationLoops ?? {}, group) ? project.animationLoops[group] : true;
 }
+export const ANIMATION_DIRECTIONS = Object.freeze(['forward', 'reverse', 'pingpong', 'pingpong_reverse']);
+export function resolveAnimationDirection(project, group, directionMap = project.animationDirections ?? {}) {
+  return group !== undefined && Object.hasOwn(directionMap, group) ? directionMap[group] : 'forward';
+}
+export function resolveGroupFps(project, group, { defaultFps = 8, fpsMap = project.animationFps ?? {} } = {}) {
+  return group !== undefined && Object.hasOwn(fpsMap, group) ? fpsMap[group] : defaultFps;
+}
 export function durationFromFps(fps) {
   if (!Number.isFinite(fps) || fps <= 0) throw new Error('Animation FPS must be positive and finite');
   return milliseconds(Math.round(1000 / fps));
+}
+export function validateAnimationFps(value) {
+  if(value===undefined)return {};
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('animationFps must map group names to positive FPS');
+  for(const [name,fps] of Object.entries(value)) {
+    if(!name.length)throw new Error('Animation FPS requires a group name');
+    durationFromFps(fps);
+  }
+  return Object.fromEntries(Object.entries(value));
 }
 export function resolveFrameTiming(project, cellRef, { group, defaultFps = 8, fpsMap = project.animationFps ?? {} } = {}) {
   coordinates(project, cellRef);
   if (Object.hasOwn(project.frameDurations ?? {}, cellRef)) return { ms: milliseconds(project.frameDurations[cellRef]), source: 'frame' };
   const fromGroup = group !== undefined && Object.hasOwn(fpsMap, group);
-  const fps = fromGroup ? fpsMap[group] : defaultFps;
+  const fps = resolveGroupFps(project, group, { defaultFps, fpsMap });
   return { ms: durationFromFps(fps), source: fromGroup ? 'group' : 'default', fps };
 }
 export function resolveFrameDurationMs(project, cellRef, options) { return resolveFrameTiming(project, cellRef, options).ms; }

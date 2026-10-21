@@ -33,6 +33,23 @@ async function run(value, name='proof') {
 }
 const pixel = (raw,w,x,y) => [...raw.subarray((y*w+x)*4,(y*w+x+1)*4)];
 
+test('persisted milliseconds survive trimmed export and reverse ping-pong one-shot GIF quantization',async()=>{
+  const state={project:Project.create({name:'timed',cellSize:8,rows:1,cols:3,palette:'pico8'})};
+  [[1,2],[6,4],[3,6]].forEach(([x,y],i)=>handleDraw(state,'point',{cell:`0,${i}`,x,y,color:['#ff004d','#29adff','#00e436'][i],shape_name:'dot'}));
+  state.project.groups.create('scene',['0,0','0,1','0,2']);
+  state.project.frameDurations={'0,0':75,'0,1':125,'0,2':200};
+  state.project.animationFps={scene:1};state.project.animationDirections={scene:'pingpong_reverse'};state.project.animationLoops={scene:false};state.project.pivot={x:4,y:7};
+  const restored=Project.fromJSON(state.project.toJSON());
+  const {png,atlas}=await exportTrimmed(restored,new CanvasRenderer(restored.palette),{imageName:'timed.png'});
+  writeFileSync(join(dir,'timed.png'),png);write(join(dir,'timed.atlas.json'),atlas);
+  const source=readFileSync(join(dir,'timed.atlas.json'));
+  const result=await run(config([{name:'timed',atlas:'timed.atlas.json',tag:'scene'}]),'timed-proof');
+  expect(result.durationMs).toBe(525);expect(result.loop).toBe(false);
+  expect(result.gif.delaysMs).toEqual([200,130,70,130]);expect(result.gif.durationMs).toBe(530);expect(result.gif.driftMs).toBe(5);
+  expect(result.gif.pixelComparison.exact).toBe(true);expect(result.frameCount).toBe(4);
+  expect(readFileSync(join(dir,'timed.atlas.json'))).toEqual(source);
+});
+
 test('owned tag one-shot timing propagates to proof unless an explicit track loop overrides it',async()=>{
   const atlas=await exported('once','#ff004d',[[1,2],[6,4]],[100,100]);
   atlas.meta.frameTags[0].loop=false;write(join(dir,'once.atlas.json'),atlas);

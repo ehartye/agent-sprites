@@ -8,7 +8,12 @@ import { snapParams } from '../web/public/js/shared/raster.js';
 import { composeTimeline } from '../web/public/js/shared/atlas-timeline.js';
 import {
   resolveFrameDurationMs,
-  validateFrameDurations
+  resolveAnimationLoop,
+  resolveAnimationDirection,
+  ANIMATION_DIRECTIONS,
+  validateFrameDurations,
+  validateAnimationFps,
+  validateAnimationLoops
 } from '../web/public/js/shared/timing.js';
 import {
   validateLayers,
@@ -227,6 +232,8 @@ function sourcePart(part, name, base, cache, sources) {
         2048
       );
     validateFrameDurations(project.frameDurations, project);
+    validateAnimationFps(project.animationFps);
+    validateAnimationLoops(project.animationLoops);
     const palette = Palette.fromJSON(project.palette);
     loaded = {
       project,
@@ -250,9 +257,9 @@ function sourcePart(part, name, base, cache, sources) {
     )
       throw Error(`Unknown or empty source group "${part.group}"`);
     refs = project.groups[part.group].map((ref) => sourceRef(project, ref));
-    direction = project.animationDirections?.[part.group] ?? 'forward';
+    direction = resolveAnimationDirection(project, part.group);
     if (
-      !['forward', 'reverse', 'pingpong', 'pingpong_reverse'].includes(
+      !ANIMATION_DIRECTIONS.includes(
         direction
       )
     )
@@ -303,7 +310,7 @@ function sourcePart(part, name, base, cache, sources) {
     sha256: loaded.sha256,
     group: part.group,
     direction,
-    loop: part.loop ?? project.animationLoops?.[part.group] ?? true,
+    loop: part.loop ?? resolveAnimationLoop(project, part.group),
     sequence,
     frames
   };

@@ -25,6 +25,10 @@ export class AnimationPreview {
     this._durations = null;
     this._loop = true;
     this._ended = false;
+    this._frameElapsed = 0;
+    this._playbackStart = null;
+    this._ends = [];
+    this._totalMs = 0;
     this._playing = false;
     this._intervalId = null;
 
@@ -98,6 +102,9 @@ export class AnimationPreview {
   onOnionSkin(cb) { this._onionCb = cb; }
   setFps(fps) {
     if (!Number.isFinite(fps) || fps <= 0) return;
+    const ms=durationFromFps(fps);
+    if(!this._durations&&!Number.isSafeInteger(ms*this._frames.length))throw new Error('Preview timeline duration exceeds safe integer milliseconds');
+    if(this._playing&&this._updatePosition(performance.now()))this.pause();
     this._fps = fps;
     if (this._fpsLabel) this._fpsLabel.textContent = this._durations ? 'Frame milliseconds' : `${fps} FPS`;
     if (this._fpsSlider) this._fpsSlider.value = String(fps);
@@ -111,8 +118,11 @@ export class AnimationPreview {
   setFrames(frames, { durations, loop = true } = {}) {
     if (durations !== undefined && (!Array.isArray(durations) || durations.length !== frames.length || durations.some(ms => !Number.isSafeInteger(ms) || ms < 1))) throw new Error('Preview durations must provide positive integer milliseconds for every frame');
     if (typeof loop !== 'boolean') throw new Error('Preview loop must be a boolean');
+    const total=(durations??(frames??[]).map(()=>durationFromFps(this._fps))).reduce((sum,ms)=>sum+ms,0);
+    if(!Number.isSafeInteger(total))throw new Error('Preview timeline duration exceeds safe integer milliseconds');
     this._frames = frames || [];
     this._durations = durations === undefined ? null : [...durations]; this._loop = loop; this._ended = false;
+    this._frameElapsed=0;
     if (this._fpsSlider) this._fpsSlider.disabled = this._durations !== null;
     if (this._fpsLabel) this._fpsLabel.textContent = this._durations ? 'Frame milliseconds' : `${this._fps} FPS`;
     if (!this._frames.length) this.pause();
@@ -126,23 +136,27 @@ export class AnimationPreview {
   /* -- Playback controls -- */
 
   play() {
-    if (this._frames.length === 0) return;
-    if (this._ended) { this._currentFrame = 0; this._ended = false; this._renderFrame(); this._updateFrameCounter(); }
+    if (this._frames.length === 0||this._playing) return;
+    if (this._ended) { this._currentFrame = 0; this._frameElapsed=0; this._ended = false; this._renderFrame(); this._updateFrameCounter(); }
     this._playing = true;
     this._updatePlayState();
     this._startInterval();
   }
 
   pause() {
+    if(this._playing)this._updatePosition(performance.now());
     this._playing = false;
+    this._playbackStart=null;
     this._updatePlayState();
     this._stopInterval();
+    this._renderFrame();this._updateFrameCounter();
   }
 
   stop() {
     this._playing = false;
     this._currentFrame = 0;
     this._ended = false;
+    this._frameElapsed=0;this._playbackStart=null;
     this._updatePlayState();
     this._stopInterval();
     this._updateFrameCounter();
@@ -308,24 +322,32 @@ export class AnimationPreview {
 
   /* -- Internal: playback -- */
 
+  _updatePosition(now) {
+    if(this._playbackStart===null)return false;
+    const elapsed=Math.max(0,now-this._playbackStart);
+    if(!this._loop&&elapsed>=this._totalMs) {
+      this._currentFrame=this._frames.length-1;this._frameElapsed=0;this._ended=true;return true;
+    }
+    const local=elapsed%this._totalMs;
+    let low=0,high=this._ends.length-1;
+    while(low<high){const mid=Math.floor((low+high)/2);if(local<this._ends[mid])high=mid;else low=mid+1;}
+    this._currentFrame=low;this._frameElapsed=local-(low?this._ends[low-1]:0);return false;
+  }
+
   _startInterval() {
     this._stopInterval();
     const durations = this._durations ?? this._frames.map(() => durationFromFps(this._fps));
     let total = 0; const ends = durations.map(ms => total += ms);
     if (!Number.isSafeInteger(total) || total < 1) throw new Error('Preview timeline duration exceeds safe integer milliseconds');
-    const start = performance.now() - (this._currentFrame ? ends[this._currentFrame - 1] : 0);
+    this._ends=ends;this._totalMs=total;
+    this._playbackStart=performance.now()-(this._currentFrame?ends[this._currentFrame-1]:0)-this._frameElapsed;
     const tick = () => {
-      const elapsed = performance.now() - start;
-      if (!this._loop && elapsed >= total) { this._currentFrame = this._frames.length - 1; this._ended = true; this.pause(); this._renderFrame(); this._updateFrameCounter(); return; }
-      const local = elapsed % total;
-      let lo = 0, hi = ends.length - 1;
-      while (lo < hi) { const mid = (lo + hi) >> 1; if (local < ends[mid]) hi = mid; else lo = mid + 1; }
-      this._currentFrame = lo;
+      if(this._updatePosition(performance.now())) {this.pause();return;}
       this._updateFrameCounter();
       this._renderFrame();
-      this._intervalId = setTimeout(tick, Math.min(2147483647, Math.max(1, ends[lo] - local)));
+      this._intervalId = setTimeout(tick, Math.min(2147483647, Math.max(1, durations[this._currentFrame]-this._frameElapsed)));
     };
-    this._intervalId = setTimeout(tick, Math.min(2147483647, durations[this._currentFrame]));
+    this._intervalId = setTimeout(tick, Math.min(2147483647,Math.max(1,durations[this._currentFrame]-this._frameElapsed)));
   }
 
   _stopInterval() {

@@ -9,8 +9,15 @@ export function mapCommandToApi(cmd) {
       if(sub==='edit')return {method:'POST',path:'/api/cell/layer',body:{cell,...options}};
       throw new Error('layer requires list or edit');
     }
-    case 'duration':
-      return { method: 'POST', path: '/api/cell/duration', body: params };
+    case 'duration': {
+      const { sub, ...body } = params;
+      if (sub === 'read') {
+        const query = new URLSearchParams({ cell: body.cell, ...(body.group === undefined ? {} : { group: body.group }) });
+        return { method: 'GET', path: `/api/cell/duration?${query}` };
+      }
+      if (sub !== undefined) throw new Error('duration batch operations use cell and ms (null clears), or sub: read');
+      return { method: 'POST', path: '/api/cell/duration', body };
+    }
     case 'compose':
       return { method: 'POST', path: '/api/cell/compose', body: params };
     case 'compose-plan':
@@ -187,6 +194,7 @@ export function mapCommandToApi(cmd) {
       switch (sub) {
         case 'create': return { method: 'POST', path: '/api/group/cell/create', body: { name, cells: params.cells, fps: params.fps, direction: params.direction, loop: params.loop } };
         case 'fps':    return { method: 'POST', path: '/api/group/cell/fps', body: { name, fps: params.fps } };
+        case 'loop':   return { method: 'POST', path: '/api/group/cell/loop', body: { name, loop: params.loop } };
         case 'direction': return { method: 'POST', path: '/api/group/cell/direction', body: { name, direction: params.direction } };
         case 'add':    return { method: 'POST', path: '/api/group/cell/add', body: { name, cells: params.cells } };
         case 'remove': return { method: 'POST', path: '/api/group/cell/remove', body: { name, cells: params.cells } };
