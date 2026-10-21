@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#181e30">
-  <title>Space to Grow — cast field notes</title>
+  <title>Native costume sample cast</title>
   <style>
     :root { color-scheme:dark; --night:#181e30; --deck:#20283e; --well:#29324a; --ink:#eee8d8; --muted:#b1b6c3; --line:#46506a; --copper:#e1a578; --mint:#a8c6b8; }
     * { box-sizing:border-box; }
@@ -98,7 +98,7 @@
 <body>
 <main>
   <header>
-    <div><p class="eyebrow">Space to Grow / character field notes</p><h1>A little space.<br><em>A whole cast of lives.</em></h1><p class="intro">Neighbors, makers, and a few unfamiliar lifeforms. A first look at the people around Plot 7B, one native pixel at a time.</p></div>
+    <div><p class="eyebrow">Native costume / character field notes</p><h1>A little space.<br><em>A whole cast of lives.</em></h1><p class="intro">Eight editable sample profiles demonstrate clothing, robot casings and nonhuman motifs, one native pixel at a time.</p></div>
     <div class="edition"><span class="badge">Cast concepts</span><p>Exploratory designs for review.<br>These are not final game characters.</p></div>
   </header>
   <section class="controls" aria-label="Cast and movement controls">
@@ -119,7 +119,7 @@
       <div><div id="views" class="views" aria-label="Four synchronized direction views"></div><div class="readout"><output id="frame-readout">Idle pose</output><span>Lineup 6× · turnaround 8× (6× on mobile)</span></div></div>
     </div>
   </section>
-  <footer><p>Space to Grow · Native cast study · Concept art, subject to change</p><a href="./review.html">Open the mannequin walk study →</a></footer>
+  <footer><p>Native costume sample cast · Editable concept studies</p><a href="./review.html">Open the mannequin walk study →</a></footer>
 </main>
 <script>
   'use strict';
@@ -238,7 +238,7 @@
     const entry = characters.find(item => item.id === id); if (!entry) return;
     const currentGeneration = ++generation; selected = id; character.value = id; selectedSheet = loaded.get(id) || null;
     byId('selected-name').textContent = entry.name; byId('selected-role').textContent = entry.role;
-    byId('selected-status').textContent = entry.status === 'provisional' || id === 'nori' ? 'Provisional concept' : 'Concept study';
+    byId('selected-status').textContent = entry.status === 'provisional' ? 'Provisional concept' : 'Concept study';
     byId('description').textContent = entry.description; byId('details').replaceChildren();
     for (const detail of entry.details || []) { const item = document.createElement('li'); item.textContent = detail; byId('details').append(item); }
     for (const [cardId, card] of cards) card.button.setAttribute('aria-pressed', String(cardId === id));
@@ -297,7 +297,7 @@
       const loads = characters.map(async entry => {
         try {
           const sheet = await loadSheet(entry.id, outfit.value); if (currentBoot !== bootGeneration) return;
-          loaded.set(entry.id, sheet); cards.get(entry.id).state.textContent = entry.id === 'nori' ? 'Provisional' : '';
+          loaded.set(entry.id, sheet); cards.get(entry.id).state.textContent = entry.status === 'provisional' ? 'Provisional' : '';
         } catch (error) {
           if (currentBoot !== bootGeneration) return;
           const card = cards.get(entry.id); card.failed = true; card.state.textContent = 'Could not load'; card.state.title = error.message;

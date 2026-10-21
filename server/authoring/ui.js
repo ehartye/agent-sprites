@@ -1,12 +1,12 @@
 import {FONT_GLYPHS,FONT_CHARACTERS,FONT_SYMBOLS} from './ui-font.js';
-import {logoRaster} from './ui-logo.js';
+import {logoRaster,DEFAULT_LOGO_TEXT} from './ui-logo.js';
 import {DISPLAY_CELL,displayGlyph,displayRamp} from './ui-display.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
 import {FONT_TONES} from '../build/ui-runtime.mjs';
 
 export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eceddb',muted:'#a8bcb9',gold:'#eed09b',moss:'#98b58a',light:'#ded5b4',shadow:'#10242d',orbitalInk:'#26333f',instrumentTeal:'#528f8b',wornCopper:'#bc7858',seedGold:'#dfac59',mint:'#a4d4c4',paper:'#eedfbe',specimenWell:'#36565e'};
-// Fallow Valley ramps (docs/ART-DIRECTION.md): night backing, dust brass, oxide teal, rust copper, harvest gold.
+// Wasteland theme ramps: night backing, dust brass, oxide teal, rust copper, harvest gold.
 export const WASTELAND_COLORS={ink:'#0d1126',deep:'#1b2040',edge:'#8f6f45',cream:'#f6edcf',muted:'#a8a79e',gold:'#f0d466',moss:'#8a9a4a',light:'#e3cf93',shadow:'#07091a',orbitalInk:'#0d1126',instrumentTeal:'#5f9a8d',wornCopper:'#b5532f',seedGold:'#e0b84a',mint:'#8fc4b4',paper:'#e3cf93',specimenWell:'#2c3a6b'};
 export const UI_THEMES={'moss-brass':UI_COLORS,wasteland:WASTELAND_COLORS};
 /** Rows and columns for `count` equal cells: the squarest sheet (by pixels) within `maxWidth`, then the fewest empty cells. */
@@ -29,7 +29,7 @@ function generateLogoRecipe(config,{name,theme,COLORS}){
     const shape=`pixel_run_${names.length}`;names.push(shape);operations.push({command:'draw',cell:'0,0',type:'rect',name:shape,color:raster.palette[key],filled:true,x:start,y,w:x-start,h:1});
     bounds.left=Math.min(bounds.left,start);bounds.top=Math.min(bounds.top,y);bounds.right=Math.max(bounds.right,x-1);bounds.bottom=Math.max(bounds.bottom,y);}});
   operations.push({command:'shape-group',sub:'create',cell:'0,0',name:'logo',shapes:names});
-  return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??'FALLOW\nVALLEY',colors:Object.values(raster.palette)}}};
+  return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??DEFAULT_LOGO_TEXT,colors:Object.values(raster.palette)}}};
 }
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');

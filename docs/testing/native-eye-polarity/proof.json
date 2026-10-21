@@ -1,7 +1,6 @@
 {
   "baseline": "79102f3577f5135534dd3425f5f4abaebb9420db",
   "version": "0.73.1",
-  "managedRoot": "C:/Users/ehart/.agent-sprites/releases/0.73.1-b8ba1880b34b9862-win32-x64-137",
   "pattern": [
     "bb.b",
     "wi.i",
@@ -205,5 +204,6 @@
       "previewSha256": "8719eba428eca976bdc22c1cc5f59a1851374034908cc852f998cbf95c7d2110"
     }
   ],
-  "sourceSha256": "a6994de65164806b95a7b5e67b69e9d163e36d07cd9031234137eed4b31a7a02"
+  "sourceSha256": "a6994de65164806b95a7b5e67b69e9d163e36d07cd9031234137eed4b31a7a02",
+  "managedRelease": "0.73.1-b8ba1880b34b9862-win32-x64-137"
 }

@@ -24,9 +24,7 @@ advance/space metrics in semantic layouts. Keep important actions in the regular
 face and quiet supporting text in compact; use ink on light panels, cream on dark.
 
 Use `kind: "logo"` for a title logotype: one frame named `logo`, stacked capital lettering at 4x (`text`, default
-`"FALLOW
-VALLEY"`, letters and digits only; one line per `
-`), a lit gold-to-copper gradient, brass and dark outlines, a hard
+`"PIXEL\nSTUDIO"`, letters and digits only; use `\n` to separate lines), a lit gold-to-copper gradient, brass and dark outlines, a hard
 drop shadow, a striped sun behind and a horizon of wheat. Wasteland theme colours; about 167x111 for the default text. It is
 one atlas frame, so draw it as one image with whole physical pixels per source pixel (`ui-phaser.json` is `{kind:'logo', frame, size, bounds}`).
 The wasteland skin also has `banner_boss`, a nine-slice plate (insets 8, padding 10x8) with copper frame and gold corner studs, for boss-name and event banners.
@@ -229,7 +227,7 @@ and state, while all visible control artwork and text come from these atlases.
 
 ## `wasteland` theme and the HUD set
 
-`theme: "wasteland"` swaps the palette to the Fallow Valley ramps (night backing, dust brass, oxide teal, rust
+`theme: "wasteland"` swaps the palette to the built-in wasteland ramps (night backing, dust brass, oxide teal, rust
 copper, harvest gold; `report.colors` lists every colour) and adds the frames a survival or farming HUD needs.
 Fonts take the theme palette and keep the same glyph frames. The artwork of every `moss-brass` frame is unchanged (0.70.0
 repacked the sheets, so the PNG bytes are not).

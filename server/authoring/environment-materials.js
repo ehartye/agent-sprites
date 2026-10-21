@@ -16,7 +16,7 @@ const PATTERN_FIELDS={
 const HEX=/^#[0-9a-fA-F]{6}$/;
 
 const m=(ramp,patterns,extra={})=>({ramp,patterns,...extra});
-/** Built-in wasteland materials, in the order the Fallow Valley ground list uses. */
+/** Built-in wasteland materials, in stable export order. */
 export const WASTELAND_SPECS={
   dust:m(['#c9a869','#b08d57','#e3cf93','#e3cf93'],[{kind:'speckle',density:.5},{kind:'clusters',density:.3,tone:'mixed'}]),
   sand:m(['#e3cf93','#c9a869','#e3cf93','#e3cf93'],[{kind:'speckle',density:.35,tone:'dark'},{kind:'streaks',density:.4,tone:'dark'}]),

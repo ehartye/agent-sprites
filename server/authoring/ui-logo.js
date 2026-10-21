@@ -4,6 +4,7 @@ import {epx} from './ui-display.js';
 // Logotype: capital lettering at 4x (the regular masks smoothed twice with EPX) in a lit gold-to-copper gradient, a dark outline
 // inside a brass one, a hard drop shadow, over a striped sun and a horizon of wheat. Pure pixel art from one deterministic raster,
 // so a game draws it as one atlas frame (a title screen) with no scaling.
+export const DEFAULT_LOGO_TEXT='PIXEL\nSTUDIO';
 export const LOGO_SCALE=4;
 const GAP=3,LINE_GAP=6,PAD_X=16,PAD_TOP=24,PAD_BOTTOM=25,SHADOW=3;
 
@@ -15,7 +16,7 @@ function letter(char){
 const dilate=(mask,r)=>mask.map((row,y)=>row.map((_,x)=>{for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(mask[y+dy]?.[x+dx])return true;return false;}));
 
 /** Palette-key raster of the logo: `{width,height,rows,palette}` where each row is a string of one-letter keys and `.` is empty. */
-export function logoRaster({text='FALLOW\nVALLEY'}={},c){
+export function logoRaster({text=DEFAULT_LOGO_TEXT}={},c){
   if(typeof text!=='string'||!text.trim())throw Error('Logo text must be a nonempty string.');
   const lines=text.toUpperCase().split('\n').map(s=>s.trim()),cellH=7*LOGO_SCALE,advance=5*LOGO_SCALE+GAP;
   const lineW=s=>[...s].length*advance-GAP,maxW=Math.max(...lines.map(lineW));

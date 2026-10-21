@@ -1,7 +1,7 @@
 # Friction fixes — design
 
-Specs for the four roadmap items produced by the Barrel Peril integration exercise
-(see barrel-peril/FRICTION.md). Each ships as its own PR, test-first.
+Integration testing identified four CLI/export friction points. The specifications below
+address them independently, with focused verification for each change.
 
 ## 1. Export destination control
 

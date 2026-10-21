@@ -229,7 +229,7 @@ editable groups; directional mirroring swaps anatomical name tokens.
 
 Copy [the nonhuman example](../nonhuman-wayfinder/sprite-project.json), build it
 through the managed launcher, inspect every view, then try walk/expressions modes.
-The Room2Grow stress test exercises 8 turnarounds, 64 walking and 16 expression
+A sample stress test can exercise 8 turnarounds, 64 walking and 16 expression
 cells using only JSON inputs. Check arm overlap and clothing occlusion at native
 size; more limbs do not automatically remain readable on a small cell. This is a
 set of composable authored presets, not an arbitrary creature skeleton system.

@@ -712,6 +712,8 @@ test('logo kind draws one deterministic stacked logotype frame with sun and whea
   const a=generateUIRecipe({kind:'logo',theme:'wasteland'}),b=generateUIRecipe({kind:'logo',theme:'wasteland'});
   expect(a).toEqual(b);
   expect(a.report.kind).toBe('logo');expect(a.report.frames.map(f=>f.alias)).toEqual(['logo']);
+  expect(a.report.logo.text).toBe('PIXEL\nSTUDIO');
+  expect(a.operations).toEqual(generateUIRecipe({kind:'logo',theme:'wasteland',text:'PIXEL\nSTUDIO'}).operations);
   const {width,height}=a.report.cellSize;expect(width).toBeGreaterThan(120);expect(height).toBeGreaterThan(80);expect(a.operations[0]).toMatchObject({cols:1,rows:1,size:`${width}x${height}`});
   expect(a.report.frames[0].bounds).toMatchObject({left:0,top:expect.any(Number),right:width-1,bottom:height-1});
   expect(new Set(a.operations.filter(o=>o.color).map(o=>o.color)).size).toBeGreaterThan(10);

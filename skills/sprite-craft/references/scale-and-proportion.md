@@ -6,37 +6,35 @@ Contents: scope and confidence · 1 fix the base unit · 2 mixels · 3 proportio
 
 Read this before drawing a new place, building, prop or tile kit. [World rules](world-rules.md)
 says "one pixel scale per frame"; this says how to choose the sizes so that rule holds the
-first time. Confidence tags: **[exact]** is arithmetic or measurable from pixels, **[sourced]**
-rests on a captured source, **[house]** is this project's convention (a starting point to test in
-your scene, not a standard). The vault holds no audit of shipped games' door or furniture ratios,
-so every ratio in section 3 is **[house]**.
+first time. Confidence tags: **[exact]** is arithmetic or measurable from pixels; **[guide]**
+is authored guidance to test in your scene; **[example]** is an illustrative contract rather
+than a standard. This reference does not establish measured door or furniture ratios in shipped
+games, so every ratio in section 3 is **[example]**.
 
 ## 1. Fix the base unit first **[exact]**
 
 Three numbers, written down before any asset is drawn:
 
-| Term | Meaning | This project's default |
+| Term | Meaning | Example contract |
 | ---- | ------- | ----------------------- |
 | Source pixel | One pixel of the authored sheet | the art pixel |
 | Draw scale | Integer multiple the game draws a sheet at (`sprite(..., scale)`) | 2 for the primary cast |
-| Camera zoom | Integer multiple applied to the whole frame | 3 or 4 in Space to Grow's study and pilot |
+| Camera zoom | Integer multiple applied to the whole frame | 3 or 4, selected for the intended viewport |
 
 The **effective scale** of a layer is draw scale x camera zoom. Every layer in a frame must have the
 same effective scale; the camera multiplies all layers alike, so the check reduces to *draw scales
-must match*. A sheet cell size says nothing about scale: Space to Grow's props sit in 96x96 cells both
-before and after they were fixed. Read the draw scale from code (`propScale`, `CAST_SCALE`), not from the PNG.
+must match*. A sheet cell size says nothing about scale: a prop can remain in a 96x96 cell
+when its content is redrawn at a different source size. Read the draw scale from code (`propScale`, `CAST_SCALE`), not from the PNG.
 
 **The anchor is the character.** The cast is the one asset the player stares at, the hardest to redraw
 (many frames, many outfits) and the one whose proportions everything else is judged against. This
-project's native primary is **16x32 source pixels, drawn at 2x** (32x64 screen pixels before camera zoom).
-Everything else adopts the anchor's draw scale. Changing the anchor is a deliberate overhaul of the
-whole world, never a per-asset decision. The owner's ruling for Space to Grow was exactly this: the 2x
-characters are the anchor, the Upside deck is redrawn at 480x360 shown at 2x, and "scaling everything to
-3x" and "keeping the mix" were both rejected (vault: `wiki/authored/space2grow/decisions/world-art-rules-adr.md`).
+example uses **16x32 source pixels, drawn at 2x** (32x64 screen pixels before camera zoom).
+Select one cast anchor for your project and make every world layer adopt its draw scale. Changing
+that anchor affects the whole world; make the decision explicitly rather than per asset.
 
 ### State it as a contract in every brief
 
-Put these lines at the top of the brief, before the first operation:
+Adapt this example to the chosen anchor and put the contract at the top of the brief, before the first operation:
 
 ```text
 Scale contract
@@ -52,13 +50,11 @@ proportion table (section 3), not from how big the sheet cell happens to be.
 
 If the brief gives no anchor, ask or read the game's code for the cast draw scale; do not assume 1x.
 
-## 2. Mixels **[sourced]**
+## 2. Mixels **[guide]**
 
-A mixel is a pixel of a different size from the rest of the picture. Yari's definition is "pixels of
-different sizes combined together", inside one sprite or across elements on one screen "despite each
-sprite being consistent" (vault: `wiki/sources/Yari — About Mixels.md`; concept `wiki/concepts/Mixels and One Pixel Scale.md`).
-Fractional zoom produces the same defect at the display layer (`wiki/concepts/Pixel-Perfect Rendering.md`,
-citing MDN and Godot: "displays can only display whole pixels").
+A mixel is a pixel of a different apparent size from the rest of the picture, within one sprite
+or across elements on a screen. Fractional zoom can also give source pixels uneven screen coverage.
+Compare each layer's source grid and draw transform, then inspect the resulting screen pixels.
 
 ### The three ways they creep in **[exact]**
 
@@ -84,23 +80,23 @@ the finer layer looks crowded and the coarser looks unfinished. Outline thicknes
 (section 5). Note that the eye does not need to count pixels: a 4x6 pixel window at 1x beside a 2x
 character reads "too sharp" at once.
 
-### Narrow legitimate exceptions **[sourced for effects; house for the rest]**
+### Narrow legitimate exceptions **[guide]**
 
 | Exempt layer | Why it can differ | Mark it by |
 | ------------ | ----------------- | ---------- |
 | UI chrome and bitmap text | Read as an overlay, not as part of the world; the font has its own grid | `exempt: UI` in the contract; keep it on its own canvas, draw it at integer 2x or 3x |
 | Maps and minimaps | Symbolic, not depicted | `exempt: map`; give it a frame so it reads as a diagram |
 | Title and logo art | A poster, seen on a screen of its own | `exempt: title`; never composited into the play field |
-| Small effects (hearts, dust, sparks, sweat marks) | Drawn smaller and scaled up so they separate from the characters (Yari's accepted use) | `exempt: fx`; use a clean 2x of a half-size sprite, never a fraction |
+| Small effects (hearts, dust, sparks, sweat marks) | Drawn smaller and scaled up so they separate from the characters (an intentional visual separation) | `exempt: fx`; use a clean 2x of a half-size sprite, never a fraction |
 
 Each exemption lists its **reason** and its **scale** in the brief and in the review. Anything not on
 the list fails. "It looks better bigger" is not a reason: it is a request to change the anchor.
 Exempt art still follows integer scale and a single pixel size within itself.
 
-## 3. Proportions in character heights **[house]**
+## 3. Proportions in character heights **[example]**
 
 Let **H** be the anchor's standing height, the full sprite from soles to top of the head.
-For the 16x32 native primary, **H = 32 source px = 64 screen px at 2x**. The table gives
+For the example 16x32 anchor, **H = 32 source px = 64 screen px at 2x**. The table gives
 screen sizes in H, with the source size for the 16x32 anchor in the last column. Real-world ratios
 use a 1.75 m person; the "game" value is the cheated, chunkier size that reads better beside a
 big-headed sprite. Cheat toward the **game** column; stay in the range.
@@ -126,8 +122,8 @@ big-headed sprite. Cheat toward the **game** column; stay in the range.
 | Landmark / hall | 8+ H | 5 to 8 H wide | 160 to 256 | Beyond 8 H it becomes backdrop, not an enterable thing |
 
 **Stylization rules.** The anchor is chunky: head about 0.3 H (10 px of 32), body about 0.5 H,
-hands 2 to 3 px, feet 3 to 4 px wide (see `wiki/concepts/Chibi Proportions.md`: a head of one third to one half
-of total height is the chibi baseline). Match the world to that chunkiness:
+hands 2 to 3 px, feet 3 to 4 px wide. These are example proportions; match the world to the
+chosen character's chunkiness:
 
 - Handled objects are **oversize**: a tool, cup or lamp is 1.2 to 1.5 times its true size relative to the
   hand, because a hand is 2 to 3 px and the object must stay readable beside it.
@@ -149,17 +145,16 @@ of total height is the chibi baseline). Match the world to that chunkiness:
 | Anchor | H | Tile | Notes |
 | ------ | - | ---- | ----- |
 | 16x16 | 16 | 8 or 16 | Floors dominate: doors of 24 px only, no window mullions, one outline family, no room for accessories on props |
-| 16x32 (default) | 32 | 16 | Table above |
+| 16x32 (example) | 32 | 16 | Table above |
 | 24x48 | 48 | 24 or 16 | Use 24 only if every tile in the kit is 24; else keep 16 and 3 tiles tall |
 | 32x64 | 64 | 32 | Detail doubles; props gain mullions and wear marks; the same ratios hold |
 
 Do not mix: a kit built for a 32 px character, used beside a 16x32, is a mixel in the section 2 sense.
 
-## 4. Tile size and grid **[sourced for the reasoning, house for the choice]**
+## 4. Tile size and grid **[guide]**
 
-The sources agree on the shape of the decision: tile size is upstream of art workload, content
-density and animation cost, so fix it once (`wiki/sources/FreeGameSprites — Choosing the Right Tile Size.md`,
-low quality; its draw-one-tile-first advice is sound, its "pick the smaller size" claim has no evidence).
+Tile size affects art workload, visible content density and animation cost. Draw a representative
+tile beside the chosen cast anchor, test it in a scene, and settle the grid before producing a kit.
 
 **16 or 32.** The tile is half the anchor: a 16x32 character is one tile wide and two tall, so 16.
 Choose 32 only if the anchor is 32x64. A tile larger than 0.5 H makes the character a fraction of one cell
@@ -182,8 +177,8 @@ Walls and tall props that can hide the head carry a separate **front layer** (th
 character walks behind them, as a roof edge or a lintel. Set the character's depth by the foot line,
 not the sprite top.
 
-**Do not change tile size mid-project** (FreeGameSprites; and the Space to Grow ADR's "every new scene
-adds an exception"). If a place needs finer detail, add detail inside the same grid; do not switch to 32.
+**Avoid changing tile size mid-project:** each exception adds another asset and camera rule to
+maintain. If a place needs finer detail, add detail inside the chosen grid before changing its size.
 
 ## 5. Detail density, line weight and redraws **[exact]**
 
@@ -202,7 +197,7 @@ check, and it is what the measurement in section 8 reads.
 
 Redraw at **half the source size**; do not resample. Resampling (bilinear, bicubic, nearest by 0.5)
 invents intermediate colors or drops rows at random, so lines break and the outline thickens in places.
-The recipe, used for the Cinder props:
+For props that must retain their on-screen footprint:
 
 1. Fix the target **screen footprint** (same as the old drawn size, so ground rows and anchors do not move).
 2. Halve it for the new source size (a 42x74 prop becomes about 21x37).
@@ -219,27 +214,25 @@ nearest-neighbour doubling is an exact 2x copy of the old art (same silhouette, 
 is a legal intermediate state; then add detail at the finer grid. Downgrading (halving) always costs
 detail and needs the redraw above. So when two layers disagree and the anchor is not yet fixed, prefer
 raising the coarse layer to the finer grid and adding detail, rather than shrinking the fine layer.
-When the anchor is already fixed (it is: the cast), that choice is made for you; the only direction is
+When the cast anchor is already fixed, that choice is made for you; the only direction is
 to bring the layer to the anchor, by redraw if finer and by upscale-then-detail if coarser.
 
 Never mix the two states in one asset: a 2x nearest copy with new 1x-pixel details on top is a mixel.
 
-## 6. Camera and zoom **[sourced]**
+## 6. Camera and zoom **[guide]**
 
 - **Integer zoom only**, applied to the whole frame (the canvas, input hit-testing, labels, UI that is
-  part of the frame). Fractional zoom gives uneven pixels (`wiki/concepts/Pixel-Perfect Rendering.md`).
+  part of the frame). Fractional zoom can give source pixels uneven screen coverage.
   Use the inverse of the same transform for pointer input.
 - **Choose the base resolution so common screens divide it.** 640x360 reaches 720p at 2x, 1080p at 3x,
-  1440p at 4x, 4K at 6x; 320x180 gives 6x, 8x and 12x at 1080p, 1440p and 4K (vault: `wiki/sources/notkey — Choosing a Pixel Art Render Resolution.md`,
-  medium quality; the Godot figure is in the Pixel-Perfect Rendering page).
+  1440p at 4x, 4K at 6x; 320x180 gives 6x, 8x and 12x at 1080p, 1440p and 4K respectively.
 - **Set a minimum visible world area**, in tiles, and derive the lowest zoom from it. For example:
   at least 13x7 tiles visible means the lowest zoom of a 16 px tile at 2x draw is 3.
 - **Odd viewport sizes.** Compute in **device** pixels: `zoom = floor(min(deviceW / baseW, deviceH / baseH))`,
   then center the frame and fill the margin with the background; never stretch to fill. If
   `devicePixelRatio` is not an integer (browser at 110%), either lock the canvas size to integer
   device pixels and accept margins, or accept that those windows show uneven pixels; do not hide it by
-  smoothing. A phone shows a smaller part of the world and **follows the player** (Space to Grow's
-  approach: `wiki/authored/space2grow/backlog/character-alignment-fullscreen-camera.md`).
+  smoothing. On a phone, show a smaller part of the world and **follow the player**.
 - **Zoom changes the field of view, never the art.** The art does not re-draw at different zooms. If
   something is unreadable at the lowest zoom, it is too small for the contract, not a camera problem.
 - The camera follows on **integer positions** (round the camera, not the sprites) or the layers jitter against each other.
@@ -270,7 +263,8 @@ and zoom 3). A different k, or a k of 1 with a scatter of runs (2, 3, 4, 5...), 
 Outline thickness is the most common run length at the edges of dark pixels, so compare that number too.
 
 ```python
-# pxstep.py  -  python pxstep.py shot.png [x0 y0 x1 y1]   (tested on Space to Grow art)
+# pxstep.py - python pxstep.py shot.png [x0 y0 x1 y1]
+# Measures integer pixel-step frequencies in a screenshot crop.
 import sys
 from collections import Counter
 from PIL import Image
@@ -313,44 +307,40 @@ crop nearest-doubled reports 2; scaled 1.5x it reports 1 with runs of 2, 3 and 1
 fingerprint of a fractional scale. Run it on screenshots with the UI hidden, and use crops that contain
 no alpha-blended shadow or glow, since soft edges add runs of 1. Report the numbers beside the section 7 list.
 
-## 9. Worked example: Space to Grow lander and Cinder props
+## 9. Worked example: matching props to a cast anchor
 
-Context: the cast is 16x32 drawn at 2x (`CAST_SCALE = 2` in `src/native-cast.mjs`). The Rime lander and the Cinder
-expedition props were drawn at 1x beside it, and the ship decks and the Upside deck mixed 3x, 2x and 1x (ADR: Rime mixed four
-scales). Two redraws fixed them (game repo `space2grow`, PRs 48 and 49).
+This illustrative example uses a 16x32 cast drawn at 2x. Props initially drawn at 1x have
+smaller apparent pixels even when their screen footprints fit the scene. Redraw their contents
+at about half the source size, then draw them at 2x to match the cast.
 
-| Prop | Before: source / drawn | After: source / drawn | Screen size |
-| ---- | ---------------------- | --------------------- | ----------- |
+| Prop | Before: source / drawn | After: source / drawn | Screen size after redraw |
+| ---- | ---------------------- | --------------------- | ------------------------ |
 | Beacon | 42 x 74 at 1x | 21 x 37 at 2x | 42 x 74, unchanged |
-| Console | 48 x 53 at 1x | 24 x 27 at 2x | 48 x 54, unchanged |
-| Lander | redrawn in PR 48 (old size not measured here) | 41 x 39 at 2x | 82 x 78, about 2.5 H wide at H = 32 source |
+| Console | 48 x 53 at 1x | 24 x 27 at 2x | 48 x 54, one pixel taller to retain whole source pixels |
+| Small shuttle | 82 x 78 at 1x | 41 x 39 at 2x | 82 x 78, unchanged |
 
-What was done, in contract terms:
-- Anchor = cast at draw scale 2. Every prop is authored at **half its old source size** and drawn with
-  `scale: 2` via `PROP_SCALE` in `src/ground-shadow.mjs` (the one place the draw scale of props lives).
-- **Screen footprint, ground rows, anchors and contact-shadow footprints stayed put**, so layouts and hit
-  boxes did not change; only pixel size did. The shared shadow plate is at least 14 screen px tall at 2x.
-- Redrawn, not resampled: "same silhouettes, palette and top-left light", re-authored in the generator
-  (`asset-src/expedition/generate.mjs`). Tests assert 2x body sizes, no isolated pixels and a silhouette
-  overlap below 0.5 between ridge, ash and mineral props, so a shrink that merged them would fail.
-- The sheet cell stayed 96x96. A reviewer looking at the PNG could not tell; only the draw call and the
-  content bounding box showed the change. Section 8's measurement reads the screenshot instead.
+Apply the contract consistently:
 
-Lessons: (1) write the footprint in screen pixels first and halve it for the source; (2) outline thickness
-caught what palette and cell size could not; (3) a single `PROP_SCALE` table is better than a scale
-argument at each call site, since the next prop added inherits the right value; (4) the same trap exists
-in every new layer (interiors, ship rooms, UI), so the contract runs on all of them.
+- Keep one central prop-scale table with a value of 2 for this example. All prop draw calls
+  read that value so later additions inherit the same rule.
+- Retain screen-space base lines, anchors, contact-shadow footprints and collision boxes
+  wherever the integer redraw permits it. Record any rounding adjustment, such as the console's height.
+- Rebuild shapes with the same silhouette, palette and light direction. Check content bounding
+  boxes, ground contact, isolated pixels and distinguishing silhouette features across prop variants.
+  Use the integrating project's real fixtures and thresholds for those checks.
+- A sheet cell can stay 96x96 throughout. Inspect the content bounding box and draw call;
+  section 8's screenshot measurement checks the resulting apparent pixel size.
 
-## Sources
+Write the desired footprint in screen pixels before deriving source dimensions. Outline thickness
+can expose a mismatch that palette and cell size hide. Apply the same contract to every new world layer.
 
-Vault pages (wiki is the source of truth; evidence quality in brackets):
-`wiki/concepts/Pixel-Perfect Rendering.md` [high: MDN, Godot docs], `wiki/concepts/Mixels and One Pixel Scale.md`,
-`wiki/concepts/Tile Size and Character Scale.md`, `wiki/concepts/Chibi Proportions.md`,
-`wiki/sources/Yari — About Mixels.md` [medium], `wiki/sources/notkey — Choosing a Pixel Art Render Resolution.md` [medium],
-`wiki/sources/FreeGameSprites — Choosing the Right Tile Size.md` [low], `wiki/authored/space2grow/decisions/world-art-rules-adr.md`,
-`wiki/authored/space2grow/backlog/character-alignment-fullscreen-camera.md`, `moc/pixel-art-craft.md`.
-Web: [Yari, About Mixels](https://yari-pixels.github.io/Articles/mixels.html) ·
-[notkey.studio, render resolution](https://notkey.studio/en/tutorials/choosing-the-right-render-resolution-for-a-pixel-art-game/) ·
-[FreeGameSprites, tile size](https://freegamesprites.com/en/news/tile-size-2d-game-pixel-art-guide).
-Open: no source audits door, furniture or building ratios in shipped pixel-art games; section 3 should be
-revised after a measured study of two or three shipped titles.
+## Further reading
+
+These public articles offer background on pixel scale, render resolution and tile-size choices:
+
+- [Yari, About Mixels](https://yari-pixels.github.io/Articles/mixels.html)
+- [notkey.studio, render resolution](https://notkey.studio/en/tutorials/choosing-the-right-render-resolution-for-a-pixel-art-game/)
+- [FreeGameSprites, tile size](https://freegamesprites.com/en/news/tile-size-2d-game-pixel-art-guide)
+
+The example contract and proportion table above are authored starting points. Validate them against
+your actual cast, scene and viewport; they are not a measured survey of shipped games.

@@ -1,6 +1,6 @@
 import { mat, flat } from './creature-raster.js';
 
-/** Ramps adopted from the Fallow Valley art direction (light to dark). Extra ramps may be added, never recoloured. */
+/** Built-in wasteland material ramps (light to dark). Extra ramps may be added, never recoloured. */
 export const RAMPS = {
   dust: ['#e3cf93', '#c9a869', '#b08d57', '#8f6f45', '#6b5033', '#4a3624'],
   rust: ['#d98b4a', '#b5532f', '#8c3b25', '#5e2a1f'],

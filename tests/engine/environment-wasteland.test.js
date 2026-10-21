@@ -29,7 +29,7 @@ const strays=px=>{
 const ground=['dust','sand','gravel','rubble','concrete','asphalt','ash','mud','slag','fused-glass','water','salt-crust','clay','tilled-soil','tilled-soil-wet'];
 
 describe('wasteland materials',()=>{
-  test('the built-in set is exactly the Fallow Valley ground list',()=>expect([...WASTELAND_MATERIALS].sort()).toEqual([...ground].sort()));
+  test('the built-in set matches the documented wasteland ground materials',()=>expect([...WASTELAND_MATERIALS].sort()).toEqual([...ground].sort()));
   test.each(ground)('%s tiles repeat: matching opposite edges shared by every variant, no strays, only ramp colors',material=>{
     const spec=WASTELAND_SPECS[material],tiles=Array.from({length:4},(_,v)=>materialTile(material,spec,v,7,v));
     expect(new Set(tiles.map(t=>t.join())).size,'distinct variants').toBe(4);
