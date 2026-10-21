@@ -30,6 +30,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 ## Highlights
 
 - **Compact composition** — reusable named parts, stamps, tiling and explicitly seeded scatter expand into editable shapes. Revisions retain IDs, reconcile owned output and undo together. See [the create/revise example](examples/composition/README.md).
+- **Independent animation composition** — combine timed child projects through stamps, tiles and seeded scatter, retaining exact frame durations, isolated editable layers and each child's palette. See [the lantern garden example](examples/animated-composition/README.md).
 - **Regional text edits** — canonical ASCII readback and patches preserve source shapes; `.` keeps, `_` erases and `?` discloses unmapped pixels. See [ASCII region editing](skills/sprite-editing/references/ascii-regions.md).
 - **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
 - **Native 16×32 mannequins** — editable adult/child/large mannequins with eight-direction walk cycles and face-construction references, four-direction fitted wardrobes and animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
@@ -404,7 +405,7 @@ outputs before publishing: PNG, Aseprite atlas, editable `.project.json`, labele
 contact sheet, verification report, captured operations, and `preview.html`.
 
 Every build also writes `sprite-manifest.json`: `format`, `version: 1`, the project
-`name`, its `source` (`ops`, `generator`, `character`, `environment`, `native`, `creature` or `ui`), the recipe
+`name`, its `source` (`ops`, `generator`, `character`, `environment`, `native`, `creature`, `ui`, `tileset` or `animation`), the recipe
 `kind` when it has one (for example `furniture` or `font`), the recipe `report` file, and a
 `files` map using the same keys as the build's `artifacts` result (`sheet`, `atlas`,
 `environmentReport`, `uiRuntime` and so on). Every name is relative to the manifest,
@@ -459,13 +460,14 @@ not the process holding them. Pause only a positively identified, authorized
 related reader, rerun the build once, then resume it regardless of the result.
 Preserve unknown shared services. If the retry still fails, inspect the path and
 its handle owner; do not retry indefinitely or copy generated files into place.
-The config plus ops/generator/character/environment source is canonical: edits to the generated project are
+The config plus its source files (including referenced child projects for `animation`) is canonical: edits to the generated project are
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
 For shared adult/child body profiles, expressions and suits, use the built-in
 [`character` source](examples/character-cast/README.md). For non-humanoid animals, insects, arachnids,
 birds and crawlers use the [`creature` source](examples/creature/README.md). Choose exactly one source:
-`ops`, `generator`, `character`, `environment`, `native`, `creature`, `ui`, or `tileset`. No game-local generator is required.
+`ops`, `generator`, `character`, `environment`, `native`, `creature`, `ui`, `tileset`, or
+[`animation`](examples/animated-composition/README.md). No game-local generator is required.
 For 16×32 Stardew-style costumes (wasteland motif library, tool-swing, watering, hurt and
 collapse poses, presets), declare an inline [`native` source](examples/native-character/README.md#inline-native-build-source):
 JSON only, no copied scripts. A game that ships the output sets `"omit": ["project", "operations",
@@ -593,7 +595,7 @@ project. These native skills call the same managed CLI:
 | `sprite-editing` | Full tool workflow: drawing, shape editing, groups, animation, export |
 | `sprite-character` | Anime/16-bit RPG characters: adult/child proportions, faces, hair, outfits and consistent front/profile studies |
 | `sprite-shading` | Multi-tier lighting (form/core shadow, rim, spec), pillow-shading anti-pattern |
-| `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses |
+| `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses, independent child animation composition |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
 | `sprite-craft` | Expert craft rules and critique order: silhouette, value, outlines, clusters, dithering, small-sprite motion |
 | `sprite-review` | Scores art against a written rubric, with an evidence kit, and writes a prioritized remediation plan |

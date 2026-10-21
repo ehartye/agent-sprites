@@ -72,6 +72,25 @@ describe('collaborative workbench', () => {
     expect((await api('workbench/project')).data.review.author).toBe('Artist');
     expect(Project.fromJSON(packet.data).toJSON().review).toEqual(packet.data.review);
   });
+  test('group loop creation and deletion persist immediately across session switching',async()=>{
+    const original=await make();
+    expect((await api('group/cell/create',{name:'once',cells:['0,0','0,1'],loop:false})).ok).toBe(true);
+    expect(JSON.parse(state.db.getSession(original).draft_json).animationLoops).toEqual({once:false});
+    await api('session/copy',{name:'Loop variation'});const copy=state.sessionId;
+    await api('session/open-session',{ref:original});expect(state.project.animationLoops.once).toBe(false);
+    expect((await api('group/cell/delete',{name:'once'})).ok).toBe(true);
+    expect(JSON.parse(state.db.getSession(original).draft_json).animationLoops?.once).toBeUndefined();
+    await api('session/open-session',{ref:copy});expect(state.project.animationLoops.once).toBe(false);
+    await api('session/open-session',{ref:original});expect(state.project.animationLoops.once).toBeUndefined();
+  });
+  test('prototype-like group names retain their explicit one-shot metadata',async()=>{
+    await make();
+    expect((await api('group/cell/create',{name:'__proto__',cells:['0,0'],loop:false})).ok).toBe(true);
+    const packet=await api('workbench/project');
+    expect(Object.hasOwn(packet.data.groups,'__proto__')).toBe(true);
+    expect(Object.hasOwn(packet.data.animationLoops,'__proto__')).toBe(true);
+    expect(packet.data.animationLoops.__proto__).toBe(false);
+  });
   test('rejects malformed imports before replacing the current project', async () => {
     const original = await make();
     expect((await api('session/import', { project: { name: 'bad', grid: { rows: Infinity, cols: 1 } } })).ok).toBe(false);

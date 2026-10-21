@@ -33,6 +33,18 @@ async function run(value, name='proof') {
 }
 const pixel = (raw,w,x,y) => [...raw.subarray((y*w+x)*4,(y*w+x+1)*4)];
 
+test('owned tag one-shot timing propagates to proof unless an explicit track loop overrides it',async()=>{
+  const atlas=await exported('once','#ff004d',[[1,2],[6,4]],[100,100]);
+  atlas.meta.frameTags[0].loop=false;write(join(dir,'once.atlas.json'),atlas);
+  const once=await run(config([{name:'once',atlas:'once.atlas.json',tag:'walk'}]),'tag-once');
+  expect(once.loop).toBe(false);
+  expect(readFileSync(once.artifacts.gif).includes(Buffer.from('NETSCAPE2.0'))).toBe(false);
+  const repeated=await run(config([{name:'once',atlas:'once.atlas.json',tag:'walk',loop:true}]),'tag-loop');
+  expect(repeated.loop).toBe(true);
+  atlas.meta.frameTags[0].loop='false';write(join(dir,'once.atlas.json'),atlas);
+  await expect(run(config([{name:'once',atlas:'once.atlas.json',tag:'walk'}]),'invalid-tag-loop')).rejects.toThrow(/loop.*boolean/i);
+});
+
 test('real moving trimmed exports compose canonical PNGs and decoded one-shot GIF without ghost trails',async()=>{
   await exported('base','#ff004d',[[1,2],[6,4]]);
   await exported('overlay','#29adff',[[2,3],[5,1]],[75,175]);

@@ -1,5 +1,6 @@
 import { paintShapes } from './erase-layer.js';
 import { snapParams, rasterShape, floodFill } from './shared/raster.js';
+import { buildLayerTree, paintLayerTree } from './shared/shape-layers.js';
 
 /**
  * A pen that paints logical pixels onto `ctx` at offset (ox, oy) and size z.
@@ -38,19 +39,24 @@ function rgbaOf(color) {
  * layers and real flood fills.
  */
 export function renderCellNative(shapes, width, height, resolveColor) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  paintShapes(canvas.getContext('2d'), shapes, (ctx, shape) => {
+  const tree = shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers')) ? buildLayerTree(shapes, width, height) : null;
+  const createCanvas = (w, h) => {
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; return canvas;
+  };
+  const canvas = createCanvas(width, height);
+  const drawShape = (ctx, shape) => {
+    if (shape.visible === false) return;
     const color = resolveColor(shape.color);
     const p = snapParams(shape.params);
     if (shape.type === 'fill') {
-      const image = ctx.getImageData(0, 0, width, height);
+      const image = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
       if (floodFill(image, p.x, p.y, rgbaOf(color))) ctx.putImageData(image, 0, 0);
       return;
     }
     ctx.fillStyle = color;
     rasterShape(shape.type, p, pen(ctx, 0, 0, 1, p.color2 != null ? resolveColor(p.color2) : null));
-  });
+  };
+  if (tree) paintLayerTree(canvas.getContext('2d'), tree, { createCanvas, drawShape });
+  else paintShapes(canvas.getContext('2d'), shapes, drawShape);
   return canvas;
 }

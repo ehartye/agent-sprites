@@ -136,7 +136,9 @@ export async function renderAtlasProof(configPath,{output}={}) {
       if(!Number.isSafeInteger(origin.x)||!Number.isSafeInteger(origin.y))throw new Error('Final frame origin must be a safe integer.');
       origins.set(index,origin);
     }
-    tracks.push({...t,atlasPath,source,sequence,origins,loop:t.loop??true});
+    const tagLoop=t.tag===undefined?undefined:source.atlas.meta?.frameTags?.find(tag=>tag.name===t.tag)?.loop;
+    bool(tagLoop,'Atlas tag loop');
+    tracks.push({...t,atlasPath,source,sequence,origins,loop:t.loop??tagLoop??true});
   }
   const timeline=composeTimeline(tracks,{loop:config.loop}),delays=quantizeDelays(timeline.steps);
   const count=timeline.steps.length,w=config.canvas.w,h=config.canvas.h,width=w*scale,height=h*scale;

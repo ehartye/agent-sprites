@@ -13,8 +13,13 @@ export function previewSequences(project, activeCell = '0,0') {
     return direction === 'pingpong' ? order.concat(order.slice(1, -1).reverse()) : order;
   };
   for (const [name, frames] of Object.entries(project.groups ?? {})) options.push({ id: `group:${name}`, group: name, label: name, frames: play(frames, project.animationDirections?.[name]), fps: project.animationFps?.[name] ?? 8 });
+  for (const option of options) {
+    option.durations = option.frames.map(ref => resolveFrameDurationMs(project, ref, { group: option.group }));
+    option.loop = resolveAnimationLoop(project, option.group);
+  }
   return options;
 }
 export function selectPreviewSequence(options, id) {
   return options.find(option => option.id === id) ?? options[0] ?? null;
 }
+import { resolveFrameDurationMs, resolveAnimationLoop } from './shared/timing.js';

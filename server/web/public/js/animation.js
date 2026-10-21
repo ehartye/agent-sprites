@@ -1,4 +1,5 @@
 import { renderCellNative } from './cell-raster.js';
+import { durationFromFps } from './shared/timing.js';
 
 /**
  * Animation preview — cycles through group cells at configurable FPS,
@@ -21,6 +22,9 @@ export class AnimationPreview {
     this._frames = [];
     this._currentFrame = 0;
     this._fps = DEFAULT_FPS;
+    this._durations = null;
+    this._loop = true;
+    this._ended = false;
     this._playing = false;
     this._intervalId = null;
 
@@ -95,7 +99,7 @@ export class AnimationPreview {
   setFps(fps) {
     if (!Number.isFinite(fps) || fps <= 0) return;
     this._fps = fps;
-    if (this._fpsLabel) this._fpsLabel.textContent = `${fps} FPS`;
+    if (this._fpsLabel) this._fpsLabel.textContent = this._durations ? 'Frame milliseconds' : `${fps} FPS`;
     if (this._fpsSlider) this._fpsSlider.value = String(fps);
     if (this._playing) this._startInterval();
   }
@@ -104,19 +108,26 @@ export class AnimationPreview {
    * Set the group's cell refs to animate.
    * @param {string[]} frames - Array of cell ref strings
    */
-  setFrames(frames) {
+  setFrames(frames, { durations, loop = true } = {}) {
+    if (durations !== undefined && (!Array.isArray(durations) || durations.length !== frames.length || durations.some(ms => !Number.isSafeInteger(ms) || ms < 1))) throw new Error('Preview durations must provide positive integer milliseconds for every frame');
+    if (typeof loop !== 'boolean') throw new Error('Preview loop must be a boolean');
     this._frames = frames || [];
+    this._durations = durations === undefined ? null : [...durations]; this._loop = loop; this._ended = false;
+    if (this._fpsSlider) this._fpsSlider.disabled = this._durations !== null;
+    if (this._fpsLabel) this._fpsLabel.textContent = this._durations ? 'Frame milliseconds' : `${this._fps} FPS`;
     if (!this._frames.length) this.pause();
     this._currentFrame = 0;
     this._updateFrameCounter();
     this._renderFrame();
     this._container.classList.toggle('has-frames', this._frames.length > 0);
+    if (this._playing) this._startInterval();
   }
 
   /* -- Playback controls -- */
 
   play() {
     if (this._frames.length === 0) return;
+    if (this._ended) { this._currentFrame = 0; this._ended = false; this._renderFrame(); this._updateFrameCounter(); }
     this._playing = true;
     this._updatePlayState();
     this._startInterval();
@@ -131,6 +142,7 @@ export class AnimationPreview {
   stop() {
     this._playing = false;
     this._currentFrame = 0;
+    this._ended = false;
     this._updatePlayState();
     this._stopInterval();
     this._updateFrameCounter();
@@ -161,7 +173,7 @@ export class AnimationPreview {
   _getCellShapes(ref) {
     const cell = this._cells[ref];
     if (!cell || !cell.shapes) return [];
-    return cell.shapes.filter(s => s.visible !== false);
+    return cell.shapes.filter(s => s.visible !== false || s.params?.layers?.length);
   }
 
   /* -- Internal: UI creation -- */
@@ -224,6 +236,7 @@ export class AnimationPreview {
     fpsSlider.className = 'anim-fps-slider';
     this._fpsSlider = fpsSlider;
     fpsSlider.addEventListener('input', () => {
+      if (this._durations) return;
       this._fps = parseInt(fpsSlider.value, 10);
       this._fpsLabel.textContent = `${this._fps} FPS`;
       if (this._playing) {
@@ -297,16 +310,27 @@ export class AnimationPreview {
 
   _startInterval() {
     this._stopInterval();
-    this._intervalId = setInterval(() => {
-      this._currentFrame = (this._currentFrame + 1) % this._frames.length;
+    const durations = this._durations ?? this._frames.map(() => durationFromFps(this._fps));
+    let total = 0; const ends = durations.map(ms => total += ms);
+    if (!Number.isSafeInteger(total) || total < 1) throw new Error('Preview timeline duration exceeds safe integer milliseconds');
+    const start = performance.now() - (this._currentFrame ? ends[this._currentFrame - 1] : 0);
+    const tick = () => {
+      const elapsed = performance.now() - start;
+      if (!this._loop && elapsed >= total) { this._currentFrame = this._frames.length - 1; this._ended = true; this.pause(); this._renderFrame(); this._updateFrameCounter(); return; }
+      const local = elapsed % total;
+      let lo = 0, hi = ends.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (local < ends[mid]) hi = mid; else lo = mid + 1; }
+      this._currentFrame = lo;
       this._updateFrameCounter();
       this._renderFrame();
-    }, 1000 / this._fps);
+      this._intervalId = setTimeout(tick, Math.min(2147483647, Math.max(1, ends[lo] - local)));
+    };
+    this._intervalId = setTimeout(tick, Math.min(2147483647, durations[this._currentFrame]));
   }
 
   _stopInterval() {
     if (this._intervalId) {
-      clearInterval(this._intervalId);
+      clearTimeout(this._intervalId);
       this._intervalId = null;
     }
   }

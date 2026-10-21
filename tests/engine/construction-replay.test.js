@@ -128,6 +128,29 @@ test('malformed live ellipse cannot cancel a huge circle out of the replay raste
   } finally { raster.mockRestore(); }
 });
 
+test('replay query counts isolated child surfaces across every canonical render before allocation', () => {
+  const {project,recorder,cell}=setup();
+  const layers=Array.from({length:6},(_,i)=>({id:`child-${i}`,x:0,y:0,w:2048,h:2048,z:0,background:{mode:'transparent'}}));
+  cell.draw('point',{x:0,y:0,layers},'#fff','layered');
+  recorder.capture(project,1);recorder.finish(project);
+  const raster=vi.spyOn(CanvasRenderer.prototype,'renderCellRaw').mockImplementation(()=>{throw new Error('canonical renderer reached');});
+  try {
+    expect(()=>replay.renderConstructionReplay(project,{cell:'0,0',step:1})).toThrow(/query raster work budget/);
+    expect(raster).not.toHaveBeenCalled();
+  } finally {raster.mockRestore();}
+});
+
+test('replay budgets every flood fill against its innermost isolated surface',()=>{
+  const {project,recorder,cell}=setup();recorder.finish(project);
+  const layers=[{id:'large-child',x:0,y:0,w:2048,h:2048,z:0,background:{mode:'transparent'}}];
+  for(let i=0;i<16;i++)cell.draw('fill',{x:0,y:0,layers},'#fff',`fill-${i}`);
+  const raster=vi.spyOn(CanvasRenderer.prototype,'renderCellRaw').mockImplementation(()=>{throw new Error('canonical renderer reached');});
+  try {
+    expect(()=>replay.renderConstructionReplay(project,{cell:'0,0',step:0})).toThrow(/raster work budget/);
+    expect(raster).not.toHaveBeenCalled();
+  } finally {raster.mockRestore();}
+});
+
 test('recording rejects hard cell/record, cumulative snapshot pixel and serialized byte limits',()=>{
   expect(()=>setup({maxSteps:2049})).toThrow(/2048/);
   const operations=[{command:'new'}], inputs=[{path:'ops.json',sha256:hash('[]')}], source={kind:'ops',path:'ops.json'};

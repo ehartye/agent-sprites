@@ -3,12 +3,13 @@ import { Palette } from './palette.js';
 import { CellManager } from './cell-manager.js';
 import { GroupManager } from './group-manager.js';
 import { validateConstructionReplay } from './construction-replay.js';
+import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops } from '../web/public/js/shared/timing.js';
 
 /** Tag playback directions this tool produces; the verifier also accepts Aseprite's pingpong_reverse. */
 export const TAG_DIRECTIONS = ['forward', 'reverse', 'pingpong'];
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, shapeGroups, review, constructionReplay }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay }) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -19,6 +20,8 @@ export class Project {
     this.pivot = pivot ?? null;
     this.animationFps = animationFps ?? {};
     this.animationDirections = animationDirections ?? {};
+    this.frameDurations = validateFrameDurations(frameDurations, this);
+    this.animationLoops = validateAnimationLoops(animationLoops);
     this.shapeGroups = shapeGroups ?? {};
     this.review = review ?? null;
     this.constructionReplay = constructionReplay === undefined ? null : validateConstructionReplay(constructionReplay, this);
@@ -54,6 +57,8 @@ export class Project {
       animationFps: this.animationFps,
       // Omitted when empty so existing project files stay byte-identical.
       ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
+      ...(Object.keys(this.frameDurations).length ? { frameDurations: { ...this.frameDurations } } : {}),
+      ...(Object.keys(this.animationLoops).length ? { animationLoops: { ...this.animationLoops } } : {}),
       shapeGroups: this.shapeGroups,
       ...(this.review ? { review: this.review } : {}),
       ...(this.constructionReplay ? { constructionReplay: structuredClone(this.constructionReplay) } : {}),
@@ -84,6 +89,8 @@ export class Project {
       pivot: data.pivot,
       animationFps: data.animationFps,
       animationDirections: data.animationDirections,
+      frameDurations: data.frameDurations,
+      animationLoops: data.animationLoops,
       shapeGroups: data.shapeGroups,
       review: data.review,
       constructionReplay: data.constructionReplay,
@@ -121,7 +128,6 @@ export class Project {
     const frames = [];
     const baseIndex = new Map();
     const namedCells = [];
-    const defDur = Math.round(1000 / defaultFps);
     // Frame filenames are the frame's own array index — the Aseprite
     // "{frame}" convention that Phaser's createFromAseprite resolves
     // tag ranges against.
@@ -131,32 +137,31 @@ export class Project {
         const cell = this.cells.getCell(ref);
         const rect = { x: c * this.cellWidth, y: r * this.cellHeight, w: this.cellWidth, h: this.cellHeight };
         baseIndex.set(ref, frames.length);
-        if (cell.name) namedCells.push({ name: cell.name, rect });
-        frames.push(this._asepriteFrame(String(frames.length), rect, defDur));
+        if (cell.name) namedCells.push({ name: cell.name, rect, ref });
+        frames.push(this._asepriteFrame(String(frames.length), rect, resolveFrameDurationMs(this, ref, { defaultFps })));
       }
     }
 
     const frameTags = [];
     for (const [name, cells] of Object.entries(groups)) {
       if (!cells || cells.length === 0) continue;
-      const dur = Math.round(1000 / (fpsMap[name] ?? defaultFps));
       const from = frames.length;
       for (const ref of cells) {
         const bi = baseIndex.get(ref);
         if (bi === undefined) throw new Error(`Group "${name}" references unknown cell "${ref}"`);
-        frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, dur));
+        frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, resolveFrameDurationMs(this, ref, { group: name, defaultFps, fpsMap })));
       }
-      frameTags.push({ name, from, to: frames.length - 1, direction: directionMap[name] ?? 'forward' });
+      frameTags.push({ name, from, to: frames.length - 1, direction: directionMap[name] ?? 'forward', ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name] } : {}) });
     }
 
     // Named cells become alias frames AFTER every tag run, so tools that look
     // up frames by name (e.g. Phaser's add.image(x, y, key, 'girder')) work
     // without disturbing the numeric tag indexing.
     const usedNames = new Set();
-    for (const { name, rect } of namedCells) {
+    for (const { name, rect, ref } of namedCells) {
       if (usedNames.has(name)) continue;
       usedNames.add(name);
-      frames.push(this._asepriteFrame(name, { ...rect }, defDur));
+      frames.push(this._asepriteFrame(name, { ...rect }, resolveFrameDurationMs(this, ref, { defaultFps })));
     }
 
     const slices = this.pivot

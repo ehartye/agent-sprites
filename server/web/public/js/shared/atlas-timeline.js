@@ -53,53 +53,69 @@ export function anchorPoint(anchor = 'top-left', w, h, pivot) {
   return {x:point.x,y:point.y};
 }
 
-/** Complete joint period for loops; one-shot tracks hold their last frame. */
-export function composeTimeline(tracks, { loop, maxDurationMs = 60000, maxSteps = 4096 } = {}) {
-  integer(maxDurationMs, 'Maximum duration', 1); integer(maxSteps, 'Maximum steps', 1);
+/** Complete event-boundary timeline; one-shots hold their first and last pose. */
+export function composeTimeline(tracks, { loop, durationMs, maxTracks = 16, maxDurationMs = 60000, maxSteps = 4096 } = {}) {
+  integer(maxDurationMs, 'Maximum duration', 1); integer(maxSteps, 'Maximum steps', 1); integer(maxTracks, 'Maximum tracks', 1);
+  if (durationMs !== undefined) integer(durationMs, 'Explicit duration', 1);
   if (loop !== undefined && typeof loop !== 'boolean') throw new Error('loop must be a boolean.');
-  if (!Array.isArray(tracks) || !tracks.length || tracks.length > 16) throw new Error('Expected 1 to 16 timeline tracks.');
+  if (!Array.isArray(tracks) || !tracks.length || tracks.length > maxTracks) throw new Error(`Expected 1 to ${maxTracks} timeline tracks.`);
   const prepared = tracks.map(track => {
     if (!object(track) || !Array.isArray(track.sequence) || !track.sequence.length || track.sequence.length > maxSteps) throw new Error('Each track requires a nonempty sequence within the steps limit.');
     if (track.loop !== undefined && typeof track.loop !== 'boolean') throw new Error('Track loop must be a boolean.');
+    const phase = integer(track.phaseMs ?? 0, 'Track phase'), delay = integer(track.delayMs ?? 0, 'Track delay');
+    const offset = phase - delay;
+    if (!Number.isSafeInteger(offset)) throw new Error('Track offset must be a safe integer.');
     let period = 0;
-    const sequence = track.sequence.map(frame => {
+    const ends = [], sequence = track.sequence.map(frame => {
       integer(frame?.index, 'Frame index'); integer(frame?.duration, 'Frame duration', 1);
-      period += frame.duration; integer(period, 'Track period', 1);
+      period += frame.duration; integer(period, 'Track period', 1); ends.push(period);
       return {index:frame.index,duration:frame.duration};
     });
-    return { sequence, period, loop:track.loop ?? true, static:sequence.length === 1 };
+    const repeating = track.loop ?? true;
+    return { sequence, ends, period, offset:repeating ? offset % period : offset, loop:repeating, static:sequence.length === 1 };
   });
-  const animated = prepared.filter(t => !t.static);
-  const outputLoop = loop ?? animated.every(t => t.loop);
+  const animated = prepared.filter(t => !t.static), looping = animated.filter(t => t.loop);
+  const outputLoop = loop ?? prepared.every(t => t.loop);
   const gcd = (a,b) => { while (b) [a,b] = [b,a%b]; return a; };
-  let horizon;
-  const looping=animated.filter(t=>t.loop),oneShotDuration=Math.max(0,...animated.filter(t=>!t.loop).map(t=>t.period));
-  if (looping.length) {
-    horizon = 1;
-    for (const t of looping) {
-      const factor = t.period / gcd(horizon, t.period);
-      if (factor > Math.floor(maxDurationMs / horizon)) throw new Error(`Joint period exceeds maximum duration ${maxDurationMs} ms.`);
-      horizon *= factor;
-    }
-    horizon*=Math.max(1,Math.ceil(oneShotDuration/horizon));
-  } else horizon = Math.max(...(animated.length ? animated.map(t=>t.period) : prepared.map(t=>t.sequence[0].duration)));
-  if (horizon > maxDurationMs) throw new Error(`Timeline duration exceeds ${maxDurationMs} ms.`);
+  let jointPeriod = 0;
+  for (const t of looping) {
+    const current = jointPeriod || 1, factor = t.period / gcd(current, t.period);
+    if (factor > Math.floor(maxDurationMs / current)) throw new Error(`Joint period exceeds maximum duration ${maxDurationMs} ms.`);
+    jointPeriod = current * factor;
+  }
+  let oneShotDuration = 0;
+  for (const t of prepared.filter(t => !t.loop)) {
+    const end = t.period - t.offset;
+    if (!Number.isSafeInteger(end)) throw new Error('One-shot duration must be a safe integer.');
+    oneShotDuration = Math.max(oneShotDuration, end);
+  }
+  let horizon = durationMs ?? (jointPeriod ? jointPeriod * Math.max(1, Math.ceil(oneShotDuration / jointPeriod))
+    : animated.length ? Math.max(1, oneShotDuration) : Math.max(1,oneShotDuration,...prepared.filter(t=>t.loop).map(t=>t.sequence[0].duration)));
+  if (!Number.isSafeInteger(horizon) || horizon > maxDurationMs) throw new Error(`Timeline duration exceeds ${maxDurationMs} ms.`);
+  if (horizon < oneShotDuration) throw new Error('Explicit duration must complete every one-shot track.');
+  if (jointPeriod && horizon % jointPeriod !== 0) throw new Error('Explicit duration must end on a complete joint loop boundary.');
   const steps = [];
   let atMs = 0;
   while (atMs < horizon) {
     let next = horizon;
     const frames = prepared.map(t => {
       if (t.static) return t.sequence[0].index;
-      if (!t.loop && atMs >= t.period) return t.sequence.at(-1).index;
-      const local = t.loop ? atMs % t.period : atMs;
-      let boundary = 0;
-      for (const f of t.sequence) {
-        boundary += f.duration;
-        if (local < boundary) { next = Math.min(next, atMs + boundary - local); return f.index; }
+      const shifted = atMs + t.offset;
+      if (!Number.isSafeInteger(shifted)) throw new Error('Timeline offset arithmetic exceeds safe integers.');
+      if (!t.loop && shifted < 0) {
+        // Before onset the first pose is held, so onset itself is not a change.
+        next = Math.min(next, t.ends[0] - t.offset);
+        return t.sequence[0].index;
       }
-      throw new Error('Timeline could not resolve a frame.');
+      if (!t.loop && shifted >= t.period) return t.sequence.at(-1).index;
+      const local = t.loop ? ((shifted % t.period) + t.period) % t.period : shifted;
+      let low = 0, high = t.ends.length;
+      while (low < high) { const mid = Math.floor((low + high) / 2); if (t.ends[mid] <= local) low = mid + 1; else high = mid; }
+      next = Math.min(next, atMs + t.ends[low] - local);
+      return t.sequence[low].index;
     });
     if (steps.length >= maxSteps) throw new Error(`Timeline exceeds ${maxSteps} steps.`);
+    if (!Number.isSafeInteger(next) || next <= atMs) throw new Error('Timeline could not advance to a safe event boundary.');
     steps.push({atMs,durationMs:next-atMs,frames}); atMs = next;
   }
   return {durationMs:horizon,loop:outputLoop,steps};

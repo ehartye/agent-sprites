@@ -7,6 +7,8 @@ import { handleViewCell, handleViewSheet, handleViewStack } from '../../handlers
 import { saveDraft } from '../http.js';
 import { handleAsciiRead, handleAsciiPatch } from '../../handlers/ascii.js';
 import { handleComposition, handleCompositionPlan } from '../../handlers/composition.js';
+import { handleDuration, handleDurationRead } from '../../handlers/timing.js';
+import { handleLayerList, handleLayerEdit } from '../../handlers/layers.js';
 
 export function cellRoutes(state) {
   const r = Router();
@@ -25,6 +27,16 @@ export function cellRoutes(state) {
   r.post('/cell/mirror', wrap(handleMirrorCell));
   r.post('/cell/rotate', wrap(handleRotateCell));
   r.post('/cell/reference', wrap(handleSetReference));
+  r.post('/cell/duration', wrap(handleDuration));
+  r.post('/cell/layer', wrap(handleLayerEdit));
+  r.get('/cell/layers', (req,res) => {
+    try {res.json({ok:true,data:handleLayerList(state,req.query)});}
+    catch(error) {res.json({ok:false,error:error.message});}
+  });
+  r.get('/cell/duration', (req, res) => {
+    try { res.json({ ok: true, data: handleDurationRead(state, req.query) }); }
+    catch (error) { res.json({ ok: false, error: error.message }); }
+  });
   r.post('/cell/ascii-read', (req, res) => {
     try { res.json({ ok: true, data: handleAsciiRead(state, req.body) }); }
     catch (error) { res.json({ ok: false, error: error.message }); }

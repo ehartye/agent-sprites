@@ -206,6 +206,10 @@ export class Workbench {
     if ('from_cell' in values) values.from_cell = this.getCell();
     if ('color' in values) values.color = this.getColor() ?? values.color;
     const selected = this.getShape();
+    if(id==='layer edit'||id==='layer order') {
+      const layer=selected?.params?.layers?.at(-1);
+      if(layer) {values.id=layer.id;if('z' in values) values.z=layer.z??0;}
+    }
     if (selected) {
       if ('shape' in values) values.shape = selected.name ?? selected.id;
       if ('shape_id' in values) values.shape_id = selected.id;
@@ -285,7 +289,7 @@ export class Workbench {
             if (this.sessionId !== sessionId) throw new Error('The active session changed');
             const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined, { sessionId });
             output.textContent += `${index + 1}. Applied ${request.path}\n`;
-            if (['/api/cell/ascii-read', '/api/cell/compose-plan'].includes(request.path)) output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
+            if (['/api/cell/ascii-read', '/api/cell/compose-plan'].includes(request.path)||request.path.startsWith('/api/cell/layers?')) output.textContent += `${JSON.stringify(result.data, null, 2)}\n`;
           } catch (error) { throw new Error(`Stopped at operation ${index + 1}: ${error.message}. ${index} earlier operations remain applied.`); }
         }
         this.refresh(); this.notify(`Applied ${mapped.data.length} operations.`);

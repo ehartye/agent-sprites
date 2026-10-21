@@ -2,6 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { GroupManager } from '../../server/engine/group-manager.js';
 
 describe('GroupManager', () => {
+  it('round-trips prototype-like names as ordinary own group entries',()=>{
+    const gm=new GroupManager();gm.create('__proto__',['0,0']);gm.create('constructor',['0,1']);
+    for(const data of [gm.list(),gm.toJSON()]) {
+      expect(Object.hasOwn(data,'__proto__')).toBe(true);
+      expect(GroupManager.fromJSON(JSON.parse(JSON.stringify(data))).get('__proto__')).toEqual(['0,0']);
+    }
+  });
   it('creates a group', () => {
     const gm = new GroupManager();
     gm.create('walk', ['0,0', '0,1', '0,2']);

@@ -29,6 +29,7 @@ import { isUiReport, validateUiReport } from './ui-report.js';
 import { generateCreatureRecipe } from '../authoring/creature.js';
 import { generateTilesetRecipe } from '../authoring/tileset.js';
 import { generateNativeRecipe } from '../authoring/native-recipe.js';
+import { generateAnimationComposition } from '../authoring/animation-composition.js';
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 import { buildMarker as marker, buildManifest, snapshotArtifactIntegrity } from './artifact-integrity.js';
 import { createConstructionRecorder } from '../engine/construction-replay.js';
@@ -115,16 +116,20 @@ export async function buildProject(configPath) {
     if (config.expectedTags !== undefined && (!Array.isArray(config.expectedTags) || config.expectedTags.some(t => typeof t !== 'string' || !t))) throw new Error('expectedTags must be an array of animation names.');
     if (config.expectedFrames !== undefined && (!Array.isArray(config.expectedFrames) || config.expectedFrames.some(t => typeof t !== 'string' || !t))) throw new Error('expectedFrames must be an array of frame names.');
     const provenance = snapshotBuildInputs(configPath, config, source, tool);
+    const inputPaths = provenance.inputs.flatMap(input => {
+      const path = resolve(base, input.path);
+      return [path, realpathSync(path)];
+    });
     let output = resolve(base, config.output);
-    if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files.');
+    if (inputPaths.some(path => inside(output, path))) throw new Error('Output cannot contain the config or source input files.');
     mkdirSync(dirname(output), { recursive: true });
     output = join(realpathSync(dirname(output)), basename(output));
-    if (inside(output, configPath) || inside(output, source)) throw new Error('Output cannot contain the config or source files through a linked directory.');
+    if (inputPaths.some(path => inside(output, path))) throw new Error('Output cannot contain the config or source input files through a linked directory.');
     lockPath = output + '.build-lock'; lock = openSync(lockPath, 'wx');
     assertOwnedOutput(output, configPath);
     let operations, recipeReport;
     if (inline) {
-      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, native: generateNativeRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe}[sourceKind];
+      const generate = {character: generateCharacterRecipe, environment: generateEnvironmentRecipe, native: generateNativeRecipe, ui: generateUIRecipe, creature: generateCreatureRecipe, tileset: generateTilesetRecipe, animation: generateAnimationComposition}[sourceKind];
       ({ operations, report: recipeReport } = generate(config[sourceKind], base));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
@@ -186,6 +191,7 @@ export async function buildProject(configPath) {
     result.warnings = verified.warnings;
     // Cells that only pad the last grid row are not art: do not ask the author to confirm they are empty.
     if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
+    if (recipeReport?.kind === 'animation') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
     // A near-square UI sheet pads its last row with unnamed cells; every named frame is real art.
     if (sourceKind === 'ui') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && /^Frame \d+ /.test(w.message)));
     // A native overlay (native.only) is sparse by design: a back view has no facial hair, so empty frames are expected.

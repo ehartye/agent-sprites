@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "name": "lantern",
+  "cellWidth": 8,
+  "cellHeight": 12,
+  "grid": { "rows": 1, "cols": 2 },
+  "background": { "mode": "transparent" },
+  "palette": [
+    { "name": "ink", "color": "#6b7183" },
+    { "name": "glow", "color": "#ffc466" },
+    { "name": "light", "color": "#fff0a3" }
+  ],
+  "cells": {
+    "0,0": {
+      "name": "warm",
+      "shapes": [
+        { "id": "s1", "name": "glass", "type": "fill", "params": { "x": 0, "y": 0 }, "color": "glow", "visible": true, "zIndex": 0 },
+        { "id": "s2", "name": "top-cutout", "type": "rect", "params": { "x": 0, "y": 0, "w": 8, "h": 3, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 1 },
+        { "id": "s3", "name": "bottom-cutout", "type": "rect", "params": { "x": 0, "y": 11, "w": 8, "h": 1, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 2 },
+        { "id": "s4", "name": "left-cutout", "type": "rect", "params": { "x": 0, "y": 0, "w": 1, "h": 12, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 3 },
+        { "id": "s5", "name": "right-cutout", "type": "rect", "params": { "x": 7, "y": 0, "w": 1, "h": 12, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 4 },
+        { "id": "s6", "name": "handle", "type": "rect", "params": { "x": 2, "y": 1, "w": 4, "h": 3, "filled": false }, "color": "ink", "visible": true, "zIndex": 5 },
+        { "id": "s7", "name": "cap", "type": "rect", "params": { "x": 1, "y": 3, "w": 6, "h": 1, "filled": true }, "color": "ink", "visible": true, "zIndex": 6 },
+        { "id": "s8", "name": "base", "type": "rect", "params": { "x": 1, "y": 10, "w": 6, "h": 1, "filled": true }, "color": "ink", "visible": true, "zIndex": 7 },
+        { "id": "s9", "name": "flame", "type": "rect", "params": { "x": 3, "y": 6, "w": 2, "h": 3, "filled": true }, "color": "light", "visible": true, "zIndex": 8 }
+      ]
+    },
+    "0,1": {
+      "name": "bright",
+      "shapes": [
+        { "id": "s10", "name": "glass", "type": "fill", "params": { "x": 0, "y": 0 }, "color": "light", "visible": true, "zIndex": 0 },
+        { "id": "s11", "name": "top-cutout", "type": "rect", "params": { "x": 0, "y": 0, "w": 8, "h": 3, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 1 },
+        { "id": "s12", "name": "bottom-cutout", "type": "rect", "params": { "x": 0, "y": 11, "w": 8, "h": 1, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 2 },
+        { "id": "s13", "name": "left-cutout", "type": "rect", "params": { "x": 0, "y": 0, "w": 1, "h": 12, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 3 },
+        { "id": "s14", "name": "right-cutout", "type": "rect", "params": { "x": 7, "y": 0, "w": 1, "h": 12, "filled": true, "erase": true }, "color": "ink", "visible": true, "zIndex": 4 },
+        { "id": "s15", "name": "handle", "type": "rect", "params": { "x": 2, "y": 1, "w": 4, "h": 3, "filled": false }, "color": "ink", "visible": true, "zIndex": 5 },
+        { "id": "s16", "name": "cap", "type": "rect", "params": { "x": 1, "y": 3, "w": 6, "h": 1, "filled": true }, "color": "ink", "visible": true, "zIndex": 6 },
+        { "id": "s17", "name": "base", "type": "rect", "params": { "x": 1, "y": 10, "w": 6, "h": 1, "filled": true }, "color": "ink", "visible": true, "zIndex": 7 },
+        { "id": "s18", "name": "flame", "type": "rect", "params": { "x": 3, "y": 5, "w": 2, "h": 4, "filled": true }, "color": "glow", "visible": true, "zIndex": 8 }
+      ]
+    }
+  },
+  "groups": { "glow": ["0,0", "0,1"] },
+  "frameDurations": { "0,0": 120, "0,1": 80 },
+  "animationLoops": { "glow": true }
+}

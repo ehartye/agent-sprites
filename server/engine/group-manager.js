@@ -34,11 +34,7 @@ export class GroupManager {
   }
 
   list() {
-    const result = {};
-    for (const [name, cells] of this._groups) {
-      result[name] = [...cells];
-    }
-    return result;
+    return Object.fromEntries([...this._groups].map(([name,cells])=>[name,[...cells]]));
   }
 
   groupsForCell(cellRef) {
@@ -50,11 +46,7 @@ export class GroupManager {
   }
 
   toJSON() {
-    const result = {};
-    for (const [name, cells] of this._groups) {
-      result[name] = [...cells];
-    }
-    return result;
+    return this.list();
   }
 
   static fromJSON(json) {

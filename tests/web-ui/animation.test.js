@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
 
 describe('AnimationPreview (browser)', () => {
@@ -15,6 +15,20 @@ describe('AnimationPreview (browser)', () => {
     expect(document.querySelector('.anim-fps-label').textContent).toBe('6 FPS');
     ap.play(); ap.setFrames([]);
     expect(ap._intervalId).toBeNull();
+  });
+  it('plays exact mixed milliseconds and stops after the final one-shot hold', () => {
+    vi.useFakeTimers();
+    try {
+      const ap = new AnimationPreview({ mountId: 'anim-panel' }); ap.init();
+      ap.setFrames(['0,0','0,1','0,2'], { durations: [75,125,200], loop: false });
+      ap.play(); vi.advanceTimersByTime(74); expect(ap._currentFrame).toBe(0);
+      vi.advanceTimersByTime(1); expect(ap._currentFrame).toBe(1);
+      vi.advanceTimersByTime(124); expect(ap._currentFrame).toBe(1);
+      vi.advanceTimersByTime(1); expect(ap._currentFrame).toBe(2);
+      vi.advanceTimersByTime(199); expect(ap._playing).toBe(true);
+      vi.advanceTimersByTime(1); expect(ap._playing).toBe(false); expect(ap._currentFrame).toBe(2);
+      expect(ap._fpsSlider.disabled).toBe(true);
+    } finally { vi.useRealTimers(); }
   });
 
   it('snaps the canvas to an integer pixel scale of the cell dims', () => {

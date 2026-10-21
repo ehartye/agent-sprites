@@ -21,7 +21,7 @@ test('composes the complete joint period with mixed durations and static tracks'
     {sequence:[{index:2,duration:150},{index:3,duration:150}],loop:true},
     {sequence:[{index:9,duration:17}],loop:false},
   ]);
-  expect(timeline.durationMs).toBe(600); expect(timeline.loop).toBe(true);
+  expect(timeline.durationMs).toBe(600); expect(timeline.loop).toBe(false);
   expect(timeline.steps).toEqual([
     {atMs:0,durationMs:100,frames:[0,2,9]}, {atMs:100,durationMs:50,frames:[1,2,9]},
     {atMs:150,durationMs:50,frames:[1,3,9]}, {atMs:200,durationMs:100,frames:[0,3,9]},
@@ -70,4 +70,60 @@ test('anchor presets match the authoring pivot coordinate convention', () => {
   expect(anchorPoint('bottom-right',8,6)).toEqual({x:7,y:5});
   expect(anchorPoint({x:-1,y:2},8,6)).toEqual({x:-1,y:2});
   expect(() => anchorPoint({x:.5,y:2},8,6)).toThrow(/integer/);
+});
+
+test('phase advances loops, delay lags loops, and one-shots clamp before and after playback', () => {
+  const sequence=[{index:0,duration:100},{index:1,duration:200}];
+  const result=composeTimeline([{sequence,phaseMs:150},{sequence,delayMs:50},{sequence,delayMs:150,loop:false}]);
+  expect(result.durationMs).toBe(600);
+  expect(result.steps.slice(0,3)).toEqual([
+    {atMs:0,durationMs:50,frames:[1,1,0]},
+    {atMs:50,durationMs:100,frames:[1,0,0]},
+    {atMs:150,durationMs:100,frames:[0,1,0]},
+  ]);
+  expect(result.steps.at(-1).frames[2]).toBe(1);
+  expect(composeTimeline([{sequence,phaseMs:100,loop:false}]).durationMs).toBe(200);
+});
+
+test('explicit duration completes all joint cycles and delayed one-shots without truncation', () => {
+  const tracks=[{sequence:[{index:0,duration:100},{index:1,duration:100}]},{sequence:[{index:0,duration:70},{index:1,duration:80}],loop:false,delayMs:250}];
+  expect(composeTimeline(tracks,{durationMs:600}).durationMs).toBe(600);
+  expect(()=>composeTimeline(tracks,{durationMs:300})).toThrow(/complete|boundary/);
+  expect(()=>composeTimeline(tracks,{durationMs:200})).toThrow(/complete|one-shot/);
+  expect(()=>composeTimeline(tracks,{durationMs:0})).toThrow(/integer/);
+});
+
+test('101 and 103 ms child holds retain the full 20806 ms event-boundary period', () => {
+  const make=n=>({sequence:[{index:0,duration:n},{index:1,duration:n}]});
+  const result=composeTimeline([make(101),make(103)]);
+  expect(result.durationMs).toBe(20806);
+  expect(result.steps.length).toBeLessThan(420);
+  expect(result.steps.reduce((sum,s)=>sum+s.durationMs,0)).toBe(20806);
+});
+
+test('configurable bounded track count retains the proof default and ignores static periods', () => {
+  const tracks=Array.from({length:17},()=>({sequence:[{index:3,duration:999999}],phaseMs:123,delayMs:5}));
+  expect(()=>composeTimeline(tracks)).toThrow(/16/);
+  expect(composeTimeline(tracks,{maxTracks:1024,durationMs:125}).steps).toEqual([{atMs:0,durationMs:125,frames:Array(17).fill(3)}]);
+  expect(()=>composeTimeline(tracks,{maxTracks:0})).toThrow(/integer/);
+  expect(()=>composeTimeline([{sequence:[{index:0,duration:2},{index:1,duration:2}],phaseMs:0.5}])).toThrow(/integer/);
+});
+
+test('large safe loop offsets wrap before timeline arithmetic',()=>{
+  const sequence=[{index:0,duration:2},{index:1,duration:3}],phaseMs=Number.MAX_SAFE_INTEGER;
+  expect(composeTimeline([{sequence,phaseMs}])).toEqual(composeTimeline([{sequence,phaseMs:phaseMs%5}]));
+  expect(composeTimeline([{sequence,delayMs:phaseMs}])).toEqual(composeTimeline([{sequence,delayMs:phaseMs%5}]));
+});
+
+test('static selections ignore period arithmetic while retaining explicit one-shot playback policy',()=>{
+  expect(composeTimeline([{sequence:[{index:7,duration:125}],loop:false}])).toEqual({durationMs:125,loop:false,steps:[{atMs:0,durationMs:125,frames:[7]}]});
+});
+
+test('a delayed single-pose one-shot finishes its hold alongside a repeating animation',()=>{
+  const tracks=[{sequence:[{index:0,duration:100},{index:1,duration:100}]},{sequence:[{index:2,duration:500}],loop:false,delayMs:700}];
+  const result=composeTimeline(tracks);
+  expect(result.durationMs).toBe(1200);expect(result.loop).toBe(false);
+  expect(result.steps.map(step=>step.frames[1])).toEqual(Array(12).fill(2));
+  expect(()=>composeTimeline(tracks,{durationMs:200})).toThrow(/one-shot/);
+  expect(composeTimeline([tracks[1]]).durationMs).toBe(1200);
 });

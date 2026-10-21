@@ -336,6 +336,9 @@ CELLS
   ascii read --cell --x --y --w --h [--colors '{"R":"#ff0000"}']
   ascii patch --cell --file patch.json [--session ID]   (. keep, _ erase; JSON x,y,rows,colors,prefix)
   compose --file composition.json [--plan] [--cell R,C] [--session ID]   parts, stamps, tile, seeded scatter
+  layer list --cell R,C             inspect retained child layers and member names
+  layer edit <id> --cell R,C [--dx N --dy N --z N] [--session ID]
+                                    move/order a whole isolated child as one undoable edit
   clone-cell --from R,C --to "R,C R,C ..."  (atomic fan-out; all-or-nothing)
   mirror --cell --axis horizontal|vertical      flip every shape across the cell
   rotate-cell --cell --deg 90|180|270           rotate every shape about cell center
@@ -354,7 +357,7 @@ TWEEN
                 frame of a cell group (draw frame 1, clone-cell fan-out, then tween)
 
 GROUPS (cells)
-  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong]
+  group create <name> R,C R,C ... [--fps N] [--direction forward|reverse|pingpong] [--loop true|false]
   group add/remove <name> R,C ...
   group delete <name>                 group list
   group fps <name> <N>                set playback fps (exported as frame durations)
@@ -757,6 +760,12 @@ async function run() {
     case 'clear':
       result = await api('POST', '/api/cell/clear', { cell: args.cell });
       break;
+    case 'layer': {
+      const {mapCommandToApi}=await import('./batch-commands.js');
+      const mapped=mapCommandToApi({command:'layer',sub,cell:args.cell,...(sub==='edit'?{id:name,...(args.dx!==undefined?{dx:num(args.dx)}:{}),...(args.dy!==undefined?{dy:num(args.dy)}:{}),...(args.z!==undefined?{z:num(args.z)}:{})}:{})});
+      result=await api(mapped.method,mapped.path,mapped.body,{sessionId:args.session});
+      break;
+    }
     case 'compose': {
       if (!args.file) throw new Error('compose requires --file composition.json (cell,prefix,parts,placements)');
       const spec = JSON.parse(readFileSync(resolve(args.file), 'utf8'));
@@ -833,7 +842,7 @@ async function run() {
 
     case 'group':
       switch (sub) {
-        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction }); break;
+        case 'create': result = await api('POST', '/api/group/cell/create', { name: name, cells: args.cells?.split(' ') ?? positional.slice(2), fps: num(args.fps), direction: args.direction, ...(args.loop===undefined?{}:{loop:bool(args.loop)}) }); break;
         case 'fps':    result = await api('POST', '/api/group/cell/fps', { name: name, fps: num(positional[2]) }); break;
         case 'direction': result = await api('POST', '/api/group/cell/direction', { name: name, direction: positional[2] }); break;
         case 'list':   result = await api('GET', '/api/group/cell/list'); break;
@@ -1003,7 +1012,7 @@ async function run() {
               if (!res.ok) throw new Error(res.error);
               if (!quiet) console.log(`[${opIndex}/${total}] ${label} -> ok`);
               report.succeeded++;
-              if ((cmd.command === 'ascii' && cmd.sub === 'read') || cmd.command === 'compose-plan') {
+              if ((cmd.command === 'ascii' && cmd.sub === 'read') || (cmd.command==='layer'&&cmd.sub==='list') || cmd.command === 'compose-plan') {
                 (report.results ??= []).push({ index: opIndex, command: cmd.command, data: res.data });
                 if (!quiet) console.log(JSON.stringify(res.data));
               }

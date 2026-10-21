@@ -1,6 +1,7 @@
 import { createCanvas, Image } from 'canvas';
 import fs from 'fs';
 import { patternTest } from './patterns.js';
+import { buildLayerTree, paintLayerTree } from '../web/public/js/shared/shape-layers.js';
 import { snapParams, rasterShape, floodFill } from '../web/public/js/shared/raster.js';
 
 export class CanvasRenderer {
@@ -79,6 +80,11 @@ export class CanvasRenderer {
    * through the background or reference. Cells without one draw directly.
    */
   _drawShapes(ctx, shapes, width, height) {
+    if (shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) {
+      const tree = buildLayerTree(shapes, width, height);
+      paintLayerTree(ctx, tree, { createCanvas, drawShape: (target, shape) => this._drawShape(target, shape) });
+      return;
+    }
     if (!shapes.some(shape => shape.params.erase)) {
       for (const shape of shapes) this._drawShape(ctx, shape);
       return;
@@ -91,6 +97,11 @@ export class CanvasRenderer {
     ctx.drawImage(layer, 0, 0);
   }
 
+  _validateCellLayers(cell) {
+    const shapes = cell.shapes.listByZ();
+    if (shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) buildLayerTree(shapes, cell.width, cell.height);
+  }
+
   /** The exact pixels one shape paints in a width×height cell, as "x,y" keys. */
   shapeCoverage(shape, width, height) {
     const canvas = createCanvas(width, height), ctx = canvas.getContext('2d');
@@ -101,6 +112,7 @@ export class CanvasRenderer {
   }
 
   renderCellRaw(cell, opts = {}) {
+    this._validateCellLayers(cell);
     const canvas = createCanvas(cell.width, cell.height);
     const ctx = canvas.getContext('2d');
     this._applyBackground(ctx, cell.width, cell.height);
@@ -120,6 +132,7 @@ export class CanvasRenderer {
   }
 
   renderCell(cell, opts = {}) {
+    this._validateCellLayers(cell);
     const canvas = createCanvas(cell.width, cell.height);
     const ctx = canvas.getContext('2d');
     this._applyBackground(ctx, cell.width, cell.height);
@@ -130,6 +143,7 @@ export class CanvasRenderer {
 
   /** Composite cells as layers, first at the bottom; each keeps its own erasers. */
   renderStack(cells, opts = {}) {
+    for (const cell of cells) this._validateCellLayers(cell);
     const { width, height } = cells[0];
     const canvas = createCanvas(width, height), ctx = canvas.getContext('2d');
     this._applyBackground(ctx, width, height);
@@ -142,6 +156,7 @@ export class CanvasRenderer {
   }
 
   renderCells(cells, opts = {}) {
+    for (const cell of cells) this._validateCellLayers(cell);
     const cols = opts.cols ?? cells.length;
     const rows = Math.ceil(cells.length / cols);
     const cellW = cells[0].width;

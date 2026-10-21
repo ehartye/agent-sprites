@@ -17,6 +17,15 @@ export class Cell {
     this._nextZ = 0;
   }
 
+  /** Reserve root paint order in constant time, independently of a member's z. */
+  _reserveShapeZ(shape) {
+    const outerZ = shape.params?.layers?.[0]?.z;
+    const next = Math.max(this._nextZ, Math.floor(shape.zIndex) + 1, Number.isSafeInteger(outerZ) ? outerZ + 1 : 0);
+    // An exhausted imported/reordered surface stays editable, but a later draw
+    // must explicitly fail because no higher safe integer can be represented.
+    this._nextZ = Number.isSafeInteger(next) ? next : Infinity;
+  }
+
   _exec(command) {
     command.execute();
     if (this._transaction) {
@@ -62,10 +71,9 @@ export class Cell {
       visible: opts.visible ?? true,
     });
     this._exec({
-      execute: () => this.shapes.add(shape),
+      execute: () => { this.shapes.add(shape); this._reserveShapeZ(shape); },
       undo: () => this.shapes.remove(shape.id),
     });
-    this._nextZ = nextZ;
     return shape;
   }
 
@@ -122,7 +130,7 @@ export class Cell {
     const oldParams = structuredClone(shape.params);
     const savedUpdates = structuredClone(updates);
     this._exec({
-      execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); },
+      execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); this._reserveShapeZ(shape); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
@@ -134,7 +142,7 @@ export class Cell {
     const before = { type: shape.type, params: structuredClone(shape.params), color: shape.color, visible: shape.visible };
     const after = structuredClone({ type, params, color, visible });
     this._exec({
-      execute: () => Object.assign(shape, structuredClone(after)),
+      execute: () => { Object.assign(shape, structuredClone(after)); this._reserveShapeZ(shape); },
       undo: () => Object.assign(shape, structuredClone(before)),
     });
     return shape;
@@ -170,7 +178,7 @@ export class Cell {
     if (!shape) throw new Error(`Shape "${ref}" not found`);
     const oldZ = shape.zIndex;
     this._exec({
-      execute: () => { shape.zIndex = z; },
+      execute: () => { shape.zIndex = z; this._reserveShapeZ(shape); },
       undo: () => { shape.zIndex = oldZ; },
     });
   }
@@ -217,7 +225,7 @@ export class Cell {
     const shapes = ShapeRegistry.fromJSON(json.shapes);
     for (const shape of shapes.listByZ()) {
       cell.shapes.add(shape);
-      if (shape.zIndex >= cell._nextZ) cell._nextZ = shape.zIndex + 1;
+      cell._reserveShapeZ(shape);
     }
     return cell;
   }

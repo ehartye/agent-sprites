@@ -40,9 +40,11 @@ atlas slice for that frame; a fractional pivot requires choosing an explicit
 whole-pixel anchor instead. Choose a canvas large enough for the intended motion;
 pixels outside it are clipped.
 
-Each track loops by default. Set its `loop` to `false` to play once and hold its
-last frame. A single selected frame stays static; repeated selections retain
-their explicit holds. Output loops when all animated tracks loop; otherwise it
+Each track uses the selected tag's optional agent-sprites `loop` metadata,
+otherwise it loops by default. An explicit track `loop` overrides that policy;
+set it to `false` to play once and hold its last frame. A single selected frame stays static; repeated selections retain
+their explicit holds. Single-frame one-shots retain their requested hold duration.
+Output loops when all tracks loop; otherwise it
 plays once. A top level `loop` changes only the output repeat policy. The proof
 includes the complete least common multiple of the looping track periods,
 repeated through the first joint boundary at or after all one-shot tracks finish.

@@ -153,7 +153,7 @@ export class CellNavigator {
     if (!cell || !cell.shapes || cell.shapes.length === 0) return;
 
     const sorted = [...cell.shapes]
-      .filter(s => s.visible !== false)
+      .filter(s => s.visible !== false || s.params?.layers?.length)
       .sort((a, b) => a.zIndex - b.zIndex);
     const native = renderCellNative(sorted, cellW, cellH, r => this._resolveColor(r));
     ctx.imageSmoothingEnabled = canvas.width < cellW;

@@ -3,6 +3,7 @@ import { createCanvas } from 'canvas';
 import { CanvasRenderer } from './canvas-renderer.js';
 import { Palette } from './palette.js';
 import { patternTest } from './patterns.js';
+import { buildLayerTree } from '../web/public/js/shared/shape-layers.js';
 
 export const CONSTRUCTION_REPLAY_LIMITS = Object.freeze({ maxCells: 16, maxRecords: 2048, maxBytes: 32 * 1024 * 1024, maxPixels: 64_000_000 });
 const geometry = { point:['x','y'], fill:['x','y'], line:['x1','y1','x2','y2'], rect:['x','y','w','h'], circle:['cx','cy','r'], ellipse:['cx','cy','rx','ry'], polygon:['points'], polyline:['points'] };
@@ -105,12 +106,12 @@ export function createConstructionRecorder(config, { operations, source, inputs,
 }
 
 function snapshotWork(snapshot, width, height) {
-  let work = width * height;
+  let work = buildLayerTree(snapshot.shapes, width, height).rasterWork;
   for (const shape of snapshot.shapes) {
     const p = shape.params;
     if (shape.visible === false) continue;
     if (shape.type === 'point') work++;
-    else if (shape.type === 'fill') work += width * height;
+    else if (shape.type === 'fill') {const surface=p.layers?.at(-1);work += surface ? surface.w*surface.h : width*height;}
     else if (shape.type === 'line') work += Math.max(Math.abs(p.x2-p.x1),Math.abs(p.y2-p.y1))+1;
     else if (shape.type === 'rect') work += p.pattern && p.filled !== false ? Math.abs(p.w*p.h) : 4;
     else if (shape.type === 'circle') work += (2*p.r+1)**2 + 8*(p.r+1);

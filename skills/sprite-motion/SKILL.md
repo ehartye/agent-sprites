@@ -1,6 +1,6 @@
 ---
 name: sprite-motion
-description: Plan and refine pixel-art sprite animation including bounce, idle, walk cycles, squash/stretch, timing, and key poses. Use when sprite frames need convincing motion; not for CSS/SVG animation, video editing, or general UI transitions.
+description: Plan and refine pixel-art sprite animation, or compose independently timed child sprite projects into one editable scene. Use for bounce, idle, walk cycles, key poses, animated stamps, tiles, seeded scatter, phase offsets and delayed one-shots; not for CSS/SVG animation, video editing, or general UI transitions.
 ---
 
 # Sprite Motion
@@ -15,6 +15,18 @@ load that setup before running commands and stop on command failure.
 
 Principles for multi-frame pixel-art animation on top of the cell-based sprite sheet.
 For pixel-scale polish rules of thumb (timing holds, one-frame anticipation, stable clusters between frames) and their confidence, see [sprite craft](../sprite-craft/references/small-sprite-motion.md).
+
+## Compose independent animations
+
+For several animated objects in one scene, use the inline `animation` build source.
+Read [animation composition](references/animation-composition.md) before authoring its
+config: source project groups or explicit frame lists retain their exact durations,
+and stamps, tiles and seeded scatter can offset each instance independently. The
+build emits named shapes inside editable isolated layers, plus an animation report.
+Copy `examples/animated-composition` into the user's asset source directory, excluding
+generated output; build there through the managed launcher and inspect both contact
+sheet and full playback. Change source projects/config and rebuild for repeatable
+revisions; copy the generated project outside its output directory before manual edits.
 
 ## Repeatable humanoid characters
 

@@ -18,3 +18,7 @@ test('live group previews follow reverse and pingpong tag directions', () => {
   expect(selectPreviewSequence(options, 'group:chomp').frames).toEqual(['0,0','0,1','0,2','0,1']);
   expect(selectPreviewSequence(options, 'group:back').frames).toEqual(['0,1','0,0']);
 });
+test('mixed per-cell durations follow the expanded group order with one-shot behavior', () => {
+  const choice = selectPreviewSequence(previewSequences({ ...project, groups: { scene: ['0,0','0,1','0,2'] }, frameDurations: { '0,0': 75, '0,1': 125, '0,2': 200 }, animationDirections: { scene: 'pingpong' }, animationLoops: { scene: false } }), 'group:scene');
+  expect(choice.durations).toEqual([75,125,200,125]); expect(choice.loop).toBe(false);
+});

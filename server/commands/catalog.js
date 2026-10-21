@@ -75,7 +75,7 @@ export const COMMANDS = [
   ...['create','add','remove','delete','fps','direction','list'].map(sub => sub === 'list'
     ? get('group list', 'Animation', 'List animation groups', '/api/group/cell/list')
     : post(`group ${sub}`, 'Animation', `${sub[0].toUpperCase() + sub.slice(1)} animation group`, `/api/group/cell/${sub}`, {
-      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}), ...(sub === 'direction' ? { direction: 'pingpong' } : {}),
+      name: 'idle', ...(['create','add','remove'].includes(sub) ? { cells: [cell,'0,1'] } : {}), ...(['create','fps'].includes(sub) ? { fps: 8 } : {}), ...(sub==='create'?{loop:true}:{}), ...(sub === 'direction' ? { direction: 'pingpong' } : {}),
     })),
   ...['create','add','remove','delete','list'].map(sub => sub === 'list'
     ? get('shape-group list', 'Groups', 'List shape groups', '/api/group/shape/list', { cell })
@@ -83,11 +83,15 @@ export const COMMANDS = [
       cell, name: 'figure', ...(sub !== 'delete' ? { shapes: [shape] } : {}),
     })),
   post('move-group', 'Groups', 'Move shape group', '/api/group/shape/move', { cell, name: 'figure', dx: 1, dy: 0, all_cells: false }),
+  get('layer list','Groups','Inspect child layers','/api/cell/layers',{cell}),
+  post('layer edit','Groups','Move child layer','/api/cell/layer',{cell,id:'',dx:0,dy:0},'Move every member and nested clipping surface together. Select a member shape to fill its innermost layer ID. One undo restores the edit.'),
+  post('layer order','Groups','Order child layer','/api/cell/layer',{cell,id:'',z:0},'Set the layer’s paint order among its siblings; the child retains its own internal shape order.'),
   post('recolor-group', 'Groups', 'Recolor shape group', '/api/group/shape/recolor', { cell, name: 'figure', color: '#5fcde4', all_cells: false }),
   post('cast', 'Review', 'Create a frame casting review', '/api/casting', { title: 'Choose the poses', slots: [{ id: 'front', label: 'Front' }], candidates: [{ id: 'a', label: 'Candidate A', path: '' }] }, 'The result includes a link to the side-by-side casting review.'),
   { id: 'view-anim', category: 'Animation', label: 'Play animation', action: 'preview', description: 'Choose an animation group in the right panel, then open Preview.' },
   { id: 'batch', category: 'Review', label: 'Apply agent operations', action: 'batch', description: 'Paste expanded CLI batch operations, review them, and apply in order. Stops on the first failure; earlier edits remain.' },
   post('build', 'Files', 'Build a project', '/api/workbench/build', { path: '' }, 'Choose a local build configuration. Runs an isolated build, including any configured local generator. Available from localhost; the live design stays unchanged.'),
+  post('build-animation','Animation','Build animated composition','/api/workbench/build',{path:''},'Choose a local build config with an animation source. Combines editable child projects and static parts using exact frame durations, phase, delay and seeded placements. Open the generated project to edit its retained shapes and layers. Available from localhost.'),
   post('verify', 'Files', 'Verify exported pixels', '/api/workbench/verify', { path: '', expectedTags: [], expectedFrames: [], outlineColors: [], scale: 4 }, 'Choose a local atlas JSON file. Checks its PNG and metadata. Add outline colors to check continuous outlines. Available from localhost.'),
   post('trace', 'Files', 'Trace an image into shapes', '/api/workbench/trace', { path: '', out: '', name: 'image-trace' }, 'Choose a local PNG or WebP and a new output directory. Preserves decoded pixels and emits an editable project. Available from localhost.'),
   post('atlas-proof', 'Files', 'Preview base and overlay atlases', '/api/workbench/atlas-proof', { path: '', out: '' }, 'Choose a proof JSON and a new output directory in an existing parent folder. Composites atlas tags or explicit frames with trim offsets, anchors and timing. Returns a verified GIF, complete PNG frames, contact sheet and timing/color report. Available from localhost; the live design stays unchanged.'),

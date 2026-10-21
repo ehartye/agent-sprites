@@ -97,6 +97,19 @@ test('drawing forms start with the selected cell and literal active color', asyn
   expect(document.querySelector('[name="color"]').value).toBe('#aabbcc');
 });
 
+test('layer edit controls use the selected child and the common guarded request workflow',async()=>{
+  bench.getShape=()=>({params:{layers:[{id:'scene:child'}]}});
+  await bench.show('tools');bench.selectCommand('layer edit');
+  expect(document.querySelector('[name="id"]').value).toBe('scene:child');
+  document.querySelector('[name="dx"]').value='2';
+  document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+  await vi.waitFor(()=>expect(request).toHaveBeenCalledWith('/cell/layer',{cell:'1,2',id:'scene:child',dx:2,dy:0}));
+  bench.selectCommand('build-animation');
+  document.querySelector('[name="path"]').value='/art/scene.json';
+  document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+  await vi.waitFor(()=>expect(request).toHaveBeenCalledWith('/workbench/build',{path:'/art/scene.json'}));
+});
+
 test('tools load their supported command descriptors from the server', async () => {
   request.mockImplementation(async path => path === '/workbench/commands' ? { data: [
     { id: 'server-tool', category: 'Review', label: 'Server tool', method: 'POST', path: '/api/server-tool', body: { cell: '0,0' } },

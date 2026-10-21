@@ -3,6 +3,7 @@
  * WebSocket operations sent to the server.
  */
 import { snapParams, rasterShape } from './shared/raster.js';
+import { buildLayerTree } from './shared/shape-layers.js';
 
 export const TOOLS = [
   { id: 'point',   label: 'Point',   icon: '.' },
@@ -22,13 +23,17 @@ export const TOOLS = [
  * selection follows exactly what the export draws. A flood fill is picked by its
  * seed pixel.
  */
-function hitDistance(shape, x, y) {
+function hitDistance(shape, x, y, clip = {left:-Infinity,top:-Infinity,right:Infinity,bottom:Infinity}) {
   const p = snapParams(shape.params);
-  if (shape.type === 'fill') return Math.min(2, Math.max(Math.abs(p.x - x), Math.abs(p.y - y)));
+  const inside=(px,py)=>px>=clip.left&&px<clip.right&&py>=clip.top&&py<clip.bottom;
+  if (shape.type === 'fill') return inside(p.x,p.y)?Math.min(2, Math.max(Math.abs(p.x - x), Math.abs(p.y - y))):2;
   let best = 2;
   rasterShape(shape.type, p, {
-    px(px, py) { best = Math.min(best, Math.max(Math.abs(px - x), Math.abs(py - y))); },
+    px(px, py) { if(inside(px,py)) best = Math.min(best, Math.max(Math.abs(px - x), Math.abs(py - y))); },
     rect(rx, ry, w, h) {
+      const right=Math.min(rx+w,clip.right),bottom=Math.min(ry+h,clip.bottom);
+      rx=Math.max(rx,clip.left);ry=Math.max(ry,clip.top);w=right-rx;h=bottom-ry;
+      if(w<=0||h<=0)return;
       const dx = x < rx ? rx - x : x >= rx + w ? x - (rx + w - 1) : 0;
       const dy = y < ry ? ry - y : y >= ry + h ? y - (ry + h - 1) : 0;
       best = Math.min(best, Math.max(dx, dy));
@@ -41,13 +46,24 @@ function hitDistance(shape, x, y) {
  * Hit-test: the topmost shape that paints (x, y); failing that, the topmost one
  * painting a pixel beside it, so thin strokes stay easy to click.
  */
-export function hitTestShapes(shapes, x, y) {
+export function hitTestShapes(shapes, x, y, {width,height} = {}) {
   if (!shapes) return null;
-  // Iterate in reverse z-order (topmost first)
-  const sorted = [...shapes].filter(s => s.visible !== false).sort((a, b) => b.zIndex - a.zIndex);
+  const sorted=[];
+  if(shapes.some(shape=>Object.hasOwn(shape.params??{},'layers'))) {
+    const tree=buildLayerTree([...shapes].sort((a,b)=>a.zIndex-b.zIndex),width,height);
+    const visit=(node,clip)=>{
+      const bounds={left:Math.max(clip.left,node.x),top:Math.max(clip.top,node.y),right:Math.min(clip.right,node.x+node.w),bottom:Math.min(clip.bottom,node.y+node.h)};
+      if(bounds.right<=bounds.left||bounds.bottom<=bounds.top)return;
+      for(const unit of [...node.children].reverse()) {
+        if(unit.kind==='shape') {if(unit.shape.visible!==false)sorted.push({shape:unit.shape,clip:bounds});}
+        else visit(unit,bounds);
+      }
+    };
+    visit(tree,{left:0,top:0,right:width,bottom:height});
+  } else sorted.push(...[...shapes].filter(s=>s.visible!==false).sort((a,b)=>b.zIndex-a.zIndex).map(shape=>({shape})));
   let near = null;
-  for (const shape of sorted) {
-    const d = hitDistance(shape, x, y);
+  for (const {shape,clip} of sorted) {
+    const d = hitDistance(shape, x, y,clip);
     if (d === 0) return shape;
     if (d === 1 && !near) near = shape;
   }
@@ -82,11 +98,12 @@ export class ToolManager {
    * @param {Function} opts.getCellRef - Returns current active cell ref string
    * @param {Function} opts.getColor - Returns current active color name
    */
-  init({ send, getCellRef, getColor, getShapes }) {
+  init({ send, getCellRef, getColor, getShapes, getCellSize = () => ({}) }) {
     this._sendFn = send;
     this._getCellRef = getCellRef;
     this._getColor = getColor;
     this._getShapes = getShapes || (() => []);
+    this._getCellSize = getCellSize;
     this._renderButtons();
   }
 
@@ -159,7 +176,7 @@ export class ToolManager {
         break;
 
       case 'erase': {
-        const eraseHit = hitTestShapes(this._getShapes(), x, y);
+        const eraseHit = hitTestShapes(this._getShapes(), x, y, this._getCellSize());
         if (eraseHit) {
           const ref = eraseHit.name || eraseHit.id;
           this._send({ action: 'delete_shape', params: { cell, name: ref } });
@@ -168,7 +185,7 @@ export class ToolManager {
       }
 
       case 'select': {
-        const selectHit = hitTestShapes(this._getShapes(), x, y);
+        const selectHit = hitTestShapes(this._getShapes(), x, y, this._getCellSize());
         if (selectHit) {
           this._selectedShape = selectHit.name || selectHit.id;
           this._selectedShapeData = selectHit;

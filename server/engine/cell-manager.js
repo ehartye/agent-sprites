@@ -1,5 +1,6 @@
 import { Cell } from './cell.js';
-import { rotateParams } from './transform.js';
+import { rotateParams, flipParams } from './transform.js';
+import { transformLayerCell } from './shape-layers.js';
 
 export class CellManager {
   constructor(cellSize, rows, cols) {
@@ -57,15 +58,21 @@ export class CellManager {
     for (const shape of src.shapes.listByZ()) {
       const clone = shape.clone();
       dest.shapes.add(clone);
-      // Keep the z counter above every cloned shape, or later draws on the
-      // destination would render beneath the clones.
-      if (clone.zIndex >= dest._nextZ) dest._nextZ = clone.zIndex + 1;
+      // Reserve both primitive and retained root-surface paint order.
+      dest._reserveShapeZ(clone);
     }
     this._grid[r][c] = dest;
   }
 
   shiftCell(ref, dx, dy) {
     const cell = this.getCell(ref);
+    if (cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) {
+      return transformLayerCell(cell, p => {
+        for (const key of ['x', 'x1', 'x2', 'cx']) if (key in p) p[key] += dx;
+        for (const key of ['y', 'y1', 'y2', 'cy']) if (key in p) p[key] += dy;
+        for (const point of p.points ?? []) { point.x += dx; point.y += dy; }
+      });
+    }
     for (const shape of cell.shapes.listByZ()) {
       const p = shape.params;
       if ('x' in p) { p.x += dx; p.y += dy; }
@@ -81,6 +88,7 @@ export class CellManager {
   mirrorCell(ref, axis) {
     const cell = this.getCell(ref);
     const max = (axis === 'horizontal' ? this.cellWidth : this.cellHeight) - 1;
+    if (cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) return transformLayerCell(cell, p => flipParams(p, axis, max));
     for (const shape of cell.shapes.listByZ()) {
       const p = shape.params;
       if (axis === 'horizontal') {
@@ -103,6 +111,7 @@ export class CellManager {
     const cell = this.getCell(ref);
     const px = (this.cellWidth - 1) / 2;
     const py = (this.cellHeight - 1) / 2;
+    if (cell.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) return transformLayerCell(cell, p => rotateParams(p, deg, px, py));
     for (const shape of cell.shapes.listByZ()) {
       rotateParams(shape.params, deg, px, py);
     }

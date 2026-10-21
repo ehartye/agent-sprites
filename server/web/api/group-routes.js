@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { saveDraft } from '../http.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { TAG_DIRECTIONS as DIRECTIONS } from '../../engine/project.js';
+import { moveLayerSelection } from '../../engine/shape-layers.js';
 
 // Rebuild state.project.groups from SQLite and notify the browser.
 function syncCellGroups(state) {
@@ -10,6 +11,7 @@ function syncCellGroups(state) {
   // The editor preview reads timing and direction from the live project.
   state.project.animationFps = state.db.getCellGroupFps(state.sessionId);
   state.project.animationDirections = state.db.getCellGroupDirections(state.sessionId);
+  saveDraft(state);
   state.broadcast?.({ type: 'group_created' }); // triggers get_project resync in UI
 }
 
@@ -27,11 +29,13 @@ export function groupRoutes(state) {
   // --- Cell groups (animation frame sets) ---
   r.post('/group/cell/create', (req, res) => {
     try {
-      const { name, cells, fps, direction } = req.body;
+      const { name, cells, fps, direction, loop } = req.body;
       if (direction != null && !DIRECTIONS.includes(direction)) return res.json({ ok: false, error: DIRECTION_ERROR });
+      if (loop !== undefined && typeof loop !== 'boolean') throw new Error('Animation loop must be boolean');
       state.db.setCellGroup(state.sessionId, name, cells);
       if (fps != null) state.db.setCellGroupFps(state.sessionId, name, fps);
       if (direction != null) state.db.setCellGroupDirection(state.sessionId, name, direction);
+      if (loop !== undefined) state.project.animationLoops = {...state.project.animationLoops,[name]:loop};
       syncCellGroups(state);
       res.json({ ok: true, data: `Created cell group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -93,6 +97,7 @@ export function groupRoutes(state) {
   r.post('/group/cell/delete', (req, res) => {
     try {
       state.db.deleteCellGroup(state.sessionId, req.body.name);
+      if (state.project.animationLoops) delete state.project.animationLoops[req.body.name];
       syncCellGroups(state);
       res.json({ ok: true, data: `Deleted group "${req.body.name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
@@ -181,9 +186,8 @@ export function groupRoutes(state) {
         const groups = state.db.getShapeGroups(state.sessionId, c);
         const shapes = groups[name] ?? [];
         const cellObj = state.project.cells.getCell(c);
-        for (const shapeName of shapes) {
-          cellObj.moveShape(shapeName, dx, dy);
-        }
+        if (cellObj.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) moveLayerSelection(cellObj, shapes, dx, dy);
+        else for (const shapeName of shapes) cellObj.moveShape(shapeName, dx, dy);
         state.broadcast?.({ type: 'shape_moved', cell: c });
       }
       saveDraft(state);
