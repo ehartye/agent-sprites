@@ -57,3 +57,54 @@ test('SIGINT waits for cancellation and owned file cleanup before the CLI exits'
     expect([...server.imports.jobs.values()].every(job => job.state === 'canceled')).toBe(true);
   } finally { if (child.exitCode === null) { child.kill('SIGKILL'); await closed; } }
 });
+test('postcommit interruption returns the completed receipt through the real import helper', async () => {
+  const abort = new AbortController(), progress = [];
+  const originalCleanup = server.imports.cleanup.bind(server.imports);
+  const cleanup = vi.spyOn(server.imports, 'cleanup').mockImplementation(async job => {
+    if (job.state === 'complete') abort.abort();
+    await originalCleanup(job);
+  });
+  try {
+    const receipt = await importProjectFile(input, { baseUrl, signal: abort.signal, pollMs: 1, onProgress: value => progress.push(value) });
+    expect(abort.signal.aborted).toBe(true);
+    expect(receipt).toMatchObject({ session_id: state.sessionId, project_name: 'Source' });
+    expect(progress.at(-1).state).toBe('complete');
+    expect([...server.imports.jobs.values()].every(job => job.state === 'complete')).toBe(true);
+    expect(await readdir(temp)).toEqual(['source.json']);
+  } finally { cleanup.mockRestore(); }
+});
+test('interruption immediately before activation still cancels without activating', async () => {
+  const abort = new AbortController();
+  await expect(importProjectFile(input, { baseUrl, signal: abort.signal, pollMs: 1, onProgress: progress => {
+    if (progress.state === 'activating') abort.abort();
+  } })).rejects.toThrow(/abort|cancel/i);
+  expect(state.project).toBeNull(); expect(state.sessionId).toBeNull();
+  expect([...server.imports.jobs.values()].every(job => job.state === 'canceled')).toBe(true);
+  expect(await readdir(temp)).toEqual(['source.json']);
+});
+test('SIGINT after commit prints the committed CLI receipt and exits successfully', async () => {
+  const child = fork(new URL('../fixtures/import-cli-interrupt.js', import.meta.url), [input], {
+    silent: true, windowsHide: true, env: { ...process.env, SPRITE_PORT: String(server.port) },
+  });
+  let stdout = '', stderr = '', interrupted = false, signalAcknowledged = false;
+  child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
+  const acknowledged = new Promise(resolve => child.on('message', message => { if (message === 'interrupted') { signalAcknowledged = true; resolve(); } }));
+  const closed = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })));
+  const originalCleanup = server.imports.cleanup.bind(server.imports);
+  const cleanup = vi.spyOn(server.imports, 'cleanup').mockImplementation(async job => {
+    if (job.state === 'complete' && !interrupted) {
+      interrupted = true; child.send('interrupt'); let deadline;
+      try { await Promise.race([acknowledged, new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('Owned CLI did not acknowledge SIGINT')), 2000); })]); }
+      finally { clearTimeout(deadline); }
+    }
+    await originalCleanup(job);
+  });
+  try {
+    expect(await closed).toEqual({ code: 0, signal: null }); expect(interrupted).toBe(true); expect(signalAcknowledged).toBe(true);
+    expect(JSON.parse(stdout)).toMatchObject({ session_id: state.sessionId, project_name: 'Source' });
+    expect(stderr).not.toContain('Import canceled.'); expect(await readdir(temp)).toEqual(['source.json']);
+  } finally {
+    cleanup.mockRestore();
+    if (child.exitCode === null) { child.kill('SIGKILL'); await closed; }
+  }
+});

@@ -260,3 +260,20 @@ test('accepts a patterned rectangle whose snapped endpoint stays within the safe
   const pixels = new CanvasRenderer(state.project.palette).renderCellRaw(state.project.cells.getCell('0,0'));
   expect(pixels).toEqual(new Uint8ClampedArray(8 * 8 * 4));
 });
+test.each([false, true])('layered fractional art roundtrips and renders with surface=%s', async surface => {
+  await start(); const packet = project();
+  const layers = [{ id: 'outer', x: 1, y: 1, w: 6, h: 6, z: 0, background: { mode: 'transparent' } },
+    { id: 'inner', x: 2, y: 2, w: 4, h: 4, z: 0, background: { mode: 'transparent' } }];
+  packet.cells['0,0'] = { name: null, shapes: [
+    { id: 's1', name: 'pattern', type: 'rect', params: { x: 2.2, y: 2.3, w: 2.7, h: 2.6, filled: true, pattern: 'checker', color2: 'blue', layers }, color: 'red', zIndex: 500.25, visible: true },
+    { id: 's2', name: 'line', type: 'line', params: { x1: 2.4, y1: 2.2, x2: 5.1, y2: 5.3, layers }, color: 'white', zIndex: 501.5, visible: true },
+  ] };
+  if (surface) for (const shape of packet.cells['0,0'].shapes) shape.params.surface = { normal: { mode: 'flat' } };
+  const canonical = Project.fromJSON(packet), renderer = new CanvasRenderer(canonical.palette);
+  const expected = renderer.renderCellRaw(canonical.cells.getCell('0,0'));
+  expect(expected.some(value => value !== 0)).toBe(true);
+  const job = await create(); await upload(job, JSON.stringify(packet)); await settled(job);
+  expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
+  expect(state.project.toJSON()).toEqual(canonical.toJSON());
+  expect(renderer.renderCellRaw(state.project.cells.getCell('0,0'))).toEqual(expected);
+});

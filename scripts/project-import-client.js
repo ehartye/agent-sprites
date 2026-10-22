@@ -36,7 +36,10 @@ export async function importProjectFile(filePath, { baseUrl, name, sessionId, si
       if (status.state === 'failed' || status.state === 'canceled') throw new Error(status.error ?? 'Import canceled');
       if (status.state === 'ready') {
         onProgress({ state: 'activating', phase: 'activating' });
-        const receipt = await json('POST', `${root}/${job.id}/activate`, {});
+        signal?.throwIfAborted();
+        // Once sent, receive the authoritative outcome: SIGINT may arrive after
+        // the server commits while it is still cleaning up the import files.
+        const receipt = await json('POST', `${root}/${job.id}/activate`, {}, { abortable: false });
         completed = true; onProgress({ state: 'complete', phase: 'complete', receipt }); return receipt;
       }
       await delay(pollMs, undefined, { signal });
