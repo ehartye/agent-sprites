@@ -57,7 +57,7 @@
 .surface-panel { display: flex; flex-direction: column; gap: .8rem; }
 .surface-section { display: flex; flex-direction: column; gap: .65rem; border-top: 1px solid var(--border); padding-top: .75rem; min-width: 0; }
 .surface-section[hidden], .normal-fields[hidden], .surface-panel label[hidden] { display: none; }
-.surface-panel select, .surface-section select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px; }
+.surface-panel select, .surface-section select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--control-border); border-radius: 0; }
 .surface-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: .65rem; align-items: end; }
 .surface-checks { display: flex; flex-wrap: wrap; gap: .65rem 1rem; }
 .surface-checks label { flex-direction: row; align-items: center; }
@@ -67,7 +67,7 @@
 .surface-advanced summary { cursor: pointer; padding: .3rem 0; color: var(--text-secondary); }
 .surface-preview { border-top: 1px solid var(--border); padding-top: .75rem; }
 .surface-preview .pixel-proof { margin-top: .65rem; min-width: 96px; }
-.frame-timing select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 3px; }
+.frame-timing select { width: 100%; font: inherit; font-size: .75rem; padding: .5rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--control-border); border-radius: 0; }
 .timing-group-controls { display: flex; align-items: end; flex-wrap: wrap; gap: .6rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
 .timing-group-controls[hidden] { display: none; }
 .timing-group-controls label:first-child { width: 100px; }

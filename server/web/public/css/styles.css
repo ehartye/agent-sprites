@@ -260,7 +260,7 @@ body {
 #tool-buttons button.active {
   background: var(--accent-fill);
   color: var(--paper);
-  border-color: var(--accent-fill);
+  border-color: var(--accent);
   box-shadow: none;
 }
 
