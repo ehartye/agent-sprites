@@ -35,6 +35,24 @@ test('default POST stays JSON and ignores request attempts to raise generator po
   expect(response.headers.get('content-type')).toMatch(/application\/json/); expect(await response.json()).toMatchObject({ ok: true, data: { ok: true } });
 });
 
+test.each([
+  ['application/x-ndjson;q=0', false],
+  ['application/x-ndjson;q=0, */*;q=1', false],
+  ['Application/X-NDJSON', true],
+  ['Application/X-NDJSON;Q=0.5', true],
+  ['application/x-ndjson;q=0.2, application/json;q=1', true],
+  ['*/*', false],
+  ['application/*', false],
+  [undefined, false],
+])('Accept %s selects NDJSON only with an explicit acceptable opt-in (%s)', async (accept, streaming) => {
+  const response = await fetch(`${base}/api/workbench/build`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(accept ? { Accept: accept } : {}) }, body: JSON.stringify({ path: config }) });
+  const text = await response.text();
+  expect(response.headers.get('content-type')).toContain(streaming ? 'application/x-ndjson' : 'application/json');
+  const result = streaming ? text.trim().split('\n').map(line => JSON.parse(line)).at(-1) : JSON.parse(text);
+  expect(result).toMatchObject({ ok: true, data: { ok: true } });
+  if (streaming) expect(result.type).toBe('result');
+});
+
 test('abandoning a streaming request stops only its generator and releases its output lock', async () => {
   const marker = join(dir, 'pid');
   writeFileSync(join(dir, 'generate.mjs'), `import {writeFileSync} from 'node:fs';writeFileSync(${JSON.stringify(marker)},String(process.pid));const interval=setInterval(()=>process.stdout.write(' '.repeat(1024)),10);setTimeout(()=>{clearInterval(interval);},1500);`);

@@ -123,7 +123,8 @@ export function workbenchRoutes(state) {
   router.post('/workbench/build', localFilesOnly, async (req, res) => {
     const abort = new AbortController();
     const abandon = () => { if (!res.writableEnded) abort.abort(); };
-    const streaming = (req.get('accept') ?? '').split(',').some(value => value.split(';')[0].trim() === 'application/x-ndjson');
+    const explicitStream = (req.get('accept') ?? '').split(',').some(value => value.split(';')[0].trim().toLowerCase() === 'application/x-ndjson');
+    const streaming = explicitStream && Boolean(req.accepts('application/x-ndjson'));
     let blocked = false, pending;
     const write = event => {
       if (res.destroyed || res.writableEnded) return;
