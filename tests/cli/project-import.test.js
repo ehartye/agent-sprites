@@ -108,3 +108,73 @@ test('SIGINT after commit prints the committed CLI receipt and exits successfull
     if (child.exitCode === null) { child.kill('SIGKILL'); await closed; }
   }
 });
+
+test.each([false, true])('a lost activation response recovers the committed receipt (interrupted: %s)', async interrupted => {
+  const abort = new AbortController(), progress = [], calls = [];
+  state.sessionId = 'original'; state.project = Project.create({ name: 'Original', cellSize: 8, rows: 1, cols: 1, palette: 'pico8' });
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, ...options });
+    const response = await fetch(url, options);
+    if (url.endsWith('/activate')) {
+      await response.json();
+      if (interrupted) abort.abort();
+      throw new Error('Activation response lost');
+    }
+    return response;
+  };
+  const receipt = await importProjectFile(input, { baseUrl, sessionId: 'original', signal: abort.signal, fetchImpl, pollMs: 1, onProgress: value => progress.push(value) });
+  expect(receipt).toMatchObject({ session_id: state.sessionId, project_name: 'Source' });
+  expect(progress.at(-1)).toMatchObject({ state: 'complete', receipt });
+  expect(calls.filter(call => call.url.endsWith('/activate'))).toHaveLength(1);
+  expect(calls.find(call => call.url.endsWith('/activate')).headers['X-Sprite-Session']).toBe('original');
+  expect(calls.find(call => call.method === 'DELETE').headers['X-Sprite-Session']).toBeUndefined();
+  expect(calls.find(call => call.method === 'DELETE').signal).toBeUndefined();
+  expect([...server.imports.jobs.values()].every(job => job.state === 'complete')).toBe(true);
+  expect(await readdir(temp)).toEqual(['source.json']);
+});
+
+test('job status recovers a committed receipt when both activation and cleanup responses are lost', async () => {
+  let activationSent = false;
+  const fetchImpl = async (url, options) => {
+    const response = await fetch(url, options);
+    if (url.endsWith('/activate')) { activationSent = true; await response.json(); throw new Error('Activation response lost'); }
+    if (activationSent && options.method === 'DELETE') { await response.json(); throw new Error('Cleanup response lost'); }
+    return response;
+  };
+  expect(await importProjectFile(input, { baseUrl, fetchImpl, pollMs: 1 })).toMatchObject({ session_id: state.sessionId, project_name: 'Source' });
+  expect(await readdir(temp)).toEqual(['source.json']);
+});
+
+test('unavailable recovery leaves postcommit interruption unconfirmed with bounded diagnostics', async () => {
+  const abort = new AbortController(); let activationSent = false;
+  const fetchImpl = async (url, options) => {
+    if (activationSent) throw new Error(`${options.method === 'DELETE' ? 'Cleanup unavailable' : 'Status unavailable'} ${'x'.repeat(1000)}`);
+    const response = await fetch(url, options);
+    if (url.endsWith('/activate')) { activationSent = true; await response.json(); abort.abort(); throw new Error(`Activation response lost ${'x'.repeat(1000)}`); }
+    return response;
+  };
+  const error = await importProjectFile(input, { baseUrl, signal: abort.signal, fetchImpl, pollMs: 1 }).catch(error => error);
+  expect(error).toMatchObject({ importState: 'unconfirmed' });
+  expect(error.message).toMatch(/activation outcome unconfirmed.*inspect.*before retrying/i);
+  expect(error.message).toContain('Activation response lost'); expect(error.message).toContain('Cleanup unavailable'); expect(error.message).toContain('Status unavailable');
+  expect(error.message.length).toBeLessThanOrEqual(600);
+  expect(state.project.name).toBe('Source'); expect(await readdir(temp)).toEqual(['source.json']);
+});
+
+test.each([false, true])('the command recovers a lost activation receipt (SIGINT: %s)', async interrupted => {
+  const { stdout, stderr } = await promisify(execFile)(process.execPath, ['tests/fixtures/import-cli-activation-loss.js', input, 'recover', String(interrupted)], {
+    cwd: join(import.meta.dirname, '..', '..'), env: { ...process.env, SPRITE_PORT: String(server.port) }, timeout: 15000, windowsHide: true,
+  });
+  expect(JSON.parse(stdout)).toMatchObject({ session_id: state.sessionId, project_name: 'Source' });
+  expect(stderr).not.toContain('Import canceled.'); expect(await readdir(temp)).toEqual(['source.json']);
+});
+
+test('the command reports an unconfirmed activation when SIGINT coincides with lost recovery', async () => {
+  const error = await promisify(execFile)(process.execPath, ['tests/fixtures/import-cli-activation-loss.js', input, 'unconfirmed', 'true'], {
+    cwd: join(import.meta.dirname, '..', '..'), env: { ...process.env, SPRITE_PORT: String(server.port) }, timeout: 15000, windowsHide: true,
+  }).catch(error => error);
+  expect(error.code).toBe(1); expect(error.stdout).toBe('');
+  expect(error.stderr).toMatch(/activation outcome unconfirmed.*inspect.*before retrying/i);
+  expect(error.stderr).not.toContain('Import canceled.'); expect(state.project.name).toBe('Source');
+  expect(await readdir(temp)).toEqual(['source.json']);
+});

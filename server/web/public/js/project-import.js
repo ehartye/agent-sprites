@@ -1,5 +1,5 @@
 const ROOT = '/api/workbench/imports';
-const bounded = error => String(error?.message ?? error).slice(0, 600);
+const bounded = (error, length = 600) => String(error?.message ?? error).slice(0, length);
 
 export class ProjectImportController {
   constructor({ getSessionId, isCurrent, onUpdate = () => {}, onComplete = () => {}, fetchImpl = globalThis.fetch.bind(globalThis), XMLHttpRequestImpl = globalThis.XMLHttpRequest, pollMs = 250 }) {
@@ -20,7 +20,12 @@ export class ProjectImportController {
     if (!run.id) return;
     // Cleanup deliberately carries no optimistic active-session header.
     run.removal ??= this.json('DELETE', `${ROOT}/${run.id}`).catch(error => { run.removal = null; throw error; });
-    await run.removal;
+    return await run.removal;
+  }
+  finish(run, receipt) {
+    run.done = true; this.update(run, { state: 'complete', phase: 'complete', receipt });
+    if (this.run === run && !run.canceled && this.isCurrent()) this.onComplete(receipt);
+    return receipt;
   }
   async ensureCurrent(run) {
     if (this.current(run)) return true;
@@ -62,10 +67,8 @@ export class ProjectImportController {
           if (!await this.ensureCurrent(run)) return null;
           // The commit's project broadcast may change the active session before
           // its HTTP receipt arrives. Keep that committed receipt authoritative.
-          const receipt = await this.json('POST', `${ROOT}/${run.id}/activate`, {}, run.sessionId);
-          run.done = true; this.update(run, { state: 'complete', phase: 'complete', receipt });
-          if (this.run === run && !run.canceled && this.isCurrent()) this.onComplete(receipt);
-          return receipt;
+          run.activationSent = true;
+          return this.finish(run, await this.json('POST', `${ROOT}/${run.id}/activate`, {}, run.sessionId));
         }
         await new Promise((resolve, reject) => {
           const abort = () => { clearTimeout(timer); reject(new DOMException('Import canceled', 'AbortError')); };
@@ -76,11 +79,26 @@ export class ProjectImportController {
       }
       return null;
     } catch (error) {
-      if (run.canceled || error.name === 'AbortError') return null;
-      run.done = true; this.update(run, { state: 'failed', phase: 'failed', error: bounded(error) });
       // Free live job capacity after client-side network or session errors.
-      try { await this.remove(run); } catch {}
-      throw new Error(bounded(error));
+      let status, cleanupError, statusError;
+      try { status = await this.remove(run); } catch (failure) { cleanupError = failure; }
+      if (run.activationSent) {
+        // Cleanup's receipt is authoritative even if the commit broadcast has
+        // changed the session. Never replay activation after a transport error.
+        if (!(status?.state === 'complete' && status.receipt) && !['failed', 'canceled'].includes(status?.state)) {
+          try { status = await this.json('GET', `${ROOT}/${run.id}`); } catch (failure) { statusError = failure; }
+        }
+        if (status?.state === 'complete' && status.receipt) return this.finish(run, status.receipt);
+        if (status?.state === 'canceled') {
+          run.done = true; this.update(run, { state: 'canceled', phase: 'canceled' }); return null;
+        }
+      } else if ((run.canceled || error.name === 'AbortError') && !cleanupError) return null;
+      const state = run.activationSent && status?.state !== 'failed' ? 'unconfirmed' : 'failed';
+      const details = [bounded(error, 180), status?.error && `Job: ${bounded(status.error, 100)}`,
+        cleanupError && `Cleanup: ${bounded(cleanupError, 90)}`, statusError && `Status: ${bounded(statusError, 90)}`].filter(Boolean).join(' ');
+      const message = state === 'unconfirmed' ? `Activation outcome unconfirmed; inspect the active project before retrying. ${details}` : details;
+      run.done = true; this.update(run, { state, phase: state, error: message });
+      throw new Error(message, { cause: error });
     } finally {
       run.xhr = null;
       if (!run.done) { run.done = true; this.update(run, { state: 'canceled', phase: 'canceled' }); }

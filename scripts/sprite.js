@@ -665,7 +665,7 @@ async function run() {
         });
         console.log(JSON.stringify(receipt, null, 2));
       } catch (error) {
-        if (!abort.signal.aborted) throw error;
+        if (!abort.signal.aborted || (error.importState && error.importState !== 'canceled')) throw error;
         console.error('Import canceled.'); process.exitCode = 130;
       } finally { process.off('SIGINT', interrupted); }
       return;
