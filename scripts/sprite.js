@@ -561,6 +561,11 @@ async function run() {
       console.log(report.ok ? 'Build published' : 'Build failed; previous output preserved');
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+      const diagnostic = report.generatorStderr ?? report.generatorInput?.stderr;
+      if (diagnostic?.totalBytes > 0) {
+        console.error(`Generator stderr (${diagnostic.totalBytes} bytes total${diagnostic.truncated ? '; truncated' : ''}):`);
+        process.stderr.write(diagnostic.text + (diagnostic.text.endsWith('\n') ? '' : '\n'));
+      }
     }
     if (!report.ok) { process.exitCode = abort.signal.aborted ? 130 : 1; if (abort.signal.aborted) console.error('Build canceled; previous output preserved.'); }
     return;

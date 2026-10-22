@@ -124,3 +124,43 @@ test('actual CLI SIGINT handler cancels its build with JSON failure and status 1
   expect(code).toBe(130); expect(JSON.parse(stdout)).toMatchObject({ ok: false, errors: [expect.objectContaining({ message: expect.stringMatching(/cancel/i) })] });
   expect(stderr).toMatch(/Build canceled/); expect(existsSync(join(dir, 'dist'))).toBe(false); clean();
 });
+
+async function cliBuild(...args) {
+  const child = spawn(process.execPath, [join(process.cwd(), 'scripts/sprite.js'), 'build', config, ...args], { cwd: dir, windowsHide: true });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
+  const code = await new Promise(resolve => child.once('close', resolve));
+  return { code, stdout, stderr };
+}
+
+test('human CLI exposes a failed generator diagnostic with honest bounded truncation', async () => {
+  const diagnostic = 'Required generator input is missing.\n';
+  write(`process.stderr.write(${JSON.stringify(diagnostic)}+'x'.repeat(${200000 - Buffer.byteLength(diagnostic)}));process.exitCode=7;`);
+  const result = await cliBuild();
+  expect(result.code).toBe(1); expect(result.stdout).toContain('Generator exited with code 7.');
+  expect(result.stderr).toContain(diagnostic);
+  expect(result.stderr).toMatch(/Generator stderr.*200000 bytes total.*truncated/);
+  expect(Buffer.byteLength(result.stderr)).toBeLessThan(64 * 1024 + 1024);
+  expect(result.stderr).not.toContain('agent-sprites-generator-');
+  expect(existsSync(join(dir, 'dist'))).toBe(false); clean();
+});
+
+test('human CLI preserves successful generator diagnostics and omits empty diagnostic noise', async () => {
+  const quiet = await cliBuild();
+  expect(quiet.code).toBe(0); expect(quiet.stderr).not.toContain('Generator stderr');
+  const diagnostic = 'Generated optional detail omitted.\n';
+  write(`process.stderr.write(${JSON.stringify(diagnostic)});process.stdout.write(${JSON.stringify(generated)});`);
+  const result = await cliBuild();
+  expect(result.code).toBe(0); expect(result.stderr).toContain(diagnostic);
+  expect(result.stderr).toContain(`Generator stderr (${Buffer.byteLength(diagnostic)} bytes total):`);
+  expect(result.stderr).not.toContain('truncated'); clean();
+});
+
+test('JSON CLI retains bounded generator diagnostics in its exact report without human diagnostic lines', async () => {
+  const diagnostic = 'Check the declared generator input.\n';
+  write(`process.stderr.write(${JSON.stringify(diagnostic)});process.exitCode=3;`);
+  const result = await cliBuild('--json'), report = JSON.parse(result.stdout);
+  expect(result.code).toBe(1); expect(report).toMatchObject({ ok: false, generatorStderr: { text: diagnostic, totalBytes: Buffer.byteLength(diagnostic), truncated: false } });
+  expect(result.stdout).toBe(JSON.stringify(report) + '\n');
+  expect(result.stderr).not.toContain(diagnostic); expect(result.stderr).not.toContain('Generator stderr'); clean();
+});
