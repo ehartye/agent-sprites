@@ -500,16 +500,23 @@ test('a detached cancel control cannot cancel a newer build request', async () =
   } finally { bench.disposeBuild(); }
 });
 
-test('explicit disposal suppresses the result even while the same command and pins remain selected', async () => {
+test.each(['workbench', 'controller'])('%s disposal suppresses the result even while the same command and pins remain selected', async disposal => {
   const wire = await buildView(); wire.start();
+  const owner = bench.builder, receipt = vi.spyOn(owner, 'stream'), notify = vi.spyOn(bench, 'notify');
   wire.push({ type: 'progress', phase: 'committing' });
   await vi.waitFor(() => expect(document.querySelector('[data-build-cancel]').disabled).toBe(true));
-  const owner = bench.builder;
-  bench.disposeBuild(); const contents = bench.body.innerHTML;
+  if (disposal === 'controller') { owner.dispose(); expect(bench.builder).toBe(owner); }
+  else bench.disposeBuild();
+  const contents = bench.body.innerHTML;
+  expect(wire.signal.aborted).toBe(false);
   wire.finish();
-  await vi.waitFor(() => expect(owner.busy).toBe(false));
+  await vi.waitFor(() => { expect(owner.busy).toBe(false); expect(wire.locked).toBe(false); });
+  await expect(receipt.mock.results[0].value).resolves.toMatchObject({ type: 'result', ok: true, data: { ok: true, artifacts: { project: '/out/project.json' } } });
   expect(bench.body.innerHTML).toBe(contents);
+  expect(document.querySelector('.tool-output').textContent).toBe('');
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(false);
   expect(document.getElementById('workbench-status').textContent).toBe('');
+  expect(notify).not.toHaveBeenCalled();
   expect(bench.refresh).not.toHaveBeenCalled();
 });
 

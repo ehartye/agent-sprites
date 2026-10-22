@@ -308,7 +308,7 @@ export class Workbench {
       if (isBuild && (submit.disabled || !selectionCurrent())) return;
       const sessionId = this.sessionId, projectId = this.project?.projectId;
       let activeBuild;
-      const current = () => selectionCurrent() && this.sessionId === sessionId && this.project?.projectId === projectId && (!activeBuild || this.builder === activeBuild);
+      const current = () => selectionCurrent() && this.sessionId === sessionId && this.project?.projectId === projectId && (!activeBuild || (this.builder === activeBuild && !activeBuild.disposed));
       this.run(async () => {
         submit.disabled = true;
         animation.set(null);
