@@ -88,6 +88,14 @@ export function handleNameCell(state, params) {
   const ref = state.project.cells.resolveRef(params.cell);
   const cell = state.project.cells.getCell(params.cell);
   if (cell.name && cell.name !== params.name) canonicalizeCellShapeGroups(state, ref);
+  // Preserve the current owner's frame metadata before this alias resolves elsewhere.
+  if (typeof params.name === 'string') {
+    let owner;
+    try { owner = state.project.cells.resolveRef(params.name); } catch { /* A new name may have no current alias owner. */ }
+    if (owner && owner !== ref && state.project.cells.getCell(owner).name === params.name) {
+      canonicalizeCellShapeGroups(state, owner);
+    }
+  }
   cell.name = params.name;
   state.broadcast?.({ type: 'cell_named', cell: ref, name: params.name });
 }

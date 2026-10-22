@@ -583,4 +583,47 @@ describe('progressive project protocol', () => {
     expect(Object.hasOwn(frame.data.shapeGroups['0,1'], group)).toBe(true);
     expect(frame.data.shapeGroups['0,1'][group]).toEqual(['first', 'second']);
   });
+
+  test('duplicate cell rename preserves the requested alias owner and its unchanged frame version', async () => {
+    for (const [cell, name] of [['0,0', 'first'], ['0,1', 'second'], ['0,2', 'third']]) await api('cell/name', { cell, name });
+    const owner = state.project.cells.getCell('0,1');
+    owner.draw('point', { x: 2, y: 2 }, '#fff', 'owner-shape');
+    owner.draw('point', { x: 3, y: 2 }, '#fff', 'alias-shape');
+    state.db.setShapeGroup(state.sessionId, 'first', 'target-group', ['dot']);
+    state.db.setShapeGroup(state.sessionId, 'second', 'owned-group', ['owner-shape']);
+    state.db.setShapeGroup(state.sessionId, 'second', '__proto__', ['alias-shape']);
+    state.db.setShapeGroup(state.sessionId, '0,1', '__proto__', ['owner-shape']);
+    state.db.setShapeGroup(state.sessionId, 'third', 'unrelated', []);
+    state.db.setShapeGroup(state.sessionId, 'missing-cell', 'orphan', ['foreign-shape']);
+    const foreign = state.db.getShapeGroups(state.sessionId, 'third'), orphan = state.db.getShapeGroups(state.sessionId, 'missing-cell');
+    const before = await summary();
+    const initial = await api(`workbench/frames?refs=0,0|0,1&${pins(before)}`);
+    expect((await api('cell/name', { cell: 'first', name: 'second' })).ok).toBe(true);
+    const after = await summary();
+    const current = await api(`workbench/frames?refs=0,0|0,1&${pins(after)}`);
+    expect(current.data.cells['0,1']).toEqual(initial.data.cells['0,1']);
+    expect(current.data.shapeGroups['0,1']).toEqual(initial.data.shapeGroups['0,1']);
+    expect(current.data.shapeGroups['0,0']).toEqual(initial.data.shapeGroups['0,0']);
+    expect(after.cellVersions['0,0']).toBeGreaterThan(before.cellVersions['0,0']);
+    for (const ref of ['0,1', '0,2']) expect(after.cellVersions[ref]).toBe(before.cellVersions[ref]);
+    expect(state.project.cells.getCell('0,0').name).toBe('second'); expect(owner.name).toBe('second');
+    expect(state.db.getShapeGroups(state.sessionId, '0,1')).toEqual({ ['__proto__']: ['owner-shape'], 'owned-group': ['owner-shape'] });
+    expect(state.db.getShapeGroups(state.sessionId, 'third')).toEqual(foreign);
+    expect(state.db.getShapeGroups(state.sessionId, 'missing-cell')).toEqual(orphan);
+  });
+
+  test('coordinate-like new names do not migrate a different alias owned by their coordinate', async () => {
+    await api('cell/name', { cell: '0,0', name: 'first' });
+    await api('cell/name', { cell: '0,1', name: 'second' });
+    state.db.setShapeGroup(state.sessionId, 'second', 'owned', []);
+    state.db.setShapeGroup(state.sessionId, 'missing-cell', 'orphan', []);
+    const metadata = state.db.getAllShapeGroups(state.sessionId), before = await summary();
+    const initial = await api(`workbench/frames?refs=0,1&${pins(before)}`);
+    expect((await api('cell/name', { cell: '0,0', name: '0,1' })).ok).toBe(true);
+    const after = await summary(), current = await api(`workbench/frames?refs=0,1&${pins(after)}`);
+    expect(state.db.getAllShapeGroups(state.sessionId)).toEqual(metadata);
+    expect(current.data.cells['0,1']).toEqual(initial.data.cells['0,1']);
+    expect(current.data.shapeGroups['0,1']).toEqual(initial.data.shapeGroups['0,1']);
+    expect(after.cellVersions['0,1']).toBe(before.cellVersions['0,1']);
+  });
 });
