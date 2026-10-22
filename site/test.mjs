@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   readFileSync,
+  createReadStream,
   readdirSync,
   statSync,
   existsSync,
@@ -10,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
+import { createGunzip, gunzipSync } from "node:zlib";
 import { resolve, join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMANDS } from "../server/commands/catalog.js";
@@ -28,6 +30,24 @@ const root = fileURLToPath(new URL("..", import.meta.url)),
 const read = (p) => readFileSync(p, "utf8"),
   json = (p) => JSON.parse(read(p));
 const hash = (b) => createHash("sha256").update(b).digest("hex");
+const privatePath =
+  /[A-Z]:[\\/]Users[\\/]|file:\/\/\/|\.wiki-master-vault|\.codex[\\/]work/i;
+async function inspectProjectArchive(path) {
+  const digest = createHash("sha256");
+  let bytes = 0,
+    tail = "";
+  for await (const chunk of createReadStream(path).pipe(createGunzip())) {
+    digest.update(chunk);
+    bytes += chunk.length;
+    const text = tail + chunk.toString("utf8");
+    assert(
+      !privatePath.test(text.replace(/\\\\/g, "\\")),
+      `Machine path in ${path}`,
+    );
+    tail = text.slice(-512);
+  }
+  return { bytes, sha256: digest.digest("hex") };
+}
 const fixture = mkdtempSync(join(tmpdir(), "sprites-site-refresh-"));
 try {
   const example = { name: "sample" };
@@ -323,6 +343,136 @@ for (const s of scenes) {
   }
   assert(!existsSync(join(dist, "source/examples/cozy-cat/.reviews")));
 }
+// Both new scenes must retain native detail, exact 20fps timing and paired
+// editable/color/normal/proof outputs across Windows and LF-only checkouts.
+for (const [name, count, tagName] of [
+  ["play", 160, "little_morning"],
+  ["groom", 120, "paw_wash"],
+]) {
+  const dir = join(dist, "assets/cozy-cat-detail", name),
+    manifest = json(join(dir, "manifest.json")),
+    atlas = json(join(dir, "atlas.json")),
+    normal = json(join(dir, "normal.atlas.json")),
+    proof = json(join(dir, "proof.json")),
+    tag = atlas.meta.frameTags.find((t) => t.name === tagName);
+  assert(tag, `Missing ${name} tag`);
+  assert.equal(tag.loop, true);
+  const sequence = atlasFrames(atlas).slice(tag.from, tag.to + 1);
+  assert.equal(sequence.length, count);
+  assert(sequence.every((f) => f.duration === 50));
+  assert(
+    sequence.every((f) => f.sourceSize.w === 384 && f.sourceSize.h === 256),
+  );
+  assert.deepEqual(atlas.frames, normal.frames);
+  assert.deepEqual(atlas.meta.frameTags, normal.meta.frameTags);
+  assert.deepEqual(atlas.meta.slices, normal.meta.slices);
+  const archive = await inspectProjectArchive(
+    join(dir, manifest.editableProject.file),
+  );
+  assert.equal(archive.bytes, manifest.editableProject.uncompressedBytes);
+  assert.equal(archive.sha256, manifest.editableProject.uncompressedSha256);
+  assert.equal(manifest.editableProject.browserEditorImportable, false);
+  let covered = 0;
+  assert.equal(manifest.editableParts.length, count / 40);
+  for (const part of manifest.editableParts) {
+    assert.equal(part.from, covered);
+    assert.equal(part.to, part.from + part.frameCount - 1);
+    const bytes = gunzipSync(readFileSync(join(dir, part.file)));
+    assert.equal(bytes.length, part.uncompressedBytes);
+    assert.equal(hash(bytes), part.uncompressedSha256);
+    assert(bytes.length < 64 * 1024 * 1024);
+    const text = bytes.toString("utf8"),
+      project = JSON.parse(text);
+    assert(
+      !privatePath.test(text.replace(/\\\\/g, "\\")),
+      `Machine path in ${part.file}`,
+    );
+    assert(Buffer.byteLength(JSON.stringify({ project })) < 64 * 1024 * 1024);
+    assert.equal(Object.keys(project.cells).length, part.frameCount);
+    assert.deepEqual(project.pivot, { x: 0, y: 0 });
+    const refs = project.groups[part.tag];
+    assert.equal(refs.length, part.frameCount);
+    assert.equal(project.animationLoops[part.tag], false);
+    assert.equal(project.constructionReplay, undefined);
+    assert(
+      refs.every(
+        (ref) => project.cells[ref] && project.frameDurations[ref] === 50,
+      ),
+    );
+    const shapes = Object.values(project.cells).reduce(
+      (sum, cell) => sum + cell.shapes.length,
+      0,
+    );
+    assert.equal(shapes, part.shapeCount);
+    assert(shapes <= 200_000);
+    covered += part.frameCount;
+  }
+  assert.equal(covered, count);
+  assert.equal(manifest.editableBundle.file, "editor-projects.zip");
+  assert.equal(manifest.width, 384);
+  assert.equal(manifest.height, 256);
+  assert.equal(manifest.tag, tagName);
+  assert.equal(manifest.sourceFrames, count);
+  assert.equal(manifest.durationMs, count * 50);
+  assert.equal(manifest.frameDurationMs, 50);
+  assert.equal(manifest.storyBeats[0].frame, 0);
+  assert(manifest.storyBeats.length >= 3);
+  assert(
+    manifest.storyBeats.every(
+      (b, i, beats) =>
+        Number.isInteger(b.frame) &&
+        b.frame >= 0 &&
+        b.frame < count &&
+        (i === 0 || b.frame > beats[i - 1].frame) &&
+        b.title &&
+        b.description,
+    ),
+  );
+  assert.equal(proof.ok, true);
+  assert.equal(proof.durationMs, count * 50);
+  assert.equal(proof.loop, true);
+  assert.equal(proof.gif.driftMs, 0);
+  assert.equal(proof.kind, "composed-full-sequence");
+  assert.equal(proof.pageCopyDifferentPixels, 0);
+  covered = 0;
+  for (const part of proof.officialParts) {
+    assert.equal(part.from, covered);
+    const bytes = readFileSync(join(dir, part.report)),
+      native = JSON.parse(bytes);
+    assert.equal(hash(bytes), part.sha256);
+    assert.equal(native.ok, true);
+    assert.equal(native.frameCount, part.frameCount);
+    assert.equal(native.durationMs, part.frameCount * 50);
+    assert.equal(native.gif.driftMs, 0);
+    covered += part.frameCount;
+  }
+  assert.equal(covered, count);
+  for (const [path, receipt] of Object.entries(manifest.integrity)) {
+    const bytes = readFileSync(join(dir, path));
+    assert.equal(
+      bytes.length,
+      receipt.bytes,
+      `Detailed cat artifact size: ${name}/${path}`,
+    );
+    assert.equal(
+      hash(bytes),
+      receipt.sha256,
+      `Detailed cat artifact drift: ${name}/${path}`,
+    );
+  }
+  for (const input of manifest.sourceInputs) {
+    const bytes = readFileSync(
+      join(root, "examples/cozy-cat-detail", input.path),
+    );
+    if (hash(bytes) !== input.sha256)
+      assert.equal(
+        hash(Buffer.from(bytes.toString("utf8").replace(/\r\n?/g, "\n"))),
+        input.normalizedTextSha256,
+        `Detailed cat source drift: ${input.path}`,
+      );
+  }
+}
+assert(!existsSync(join(dist, "source/examples/cozy-cat-detail/.reviews")));
 for (const name of ["index.html", "tessel.html", "cat.html"]) {
   const html = read(join(dist, name));
   for (const match of html.matchAll(/(?:href|src)="(\.\/[^"#]+)(?:#[^"]*)?"/g))
@@ -332,5 +482,5 @@ for (const name of ["index.html", "tessel.html", "cat.html"]) {
     );
 }
 console.log(
-  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scenes; Tessel's 128 cells/16 tags/8 GIF receipts; Marmalade's 80-pose story/paired atlases/GIF receipt; timing, atlas bounds, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
+  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scenes; Tessel's 128 cells/16 tags/8 GIF receipts; Marmalade's original 80-pose short and new 160/120-pose detailed scenes; timing, paired atlases, GIF receipts, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
 );

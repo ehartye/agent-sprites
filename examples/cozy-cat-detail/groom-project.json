@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "ops": ".generated-groom-ops.json",
+  "inputs": [
+    "groom.mjs",
+    "generate.mjs",
+    "art.mjs",
+    "geometry.mjs",
+    "timeline.mjs",
+    "palette.json",
+    "build.mjs",
+    "delivery.mjs",
+    "unpack.mjs",
+    "../../server/web/public/js/shared/raster.js",
+    "../../server/web/public/js/shared/patterns.js"
+  ],
+  "output": "dist-groom-v2",
+  "normal": true,
+  "scale": 1,
+  "expectedTags": ["paw_wash"],
+  "replay": { "cells": ["0,0"], "maxSteps": 24 }
+}
