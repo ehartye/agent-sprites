@@ -538,4 +538,49 @@ describe('progressive project protocol', () => {
     const after = await summary();
     expect(after.cellVersions['0,2']).toBe(before.cellVersions['0,2']);
   });
+
+  test('draw auto-grouping writes canonical ownership for a named cell and expires only its frame', async () => {
+    await api('cell/name', { cell: '0,0', name: 'legacy' });
+    const before = await summary();
+    const drawn = await api('draw', { type: 'point', cell: 'legacy', x: 2, y: 2, color: '#fff', shape_name: 'joined', group: 'new-part' });
+    expect(drawn.ok, drawn.error).toBe(true);
+    expect(state.db.getShapeGroups(state.sessionId, '0,0')).toEqual({ 'new-part': ['joined'] });
+    expect(state.db.getShapeGroups(state.sessionId, 'legacy')).toEqual({});
+    const after = await summary();
+    expect(after.cellVersions['0,0']).toBeGreaterThan(before.cellVersions['0,0']);
+    for (const ref of ['0,1', '0,2']) expect(after.cellVersions[ref]).toBe(before.cellVersions[ref]);
+    const frame = await api(`workbench/frames?refs=0,0&${pins(after)}`);
+    expect(frame.data.shapeGroups['0,0']).toEqual({ 'new-part': ['joined'] });
+  });
+
+  test('draw auto-grouping retains existing members with canonical precedence and leaves legacy owners untouched', async () => {
+    await api('cell/name', { cell: '0,0', name: 'legacy' });
+    state.project.cells.getCell('0,0').draw('point', { x: 3, y: 2 }, '#fff', 'alias-member');
+    state.db.setShapeGroup(state.sessionId, '0,0', 'part', ['dot']);
+    state.db.setShapeGroup(state.sessionId, 'legacy', 'part', ['alias-member']);
+    state.db.setShapeGroup(state.sessionId, 'legacy', 'alias-only', ['alias-member']);
+    const legacy = state.db.getShapeGroups(state.sessionId, 'legacy');
+    for (const [group, shape] of [['part', 'joined'], ['alias-only', 'joined-alias']]) {
+      const result = await api('draw', { type: 'point', cell: 'legacy', x: 2, y: 2, color: '#fff', shape_name: shape, group });
+      expect(result.ok, result.error).toBe(true);
+    }
+    expect(state.db.getShapeGroups(state.sessionId, '0,0')).toEqual({ part: ['dot', 'joined'], 'alias-only': ['alias-member', 'joined-alias'] });
+    expect(state.db.getShapeGroups(state.sessionId, 'legacy')).toEqual(legacy);
+  });
+
+  test.each(['__proto__', 'constructor', 'toString'])('draw auto-grouping treats %s as an own group name and retains its members', async group => {
+    const before = await summary();
+    for (const name of ['first', 'second']) {
+      const drawn = await api('draw', { type: 'point', cell: '0,1', x: 1, y: 1, color: '#fff', shape_name: name, group });
+      expect(drawn.ok, drawn.error).toBe(true);
+    }
+    const groups = state.db.getShapeGroups(state.sessionId, '0,1');
+    expect(Object.hasOwn(groups, group)).toBe(true); expect(groups[group]).toEqual(['first', 'second']);
+    const after = await summary();
+    expect(after.cellVersions['0,1']).toBeGreaterThan(before.cellVersions['0,1']);
+    for (const ref of ['0,0', '0,2']) expect(after.cellVersions[ref]).toBe(before.cellVersions[ref]);
+    const frame = await api(`workbench/frames?refs=0,1&${pins(after)}`);
+    expect(Object.hasOwn(frame.data.shapeGroups['0,1'], group)).toBe(true);
+    expect(frame.data.shapeGroups['0,1'][group]).toEqual(['first', 'second']);
+  });
 });

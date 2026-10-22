@@ -6,6 +6,7 @@ import { validateSurface, SURFACE_LIMITS } from '../web/public/js/shared/surface
 import { validateSurfaceScene, surfacePrimitiveWork } from '../web/public/js/shared/surface-raster.js';
 import { editCells } from './edit.js';
 import { publishPayload } from '../project-publication.js';
+import { getCellShapeGroups } from '../project-state.js';
 
 /**
  * Compute bounding box from shape type + params.
@@ -579,9 +580,11 @@ function _applyAutoGroupings(state, params, result) {
     const emitted = result?.shapeNames
       ?? (result?.shapeName ? [result.shapeName] : []);
     if (emitted.length) {
-      const existing = (state.db.getShapeGroups(state.sessionId, params.cell) || {})[params.group] ?? [];
+      const ref = state.project.cells.resolveRef(params.cell);
+      const groups = getCellShapeGroups(state, ref);
+      const existing = Object.hasOwn(groups, params.group) ? groups[params.group] ?? [] : [];
       const merged = [...new Set([...existing, ...emitted])];
-      state.db.setShapeGroup(state.sessionId, params.cell, params.group, merged);
+      state.db.setShapeGroup(state.sessionId, ref, params.group, merged);
     }
   }
 
