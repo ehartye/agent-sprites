@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "canvas": {
+    "w": 64,
+    "h": 64
+  },
+  "scale": 4,
+  "matte": "#171d2c",
+  "tracks": [
+    {
+      "name": "idle",
+      "atlas": "../../atlas.json",
+      "tag": "idle_right",
+      "x": 32,
+      "y": 55,
+      "anchor": "pivot"
+    }
+  ]
+}

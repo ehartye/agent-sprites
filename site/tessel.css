@@ -1,0 +1,607 @@
+.tessel-intro {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr;
+  gap: 60px;
+  align-items: end;
+  padding-top: 35px;
+  padding-bottom: 45px;
+}
+.tessel-intro > .intro-note {
+  max-width: 270px;
+  justify-self: end;
+}
+.tessel-intro h1 {
+  font:
+    clamp(65px, 7.6vw, 110px) / 0.9 Pixelify,
+    sans-serif;
+  letter-spacing: -0.055em;
+  margin: 24px 0;
+}
+.tessel-intro h1 span {
+  color: var(--blue);
+}
+.tessel-lede {
+  font-size: 21px;
+  letter-spacing: -0.025em;
+  line-height: 1.45;
+}
+.intro-note > span {
+  font: 66px Pixelify;
+  color: var(--blue);
+}
+.intro-note p:not(.eyebrow) {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 8px 0 22px;
+}
+.intro-note .eyebrow {
+  font-size: 10px;
+  line-height: 1.8;
+}
+.tessel-workbench {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 55px;
+  padding-top: 25px;
+  padding-bottom: 65px;
+  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+.tessel-stage-side {
+  min-width: 0;
+}
+.specimen-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  font: 9px var(--mono);
+  padding-bottom: 12px;
+}
+.tessel-stage {
+  background: #182633;
+  min-height: 448px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  border: 1px solid #33434c;
+}
+.tessel-stage.paper {
+  background: #e9d8bc;
+  border-color: #ccbaa0;
+}
+.tessel-stage.moss {
+  background: #657866;
+  border-color: #536754;
+}
+.tessel-stage canvas {
+  width: 384px;
+  height: 384px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+.stage-caption {
+  position: absolute;
+  bottom: 13px;
+  left: 15px;
+  color: #93a5ad;
+  font: 8px var(--mono);
+  letter-spacing: 0.04em;
+}
+.tessel-stage.paper .stage-caption {
+  color: #665848;
+}
+.tessel-stage.moss .stage-caption {
+  color: #fff8dc;
+}
+.tessel-stage.paper .stage-caption {
+  color: #756b5c;
+}
+.stage-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  flex-wrap: wrap;
+}
+.stage-swatches > span {
+  font: 9px var(--mono);
+  margin-right: 6px;
+}
+.stage-swatches button {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--paper);
+  outline: 1px solid var(--line);
+  background: #182633;
+}
+.stage-swatches button[data-background="paper"] {
+  background: #e9d8bc;
+}
+.stage-swatches button[data-background="moss"] {
+  background: #657866;
+}
+.stage-swatches button.chosen {
+  outline: 2px solid var(--blue);
+}
+.stage-swatches p {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.tessel-controls {
+  min-width: 0;
+}
+.tessel-controls > .eyebrow {
+  margin-bottom: 13px;
+}
+.action-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  margin-bottom: 30px;
+}
+.action-tabs button {
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 11px 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.action-tabs button:hover {
+  background: #e9ebdf;
+}
+.action-tabs button[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.tessel-controls h2 {
+  font-size: 39px;
+  margin: 12px 0 15px;
+}
+.tessel-controls #action-description {
+  font-size: 14px;
+  color: var(--muted);
+  min-height: 46px;
+}
+.character-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 24px 0;
+}
+.tessel-controls label {
+  font: 10px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tessel-controls select {
+  display: block;
+  width: 100%;
+  font:
+    12px DM,
+    sans-serif;
+  background: var(--white);
+  border: 1px solid var(--line);
+  padding: 9px 10px;
+  margin-top: 8px;
+  color: var(--ink);
+}
+.frame-control {
+  display: block;
+}
+.frame-control input {
+  display: block;
+  width: 100%;
+  margin: 12px 0 10px;
+  accent-color: var(--blue);
+}
+#frame-readout {
+  display: block;
+  min-height: 34px;
+  font: 10px/1.6 var(--mono);
+  color: var(--muted);
+}
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin-top: 15px;
+}
+.transport .button {
+  font-size: 12px;
+  padding: 10px 17px;
+  min-height: 44px;
+}
+.transport .text-button {
+  font-size: 11px;
+}
+.playback-policy {
+  font: 10px/1.7 var(--mono);
+  color: var(--muted);
+  margin-top: 16px;
+}
+.tessel-gallery {
+  padding-top: 65px;
+  padding-bottom: 65px;
+}
+.action-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 18px;
+}
+.action-study {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+.action-study button {
+  padding: 0;
+  width: 100%;
+  border: 0;
+  background: none;
+  display: block;
+  text-align: left;
+  color: var(--ink);
+}
+.action-study .study-stage {
+  background: #22333d;
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+}
+.study-stage canvas {
+  display: block;
+  width: 192px;
+  height: 192px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.study-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.study-title strong {
+  font: 27px Pixelify;
+  letter-spacing: -0.04em;
+}
+.study-title span {
+  font: 9px var(--mono);
+  color: var(--muted);
+}
+.action-study > div:last-child {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding: 8px 14px;
+  font: 9px var(--mono);
+  color: var(--muted);
+}
+.action-study a {
+  color: var(--blue);
+}
+.tessel-craft {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 70px;
+  border-top: 1px solid var(--line);
+  padding-block: 50px;
+}
+.tessel-craft .eyebrow,
+.tessel-downloads .eyebrow {
+  color: var(--blue);
+  margin-bottom: 20px;
+}
+.tessel-craft h2,
+.tessel-downloads h2 {
+  font-size: 45px;
+}
+.tessel-craft > div > p:last-child {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin-top: 23px;
+  max-width: 430px;
+}
+.tessel-craft-list p {
+  font-size: 13px;
+  padding: 17px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 18px;
+}
+.tessel-craft-list p span {
+  font: 10px var(--mono);
+  color: var(--blue);
+  padding-top: 5px;
+}
+.tessel-downloads {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 70px;
+  padding-block: 50px 75px;
+  border-top: 1px solid var(--line);
+}
+.tessel-downloads > div > p:last-child {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 20px;
+  max-width: 340px;
+}
+.download-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 25px;
+}
+.download-grid a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 15px 0;
+}
+.download-grid a:hover {
+  color: var(--blue);
+}
+.download-grid a span {
+  font: 9px var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tessel-error:empty {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .tessel-intro {
+    gap: 35px;
+  }
+  .tessel-workbench {
+    gap: 32px;
+  }
+  .tessel-stage {
+    min-height: 390px;
+  }
+  .tessel-stage canvas {
+    width: 336px;
+    height: 336px;
+  }
+  .tessel-controls h2 {
+    font-size: 34px;
+  }
+  .stage-swatches p {
+    width: 100%;
+    margin-left: 0;
+  }
+  .action-gallery {
+    gap: 18px 13px;
+  }
+  .action-study .study-stage {
+    min-height: 190px;
+  }
+  .study-stage canvas {
+    width: 160px;
+    height: 160px;
+  }
+  .study-title {
+    padding: 10px;
+  }
+  .study-title strong {
+    font-size: 25px;
+  }
+  .study-title span {
+    font-size: 8px;
+  }
+  .tessel-craft,
+  .tessel-downloads {
+    gap: 40px;
+  }
+}
+@media (max-width: 800px) {
+  .tessel-intro {
+    grid-template-columns: 1fr;
+    padding-bottom: 15px;
+  }
+  .tessel-intro > .intro-note {
+    display: none;
+  }
+  .tessel-intro h1 {
+    font-size: 83px;
+  }
+  .tessel-workbench {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .tessel-stage {
+    min-height: 320px;
+  }
+  .tessel-stage canvas {
+    width: 288px;
+    height: 288px;
+  }
+  .tessel-controls h2 {
+    font-size: 30px;
+  }
+  .tessel-controls #action-description {
+    font-size: 12px;
+  }
+  .action-tabs {
+    margin-bottom: 20px;
+  }
+  .action-tabs button {
+    font-size: 10px;
+    padding: 10px 2px;
+  }
+  .character-options {
+    margin: 17px 0;
+    gap: 10px;
+  }
+  .tessel-controls select {
+    font-size: 11px;
+    padding: 8px 5px;
+  }
+  .transport {
+    gap: 13px;
+  }
+  .transport .button {
+    font-size: 10px;
+    gap: 0;
+    padding: 8px 12px;
+  }
+  .transport .text-button {
+    font-size: 10px;
+  }
+  .action-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .action-study .study-stage {
+    min-height: 220px;
+  }
+  .study-stage canvas {
+    width: 192px;
+    height: 192px;
+  }
+  .study-title strong {
+    font-size: 28px;
+  }
+  .study-title span {
+    font-size: 9px;
+  }
+  .tessel-craft h2,
+  .tessel-downloads h2 {
+    font-size: 36px;
+  }
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+  .tessel-craft {
+    gap: 30px;
+  }
+  .tessel-craft-list p {
+    font-size: 11px;
+  }
+  .tessel-downloads {
+    gap: 30px;
+  }
+}
+@media (max-width: 520px) {
+  .tessel-intro {
+    padding-top: 20px;
+  }
+  .tessel-intro > .eyebrow {
+    font-size: 9px;
+  }
+  .tessel-intro h1 {
+    font-size: clamp(58px, 16vw, 77px);
+    margin: 20px 0;
+  }
+  .tessel-lede {
+    font-size: 18px;
+  }
+  .tessel-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 25px;
+    gap: 30px;
+    padding-bottom: 40px;
+  }
+  .tessel-stage {
+    min-height: 350px;
+  }
+  .tessel-stage canvas {
+    width: 320px;
+    height: 320px;
+  }
+  .stage-swatches p {
+    width: auto;
+    margin-left: 0;
+    font-size: 9px;
+  }
+  .stage-swatches > span {
+    font-size: 8px;
+  }
+  .tessel-controls h2 {
+    font-size: 35px;
+  }
+  .tessel-controls #action-description {
+    font-size: 14px;
+    min-height: 0;
+  }
+  .action-tabs button {
+    font-size: 12px;
+    padding: 12px 4px;
+  }
+  .character-options {
+    margin: 22px 0;
+  }
+  .tessel-controls select {
+    font-size: 13px;
+    padding: 10px;
+  }
+  .transport .button {
+    font-size: 12px;
+    padding: 10px 16px;
+  }
+  .transport .text-button {
+    font-size: 11px;
+  }
+  .tessel-gallery {
+    padding-block: 45px;
+  }
+  .action-gallery {
+    gap: 15px 11px;
+  }
+  .action-study .study-stage {
+    min-height: 155px;
+  }
+  .study-stage canvas {
+    width: 144px;
+    height: 144px;
+  }
+  .study-title {
+    gap: 5px;
+    padding: 10px 8px;
+  }
+  .study-title strong {
+    font-size: 24px;
+  }
+  .study-title span {
+    font-size: 7px;
+  }
+  .action-study > div:last-child {
+    padding: 7px 8px;
+    font-size: 8px;
+  }
+  .tessel-craft,
+  .tessel-downloads {
+    display: block;
+    padding-block: 35px 40px;
+  }
+  .tessel-craft-list {
+    margin-top: 25px;
+  }
+  .tessel-craft-list p {
+    font-size: 13px;
+  }
+  .download-grid {
+    margin-top: 25px;
+  }
+  .tessel-craft h2,
+  .tessel-downloads h2 {
+    font-size: 38px;
+  }
+  .tessel-page footer .brand {
+    font-size: 20px;
+  }
+  .tessel-page footer > div {
+    font-size: 9px;
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "ok": true,
+  "version": 1,
+  "width": 256,
+  "height": 256,
+  "frameCount": 8,
+  "durationMs": 1600,
+  "loop": true,
+  "scale": 4,
+  "canvas": {
+    "w": 64,
+    "h": 64
+  },
+  "matte": "#171d2c",
+  "timeline": {
+    "durationMs": 1600,
+    "loop": true,
+    "steps": [
+      {
+        "atMs": 0,
+        "durationMs": 300,
+        "frames": [
+          200
+        ]
+      },
+      {
+        "atMs": 300,
+        "durationMs": 180,
+        "frames": [
+          201
+        ]
+      },
+      {
+        "atMs": 480,
+        "durationMs": 160,
+        "frames": [
+          202
+        ]
+      },
+      {
+        "atMs": 640,
+        "durationMs": 100,
+        "frames": [
+          203
+        ]
+      },
+      {
+        "atMs": 740,
+        "durationMs": 100,
+        "frames": [
+          204
+        ]
+      },
+      {
+        "atMs": 840,
+        "durationMs": 160,
+        "frames": [
+          205
+        ]
+      },
+      {
+        "atMs": 1000,
+        "durationMs": 300,
+        "frames": [
+          206
+        ]
+      },
+      {
+        "atMs": 1300,
+        "durationMs": 300,
+        "frames": [
+          207
+        ]
+      }
+    ]
+  },
+  "gif": {
+    "loop": true,
+    "pages": 8,
+    "delaysMs": [
+      300,
+      180,
+      160,
+      100,
+      100,
+      160,
+      300,
+      300
+    ],
+    "durationMs": 1600,
+    "requestedDurationMs": 1600,
+    "driftMs": 0,
+    "timing": [
+      {
+        "atMs": 0,
+        "requestedMs": 300,
+        "encodedMs": 300,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 300,
+        "requestedMs": 180,
+        "encodedMs": 180,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 480,
+        "requestedMs": 160,
+        "encodedMs": 160,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 640,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 740,
+        "requestedMs": 100,
+        "encodedMs": 100,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 840,
+        "requestedMs": 160,
+        "encodedMs": 160,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1000,
+        "requestedMs": 300,
+        "encodedMs": 300,
+        "boundaryDriftMs": 0
+      },
+      {
+        "atMs": 1300,
+        "requestedMs": 300,
+        "encodedMs": 300,
+        "boundaryDriftMs": 0
+      }
+    ],
+    "pixelComparison": {
+      "exact": true,
+      "differentPixels": 0,
+      "maxChannelError": 0,
+      "transparentPixels": "RGB ignored where alpha is zero"
+    },
+    "paletteLimit": 256
+  },
+  "contact": {
+    "tiles": 8,
+    "columns": 3,
+    "width": 776,
+    "height": 830
+  },
+  "limits": {
+    "maxTracks": 16,
+    "maxSteps": 4096,
+    "maxDurationMs": 60000,
+    "maxLogicalSide": 2048,
+    "maxScale": 8,
+    "maxRasterPixels": 64000000,
+    "maxContactSide": 32767,
+    "rasterPixels": 2774000,
+    "rasterFormula": "unique PNG pixels + steps * logical canvas pixels * tracks + 3 * steps * scaled canvas pixels + contact pixels"
+  },
+  "tracks": [
+    {
+      "name": "idle",
+      "atlas": "../../atlas.json",
+      "image": "../../sheet.png",
+      "loop": true,
+      "sequence": [
+        {
+          "index": 200,
+          "duration": 300
+        },
+        {
+          "index": 201,
+          "duration": 180
+        },
+        {
+          "index": 202,
+          "duration": 160
+        },
+        {
+          "index": 203,
+          "duration": 100
+        },
+        {
+          "index": 204,
+          "duration": 100
+        },
+        {
+          "index": 205,
+          "duration": 160
+        },
+        {
+          "index": 206,
+          "duration": 300
+        },
+        {
+          "index": 207,
+          "duration": 300
+        }
+      ],
+      "origins": [
+        {
+          "index": 200,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 201,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 202,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 203,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 204,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 205,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 206,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "index": 207,
+          "x": 0,
+          "y": 0
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "inputs": [
+      {
+        "path": "proof-input.json",
+        "sha256": "09e422d4fedb8994314d90148c746e69a4404f380e5731415eb2b2167b92f305",
+        "bytes": 268
+      },
+      {
+        "path": "../../atlas.json",
+        "sha256": "d654516bc82529eb7e38622bdc0f277770f08394fe76a8e4852c943e9bf1c56b",
+        "bytes": 196943
+      },
+      {
+        "path": "../../sheet.png",
+        "sha256": "2f8b97ba3b55d986b454979bc80a9c4cc33c9dfb15205deff37b4c0c1285c37d",
+        "bytes": 62493
+      }
+    ]
+  },
+  "artifacts": {
+    "gif": "scene.gif",
+    "contact": "contact.png",
+    "frames": [
+      "frames/0000.png",
+      "frames/0001.png",
+      "frames/0002.png",
+      "frames/0003.png",
+      "frames/0004.png",
+      "frames/0005.png",
+      "frames/0006.png",
+      "frames/0007.png"
+    ],
+    "report": "proof.json"
+  },
+  "publication": {
+    "paths": "Relocated to portable paths; GIF pixels, timings and input hashes are unchanged.",
+    "input": "proof-input.json"
+  }
+}

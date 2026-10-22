@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Meet Tessel, the Foldback: an original pixel-art character with eight actions, sixteen directional animations, editable geometry and paired normal atlases."
+    />
+    <meta name="theme-color" content="#f5f2e8" />
+    <title>Tessel, the Foldback — Agent Sprites</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23db8277' d='M3 3h10v2h2v6H1V5h2z'/%3E%3Cpath fill='%2331676a' d='M3 11h10v3h-2v1H9v-1H6v1H4v-1H3z'/%3E%3Cpath fill='%23fff5cc' d='M11 9h2v2h-2z'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./tessel.css" />
+    <script type="module" src="./tessel.js"></script>
+  </head>
+  <body class="tessel-page">
+    <a class="skip" href="#animation-workbench">Skip to the animation player</a>
+    <header class="masthead wrap">
+      <a class="brand" href="./"
+        ><span class="brand-mark" aria-hidden="true">✦</span> agent sprites<span
+          class="edition"
+          >CHARACTER STUDY / 02</span
+        ></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="./#field-guide">The field guide ↗</a
+        ><a
+          href="https://github.com/ehartye/agent-sprites/tree/main/examples/tessel"
+          >Source ↗</a
+        >
+      </nav>
+    </header>
+    <main>
+      <section class="tessel-intro wrap">
+        <div>
+          <p class="eyebrow">
+            AN ORIGINAL CHARACTER / BUILT WITH AGENT SPRITES
+          </p>
+          <h1>Tessel,<br /><span>the Foldback.</span></h1>
+          <p class="tessel-lede">
+            A crescent shell. Six little feet.<br />A different way to move
+            through the world.
+          </p>
+        </div>
+        <div class="intro-note">
+          <span aria-hidden="true">✧</span>
+          <p>
+            New silhouette, anatomy and pose keys. An expressive creature drawn
+            from named, editable geometry.
+          </p>
+          <p class="eyebrow">
+            64 × 64 SOURCE PIXELS<br />8 ACTIONS / 16 DIRECTIONAL ANIMATIONS
+          </p>
+        </div>
+      </section>
+      <section
+        class="tessel-workbench wrap"
+        id="animation-workbench"
+        aria-labelledby="current-action-title"
+      >
+        <div class="tessel-stage-side">
+          <div class="specimen-heading">
+            <span>LIVE SPECIMEN / <span id="specimen-channel">COLOR</span></span
+            ><button id="all-motion" class="text-button" aria-pressed="false">
+              Pause all motion Ⅱ
+            </button>
+          </div>
+          <div class="tessel-stage" id="stage">
+            <canvas
+              id="character"
+              width="384"
+              height="384"
+              role="img"
+              aria-label="Tessel, the Foldback"
+            ></canvas
+            ><span class="stage-caption">NEAREST NEIGHBOR / ORIGIN 32,55</span>
+          </div>
+          <div
+            class="stage-swatches"
+            role="group"
+            aria-label="Preview background"
+          >
+            <span>BACKGROUND</span
+            ><button
+              data-background="night"
+              class="chosen"
+              aria-label="Night background"
+              aria-pressed="true"
+            ></button
+            ><button
+              data-background="paper"
+              aria-label="Paper background"
+              aria-pressed="false"
+            ></button
+            ><button
+              data-background="moss"
+              aria-label="Moss background"
+              aria-pressed="false"
+            ></button>
+            <p>Transparent source. Pick a place for it.</p>
+          </div>
+        </div>
+        <div class="tessel-controls">
+          <p class="eyebrow">MOTION STUDIES</p>
+          <div
+            id="action-tabs"
+            class="action-tabs"
+            role="tablist"
+            aria-label="Character action"
+          ></div>
+          <div id="action-panel" role="tabpanel" aria-labelledby="action-idle">
+            <p class="eyebrow" id="action-number">01 / IDLE</p>
+            <h2 id="current-action-title">A quiet pulse.</h2>
+            <p id="action-description" aria-live="polite">
+              A quiet pulse beneath the shell.
+            </p>
+            <div class="character-options">
+              <label
+                >Facing<select id="facing">
+                  <option value="right">Right</option>
+                  <option value="left">Left</option>
+                </select></label
+              ><label
+                >Surface channel<select id="channel">
+                  <option value="color">Color</option>
+                  <option value="normal">Normal</option>
+                </select></label
+              >
+            </div>
+            <label class="frame-control"
+              >Inspect the pose<input
+                type="range"
+                min="0"
+                max="7"
+                value="0"
+                id="pose" /></label
+            ><output id="frame-readout" aria-live="off"
+              >Loading the exported animation…</output
+            >
+            <div class="transport">
+              <button class="button primary" id="play-action" disabled>
+                Pause action Ⅱ</button
+              ><button class="text-button" id="restart-action" disabled>
+                Start again ↶
+              </button>
+            </div>
+            <p class="playback-policy" id="playback-policy"></p>
+          </div>
+          <p id="tessel-error" role="alert" class="error"></p>
+        </div>
+      </section>
+      <section class="tessel-gallery wrap" aria-labelledby="gallery-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE MOVEMENT VOCABULARY</p>
+            <h2 id="gallery-title">
+              Eight little<br /><em>states of being.</em>
+            </h2>
+          </div>
+          <p>
+            Gallery studies repeat for comparison.<br />The main player honors
+            each action’s loop policy.
+          </p>
+        </div>
+        <div id="action-gallery" class="action-gallery"></div>
+      </section>
+      <section class="tessel-craft wrap">
+        <div>
+          <p class="eyebrow">UNDER THE SHELL</p>
+          <h2>A character you<br />can keep shaping.</h2>
+          <p>
+            Named feet, shell plates, tail and face remain editable. Reusable
+            parts, retained surfaces, exact timing and a recorded construction
+            history give the design handles for its next iteration.
+          </p>
+        </div>
+        <div class="tessel-craft-list">
+          <p>
+            <span>01</span> Color and normal atlases with matching packing,
+            timing and pivots.
+          </p>
+          <p>
+            <span>02</span> A complete editable project and readable original
+            drawing and motion source.
+          </p>
+          <p>
+            <span>03</span> GIFs proved from the actual exported atlas, with
+            measured timing and color conversion.
+          </p>
+          <p>
+            <span>04</span> An immutable construction recording for the first
+            authored pose.
+          </p>
+        </div>
+      </section>
+      <section class="tessel-downloads wrap" aria-labelledby="downloads-title">
+        <div>
+          <p class="eyebrow">TAKE TESSEL WITH YOU</p>
+          <h2 id="downloads-title">Open it up.<br />Make it your own.</h2>
+          <p>
+            Editable project JSON opens in the local Agent Sprites workbench.
+            Keep PNGs and atlas JSON together for game import.
+          </p>
+        </div>
+        <div class="download-grid">
+          <a href="./assets/tessel/project.json" download
+            >Editable project <span>JSON ↓</span></a
+          ><a href="./assets/tessel/sheet.png" download
+            >Color sheet <span>PNG ↓</span></a
+          ><a href="./assets/tessel/atlas.json" download
+            >Color atlas <span>JSON ↓</span></a
+          ><a href="./assets/tessel/normal.png" download
+            >Normal sheet <span>PNG ↓</span></a
+          ><a href="./assets/tessel/normal.atlas.json" download
+            >Normal atlas <span>JSON ↓</span></a
+          ><a href="./assets/tessel/replay.json" download
+            >Construction replay <span>JSON ↓</span></a
+          ><a href="./assets/tessel/montage.gif" download
+            >Eight-action montage <span>GIF ↓</span></a
+          ><a
+            href="https://github.com/ehartye/agent-sprites/tree/main/examples/tessel"
+            >Drawing & motion source <span>GITHUB ↗</span></a
+          >
+        </div>
+      </section>
+    </main>
+    <footer class="wrap">
+      <a class="brand" href="./">✦ agent sprites</a>
+      <p>A new form. A little personality.</p>
+      <div>
+        <a href="./">Back to the field guide ↗</a
+        ><a href="./LICENSE">MIT license</a>
+      </div>
+    </footer>
+    <noscript
+      ><p class="wrap">
+        JavaScript powers the animation player.
+        <a href="./assets/tessel/montage.gif">View the animation montage</a> or
+        download the files above.
+      </p></noscript
+    >
+  </body>
+</html>

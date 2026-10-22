@@ -520,6 +520,7 @@ export async function mountLab(
             ["native-character", "Native adventurer"],
             ["character-cast", "Community cast"],
             ["creature", "Dust ox"],
+            ["tessel", "Tessel · original Foldback"],
           ])
         : isExport
           ? select(
@@ -590,10 +591,13 @@ export async function mountLab(
             : isExport
               ? q("#asset").value
               : "animated-composition",
-          base = isExport ? "scenes" : "examples";
+          base =
+            asset === "tessel"
+              ? "./assets/tessel"
+              : `./assets/${isExport ? "scenes" : "examples"}/${asset}`;
         const values = await Promise.all([
-          json(`./assets/${base}/${asset}/atlas.json`),
-          image(`./assets/${base}/${asset}/sheet.png`),
+          json(`${base}/atlas.json`),
+          image(`${base}/sheet.png`),
         ]);
         if (disposed || v !== version) return;
         [a, img] = values;
@@ -604,8 +608,10 @@ export async function mountLab(
         if (a.meta.frameTags?.length)
           q("#tag").value = isCharacter
             ? (
-                a.meta.frameTags.find((t) =>
-                  /walk.*(front|right)/.test(t.name),
+                a.meta.frameTags.find(
+                  (t) =>
+                    t.name === "scuttle_right" ||
+                    /walk.*(front|right)/.test(t.name),
                 ) ?? a.meta.frameTags[0]
               ).name
             : a.meta.frameTags[0].name;

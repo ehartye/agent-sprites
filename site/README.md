@@ -2,6 +2,15 @@
 
 Public demo: https://ehartye.github.io/agent-sprites/
 
+Original character study: https://ehartye.github.io/agent-sprites/tessel.html
+
+Tessel the Foldback has eight actions in both directions, a pose scrubber,
+color/normal channel inspection and downloadable editable source. Its player
+uses actual tag ranges and per-frame atlas durations; one-shot actions hold
+their last pose. The gallery deliberately repeats those studies for comparison.
+See [the Tessel source](../examples/tessel/README.md) for the distinct original
+anatomy, rebuild command and exported-atlas proof receipts.
+
 The static site features eight marquee workflows: editable shapes and ASCII,
 reusable composition, independent animation, character builders, world and UI
 recipes, surface lighting, construction replay, and export/verification.
