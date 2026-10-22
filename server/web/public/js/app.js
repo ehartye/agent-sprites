@@ -96,7 +96,7 @@ const readOperations = new Set(['/cell/ascii-read', '/cell/compose-plan', '/cell
 async function requestApi(path, body, options = {}) {
   if (path === '/workbench/project-summary') return { ok: true, data: await refreshProject() };
   if (body === undefined || readOperations.has(path)) return rawRequest(path, body, options);
-  if (/^\/(draw|shape\/|group\/shape\/|cell\/(surface|lighting|layers|ascii-patch|compose|shift|mirror|copy|clear|rotate|reference|undo|redo)(\/|$))/.test(path) && !editable()) {
+  if (/^\/(draw|shape\/|group\/shape\/|workbench\/skin-tone(\/|$)|cell\/(surface|lighting|layer|clone-fanout|ascii-patch|compose|shift|mirror|copy|clear|rotate|reference|undo|redo)(\/|$))/.test(path) && !editable()) {
     throw new Error('Wait for the selected frame to finish loading before editing.');
   }
   const captured = structuredClone(body);
