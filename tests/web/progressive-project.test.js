@@ -4,6 +4,7 @@ import { SessionDB } from '../../server/db/session.js';
 import { Project } from '../../server/engine/project.js';
 import { startWebServer } from '../../server/web/http.js';
 import { frameLimits } from '../../server/project-view.js';
+import { Shape } from '../../server/engine/shape.js';
 
 describe('progressive project protocol', () => {
   let state, server, base, sockets;
@@ -470,5 +471,71 @@ describe('progressive project protocol', () => {
       expect(Object.hasOwn(current.animationDirections, name)).toBe(false);
     }
     expect(current.shapeGroups['0,0']).toEqual(['__proto__', 'constructor', 'toString']);
+  });
+
+  test.each(['zero clients', 'progressive only'])('cell publications avoid full cell cloning with %s', async mode => {
+    if (mode === 'progressive only') await connect();
+    const cell = state.project.cells.getCell('0,0');
+    cell.shapes.getByName('dot').params.layers = [{ id: 'panel', x: 0, y: 0, w: 7, h: 7, z: 0, background: { mode: 'transparent' } }];
+    const serialize = vi.spyOn(cell, 'toJSON');
+    for (const [path, body] of [
+      ['cell/lighting', { cell: '0,0', lighting: { palettePolicy: 'rgb', ambient: 0.25 } }],
+      ['cell/surface', { cell: '0,0', shape: 'dot', surface: { normal: { mode: 'flat' } } }],
+      ['cell/layer', { cell: '0,0', id: 'panel', dx: 1, dy: 0 }],
+    ]) expect((await api(path, body)).ok).toBe(true);
+    expect(serialize).not.toHaveBeenCalled();
+  });
+
+  test.each(['zero clients', 'progressive only'])('draw, clone and scoped duplicate publications avoid shape cloning with %s', async mode => {
+    if (mode === 'progressive only') await connect();
+    const serialize = vi.spyOn(Shape.prototype, 'toJSON');
+    try {
+      expect((await api('draw', { type: 'point', cell: '0,1', x: 2, y: 2, color: '#fff', shape_name: 'new-dot' })).ok).toBe(true);
+      expect((await api('shape/clone', { from_cell: '0,1', to_cell: '0,2', shape: 'new-dot', new_name: 'clone' })).ok).toBe(true);
+      expect((await api('shape/duplicate', { cell: '0,1', shape: 'new-dot', as: 'duplicate', mirror: 'horizontal' })).ok).toBe(true);
+      expect(serialize).not.toHaveBeenCalled();
+    } finally { serialize.mockRestore(); }
+  });
+
+  test('lazy cell and shape payloads remain canonical for legacy sockets alongside progressive summaries', async () => {
+    const legacy = await connect(false), progressive = await connect();
+    const cell = state.project.cells.getCell('0,0'), serialize = vi.spyOn(cell, 'toJSON');
+    let expanded = receive(legacy.ws), compact = receive(progressive.ws);
+    expect((await api('cell/lighting', { cell: '0,0', lighting: { palettePolicy: 'rgb', ambient: 0.25 } })).ok).toBe(true);
+    const lighting = await expanded;
+    expect(lighting.type).toBe('cell_update'); expect(lighting.cellData.shapes).toHaveLength(1);
+    expect(lighting.cellData.lighting).toMatchObject({ ambient: 0.25 });
+    expect((await compact).type).toBe('project_summary'); expect(serialize).toHaveBeenCalledTimes(1);
+    expanded = receive(legacy.ws); compact = receive(progressive.ws);
+    const result = await api('shape/duplicate', { cell: '0,0', shape: 'dot', as: 'mirror', mirror: 'horizontal' });
+    expect(result.ok).toBe(true);
+    const drawing = await expanded;
+    expect(drawing.type).toBe('draw'); expect(drawing.shape).toMatchObject({ id: result.data.shapeId, name: 'mirror', params: { x: 6, y: 2 } });
+    expect((await compact).type).toBe('project_summary');
+  });
+
+  test.each([false, true])('all-cell group actions resolve alias ownership once and prefer canonical members with orphan=%s', async orphan => {
+    await api('cell/name', { cell: '0,0', name: 'legacy' });
+    await api('cell/name', { cell: '0,1', name: 'alias-only' });
+    const first = state.project.cells.getCell('0,0'), second = state.project.cells.getCell('0,1');
+    first.draw('point', { x: 4, y: 2 }, '#00ff00', 'alias-member');
+    second.draw('point', { x: 2, y: 2 }, '#00ff00', 'only-member');
+    state.db.setShapeGroup(state.sessionId, '0,0', 'part', ['dot']);
+    state.db.setShapeGroup(state.sessionId, 'legacy', 'part', ['dot', 'alias-member']);
+    state.db.setShapeGroup(state.sessionId, 'alias-only', 'part', ['only-member']);
+    state.db.setShapeGroup(state.sessionId, '0,1', 'other', ['only-member']);
+    if (orphan) state.db.setShapeGroup(state.sessionId, 'missing-cell', 'part', ['missing-shape']);
+    const metadata = state.db.getAllShapeGroups(state.sessionId), before = await summary();
+    expect((await api('group/shape/move', { name: 'part', all_cells: true, dx: 1, dy: 0 })).ok).toBe(true);
+    expect(first.shapes.getByName('dot').params.x).toBe(2);
+    expect(first.shapes.getByName('alias-member').params.x).toBe(4);
+    expect(second.shapes.getByName('only-member').params.x).toBe(3);
+    expect((await api('group/shape/recolor', { name: 'part', all_cells: true, color: '#123456' })).ok).toBe(true);
+    expect(first.shapes.getByName('dot').color).toBe('#123456');
+    expect(first.shapes.getByName('alias-member').color).toBe('#00ff00');
+    expect(second.shapes.getByName('only-member').color).toBe('#123456');
+    expect(state.db.getAllShapeGroups(state.sessionId)).toEqual(metadata);
+    const after = await summary();
+    expect(after.cellVersions['0,2']).toBe(before.cellVersions['0,2']);
   });
 });

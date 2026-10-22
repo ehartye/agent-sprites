@@ -1,6 +1,7 @@
 import {validateSurface,validateLighting} from '../web/public/js/shared/surface-model.js';
 import {validateSurfaceScene} from '../web/public/js/shared/surface-raster.js';
 import {CanvasRenderer} from '../engine/canvas-renderer.js';
+import {publishPayload} from '../project-publication.js';
 
 function fields(value,allowed){
   if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Surface request must be an object');
@@ -23,7 +24,7 @@ function shapeFor(cell,params){
 function validate(state,cell,shapes=cell.shapes.listByZ(),lighting=cell.lighting){
   return validateSurfaceScene({shapes,width:cell.width,height:cell.height,lighting,background:state.project.background,palette:state.project.palette.toJSON()});
 }
-function broadcast(state,cell,ref){state.broadcast?.({type:'cell_update',cell:ref,cellData:cell.toJSON()});}
+function broadcast(state,cell,ref){publishPayload(state,{type:'cell_update',cell:ref},()=>({cellData:cell.toJSON()}));}
 export function handleSurfaceRead(state,params){
   fields(params,['cell','shape','shapeId']);
   const {cell,ref}=selected(state,params.cell),shape=shapeFor(cell,params);

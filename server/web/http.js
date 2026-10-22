@@ -125,18 +125,21 @@ export async function startWebServer(state, port, options = {}) {
     });
   };
   // Full project serialization is deliberately reserved for legacy clients.
-  state.broadcast = (msg) => {
+  state.broadcast = (msg, createPayload) => {
     if (disposed) return;
     const notification = ['shutdown', 'error'].includes(msg.type);
     if (!notification) invalidateProject(state, msg);
     const recipients = notification ? [...clients(false), ...clients(true)] : clients(false);
     if (recipients.length) {
-      const message = msg.type === 'project' && !msg.data ? { ...msg, data: state.project.toJSON() } : msg;
+      const expanded = createPayload ? { ...msg, ...createPayload() } : msg;
+      const message = expanded.type === 'project' && !expanded.data ? { ...expanded, data: state.project.toJSON() } : expanded;
       const data = JSON.stringify({ ...message, sessionId: state.sessionId });
       for (const client of recipients) client.send(data);
     }
     if (!notification) publishSummary();
   };
+  state.broadcast.supportsLazyPayloads = true;
+  state.broadcast.needsPayload = () => clients(false).length > 0;
   state.broadcastProject = change => state.broadcast({ type: 'project', ...change });
 
   wss.on('connection', (ws, req) => {

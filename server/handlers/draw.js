@@ -5,6 +5,7 @@ import { validateLayers, buildLayerTree } from '../web/public/js/shared/shape-la
 import { validateSurface, SURFACE_LIMITS } from '../web/public/js/shared/surface-model.js';
 import { validateSurfaceScene, surfacePrimitiveWork } from '../web/public/js/shared/surface-raster.js';
 import { editCells } from './edit.js';
+import { publishPayload } from '../project-publication.js';
 
 /**
  * Compute bounding box from shape type + params.
@@ -217,7 +218,7 @@ function handleHighlightShadow(state, type, params) {
   for (let i = 0; i < pixels.length; i++) {
     const name = `${baseName}_${i}`;
     const shape = cell.draw('point', { x: pixels[i].x, y: pixels[i].y }, newColor, name);
-    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+    publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
     shapeNames.push(name);
   }
 
@@ -252,7 +253,7 @@ function handleHighlightShadow(state, type, params) {
     for (let i = 0; i < ditherPixels.length; i++) {
       const name = `${baseName}_d_${i}`;
       const shape = cell.draw('point', { x: ditherPixels[i].x, y: ditherPixels[i].y }, newColor, name);
-      state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+      publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
       shapeNames.push(name);
     }
   }
@@ -361,7 +362,7 @@ function sphereShadeCoverage(state, params, cell, target, intensity, light, base
     region.forEach((key, i) => {
       const [x, y] = key.split(',').map(Number), name = `${base}_${label}_${i}`;
       const shape = cell.draw('point', { x, y }, color, name);
-      state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+      publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
       shapeNames.push(name);
     });
   }
@@ -462,7 +463,7 @@ function emitPoints(state, params, cell, pixels, base) {
   for (let i = 0; i < pixels.length; i++) {
     const name = `${base}_${i}`;
     const shape = cell.draw('point', pixels[i], params.color, name);
-    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+    publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
     shapeNames.push(name);
   }
   return { shapeNames };
@@ -505,7 +506,7 @@ function handleClippedEllipse(state, params, cell) {
     if (!inside.has(`${pt.x},${pt.y}`)) continue;
     const name = `${baseName}_${emitted++}`;
     const shape = cell.draw('point', { x: pt.x, y: pt.y }, params.color, name);
-    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+    publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
     shapeNames.push(name);
   }
   return { shapeNames };
@@ -560,7 +561,7 @@ function handleBorder(state, params, cell) {
     if (inside && !inside.has(k)) continue;
     const name = `${baseName}_${emitted++}`;
     const shape = cell.draw('point', { x, y }, params.color, name);
-    state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+    publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
     shapeNames.push(name);
   }
   return { shapeNames };
@@ -817,6 +818,6 @@ function _handleDrawInner(state, type, params) {
   if (params.surface !== undefined) drawParams.surface = validateSurface(params.surface);
   if(cell.lighting!==undefined||drawParams.surface!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:[...cell.shapes.listByZ(),{type,params:drawParams,color:params.color,visible:params.visible,zIndex:params.z??cell._nextZ}],width:cell.width,height:cell.height,lighting:cell.lighting,background:state.project.background,palette:state.project.palette.toJSON()});
   const shape = cell.draw(type, drawParams, params.color, params.shape_name ?? null, { visible: params.visible, zIndex: params.z });
-  state.broadcast?.({ type: 'draw', cell: params.cell, shape: shape.toJSON() });
+  publishPayload(state, { type: 'draw', cell: params.cell }, () => ({ shape: shape.toJSON() }));
   return { shapeId: shape.id, shapeName: shape.name };
 }
