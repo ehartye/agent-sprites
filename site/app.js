@@ -190,6 +190,9 @@ async function selectFeature(id, updateHash = false) {
   );
   const project = `./assets/examples/${f.config}/project.json`;
   $("#feature-links").replaceChildren(
+    ...(f.id === "animation"
+      ? [link("Marmalade’s little morning ↗", "./cat.html")]
+      : []),
     ...(f.id === "characters"
       ? [link("Meet Tessel · 8 new actions ↗", "./tessel.html")]
       : []),

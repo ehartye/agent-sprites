@@ -37,6 +37,9 @@ for (const name of [
   "tessel.css",
   "tessel.js",
   "tessel-data.js",
+  "cat.html",
+  "cat.css",
+  "cat.js",
 ])
   copy(join(site, name), join(dist, name));
 copy(join(site, "assets"), join(dist, "assets"));
