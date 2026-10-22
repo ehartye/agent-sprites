@@ -360,7 +360,7 @@ test('large traces render bounded shape pages with a searchable full list', () =
   expect(document.getElementById('shape-items').textContent).toContain('run-5555');
 });
 
-async function buildView(command = 'build') {
+async function buildView(command = 'build', { project = { name: 'Current', projectId: 'project-one' }, sessionId = 'pinned-build' } = {}) {
   const encoder = new TextEncoder();
   let source, signal;
   const canceled = vi.fn();
@@ -371,7 +371,7 @@ async function buildView(command = 'build') {
     return { ok: true, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body };
   });
   vi.stubGlobal('fetch', fetchBuild);
-  bench.setProject({ name: 'Current', projectId: 'project-one' }, 'pinned-build');
+  bench.setProject(project, sessionId);
   await bench.show('tools'); bench.selectCommand(command);
   const form = document.querySelector('.tool-form'), submit = form.querySelector('[type="submit"]');
   form.querySelector('[name="path"]').value = '/source/build.json';
@@ -404,8 +404,34 @@ test.each(['build', 'build-animation'])('%s uses owned streamed progress, preven
   await vi.waitFor(() => expect(document.querySelector('.tool-output').textContent).toContain('羽 🦉'));
   expect(document.querySelector('[data-build-status]').textContent).toContain('Build completed');
   expect(wire.submit.disabled).toBe(false); expect(cancel.disabled).toBe(true);
+  expect(bench.refresh).not.toHaveBeenCalled();
   [...document.querySelectorAll('button')].find(button => button.textContent === 'Open generated project').click();
   await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/open', { path: '/out/project.json' }));
+  expect(bench.refresh).toHaveBeenCalledOnce();
+});
+
+test('an offline build succeeds without an active project or a live-project refresh', async () => {
+  const wire = await buildView('build', { project: null, sessionId: null }), rejectedRefresh = vi.fn();
+  bench.refresh.mockImplementation(() => {
+    const pending = Promise.reject(new Error('No active project'));
+    // Observe the real failure a needless refresh would produce without leaking a test rejection.
+    pending.catch(rejectedRefresh); return pending;
+  });
+  wire.start(); wire.finish();
+  await vi.waitFor(() => expect(wire.submit.disabled).toBe(false));
+  expect(JSON.parse(document.querySelector('.tool-output').textContent)).toMatchObject({ ok: true, artifacts: { project: '/out/project.json' } });
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(true);
+  expect(document.getElementById('workbench-status').textContent).toBe('Build a project completed.');
+  expect(bench.refresh).not.toHaveBeenCalled(); expect(rejectedRefresh).not.toHaveBeenCalled();
+  expect(wire.fetchBuild.mock.calls[0][1].headers).not.toHaveProperty('X-Sprite-Session');
+});
+
+test('ordinary tool success still refreshes the live project', async () => {
+  await bench.show('tools'); bench.selectCommand('draw rect');
+  document.querySelector('.tool-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  await vi.waitFor(() => expect(bench.refresh).toHaveBeenCalledOnce());
+  expect(request).toHaveBeenCalledWith('/draw', expect.objectContaining({ type: 'rect', cell: '1,2' }));
+  expect(document.getElementById('workbench-status').textContent).toBe('Rectangle completed.');
 });
 
 test('a build report with ok false remains visible and offers no generated-project action', async () => {

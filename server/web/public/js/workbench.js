@@ -346,7 +346,7 @@ export class Workbench {
           if (result.data?.url?.startsWith('/casting.html?')) {
             const link = element('a', 'Open casting review'); link.href = result.data.url; link.target = '_blank'; link.rel = 'noopener'; output.after(link);
           }
-          this.notify(`${command.label} completed.`); this.refresh();
+          this.notify(`${command.label} completed.`); if (!isBuild) this.refresh();
         } catch (error) {
           if (!isBuild || current()) throw error;
         } finally { if (!isBuild || current()) submit.disabled = false; }
