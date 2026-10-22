@@ -5,9 +5,14 @@ import { GroupManager } from './group-manager.js';
 import { validateConstructionReplay } from './construction-replay.js';
 import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops, validateAnimationFps, ANIMATION_DIRECTIONS, resolveAnimationDirection } from '../web/public/js/shared/timing.js';
 import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
+import { Shape } from './shape.js';
+import { PROJECT_LIMITS, SHARED_PARAMS_DEPTH, validateProjectData, validateProjectJSON } from './project-validation.js';
+import { createGeometryPool, geometryKey, geometryRecord, isSharedParams } from './shared-geometry.js';
 
 /** Tag playback directions shared by project authoring, preview and atlas output. */
 export const TAG_DIRECTIONS = ANIMATION_DIRECTIONS;
+// Only the successful pure shared loader can prove scene preflight already ran.
+const VALIDATED_SHARED_SCENES = Symbol('validated shared scenes');
 
 function canonicalGroups(cells,groups) {
   if(!groups||typeof groups!=='object'||Array.isArray(groups))throw new Error('Animation groups must map names to cell arrays');
@@ -18,7 +23,7 @@ function canonicalGroups(cells,groups) {
 }
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay, storageVersion = 1 }, sceneProof) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -33,13 +38,14 @@ export class Project {
     this.animationLoops = validateAnimationLoops(animationLoops);
     this.shapeGroups = shapeGroups ?? {};
     cells.surfaceContext = () => ({ background: this.background, palette: this.palette.toJSON() });
-    for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
+    if (sceneProof !== VALIDATED_SHARED_SCENES) for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
       const cell=cells.getCell(`${row},${col}`);
       if(cell.lighting!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:cell.shapes.listByZ(),width:cell.width,height:cell.height,lighting:cell.lighting,background:this.background,palette:palette.toJSON()});
     }
     this.review = review ?? null;
     this.constructionReplay = constructionReplay === undefined ? null : validateConstructionReplay(constructionReplay, this);
     this.path = null;
+    Object.defineProperty(this, '_storageVersion', { value: storageVersion });
   }
 
   static create({ name, cellSize, cellWidth, cellHeight, rows, cols, palette: presetName }) {
@@ -56,58 +62,110 @@ export class Project {
     });
   }
 
-  toJSON() {
+  get storageVersion() { return this._storageVersion; }
+
+  _serialize(cells, version, geometry) {
     return {
-      version: 1,
+      version,
       name: this.name,
       cellWidth: this.cellWidth,
       cellHeight: this.cellHeight,
       grid: { rows: this.cells.rows, cols: this.cells.cols },
-      background: this.background,
-      pivot: this.pivot,
+      background: structuredClone(this.background),
+      pivot: structuredClone(this.pivot),
       palette: this.palette.toJSON(),
-      cells: this.cells.toJSON().cells,
+      cells,
+      ...(geometry ? { geometry } : {}),
       groups: canonicalGroups(this.cells,this.groups.toJSON()),
-      animationFps: this.animationFps,
+      animationFps: structuredClone(this.animationFps),
       // Omitted when empty so existing project files stay byte-identical.
-      ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
+      ...(Object.keys(this.animationDirections).length ? { animationDirections: structuredClone(this.animationDirections) } : {}),
       ...(Object.keys(this.frameDurations).length ? { frameDurations: { ...this.frameDurations } } : {}),
       ...(Object.keys(this.animationLoops).length ? { animationLoops: { ...this.animationLoops } } : {}),
-      shapeGroups: this.shapeGroups,
-      ...(this.review ? { review: this.review } : {}),
+      shapeGroups: structuredClone(this.shapeGroups),
+      ...(this.review ? { review: structuredClone(this.review) } : {}),
       ...(this.constructionReplay ? { constructionReplay: structuredClone(this.constructionReplay) } : {}),
     };
   }
 
-  save(filePath) {
+  /** Independent expanded interchange snapshots remain the public default. */
+  toJSON() { return this._serialize(this.cells.toJSON().cells, 1); }
+
+  toSharedJSON() {
+    const cells = {}, geometry = {}, refs = new Map();
+    for (let row = 0; row < this.cells.rows; row++) for (let col = 0; col < this.cells.cols; col++) {
+      const cell = this.cells.getCell(`${row},${col}`), shapes = cell.shapes.listByZ();
+      if (!shapes.length && !cell.name && cell.lighting === undefined && !cell.reference) continue;
+      cells[`${row},${col}`] = {
+        name: cell.name, reference: structuredClone(cell.reference),
+        shapes: shapes.map(shape => {
+          if (!isSharedParams(shape.params)) validateProjectJSON(shape.params, PROJECT_LIMITS.maxDepth, SHARED_PARAMS_DEPTH);
+          const key = geometryKey(shape.type, shape.params);
+          let ref = refs.get(key);
+          if (ref === undefined) {
+            ref = `g${refs.size}`;
+            const record = geometryRecord(shape.type, shape.params);
+            if (record.depth + SHARED_PARAMS_DEPTH > PROJECT_LIMITS.maxDepth) throw new Error(`Project JSON depth exceeds ${PROJECT_LIMITS.maxDepth}`);
+            geometry[ref] = { type: record.type, params: record.params };
+            refs.set(key, ref);
+          }
+          return { id: shape.id, name: shape.name, color: shape.color, zIndex: shape.zIndex, visible: shape.visible, geometryRef: ref };
+        }),
+        ...(cell.lighting === undefined ? {} : { lighting: structuredClone(cell.lighting) }),
+      };
+    }
+    return this._serialize(cells, 2, geometry);
+  }
+
+  toStorageJSON({ format } = {}) {
+    if (format !== undefined && !['shared', 'expanded'].includes(format)) throw new Error(`Unknown project format "${format}"`);
+    return (format === 'shared' || (format === undefined && this.storageVersion === 2)) ? this.toSharedJSON() : this.toJSON();
+  }
+
+  save(filePath, options) {
     const p = filePath ?? this.path;
     if (!p) throw new Error('No file path specified');
-    fs.writeFileSync(p, JSON.stringify(this.toJSON(), null, 2));
+    fs.writeFileSync(p, JSON.stringify(this.toStorageJSON(options), null, 2));
     this.path = p;
   }
 
-  static fromJSON(data) {
-    for (const [name, direction] of Object.entries(data.animationDirections ?? {})) {
-      if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse, pingpong or pingpong_reverse`);
-    }
-    const w = data.cellWidth ?? data.cellSize;
-    const h = data.cellHeight ?? data.cellSize ?? w;
-    return new Project({
-      name: data.name,
-      cellWidth: w,
-      cellHeight: h,
-      cells: CellManager.fromJSON({ rows: data.grid.rows, cols: data.grid.cols, cells: data.cells }, { w, h }),
-      palette: Palette.fromJSON(data.palette),
-      groups: GroupManager.fromJSON(data.groups),
-      background: data.background,
-      pivot: data.pivot,
-      animationFps: data.animationFps,
-      animationDirections: data.animationDirections,
-      frameDurations: data.frameDurations,
-      animationLoops: data.animationLoops,
-      shapeGroups: data.shapeGroups,
-      review: data.review,
-      constructionReplay: data.constructionReplay,
+  static fromJSON(data, options = {}) {
+    const version = data?.version === undefined ? 1 : data.version;
+    if (![1, 2].includes(version)) throw new Error(`Unsupported project version "${version}"`);
+    const sharedGeometry = version === 2 || options.sharedGeometry === true;
+    if (sharedGeometry) validateProjectData(data, options);
+    return Shape.withIdAllocationTransaction(() => {
+      for (const [name, direction] of Object.entries(data.animationDirections ?? {})) {
+        if (!TAG_DIRECTIONS.includes(direction)) throw new Error(`Animation "${name}" direction must be forward, reverse, pingpong or pingpong_reverse`);
+      }
+      const w = data.cellWidth ?? data.cellSize;
+      const h = data.cellHeight ?? data.cellSize ?? w;
+      let shapeOptions;
+      if (sharedGeometry) {
+        const intern = createGeometryPool();
+        const geometry = version === 2 ? new Map(Object.entries(data.geometry).map(([ref, entry]) => [ref, { type: entry.type, params: intern(entry.type, entry.params) }])) : null;
+        shapeOptions = { sharedGeometry: true, resolveGeometry: shape => geometry ? geometry.get(shape.geometryRef) : { type: shape.type, params: intern(shape.type, shape.params) } };
+      }
+      const project = new Project({
+        name: data.name,
+        cellWidth: w,
+        cellHeight: h,
+        cells: CellManager.fromJSON({ rows: data.grid.rows, cols: data.grid.cols, cells: data.cells }, { w, h }, shapeOptions),
+        palette: Palette.fromJSON(data.palette),
+        groups: GroupManager.fromJSON(data.groups),
+        background: data.background,
+        pivot: data.pivot,
+        animationFps: data.animationFps,
+        animationDirections: data.animationDirections,
+        frameDurations: data.frameDurations,
+        animationLoops: data.animationLoops,
+        shapeGroups: data.shapeGroups,
+        review: data.review,
+        constructionReplay: data.constructionReplay,
+        storageVersion: sharedGeometry ? 2 : 1,
+      }, sharedGeometry ? VALIDATED_SHARED_SCENES : undefined);
+      Shape.assertIdAllocationAvailable();
+      return project;
     });
   }
 

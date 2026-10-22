@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Every browser view must paint the pixels the export paints.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
@@ -36,23 +36,31 @@ beforeEach(() => {
 });
 
 describe('thumbnails match the export', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
   for (const entry of CORPUS) it(entry.name, () => {
     document.body.innerHTML = '<div id="cell-strip"></div>';
     const nav = new CellNavigator();
     nav.init({ onSelect() {} }); nav.setPalette({});
     nav.setGrid(1, 1, CELL, CELL); nav.setCells({ '0,0': { shapes: entry.shapes } }); nav.render();
+    vi.runAllTimers();
     const canvas = document.querySelector('.cell-thumb-canvas');
     expect(differences(sample(canvas, canvas.width / CELL), exportPixels(entry.shapes))).toEqual([]);
+    nav.destroy();
   });
 });
 
 describe('animation preview matches the export', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
   for (const entry of CORPUS) it(entry.name, () => {
     document.body.innerHTML = '<div id="anim-panel"></div>';
     const ap = new AnimationPreview({ mountId: 'anim-panel', size: CELL * 4 }); ap.init();
     ap.setCellSize(CELL, CELL); ap.setPalette({}); ap.setCells({ '0,0': { shapes: entry.shapes } }); ap.setFrames(['0,0']);
+    vi.runAllTimers();
     const canvas = document.querySelector('.anim-canvas');
     expect(differences(sample(canvas, canvas.width / CELL), exportPixels(entry.shapes))).toEqual([]);
+    ap.destroy();
   });
 });
 

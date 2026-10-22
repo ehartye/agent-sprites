@@ -15,6 +15,7 @@ export class WebSocketClient {
     this._reconnectTimer = null;
     this._handlers = new Map();
     this._connected = false;
+    this._requests = new Map(); this._requestSequence = 0;
   }
 
   /**
@@ -22,15 +23,27 @@ export class WebSocketClient {
    * @param {string} [url] - Override URL; defaults to current host on same port.
    */
   connect(url) {
-    this._url = url || `ws://${location.host}`;
+    this._url = url || `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/?project=progressive-v1`;
     this._open();
   }
 
   /** Send an operation message to the server. */
   send(msg) {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-      this._ws.send(JSON.stringify({ ...msg, ...(this.sessionId ? { sessionId: this.sessionId } : {}) }));
+      this._ws.send(JSON.stringify({ ...(this.sessionId ? { sessionId: this.sessionId } : {}), ...msg }));
+      return true;
     }
+    return false;
+  }
+
+  request(msg) {
+    if (this._requests.size >= 32) return Promise.reject(new Error('Too many pending WebSocket edits'));
+    const requestId = `edit-${++this._requestSequence}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this._requests.delete(requestId); reject(new Error('Edit receipt timed out. Refresh to inspect the result before editing again.')); }, 15000);
+      this._requests.set(requestId, { resolve, reject, timer });
+      if (!this.send({ ...msg, requestId })) { clearTimeout(timer); this._requests.delete(requestId); reject(new Error('Disconnected. Edit was not sent.')); }
+    });
   }
 
   /** Register a handler for a message type. */
@@ -71,9 +84,17 @@ export class WebSocketClient {
     this._ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.sessionId) {
-          this.sessionId = msg.sessionId;
-          this._emit('_session', msg.sessionId);
+        const sessionId = msg.type === 'project_summary' ? msg.data?.sessionId : msg.sessionId;
+        if (sessionId) {
+          this.sessionId = sessionId;
+          this._emit('_session', sessionId);
+        }
+        const pending = this._requests.get(msg.requestId);
+        if (pending && ['result', 'error'].includes(msg.type)) {
+          clearTimeout(pending.timer); this._requests.delete(msg.requestId);
+          if (msg.type === 'error') pending.reject(Object.assign(new Error(msg.message), { status: msg.status, pins: msg.pins }));
+          else pending.resolve(msg);
+          return;
         }
         if (msg.type) {
           this._emit(msg.type, msg.data ?? msg);
@@ -84,6 +105,8 @@ export class WebSocketClient {
     };
 
     this._ws.onclose = () => {
+      for (const request of this._requests.values()) { clearTimeout(request.timer); request.reject(new Error('Disconnected before edit receipt. Refresh to inspect the result.')); }
+      this._requests.clear();
       this._connected = false;
       this._updateStatus(false);
       this._scheduleReconnect();

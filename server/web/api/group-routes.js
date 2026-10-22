@@ -5,6 +5,7 @@ import { TAG_DIRECTIONS as DIRECTIONS } from '../../engine/project.js';
 import { moveLayerSelection } from '../../engine/shape-layers.js';
 import { durationFromFps } from '../public/js/shared/timing.js';
 import { editCells } from '../../handlers/edit.js';
+import { canonicalizeCellShapeGroups, getCellShapeGroups } from '../../project-state.js';
 
 // Rebuild state.project.groups from SQLite and notify the browser.
 function syncCellGroups(state) {
@@ -14,13 +15,29 @@ function syncCellGroups(state) {
   state.project.animationFps = state.db.getCellGroupFps(state.sessionId);
   state.project.animationDirections = state.db.getCellGroupDirections(state.sessionId);
   saveDraft(state);
-  state.broadcast?.({ type: 'group_created' }); // triggers get_project resync in UI
+  state.broadcast?.({ type: 'group_created', groupKind: 'cell' }); // triggers legacy UI resync
 }
 
 /** A single-cell group operation must name a group that exists in that cell; silently touching nothing hid real mistakes. */
 function requireGroupInCell(state, name, cell) {
   if (!Object.hasOwn(state.db.getShapeGroups(state.sessionId, cell), name)) throw new Error(`Shape group "${name}" not found in cell ${cell}`);
   return cell;
+}
+
+function shapeGroupSelections(state, name, cell, allCells) {
+  if (!allCells) {
+    const ref = requireGroupInCell(state, name, cell);
+    return [{ cell: ref, shapes: state.db.getShapeGroups(state.sessionId, ref)[name] ?? [] }];
+  }
+  const selections = new Map();
+  for (const [storedRef, groups] of Object.entries(state.db.getAllShapeGroups(state.sessionId))) {
+    if (!Object.hasOwn(groups, name)) continue;
+    let ref;
+    try { ref = state.project.cells.resolveRef(storedRef); }
+    catch { continue; } // Unbound legacy metadata has no editable cell.
+    if (!selections.has(ref) || storedRef === ref) selections.set(ref, groups[name] ?? []);
+  }
+  return [...selections].map(([ref, shapes]) => ({ cell: ref, shapes }));
 }
 
 const DIRECTION_ERROR = 'direction must be forward, reverse, pingpong or pingpong_reverse';
@@ -32,6 +49,16 @@ function canonicalCellRefs(state, cells) {
 
 export function groupRoutes(state) {
   const r = Router();
+  // Bind per-cell groups to stable coordinates before aliases can be renamed.
+  r.use('/group/shape', (req, res, next) => {
+    try {
+      if (req.method === 'POST' && req.body?.cell !== undefined && !req.body.all_cells) {
+        req.body.cell = state.project.cells.resolveRef(req.body.cell);
+        canonicalizeCellShapeGroups(state, req.body.cell);
+      }
+      next();
+    } catch (error) { res.json({ ok: false, error: error.message }); }
+  });
   r.use('/group/cell',(req,res,next)=>{
     if(req.method==='POST') {
       if(!state.project)return res.json({ok:false,error:'No active project'});
@@ -159,16 +186,18 @@ export function groupRoutes(state) {
             }
           }
         }
+        state.broadcast?.({ type: 'group_created', groupKind: 'shape', cells: matched });
         return res.json({ ok: true, data: `Created shape group "${name}" in ${matched.length} cells` });
       }
       state.db.setShapeGroup(state.sessionId, cell, name, shapes);
+      state.broadcast?.({ type: 'group_created', groupKind: 'shape', cell });
       res.json({ ok: true, data: `Created shape group "${name}" in ${cell}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
   r.get('/group/shape/list', (req, res) => {
     try {
-      res.json({ ok: true, data: state.db.getShapeGroups(state.sessionId, req.query.cell) });
+      res.json({ ok: true, data: getCellShapeGroups(state, state.project.cells.resolveRef(req.query.cell)) });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
@@ -185,6 +214,7 @@ export function groupRoutes(state) {
       const groups = state.db.getShapeGroups(state.sessionId, cell);
       const existing = Object.hasOwn(groups, name) ? groups[name] : [];
       state.db.setShapeGroup(state.sessionId, cell, name, [...new Set([...existing, ...newShapes])]);
+      state.broadcast?.({ type: 'group_created', groupKind: 'shape', cell });
       res.json({ ok: true, data: `Added shapes to group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -195,6 +225,7 @@ export function groupRoutes(state) {
       const groups = state.db.getShapeGroups(state.sessionId, cell);
       const updated = (Object.hasOwn(groups, name) ? groups[name] : []).filter(s => !remove.includes(s));
       state.db.setShapeGroup(state.sessionId, cell, name, updated);
+      state.broadcast?.({ type: 'group_created', groupKind: 'shape', cell });
       res.json({ ok: true, data: `Removed shapes from group "${name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -202,6 +233,7 @@ export function groupRoutes(state) {
   r.post('/group/shape/delete', (req, res) => {
     try {
       state.db.deleteShapeGroup(state.sessionId, req.body.cell, req.body.name);
+      state.broadcast?.({ type: 'group_created', groupKind: 'shape', cell: req.body.cell });
       res.json({ ok: true, data: `Deleted shape group "${req.body.name}"` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -209,16 +241,9 @@ export function groupRoutes(state) {
   r.post('/group/shape/move', (req, res) => {
     try {
       const { name, cell, all_cells, dx, dy } = req.body;
-      const cellsToUpdate = all_cells
-        ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
-            const groups = state.db.getShapeGroups(state.sessionId, c);
-            return Object.hasOwn(groups, name);
-          })
-        : [requireGroupInCell(state, name, cell)];
-      editCells(state, cellsToUpdate.map(c => state.project.cells.getCell(c)), scoped => {
-        for (const c of cellsToUpdate) {
-          const groups = state.db.getShapeGroups(state.sessionId, c);
-          const shapes = groups[name] ?? [];
+      const selections = shapeGroupSelections(state, name, cell, all_cells);
+      editCells(state, selections.map(({ cell: ref }) => state.project.cells.getCell(ref)), scoped => {
+        for (const { cell: c, shapes } of selections) {
           const cellObj = state.project.cells.getCell(c);
           if (cellObj.shapes.listByZ().some(shape => Object.hasOwn(shape.params, 'layers'))) moveLayerSelection(cellObj, shapes, dx, dy);
           else for (const shapeName of shapes) cellObj.moveShape(shapeName, dx, dy);
@@ -233,14 +258,8 @@ export function groupRoutes(state) {
   r.post('/group/shape/recolor', (req, res) => {
     try {
       const { name, cell, all_cells, color, color2 } = req.body;
-      const cellsToUpdate = all_cells
-        ? Object.keys(state.db.getAllShapeGroups(state.sessionId)).filter(c => {
-            return Object.hasOwn(state.db.getShapeGroups(state.sessionId, c), name);
-          })
-        : [requireGroupInCell(state, name, cell)];
-      for (const c of cellsToUpdate) {
-        const groups = state.db.getShapeGroups(state.sessionId, c);
-        const shapes = groups[name] ?? [];
+      const selections = shapeGroupSelections(state, name, cell, all_cells);
+      for (const { cell: c, shapes } of selections) {
         const cellObj = state.project.cells.getCell(c);
         for (const shapeName of shapes) {
           cellObj.recolorShape(shapeName, color, color2);

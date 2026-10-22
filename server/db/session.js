@@ -162,10 +162,32 @@ export class SessionDB {
     const rows = this.db.prepare('SELECT cell, name, shapes FROM shape_groups WHERE session_id = ?').all(sessionId);
     const result = {};
     for (const r of rows) {
-      if (!result[r.cell]) result[r.cell] = {};
-      result[r.cell][r.name] = JSON.parse(r.shapes);
+      if (!Object.hasOwn(result, r.cell)) Object.defineProperty(result, r.cell, { value: {}, enumerable: true, configurable: true, writable: true });
+      Object.defineProperty(result[r.cell], r.name, { value: JSON.parse(r.shapes), enumerable: true, configurable: true, writable: true });
     }
     return result;
+  }
+
+  // Summary readers need membership, never the potentially large member arrays.
+  getShapeGroupIndex(sessionId) {
+    return this.db.prepare('SELECT cell, name FROM shape_groups WHERE session_id = ?').all(sessionId);
+  }
+
+  // Reject large member arrays inside SQLite before copying/parsing them in JS.
+  getShapeGroupJSON(sessionId, cell, name, maxBytes) {
+    return this.db.prepare(`SELECT CASE WHEN octet_length(shapes) <= ? THEN shapes ELSE NULL END AS json
+      FROM shape_groups WHERE session_id = ? AND cell = ? AND name = ?`).get(maxBytes, sessionId, cell, name)?.json;
+  }
+
+  migrateShapeGroupAlias(sessionId, alias, cell) {
+    if (alias === cell) return;
+    this.db.transaction(() => {
+      const canonical = this.getShapeGroups(sessionId, cell);
+      for (const [name, members] of Object.entries(this.getShapeGroups(sessionId, alias))) {
+        if (!Object.hasOwn(canonical, name)) this.setShapeGroup(sessionId, cell, name, members);
+        this.deleteShapeGroup(sessionId, alias, name);
+      }
+    })();
   }
 
   close() { this.db.close(); }

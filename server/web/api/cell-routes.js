@@ -5,6 +5,7 @@ import { handleShiftCell, handleMirrorCell, handleCopyCell,
 import { handleUndo, handleRedo } from '../../handlers/history.js';
 import { handleViewCell, handleViewSheet, handleViewStack } from '../../handlers/view.js';
 import { saveDraft } from '../http.js';
+import { assertOptionalProjectPins } from '../../project-view.js';
 import { handleAsciiRead, handleAsciiPatch } from '../../handlers/ascii.js';
 import { handleComposition, handleCompositionPlan } from '../../handlers/composition.js';
 import { handleDuration, handleDurationRead } from '../../handlers/timing.js';
@@ -55,6 +56,8 @@ export function cellRoutes(state) {
     catch (error) { res.json({ ok: false, error: error.message }); }
   });
   r.get('/cell/reference-image', (req, res) => {
+    try { assertOptionalProjectPins(state, req.query); }
+    catch (error) { return res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
     try {
       if (!state.project) return res.status(404).end();
       const cell = state.project.cells.getCell(String(req.query.cell));

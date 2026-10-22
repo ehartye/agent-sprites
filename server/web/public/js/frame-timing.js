@@ -189,7 +189,7 @@ export class FrameTimingPanel {
       await this.request(path, body, { sessionId: this.sessionId });
       if (!this.current(view)) return;
       const revision = this.projectRevision;
-      const result = await this.request('/workbench/project', undefined, { sessionId: this.sessionId });
+      const result = await this.request('/workbench/project-summary', undefined, { sessionId: this.sessionId });
       if (!this.current(view)) return;
       // The acknowledged draft is saved even when a newer live project wins.
       // Edits made after submission remain unsaved and must survive either response.

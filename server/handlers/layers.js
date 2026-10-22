@@ -1,5 +1,6 @@
 import { editLayer } from '../engine/shape-layers.js';
 import { buildLayerTree } from '../web/public/js/shared/shape-layers.js';
+import { publishPayload } from '../project-publication.js';
 
 function selectedCell(state, ref) {
   if (!state.project) throw new Error('No active project');
@@ -20,6 +21,6 @@ export function handleLayerList(state, {cell:selection} = {}) {
 
 export function handleLayerEdit(state, {cell:selection,...options} = {}) {
   const {cell,ref}=selectedCell(state,selection),result=editLayer(cell,options);
-  if(result.changed) state.broadcast?.({type:'cell_update',cell:ref,cellData:cell.toJSON()});
+  if(result.changed) publishPayload(state,{type:'cell_update',cell:ref},()=>({cellData:cell.toJSON()}));
   return result;
 }

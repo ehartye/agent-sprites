@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createCanvas } from 'canvas';
 import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 import { renderCellNative } from '../../server/web/public/js/cell-raster.js';
@@ -9,6 +9,7 @@ import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
 import { renderSurfaceCell, validateSurfaceScene } from '../../server/web/public/js/shared/surface-raster.js';
 import { CORPUS, CELL } from './raster-corpus.js';
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 const palette = { red: '#f00', green: '#0f0', white: '#fff' }, resolve = c => palette[c] ?? c;
 const pixel = canvas => [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data];
 const layer = { id: 'child', x: 2, y: 1, w: 5, h: 4, z: 2, background: { mode: 'chroma', color: '#4488ff' } };
@@ -92,6 +93,7 @@ describe('shared retained surface raster', () => {
     expect([...editor.ctx.getImageData(1, 1, 1, 1).data]).toEqual([0, 0, 0, 255]);
   });
   it('passes actual lighting and chroma background through editor, thumbnail and animation', () => {
+    vi.useFakeTimers();
     document.documentElement.style.setProperty('--checker-a', 'transparent'); document.documentElement.style.setProperty('--checker-b', 'transparent');
     document.body.innerHTML = '<div id="wrap"><canvas id="editor-canvas"></canvas></div><div id="cell-strip"></div><div id="anim-panel"></div>';
     const cell = fixture(), background = { mode: 'chroma', color: '#ff00ff' };
@@ -100,6 +102,7 @@ describe('shared retained surface raster', () => {
     editor.init(wrap, 8, 8); editor.canvas.width = editor.canvas.height = 8; editor.setZoom(1); editor.setPalette(palette); editor.setBackground(background); editor.setCell(cell);
     expect(pixel(editor.canvas)).toEqual(expected);
     const nav = new CellNavigator(); nav.init({ onSelect() {} }); nav.setPalette(palette); nav.setBackground(background); nav.setGrid(1, 1, 8, 8); nav.setCells({ '0,0': cell }); nav.render();
+    vi.runAllTimers();
     const ap = new AnimationPreview({ size: 8 }); ap.init(); ap.setCellSize(8, 8); ap.setPalette(palette); ap.setBackground(background); ap.setCells({ '0,0': cell }); ap.setFrames(['0,0']);
     const thumb = document.querySelector('.cell-thumb-canvas'), ctx = thumb.getContext('2d');
     const sampled = []; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) sampled.push(...ctx.getImageData(x * 8 + 4, y * 8 + 4, 1, 1).data);

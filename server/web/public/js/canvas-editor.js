@@ -58,6 +58,8 @@ export class CanvasEditor {
   }
 
   destroy() {
+    this._clearReference(); this._refRequest = (this._refRequest ?? 0) + 1;
+    this._releaseNative();
     if (this._abortController) {
       this._abortController.abort();
       this._abortController = null;
@@ -66,7 +68,16 @@ export class CanvasEditor {
 
   /* -- Public API -- */
 
+  batchUpdate(update) {
+    this._batchDepth = (this._batchDepth ?? 0) + 1;
+    try { update(); }
+    finally {
+      if (!--this._batchDepth && this._batchDirty) { this._batchDirty = false; this.render(); }
+    }
+  }
+
   setCell(cellData) {
+    this._releaseNative();
     this._lighting = cellData?.lighting;
     this._shapes = cellData
       ? (cellData.shapes || []).filter(s => s.visible !== false || s.params?.layers?.length).sort((a, b) => a.zIndex - b.zIndex)
@@ -81,7 +92,14 @@ export class CanvasEditor {
   }
 
   /** Tracing reference underlay: refInfo = { opacity } from cell data, or null. */
-  setReference(refInfo, cellRef) {
+  _clearReference() {
+    this._referenceAbort?.abort(); this._referenceAbort = null;
+    if (this._referenceURL) { URL.revokeObjectURL(this._referenceURL); this._referenceURL = null; }
+    if (this._referenceImage) { this._referenceImage.onload = this._referenceImage.onerror = null; this._referenceImage.src = ''; this._referenceImage = null; }
+    this._refImage = null;
+  }
+  setReference(refInfo, cellRef, pins) {
+    this._clearReference();
     const request = this._refRequest = (this._refRequest ?? 0) + 1;
     this._refImage = null;
     this.render();
@@ -91,6 +109,20 @@ export class CanvasEditor {
       return;
     }
     this._refOpacity = refInfo.opacity ?? 0.35;
+    if (pins?.projectId) {
+      const controller = this._referenceAbort = new AbortController();
+      const current = () => request === this._refRequest && !controller.signal.aborted;
+      const query = new URLSearchParams({ cell: cellRef, sessionId: pins.sessionId, projectId: pins.projectId, revision: pins.revision });
+      void fetch(`/api/cell/reference-image?${query}`, { signal: controller.signal, cache: 'no-store', headers: { 'X-Sprite-Session': pins.sessionId } }).then(async response => {
+        if (!response.ok) throw new Error('Reference unavailable');
+        const blob = await response.blob(); if (!current()) return;
+        const url = this._referenceURL = URL.createObjectURL(blob), img = this._referenceImage = new window.Image();
+        img.onload = () => { if (!current()) return; this._refImage = img; this.render(); };
+        img.onerror = () => { if (current()) { this._clearReference(); this.render(); } };
+        img.src = url;
+      }).catch(() => { if (current()) { this._clearReference(); this.render(); } });
+      return;
+    }
     const img = new window.Image();
     img.onload = () => { if (request !== this._refRequest) return; this._refImage = img; this.render(); };
     img.onerror = () => { if (request !== this._refRequest) return; this._refImage = null; this.render(); };
@@ -133,6 +165,8 @@ export class CanvasEditor {
    * @param {{ prev: object[], next: object[] }|null} data
    */
   setOnionSkin(data) {
+    const equal = (a, b) => a === b || (Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((shape, i) => shape === b[i]));
+    if (data === this._onionSkinData || (data && this._onionSkinData && equal(data.prev, this._onionSkinData.prev) && equal(data.next, this._onionSkinData.next))) return;
     this._onionSkinData = data;
     this.render();
   }
@@ -140,6 +174,7 @@ export class CanvasEditor {
   /* -- Rendering -- */
 
   render() {
+    if (this._batchDepth) { this._batchDirty = true; return; }
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
@@ -243,7 +278,8 @@ export class CanvasEditor {
 
   _renderShapes(ctx, ox, oy, z) {
     if (hasSurfaceData(this._shapes, this._lighting) || this._shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) {
-      const native = renderCellNative(this._shapes, this.cellW, this.cellH, ref => this._resolveColor(ref), { lighting: this._lighting, background: this._refImage ? { mode: 'transparent' } : this._background, palette: this._palette });
+      const background = this._refImage ? { mode: 'transparent' } : this._background;
+      const native = this._nativeFrame('canonical', () => renderCellNative(this._shapes, this.cellW, this.cellH, ref => this._resolveColor(ref), { lighting: this._lighting, background, palette: this._palette }));
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
       return;
@@ -251,9 +287,10 @@ export class CanvasEditor {
     if (z < 1) {
       // Fit large traces using nearest-neighbor sampling of the native raster.
       // Fractional fillRect edges would otherwise introduce seams between runs.
-      const native = document.createElement('canvas');
-      native.width = this.cellW; native.height = this.cellH;
-      this._renderShapes(native.getContext('2d'), 0, 0, 1);
+      const native = this._nativeFrame('primitive', () => {
+        const canvas = document.createElement('canvas'); canvas.width = this.cellW; canvas.height = this.cellH;
+        this._renderShapes(canvas.getContext('2d'), 0, 0, 1); return canvas;
+      });
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
       return;
@@ -269,6 +306,20 @@ export class CanvasEditor {
       }
       this._renderOneShape(ctx, ox, oy, z, shape, this._color2(shape));
     });
+  }
+
+  _nativeFrame(kind, paint) {
+    const key = JSON.stringify([kind, this.cellW, this.cellH, this._lighting,
+      Object.entries(this._palette ?? {}).sort(([a], [b]) => a.localeCompare(b)), this._background, !!this._refImage]);
+    if (!this._native || this._nativeKey !== key) {
+      this._releaseNative(); this._native = paint(); this._nativeKey = key;
+    }
+    return this._native;
+  }
+
+  _releaseNative() {
+    if (this._native) this._native.width = this._native.height = 0;
+    this._native = null; this._nativeKey = null;
   }
 
   _renderGrid(ctx, ox, oy, z) {

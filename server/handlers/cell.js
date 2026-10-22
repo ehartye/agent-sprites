@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { getCellShapeGroups, canonicalizeCellShapeGroups } from '../project-state.js';
 
 export function handleShiftCell(state, params) {
   if (!state.project) throw new Error('No project open');
@@ -37,17 +38,18 @@ export function handleRotateCell(state, params) {
  * copied cell would otherwise arrive without them and a later recolor-group
  * on the copy would quietly touch nothing.
  */
-function copyShapeGroups(state, from, to) {
-  if (state.sessionId == null || typeof state.db?.getShapeGroups !== 'function' || typeof state.db?.setShapeGroup !== 'function') return;
-  const groups = state.db.getShapeGroups(state.sessionId, from);
+function copyShapeGroups(state, from, to, groups = getCellShapeGroups(state, from)) {
+  if (state.sessionId == null || typeof state.db?.setShapeGroup !== 'function') return;
   for (const [name, shapes] of Object.entries(groups)) state.db.setShapeGroup(state.sessionId, to, name, shapes);
 }
 
 export function handleCopyCell(state, params) {
   if (!state.project) throw new Error('No project open');
-  state.project.cells.copyCell(params.from, params.to);
-  copyShapeGroups(state, params.from, params.to);
-  state.broadcast?.({ type: 'cell_copied', from: params.from, to: params.to });
+  const from = state.project.cells.resolveRef(params.from), to = state.project.cells.resolveRef(params.to);
+  const groups = getCellShapeGroups(state, from);
+  state.project.cells.copyCell(from, to);
+  copyShapeGroups(state, from, to, groups);
+  state.broadcast?.({ type: 'cell_copied', from: params.from, to });
 }
 
 export function handleCloneFanout(state, params) {
@@ -60,16 +62,17 @@ export function handleCloneFanout(state, params) {
   // Pre-validate everything before mutating: source exists, each destination
   // exists and differs from source. getCell throws on invalid refs, so this
   // aborts atomically before any copyCell runs.
-  state.project.cells.getCell(from);
-  for (const dest of to) {
-    if (dest === from) throw new Error(`clone-fanout: source "${from}" is the same as a destination`);
+  const source = state.project.cells.resolveRef(from);
+  const destinations = to.map(dest => state.project.cells.resolveRef(dest));
+  for (const dest of destinations) {
+    if (dest === source) throw new Error(`clone-fanout: source "${from}" is the same as a destination`);
     state.project.cells.getCell(dest);
   }
-  for (const dest of to) {
-    state.project.cells.copyCell(from, dest);
-    copyShapeGroups(state, from, dest);
+  for (const dest of destinations) {
+    state.project.cells.copyCell(source, dest);
+    copyShapeGroups(state, source, dest);
   }
-  state.broadcast?.({ type: 'cell_cloned_fanout', from, to });
+  state.broadcast?.({ type: 'cell_cloned_fanout', from, to: destinations });
   return { cloned: [...to] };
 }
 
@@ -82,9 +85,19 @@ export function handleClearCell(state, params) {
 
 export function handleNameCell(state, params) {
   if (!state.project) throw new Error('No project open');
+  const ref = state.project.cells.resolveRef(params.cell);
   const cell = state.project.cells.getCell(params.cell);
+  if (cell.name && cell.name !== params.name) canonicalizeCellShapeGroups(state, ref);
+  // Preserve the current owner's frame metadata before this alias resolves elsewhere.
+  if (typeof params.name === 'string') {
+    let owner;
+    try { owner = state.project.cells.resolveRef(params.name); } catch { /* A new name may have no current alias owner. */ }
+    if (owner && owner !== ref && state.project.cells.getCell(owner).name === params.name) {
+      canonicalizeCellShapeGroups(state, owner);
+    }
+  }
   cell.name = params.name;
-  state.broadcast?.({ type: 'cell_named', cell: params.cell, name: params.name });
+  state.broadcast?.({ type: 'cell_named', cell: ref, name: params.name });
 }
 
 export function handleListCells(state, _params) {

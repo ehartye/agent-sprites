@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRedrawScheduler } from '../../server/web/public/js/redraw-scheduler.js';
 import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
 
@@ -24,6 +24,8 @@ describe('createRedrawScheduler', () => {
 });
 
 describe('CellNavigator.refresh', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
   const point = (x, color) => ({ type: 'point', params: { x, y: 0 }, color, zIndex: 0, visible: true });
   it('repaints only the named thumbnails, in place', () => {
     document.body.innerHTML = '<div id="cell-strip"></div>';
@@ -34,6 +36,7 @@ describe('CellNavigator.refresh', () => {
     const paint = vi.spyOn(nav, '_renderThumb');
     nav.setCells({ '0,1': { name: 'walk', shapes: [point(0, '#ff0000')] } });
     nav.refresh(new Set(['0,1']));
+    vi.runAllTimers();
     expect(paint).toHaveBeenCalledTimes(1);
     const after = [...document.querySelectorAll('.cell-thumb-canvas')];
     expect(after).toEqual(before); // same elements, nothing rebuilt
@@ -47,7 +50,9 @@ describe('CellNavigator.refresh', () => {
     const nav = new CellNavigator();
     nav.init({ onSelect() {} }); nav.setPalette({}); nav.setGrid(1, 1, 16, 16);
     nav.setCells({ '0,0': { shapes: [point(0, '#ff0000')] } }); nav.render();
+    vi.runAllTimers();
     nav.setCells({ '0,0': { shapes: [] } }); nav.refresh(new Set(['0,0']));
+    vi.runAllTimers();
     expect(document.querySelector('.cell-thumb-canvas').getContext('2d').getImageData(1, 1, 1, 1).data[3]).toBe(0);
   });
   it('falls back to a full render when the strip is empty', () => {

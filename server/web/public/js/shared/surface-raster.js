@@ -1,5 +1,5 @@
 import { buildLayerTree, translateParams } from './shape-layers.js';
-import { SURFACE_LIMITS, validateSurface, validateLighting, validateSurfaceWork } from './surface-model.js';
+import { SURFACE_LIMITS, validateSurface, validateLighting, validateSurfaceWork, translateSurface } from './surface-model.js';
 import { generateNormalPlane, encodeNormalPlane } from './surface-normals.js';
 import { applySurfaceLighting } from './surface-lighting.js';
 import { snapParams } from './raster.js';
@@ -80,7 +80,7 @@ export function validateSurfaceScene({ shapes, width, height, lighting, backgrou
       if (unit.kind === 'layer') visit(unit);
       else {
         // Validate translations now, including global normal grids and lamps.
-        translateParams(unit.shape.params, -node.x, -node.y);
+        if (Object.hasOwn(unit.shape.params, 'surface')) translateSurface(unit.shape.params.surface, -node.x, -node.y);
         if (unit.shape.visible !== false) {
           charge(pixels * 7); // mask, normals, encode, material and three composites
           charge(surfacePrimitiveWork(unit.shape, node.w, node.h) * 2);

@@ -12,6 +12,8 @@ import { Workbench } from './workbench.js';
 import { cellsForView, isTracedShape } from './view-visibility.js';
 import { previewSequences, selectPreviewSequence } from './preview-sequences.js';
 import { createRedrawScheduler } from './redraw-scheduler.js';
+import { ProjectFrames } from './project-frames.js';
+import { LiveMutations } from './live-mutations.js';
 
 const visibility = { trace: true, reference: true };
 const viewCells = () => cellsForView(state.project?.cells ?? {}, visibility);
@@ -45,28 +47,64 @@ const fullPreview = new AnimationPreview({
   responsive: true,
   title: 'Full Preview',
 });
+const frames = new ProjectFrames({ onChange: onProjectData, refresh: refreshProject });
+const mutations = new LiveMutations({ getPins: () => frames.pins, refresh: refreshProject });
+let refreshPending = null;
+async function refreshProject() {
+  if (!refreshPending) {
+    const generation = frames.generation;
+    // Discovery follows the active session, including our own session/open.
+    // A newer live identity wins over an older HTTP snapshot.
+    refreshPending = rawRequest('/workbench/project-summary', undefined, { sessionId: null }).then(result => {
+      if (generation === frames.generation || (result.data.sessionId === frames.pins.sessionId && result.data.projectId === frames.pins.projectId)) frames.setSummary(result.data);
+      return frames.project;
+    }).finally(() => { refreshPending = null; });
+  }
+  return refreshPending;
+}
+function editable() { return Boolean(state.project && frames.status(state.activeCell).state === 'ready'); }
+function sendEdit(message) {
+  if (!editable()) { workbench.notify('Wait for the selected frame to finish loading before editing.', true); return; }
+  const captured = structuredClone(message);
+  void mutations.enqueue(pins => ws.request({ ...captured, ...pins })).catch(error => workbench.notify(error.message, true));
+}
 const workbench = new Workbench({
   request: requestApi,
   getCell: () => state.activeCell,
   getColor: () => state.palette[state.activeColor] ?? state.activeColor,
   setColor: setActiveColor,
   getShape: () => state.selectedShape,
-  refresh: () => ws.send({ action: 'get_project' }),
+  refresh: refreshProject,
   preview: sequenceId => {
     if(typeof sequenceId==='string'){state.previewSequence=sequenceId;syncPreviewSequence();}
     document.querySelector('[data-tab="preview"]').click();
   },
 });
 
-async function requestApi(path, body, { sessionId = state.sessionId } = {}) {
+async function rawRequest(path, body, { sessionId = state.sessionId, projectId, revision } = {}) {
   const response = await fetch(`/api${path}`, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json', ...(sessionId ? { 'X-Sprite-Session': sessionId } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(sessionId ? { 'X-Sprite-Session': sessionId } : {}),
+      ...(projectId ? { 'X-Sprite-Project': projectId, 'X-Sprite-Revision': String(revision) } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const result = await response.json();
-  if (!response.ok || !result.ok) throw new Error(result.error ?? `Request failed (${response.status})`);
+  if (!response.ok || !result.ok) throw Object.assign(new Error(result.error ?? `Request failed (${response.status})`), { status: response.status });
   return result;
+}
+const readOperations = new Set(['/cell/ascii-read', '/cell/compose-plan', '/cell/view', '/view/stack', '/view/sheet', '/workbench/replay', '/workbench/map-operations', '/workbench/build', '/workbench/trace', '/workbench/verify', '/workbench/atlas-proof']);
+async function requestApi(path, body, options = {}) {
+  if (path === '/workbench/project-summary') return { ok: true, data: await refreshProject() };
+  if (body === undefined || readOperations.has(path)) return rawRequest(path, body, options);
+  if (/^\/(draw|shape\/|group\/shape\/|workbench\/skin-tone(\/|$)|cell\/(surface|lighting|layer|clone-fanout|ascii-patch|compose|shift|mirror|copy|clear|rotate|reference|undo|redo)(\/|$))/.test(path) && !editable()) {
+    throw new Error('Wait for the selected frame to finish loading before editing.');
+  }
+  const captured = structuredClone(body);
+  return mutations.enqueue(async pins => {
+    const result = await rawRequest(path, captured, pins);
+    await refreshProject();
+    return result;
+  }, options.sessionId, { allowUnbound: ['/session/new', '/session/open', '/session/open-session'].includes(path) });
 }
 
 /* -- Initialization -- */
@@ -83,8 +121,9 @@ function init() {
       editor.setSelectedShape(null);
       shapePanel.setSelected(null);
       const cells = viewCells();
-      cellNav.setCells(cells); cellNav.render();
-      animPreview.setCells(cells); fullPreview.setCells(cells);
+      const context = rasterContext();
+      cellNav.setCells(cells, context); cellNav.render();
+      animPreview.setCells(cells, context); fullPreview.setCells(cells, context);
       selectCell(state.activeCell);
     });
   }
@@ -94,13 +133,14 @@ function init() {
 
   ws.connect();
   ws.on('project', onProjectData);
+  ws.on('project_summary', data => frames.setSummary(data));
   ws.on('draw', onDrawUpdate);
   ws.on('shape_update', onShapeUpdate);
   ws.on('cell_update', onCellUpdate);
   ws.on('error', onError);
   ws.on('_session', id => { state.sessionId = id; });
 
-  // MCP tool broadcasts use specific event types — request full state refresh
+  // Legacy broadcasts use specific event types; resync through metadata only.
   const refreshEvents = [
     'shape_named', 'shape_moved', 'shape_recolored', 'shape_deleted', 'shape_z', 'shape_resized',
     'shape_flipped', 'shape_rotated',
@@ -111,13 +151,12 @@ function init() {
   ];
   for (const evt of refreshEvents) {
     ws.on(evt, () => {
-      // Request full project state to resync after MCP mutation
-      ws.send({ action: 'get_project' });
+      void refreshProject().catch(onError);
     });
   }
 
   tools.init({
-    send: (msg) => ws.send(msg),
+    send: sendEdit,
     getCellRef: () => state.activeCell,
     getColor: () => state.activeColor,
     getShapes: () => viewCell(state.activeCell)?.shapes || [],
@@ -191,11 +230,24 @@ function init() {
     },
     onDelete: (name, { allCells }) => {
       if (allCells) {
-        // Delete in every cell that has it
-        Promise.all(Object.entries(state.allShapeGroups || {})
-          .filter(([_, groups]) => groups[name])
-          .map(([cell]) => apiPost('/api/group/shape/delete', { cell, name }))
-        ).then(refreshShapeGroups);
+        const targets = Object.entries(state.allShapeGroups || {})
+          .filter(([_, groups]) => Object.hasOwn(groups, name))
+          .map(([cell]) => cell);
+        // One owned intent paces arbitrarily many metadata targets through the
+        // existing lane. Never adopt a replacement project between targets.
+        return workbench.run(() => mutations.enqueue(async pins => {
+          const { sessionId, projectId } = pins;
+          const assertCurrent = () => {
+            if (frames.pins.sessionId !== sessionId || frames.pins.projectId !== projectId) throw new Error('The active project changed. Remaining group deletions were not sent.');
+          };
+          for (const cell of targets) {
+            assertCurrent();
+            await rawRequest('/group/shape/delete', { cell, name }, pins);
+            await refreshProject();
+            assertCurrent(); pins = frames.pins;
+          }
+          refreshShapeGroups();
+        }));
       } else {
         apiPost('/api/group/shape/delete', { cell: state.activeCell, name })
           .then(refreshShapeGroups);
@@ -204,12 +256,12 @@ function init() {
   });
 
   cellNav.init({
-    onSelect: (ref) => selectCell(ref),
+    onSelect: (ref) => selectCell(ref, { retry: true }),
   });
 
-  editor.onPixelClick((x, y) => tools.handleClick(x, y));
-  editor.onPixelMove((x, y) => tools.handleMove(x, y));
-  editor.onPixelUp((x, y) => tools.handleUp(x, y));
+  editor.onPixelClick((x, y) => { if (editable()) tools.handleClick(x, y); });
+  editor.onPixelMove((x, y) => { if (editable()) tools.handleMove(x, y); });
+  editor.onPixelUp((x, y) => { if (editable()) tools.handleUp(x, y); });
   editor.onCursorMove((x, y, inBounds) => {
     document.getElementById('cursor-pos').textContent = inBounds ? `${x}, ${y}` : '—';
   });
@@ -222,63 +274,60 @@ function init() {
 
 /* -- WebSocket handlers -- */
 
+function rasterContext() {
+  return { projectId: state.project?.projectId, cellVersions: state.project?.cellVersions,
+    viewKey: JSON.stringify(visibility), onMissing: (ref, demand) => frames.demand(ref, demand) };
+}
+
 function onProjectData(data) {
-  const changed = workbench.sessionId !== state.sessionId;
+  editor.batchUpdate(() => applyProjectData(data));
+}
+
+function applyProjectData(data) {
+  const changed = state.project?.projectId !== data.projectId || workbench.sessionId !== data.sessionId;
   state.project = data;
+  state.sessionId = data.sessionId ?? state.sessionId;
   if (changed) {
     state.previewSequence = 'row'; state.previewSequenceKey = null;
     visibility.trace = true; visibility.reference = true;
     state.activeCell = '0,0'; state.activeColor = null; state.selectedShape = null;
-    tools.setTool(state.activeTool);
-    cellNav.setFilter(null);
-    animPreview.setFrames([]); fullPreview.setFrames([]);
-    groupPanel.setGroups({});
+    state.selectedInput = undefined; state.renderContextKey = null;
+    tools.setTool(state.activeTool); cellNav.setFilter(null);
+    animPreview.stop(); fullPreview.stop();
   }
-  workbench.setProject(data, state.sessionId);
   document.getElementById('project-name').textContent = data.name || 'Untitled';
-
-  // Set up palette lookup
-  state.palette = {};
-  if (data.palette) {
-    for (const { name, color } of data.palette) {
-      state.palette[name] = color;
+  const cellW = data.cellWidth ?? data.cellSize ?? 16, cellH = data.cellHeight ?? data.cellSize ?? cellW;
+  const key = JSON.stringify([cellW, cellH, data.palette, data.background]);
+  if (key !== state.renderContextKey) {
+    state.renderContextKey = key;
+    state.palette = Object.fromEntries((data.palette ?? []).map(({ name, color }) => [name, color]));
+    // Clear old geometry before any context setter can repaint it.
+    editor.batchUpdate(() => {
+      editor.setCell(null); state.selectedInput = null;
+      editor.setReference(null, state.activeCell); editor.setOnionSkin(null);
+      editor.setPalette(state.palette); editor.setBackground(data.background); editor.setCellSize(cellW, cellH);
+    });
+    shapePanel.setPalette(state.palette);
+    cellNav.setBackground(data.background); cellNav.setPalette(state.palette);
+    for (const preview of [animPreview, fullPreview]) {
+      preview.setPalette(state.palette); preview.setBackground(data.background); preview.setCellSize(cellW, cellH);
+    }
+    renderPalette();
+    if (changed) {
+      const container = document.getElementById('canvas-container');
+      const fit = Math.min(container.clientWidth / cellW, container.clientHeight / cellH) * 0.85;
+      editor.panX = 0; editor.panY = 0;
+      editor.setZoom(Math.max(0.125, Math.min(24, fit >= 1 ? Math.floor(fit) : fit)));
     }
   }
-  const cellW = data.cellWidth ?? data.cellSize ?? 16;
-  const cellH = data.cellHeight ?? data.cellSize ?? cellW;
-  editor.setPalette(state.palette);
-  editor.setBackground(data.background);
-  cellNav.setBackground(data.background);
-  animPreview.setBackground(data.background);
-  fullPreview.setBackground(data.background);
-  editor.setCellSize(cellW, cellH);
-  shapePanel.setPalette(state.palette);
-  cellNav.setPalette(state.palette);
-  animPreview.setPalette(state.palette);
-  animPreview.setCellSize(cellW, cellH);
-  animPreview.setCells(viewCells());
-  fullPreview.setPalette(state.palette);
-  fullPreview.setCellSize(cellW, cellH);
-  fullPreview.setCells(viewCells());
-
-  // Auto-zoom to fit nicely
-  const container = document.getElementById('canvas-container');
-  if (changed) {
-    const fit = Math.min(container.clientWidth / cellW, container.clientHeight / cellH) * 0.85;
-    const idealZoom = fit >= 1 ? Math.floor(fit) : fit;
-    editor.panX = 0; editor.panY = 0;
-    editor.setZoom(Math.max(0.125, Math.min(24, idealZoom)));
-  }
-
-  renderPalette();
+  const cells = viewCells(), context = rasterContext();
   cellNav.setGrid(data.grid.rows, data.grid.cols, cellW, cellH);
-  cellNav.setCells(viewCells());
-  cellNav.render();
+  cellNav.setCells(cells, context); cellNav.render();
+  animPreview.setCells(cells, context); fullPreview.setCells(cells, context);
   groupPanel.setGroups(data.groups || {});
   selectCell(state.activeCell);
-  refreshShapeGroups();
+  workbench.setProject(data, state.sessionId);
 }
-
 // Edits arrive one broadcast per shape; views refresh once per animation frame
 // for every cell touched since the last one.
 const redraw = createRedrawScheduler(refs => {
@@ -339,30 +388,31 @@ function onError(data) {
 /* -- Shape actions -- */
 
 function handleShapeAction(action, shapeId) {
+  if (!editable()) return;
   const cell = state.activeCell;
   switch (action) {
     case 'rename': {
       const name = prompt('New shape name:');
       if (name !== null) {
-        ws.send({ action: 'name_shape', params: { cell, shape_id: shapeId, name } });
+        sendEdit({ action: 'name_shape', params: { cell, shape_id: shapeId, name } });
       }
       break;
     }
     case 'recolor': {
       const color = prompt('New color (name or #hex):');
       if (color !== null) {
-        ws.send({ action: 'recolor_shape', params: { cell, name: shapeId, color } });
+        sendEdit({ action: 'recolor_shape', params: { cell, name: shapeId, color } });
       }
       break;
     }
     case 'z_up':
-      ws.send({ action: 'shape_z', params: { cell, shape: shapeId, direction: 'up' } });
+      sendEdit({ action: 'shape_z', params: { cell, shape: shapeId, direction: 'up' } });
       break;
     case 'z_down':
-      ws.send({ action: 'shape_z', params: { cell, shape: shapeId, direction: 'down' } });
+      sendEdit({ action: 'shape_z', params: { cell, shape: shapeId, direction: 'down' } });
       break;
     case 'delete':
-      ws.send({ action: 'delete_shape', params: { cell, name: shapeId } });
+      sendEdit({ action: 'delete_shape', params: { cell, name: shapeId } });
       break;
   }
 }
@@ -379,27 +429,43 @@ function setCellData(ref, data) {
   state.project.cells[ref] = data;
 }
 
-function selectCell(ref) {
-  if (state.activeCell !== ref) { state.selectedShape = null; tools.setTool(state.activeTool); }
+function selectCell(ref, { retry = false } = {}) {
+  const switched = state.activeCell !== ref;
   state.activeCell = ref;
+  frames.select(ref, { retry });
   const cell = viewCell(ref);
+  const ready = Array.isArray(cell?.shapes);
+  const input = ready ? cell : null;
+  const version = state.project?.cellVersions?.[ref];
+  const selectionKey = JSON.stringify([state.sessionId, state.project?.projectId, ref, version, visibility]);
+  if (state.selectedInput !== input || state.selectedKey !== selectionKey) {
+    state.selectedInput = input; state.selectedKey = selectionKey;
+    state.selectedShape = null;
+    editor.batchUpdate(() => {
+      tools.setTool(state.activeTool); editor.setSelectedShape(null); editor.setDragPreview(null); editor.setOnionSkin(null);
+      editor.setCell(input);
+      editor.setReference(ready ? cell.reference ?? null : null, ref, { ...frames.pins, cellVersion: version });
+    });
+    refreshShapePanel();
+  }
   const traceToggle = document.getElementById('show-traced-baseline');
   const referenceToggle = document.getElementById('show-reference-image');
   traceToggle.checked = visibility.trace;
   referenceToggle.checked = visibility.reference;
   traceToggle.disabled = !Object.values(state.project?.cells ?? {}).some(c => c.shapes?.some(isTracedShape));
   referenceToggle.disabled = !findCell(ref)?.reference;
-  editor.setCell(cell);
-  editor.setReference(cell?.reference ?? null, ref);
   updateCellRef();
-  refreshShapePanel();
-  cellNav.setActive(ref);
+  for (const id of ['undo-btn', 'redo-btn']) document.getElementById(id).disabled = !ready;
+  if (switched || state.navActive !== ref) { cellNav.setActive(ref); state.navActive = ref; }
   animPreview.setActiveCell(ref);
   syncPreviewSequence();
   editor.setOnionSkin(animPreview.getOnionSkinData());
   groupPanel.setActiveCell(ref);
   shapeGroupPanel.setActiveCell(ref);
   refreshShapeGroups();
+  for (const selector of ['#tool-buttons button', '#shape-items button', '#shape-group-items button', '.group-create-btn', '.group-create-pattern-btn']) {
+    document.querySelectorAll(selector).forEach(control => { control.disabled = !ready; });
+  }
   workbench.refreshProjectPanels();
 }
 
@@ -434,22 +500,18 @@ function apiPost(path, body) {
   });
 }
 
-async function refreshShapeGroups() {
-  try {
-    const all = await fetch('/api/group/shape/list-all').then(r => r.json());
-    if (all.ok) {
-      state.allShapeGroups = all.data;
-      shapeGroupPanel.setAllCellGroups(all.data);
-      const cellGroups = (all.data && state.activeCell) ? (all.data[state.activeCell] || {}) : {};
-      shapeGroupPanel.setCellGroups(cellGroups);
-    }
-  } catch (e) {
-    console.error('refreshShapeGroups failed:', e);
-  }
+function refreshShapeGroups() {
+  const index = state.project?.shapeGroups ?? {};
+  state.allShapeGroups = Object.fromEntries(Object.entries(index).map(([ref, names]) =>
+    [ref, Array.isArray(names) ? Object.fromEntries(names.map(name => [name, []])) : names]));
+  shapeGroupPanel.setAllCellGroups(state.allShapeGroups);
+  shapeGroupPanel.setCellGroups(frames.groups(state.activeCell));
 }
 
 function updateCellRef() {
-  document.getElementById('cell-ref').textContent = `Cell ${state.activeCell}`;
+  const status = frames.status(state.activeCell);
+  document.getElementById('cell-ref').textContent = `Cell ${state.activeCell}${status.state === 'ready' ? '' : status.state === 'error' ? ` · ${status.error}` : ' · Loading…'}`;
+  document.getElementById('canvas-container').setAttribute('aria-busy', String(status.state === 'loading'));
 }
 
 function refreshShapePanel() {
@@ -542,11 +604,11 @@ function initUndoRedo() {
 }
 
 function doUndo() {
-  ws.send({ action: 'undo', params: { cell: state.activeCell } });
+  sendEdit({ action: 'undo', params: { cell: state.activeCell } });
 }
 
 function doRedo() {
-  ws.send({ action: 'redo', params: { cell: state.activeCell } });
+  sendEdit({ action: 'redo', params: { cell: state.activeCell } });
 }
 
 /* -- Tabs -- */

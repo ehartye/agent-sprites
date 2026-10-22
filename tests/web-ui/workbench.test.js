@@ -1,12 +1,30 @@
 // @vitest-environment jsdom
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { ReadableStream } from 'node:stream/web';
 import { Workbench } from '../../server/web/public/js/workbench.js';
 import { COMMANDS } from '../../server/commands/catalog.js';
 import { commandRequest } from '../../server/web/public/js/command-catalog.js';
-import { ShapePanel } from '../../server/web/public/js/panels.js';
+import { ShapePanel, ShapeGroupPanel } from '../../server/web/public/js/panels.js';
 import { jsonReport, animationProof } from '../../server/web/public/js/components.js';
 
 let bench, request, color;
+afterEach(() => { vi.unstubAllGlobals(); });
+test('shape-group membership badges preserve prototype-like names without loading other cells', () => {
+  document.body.innerHTML = '<section><ul id="shape-group-items"></ul></section>';
+  const panel = new ShapeGroupPanel(); panel.init({}); panel.setActiveCell('0,0');
+  const groups = { ['__proto__']: ['dot'], constructor: ['dot'] };
+  panel.setAllCellGroups({ '0,0': groups, '0,1': groups }); panel.setCellGroups(groups);
+  expect([...document.querySelectorAll('.shape-group-badge')].map(node => node.textContent)).toEqual(['🔗2', '🔗2']);
+});
+test('copy handoff uses metadata summary without reading expanded geometry', async () => {
+  const writeText = vi.fn(); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  bench.setProject({ name: 'Sparse', cells: { '0,0': { shapeCount: 5 } } }, 'pinned');
+  request.mockImplementation(async path => { if (path !== '/workbench/project-summary') throw new Error('Expanded read forbidden'); return { data: { name: 'Sparse', sessionId: 'pinned' } }; });
+  await bench.show('handoff'); [...bench.body.querySelectorAll('button')].find(button => button.textContent === 'Copy handoff for agent').click();
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+  expect(writeText.mock.calls[0][0]).toContain('Session: pinned');
+  expect(request).not.toHaveBeenCalledWith('/workbench/project');
+});
 test('large shared reports disclose preview limits and retain the complete downloadable result', () => {
   const onDownload = vi.fn(), report = jsonReport({ onDownload });
   const data = { instances: [{ name: 'one' }], shapes: [], detail: 'x'.repeat(30000) };
@@ -66,6 +84,84 @@ beforeEach(() => {
   bench = new Workbench({ request, getCell: () => '1,2', getColor: () => '#aabbcc', setColor: color, refresh: vi.fn() });
   bench.init();
 });
+
+test('editable project downloads pass the response Blob directly with pinned session and format choices', async () => {
+  const blob = new Blob(['portable bytes'], { type: 'application/json' });
+  const fetchFile = vi.fn(async () => ({ ok: true, headers: new Headers({ 'content-type': 'application/json' }), blob: async () => blob,
+    json: () => { throw new Error('must not parse a project'); } }));
+  vi.stubGlobal('fetch', fetchFile);
+  const oldCreate = URL.createObjectURL, oldRevoke = URL.revokeObjectURL;
+  const create = vi.fn(() => 'blob:project'); URL.createObjectURL = create; URL.revokeObjectURL = vi.fn();
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    bench.project = { name: 'Shared art', storageVersion: 2 }; bench.sessionId = 'pinned'; await bench.show('handoff');
+    const select = document.querySelector('[name="project-format"]'); expect(select).not.toBeNull();
+    const action = [...document.querySelectorAll('button')].find(button => button.textContent === 'Download editable project');
+    for (const [value, suffix] of [['', ''], ['shared', '?format=shared'], ['expanded', '?format=expanded']]) {
+      select.value = value; action.click();
+      await vi.waitFor(() => expect(fetchFile).toHaveBeenLastCalledWith('/api/workbench/project-file' + suffix, { headers: { 'X-Sprite-Session': 'pinned' } }));
+      await vi.waitFor(() => expect(create).toHaveBeenLastCalledWith(blob));
+    }
+    expect(request.mock.calls.some(([path]) => path === '/workbench/project')).toBe(false);
+    expect(click).toHaveBeenCalledTimes(3);
+  } finally { URL.createObjectURL = oldCreate; URL.revokeObjectURL = oldRevoke; click.mockRestore(); vi.unstubAllGlobals(); }
+});
+
+test('save tool offers current, shared and expanded format and omits the current format override', async () => {
+  await bench.show('tools'); bench.selectCommand('save');
+  const select = document.querySelector('select[name="format"]'); expect(select).not.toBeNull();
+  expect([...select.options].map(option => option.value)).toEqual(['', 'shared', 'expanded']);
+  expect(commandRequest(COMMANDS.find(command => command.id === 'save'), { format: '' }).body).toEqual({});
+  const submit = () => document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  submit(); await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/save', {}));
+  select.value = 'expanded'; submit(); await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/save', { format: 'expanded' }));
+});
+test('handoff streams large files, disables duplicate input, and cancels when the drawer closes', async () => {
+  const calls = [], uploads = [];
+  class Upload {
+    constructor() { this.upload = {}; uploads.push(this); }
+    open() {} setRequestHeader() {} send(file) { this.file = file; } abort() { this.onabort?.(); }
+  }
+  vi.stubGlobal('XMLHttpRequest', Upload);
+  vi.stubGlobal('fetch', async (path, options) => { calls.push({ path, ...options }); return { ok: true, json: async () => ({ ok: true, data: { id: 'file-job' } }) }; });
+  try {
+    bench.sessionId = 'pinned'; await bench.show('handoff');
+    const upload = document.querySelector('input[type="file"]');
+    expect(upload.accept).toContain('.json.gz');
+    const file = new File(['x'], 'large.json'); Object.defineProperty(file, 'size', { value: 65 * 1024 * 1024 });
+    file.text = () => { throw new Error('must not buffer'); };
+    Object.defineProperty(upload, 'files', { value: [file] }); upload.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(uploads).toHaveLength(1)); expect(uploads[0].file).toBe(file); expect(upload.disabled).toBe(true);
+    uploads[0].upload.onprogress({ loaded: 1024, total: file.size, lengthComputable: true });
+    expect(document.querySelector('[data-import-status]').textContent).toMatch(/1,024|1024/);
+    expect(document.querySelector('[data-import-cancel]').disabled).toBe(false);
+    bench.close(); await vi.waitFor(() => expect(calls.some(call => call.method === 'DELETE')).toBe(true));
+    expect(request.mock.calls.some(([path]) => path === '/session/import')).toBe(false);
+    expect(bench.refresh).not.toHaveBeenCalled();
+  } finally { vi.unstubAllGlobals(); }
+});
+test('own import broadcast preserves handoff until its receipt arrives, then refreshes actual state', async () => {
+  const calls = [], uploads = [];
+  class Upload {
+    constructor() { this.upload = {}; uploads.push(this); }
+    open() {} setRequestHeader() {} send() {} abort() { this.onabort?.(); }
+  }
+  vi.stubGlobal('XMLHttpRequest', Upload);
+  vi.stubGlobal('fetch', async (path, options) => {
+    calls.push({ path, ...options }); let data = { id: 'own-import', state: options.method === 'GET' ? 'ready' : 'uploading' };
+    if (path.endsWith('/activate')) { bench.setProject({ name: 'Imported' }, 'new-session'); data = { session_id: 'new-session', project_name: 'Imported' }; }
+    return { ok: true, json: async () => ({ ok: true, data }) };
+  });
+  try {
+    bench.sessionId = 'original'; await bench.show('handoff');
+    const upload = document.querySelector('input[type="file"]'), status = document.querySelector('[data-import-status]');
+    Object.defineProperty(upload, 'files', { value: [new File(['x'], 'own.json')] }); upload.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(uploads).toHaveLength(1)); uploads[0].status = 202; uploads[0].onload();
+    await vi.waitFor(() => expect(bench.refresh).toHaveBeenCalledOnce());
+    expect(document.querySelector('[data-import-status]')).toBe(status); expect(status.textContent).toContain('complete');
+    expect(bench.sessionId).toBe('new-session'); expect(calls.some(call => call.method === 'DELETE')).toBe(false);
+  } finally { vi.unstubAllGlobals(); }
+});
 test('renders all palette families together; selecting another palette uses exact hex without renaming existing colors', async () => {
   await bench.show('palettes');
   expect(document.querySelectorAll('.palette-family')).toHaveLength(2);
@@ -96,6 +192,14 @@ test('drawing forms start with the selected cell and literal active color', asyn
   expect(document.querySelector('[name="cell"]').value).toBe('1,2');
   expect(document.querySelector('[name="color"]').value).toBe('#aabbcc');
 });
+test('the import command opens the streamed file handoff rather than an edit form', async () => {
+  await bench.show('tools');
+  expect(COMMANDS.find(command => command.id === 'import')).toMatchObject({ action: 'import' });
+  bench.selectCommand('import');
+  const open = [...document.querySelectorAll('.command-detail button')].find(button => button.textContent === 'Choose project file');
+  expect(open).toBeDefined(); open.click();
+  await vi.waitFor(() => expect(document.querySelector('input[type="file"]')?.accept).toContain('.json.gz'));
+});
 
 test('layer edit controls use the selected child and the common guarded request workflow',async()=>{
   bench.getShape=()=>({params:{layers:[{id:'scene:child'}]}});
@@ -104,10 +208,6 @@ test('layer edit controls use the selected child and the common guarded request 
   document.querySelector('[name="dx"]').value='2';
   document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
   await vi.waitFor(()=>expect(request).toHaveBeenCalledWith('/cell/layer',{cell:'1,2',id:'scene:child',dx:2,dy:0}));
-  bench.selectCommand('build-animation');
-  document.querySelector('[name="path"]').value='/art/scene.json';
-  document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
-  await vi.waitFor(()=>expect(request).toHaveBeenCalledWith('/workbench/build',{path:'/art/scene.json'}));
 });
 
 test('tools load their supported command descriptors from the server', async () => {
@@ -258,4 +358,218 @@ test('large traces render bounded shape pages with a searchable full list', () =
   const search = document.getElementById('shape-search'); search.value = 'run-5555'; search.dispatchEvent(new Event('input'));
   expect(document.querySelectorAll('#shape-items li')).toHaveLength(1);
   expect(document.getElementById('shape-items').textContent).toContain('run-5555');
+});
+
+async function buildView(command = 'build', { project = { name: 'Current', projectId: 'project-one' }, sessionId = 'pinned-build' } = {}) {
+  const encoder = new TextEncoder();
+  let source, signal;
+  const canceled = vi.fn();
+  const body = new ReadableStream({ start(controller) { source = controller; }, cancel: canceled });
+  const fetchBuild = vi.fn(async (_path, options) => {
+    signal = options.signal;
+    signal.addEventListener('abort', () => source.error(new DOMException('Request aborted', 'AbortError')), { once: true });
+    return { ok: true, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body };
+  });
+  vi.stubGlobal('fetch', fetchBuild);
+  bench.setProject(project, sessionId);
+  await bench.show('tools'); bench.selectCommand(command);
+  const form = document.querySelector('.tool-form'), submit = form.querySelector('[type="submit"]');
+  form.querySelector('[name="path"]').value = '/source/build.json';
+  const start = () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  const push = value => source.enqueue(encoder.encode(JSON.stringify(value) + '\n'));
+  return { form, submit, start, fetchBuild, canceled, get signal() { return signal; }, get locked() { return body.locked; }, push,
+    finish(report = { ok: true, name: '羽 🦉', artifacts: { project: '/out/project.json' } }) { push({ type: 'result', ok: true, data: report }); source.close(); } };
+}
+
+test.each(['build', 'build-animation'])('%s uses owned streamed progress, prevents duplicate builds and opens only the actual generated file', async command => {
+  const wire = await buildView(command);
+  wire.start(); wire.start();
+  expect(wire.submit.disabled).toBe(true);
+  await vi.waitFor(() => expect(wire.fetchBuild).toHaveBeenCalledOnce());
+  expect(wire.fetchBuild).toHaveBeenCalledWith('/api/workbench/build', expect.objectContaining({
+    headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson', 'X-Sprite-Session': 'pinned-build' }, body: '{"path":"/source/build.json"}' }));
+  expect(request.mock.calls.some(([path]) => path === '/workbench/build')).toBe(false);
+  wire.push({ type: 'progress', phase: 'generator', bytes: 9437184 });
+  await vi.waitFor(() => expect(document.querySelector('[data-build-status]').textContent).toContain('9,437,184 bytes'));
+  const progress = document.querySelector('[data-build-progress]');
+  expect(progress.hasAttribute('value')).toBe(false);
+  wire.push({ type: 'progress', phase: 'operations', completed: 4, total: 10 });
+  await vi.waitFor(() => expect(progress.value).toBe(4)); expect(progress.max).toBe(10);
+  expect(document.querySelector('[data-build-status]').textContent).toContain('4 of 10 operations');
+  const cancel = document.querySelector('[data-build-cancel]'); expect(cancel.disabled).toBe(false);
+  wire.push({ type: 'progress', phase: 'committing' });
+  await vi.waitFor(() => expect(cancel.disabled).toBe(true));
+  expect(document.querySelector('[data-build-status]').textContent).toContain('Publishing build files');
+  wire.finish();
+  await vi.waitFor(() => expect(document.querySelector('.tool-output').textContent).toContain('羽 🦉'));
+  expect(document.querySelector('[data-build-status]').textContent).toContain('Build completed');
+  expect(wire.submit.disabled).toBe(false); expect(cancel.disabled).toBe(true);
+  expect(bench.refresh).not.toHaveBeenCalled();
+  [...document.querySelectorAll('button')].find(button => button.textContent === 'Open generated project').click();
+  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/open', { path: '/out/project.json' }));
+  expect(bench.refresh).toHaveBeenCalledOnce();
+});
+
+test('an offline build succeeds without an active project or a live-project refresh', async () => {
+  const wire = await buildView('build', { project: null, sessionId: null }), rejectedRefresh = vi.fn();
+  bench.refresh.mockImplementation(() => {
+    const pending = Promise.reject(new Error('No active project'));
+    // Observe the real failure a needless refresh would produce without leaking a test rejection.
+    pending.catch(rejectedRefresh); return pending;
+  });
+  wire.start(); wire.finish();
+  await vi.waitFor(() => expect(wire.submit.disabled).toBe(false));
+  expect(JSON.parse(document.querySelector('.tool-output').textContent)).toMatchObject({ ok: true, artifacts: { project: '/out/project.json' } });
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(true);
+  expect(document.getElementById('workbench-status').textContent).toBe('Build a project completed.');
+  expect(bench.refresh).not.toHaveBeenCalled(); expect(rejectedRefresh).not.toHaveBeenCalled();
+  expect(wire.fetchBuild.mock.calls[0][1].headers).not.toHaveProperty('X-Sprite-Session');
+});
+
+test('ordinary tool success still refreshes the live project', async () => {
+  await bench.show('tools'); bench.selectCommand('draw rect');
+  document.querySelector('.tool-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  await vi.waitFor(() => expect(bench.refresh).toHaveBeenCalledOnce());
+  expect(request).toHaveBeenCalledWith('/draw', expect.objectContaining({ type: 'rect', cell: '1,2' }));
+  expect(document.getElementById('workbench-status').textContent).toBe('Rectangle completed.');
+});
+
+test('a build report with ok false remains visible and offers no generated-project action', async () => {
+  const wire = await buildView(); wire.start();
+  wire.finish({ ok: false, errors: ['Outline verification failed'], artifacts: { project: '/out/rejected.json' } });
+  await vi.waitFor(() => expect(document.querySelector('.tool-output').textContent).toContain('Outline verification failed'));
+  expect(document.querySelector('[data-build-status]').textContent).toMatch(/failed/i);
+  expect(document.getElementById('workbench-status').textContent).toContain('failed');
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(false);
+  expect(bench.refresh).not.toHaveBeenCalled();
+});
+
+test('Cancel build reports an unconfirmed outcome and permits a deliberate retry', async () => {
+  const wire = await buildView(); wire.start();
+  const cancel = document.querySelector('[data-build-cancel]'); cancel.click();
+  expect(wire.signal.aborted).toBe(true);
+  await vi.waitFor(() => expect(document.querySelector('[data-build-status]').textContent).toMatch(/inspect output before retrying/i));
+  expect(document.querySelector('[data-build-status]').textContent).not.toMatch(/rolled back|no outputs|unchanged/i);
+  expect(wire.submit.disabled).toBe(false); expect(cancel.disabled).toBe(true);
+  expect(wire.fetchBuild).toHaveBeenCalledOnce();
+});
+
+test.each(['other command', 'same command', 'other tab', 'drawer close', 'session change', 'project change'])('%s disposes only its precommit build view', async reason => {
+  const wire = await buildView(); wire.start();
+  await vi.waitFor(() => expect(wire.signal).toBeDefined());
+  if (reason === 'other command') bench.selectCommand('draw rect');
+  if (reason === 'same command') bench.selectCommand('build');
+  if (reason === 'other tab') await bench.show('palettes');
+  if (reason === 'drawer close') bench.close();
+  if (reason === 'session change') bench.setProject({ projectId: 'project-two' }, 'another-session');
+  if (reason === 'project change') bench.setProject({ projectId: 'project-two' }, 'pinned-build');
+  await vi.waitFor(() => expect(wire.signal.aborted).toBe(true));
+  expect(document.getElementById('workbench-status').textContent).toBe('');
+  // An event queued by the detached form cannot send another build.
+  wire.start(); expect(wire.fetchBuild).toHaveBeenCalledOnce();
+});
+
+test.each(['command', 'tab', 'close', 'session', 'project'])('after publishing starts, %s change retains the receipt without reviving stale UI', async reason => {
+  const wire = await buildView(); wire.start();
+  const owner = bench.builder;
+  wire.push({ type: 'progress', phase: 'committed' });
+  await vi.waitFor(() => expect(document.querySelector('[data-build-cancel]').disabled).toBe(true));
+  if (reason === 'command') bench.selectCommand('build');
+  if (reason === 'tab') await bench.show('palettes');
+  if (reason === 'close') bench.close();
+  if (reason === 'session') bench.setProject({ projectId: 'project-two' }, 'new-session');
+  if (reason === 'project') bench.setProject({ projectId: 'project-two' }, 'pinned-build');
+  if (reason === 'session' || reason === 'project') await vi.waitFor(() => expect(bench.body.querySelector('.tool-form')).not.toBeNull());
+  const contents = bench.body.innerHTML;
+  expect(wire.signal.aborted).toBe(false);
+  wire.finish();
+  await vi.waitFor(() => { expect(owner.busy).toBe(false); expect(wire.locked).toBe(false); });
+  expect(bench.body.innerHTML).toBe(contents);
+  expect(document.getElementById('workbench-status').textContent).toBe('');
+  expect(bench.refresh).not.toHaveBeenCalled();
+});
+
+test('same-project updates keep a running build, while a direct stale session prevents callbacks', async () => {
+  const wire = await buildView(); wire.start();
+  bench.setProject({ name: 'Updated metadata', projectId: 'project-one' }, 'pinned-build');
+  expect(wire.signal.aborted).toBe(false);
+  const contents = bench.body.innerHTML; bench.sessionId = 'changed-outside-setProject';
+  wire.push({ type: 'progress', phase: 'operations', completed: 1, total: 2 });
+  await vi.waitFor(() => expect(wire.signal.aborted).toBe(true));
+  expect(bench.body.innerHTML).toBe(contents);
+  expect(document.getElementById('workbench-status').textContent).toBe('');
+});
+
+test('build request errors stay within their selected view', async () => {
+  await bench.show('tools'); bench.selectCommand('build');
+  vi.stubGlobal('fetch', async () => ({ ok: false, status: 403, headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => ({ ok: false, error: 'Local file tools require localhost' }) }));
+  document.querySelector('.tool-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  await vi.waitFor(() => expect(document.querySelector('[data-build-status]').textContent).toBe('Local file tools require localhost'));
+  expect(document.getElementById('workbench-status').textContent).toBe('Local file tools require localhost');
+});
+
+test('a detached cancel control cannot cancel a newer build request', async () => {
+  const wire = await buildView(); wire.start();
+  const oldCancel = document.querySelector('[data-build-cancel]');
+  bench.selectCommand('build');
+  let newerSignal;
+  wire.fetchBuild.mockImplementationOnce((_path, options) => new Promise((_resolve, reject) => {
+    newerSignal = options.signal;
+    newerSignal.addEventListener('abort', () => reject(new DOMException('Request aborted', 'AbortError')), { once: true });
+  }));
+  document.querySelector('.tool-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  try {
+    expect(newerSignal.aborted).toBe(false);
+    oldCancel.click();
+    expect(newerSignal.aborted).toBe(false);
+  } finally { bench.disposeBuild(); }
+});
+
+test.each(['workbench', 'controller'])('%s disposal suppresses the result even while the same command and pins remain selected', async disposal => {
+  const wire = await buildView(); wire.start();
+  const owner = bench.builder, receipt = vi.spyOn(owner, 'stream'), notify = vi.spyOn(bench, 'notify');
+  wire.push({ type: 'progress', phase: 'committing' });
+  await vi.waitFor(() => expect(document.querySelector('[data-build-cancel]').disabled).toBe(true));
+  if (disposal === 'controller') { owner.dispose(); expect(bench.builder).toBe(owner); }
+  else bench.disposeBuild();
+  const contents = bench.body.innerHTML;
+  expect(wire.signal.aborted).toBe(false);
+  wire.finish();
+  await vi.waitFor(() => { expect(owner.busy).toBe(false); expect(wire.locked).toBe(false); });
+  await expect(receipt.mock.results[0].value).resolves.toMatchObject({ type: 'result', ok: true, data: { ok: true, artifacts: { project: '/out/project.json' } } });
+  expect(bench.body.innerHTML).toBe(contents);
+  expect(document.querySelector('.tool-output').textContent).toBe('');
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(false);
+  expect(document.getElementById('workbench-status').textContent).toBe('');
+  expect(notify).not.toHaveBeenCalled();
+  expect(bench.refresh).not.toHaveBeenCalled();
+});
+
+test('a retry clears the previous generated-project action before showing a failed build report', async () => {
+  const wire = await buildView(); wire.start(); wire.finish();
+  await vi.waitFor(() => expect(wire.submit.disabled).toBe(false));
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(true);
+  const encoder = new TextEncoder();
+  wire.fetchBuild.mockImplementationOnce(async () => ({ ok: true, headers: new Headers({ 'content-type': 'application/x-ndjson' }),
+    body: new ReadableStream({ start(source) {
+      source.enqueue(encoder.encode(JSON.stringify({ type: 'result', ok: true, data: { ok: false, errors: ['Retry failed'] } }) + '\n')); source.close();
+    } }) }));
+  wire.start();
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(false);
+  await vi.waitFor(() => expect(document.querySelector('.tool-output').textContent).toContain('Retry failed'));
+  expect([...document.querySelectorAll('button')].some(button => button.textContent === 'Open generated project')).toBe(false);
+  expect(wire.fetchBuild).toHaveBeenCalledTimes(2);
+});
+
+test('a delayed server rejection after a command change cannot notify the new view', async () => {
+  const wire = await buildView();
+  let release;
+  wire.fetchBuild.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+  wire.start(); const owner = bench.builder;
+  bench.selectCommand('draw rect'); const contents = bench.body.innerHTML;
+  release({ ok: false, status: 403, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ ok: false, error: 'Delayed old failure' }) });
+  await vi.waitFor(() => expect(owner.busy).toBe(false));
+  expect(bench.body.innerHTML).toBe(contents);
+  expect(document.getElementById('workbench-status').textContent).toBe('');
 });

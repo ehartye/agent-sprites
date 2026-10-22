@@ -12,10 +12,18 @@ on:
       - 'scripts/**'
       - 'server/db/**'
       - 'server/build/**'
+      - 'server/io/**'
+      - 'server/import/**'
+      - 'server/project-view.js'
       - 'server/engine/**'
       - 'server/index.js'
-      - 'server/web/api/control-routes.js'
-      - 'server/web/public/js/shared/raster.js'
+      - 'server/web/**'
+      - 'tests/io/**'
+      - 'tests/web/project-import*.test.js'
+      - 'tests/web/progressive-project.test.js'
+      - 'tests/web-ui/native-frame*.test.js'
+      - 'tests/cli/generator*.test.js'
+      - 'tests/cli/project-import.test.js'
       - 'tests/db/**'
       - 'tests/engine/**'
       - 'tests/cli/managed-*.test.js'
@@ -41,10 +49,18 @@ on:
       - 'scripts/**'
       - 'server/db/**'
       - 'server/build/**'
+      - 'server/io/**'
+      - 'server/import/**'
+      - 'server/project-view.js'
       - 'server/engine/**'
       - 'server/index.js'
-      - 'server/web/api/control-routes.js'
-      - 'server/web/public/js/shared/raster.js'
+      - 'server/web/**'
+      - 'tests/io/**'
+      - 'tests/web/project-import*.test.js'
+      - 'tests/web/progressive-project.test.js'
+      - 'tests/web-ui/native-frame*.test.js'
+      - 'tests/cli/generator*.test.js'
+      - 'tests/cli/project-import.test.js'
       - 'tests/db/**'
       - 'tests/engine/**'
       - 'tests/cli/managed-*.test.js'
@@ -109,6 +125,13 @@ jobs:
           node node_modules/vitest/vitest.mjs run tests/db
           tests/engine/raster.test.js tests/engine/canvas-renderer.test.js
           tests/engine/atlas-verifier.test.js
+          tests/engine/shared-geometry.test.js tests/engine/shared-validation-work.test.js
+          tests/io/bounded-input.test.js
+          tests/web/project-import-api.test.js tests/web/project-import-shutdown.test.js
+          tests/web/progressive-project.test.js
+          tests/web-ui/native-frame-raster.test.js tests/web-ui/native-frame-consumers.test.js
+          tests/cli/generator-input.test.js tests/cli/generator-build.test.js
+          tests/cli/project-import.test.js
           tests/engine/environment-modules.test.js tests/cli/managed-runtime.test.js
           tests/cli/managed-invocation.test.js tests/cli/owned-child-process.test.js
           tests/cli/owned-cli.test.js

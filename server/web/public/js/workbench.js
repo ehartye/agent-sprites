@@ -4,6 +4,23 @@ import { RegionEditor } from './region-editor.js';
 import { ConstructionReplayPanel } from './construction-replay.js';
 import { FrameTimingPanel } from './frame-timing.js';
 import { SurfacePanel } from './surface-panel.js';
+import { ProjectImportController } from './project-import.js';
+import { ProjectBuildController } from './project-build.js';
+
+const buildPhases = {
+  prepare: 'Preparing build', generator: 'Reading generator output', 'generator-parse': 'Reading generated operations',
+  operations: 'Applying operations', render: 'Rendering sprites', verify: 'Checking build', artifacts: 'Writing build files',
+  prepublication: 'Checking files before publishing', committing: 'Publishing build files', committed: 'Build files published; waiting for report',
+};
+function buildMessage(update) {
+  if (update.message || update.error) return update.message ?? update.error;
+  if (update.state === 'complete') return 'Build completed.';
+  if (update.state === 'failed') return 'Build failed. See the report below.';
+  const phase = buildPhases[update.phase] ?? 'Building project';
+  if (Number.isFinite(update.bytes)) return `${phase} · ${update.bytes.toLocaleString()} bytes read`;
+  if (Number.isFinite(update.completed) && Number.isFinite(update.total)) return `${phase} · ${update.completed.toLocaleString()} of ${update.total.toLocaleString()} operations`;
+  return `${phase}…`;
+}
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -40,6 +57,8 @@ export class Workbench {
     this.mount.addEventListener('keydown', event => { if (event.key === 'Escape') this.close(); });
   }
   close() {
+    this.cancelImport();
+    this.disposeBuild();
     this.mount.hidden = true;
     this.sequence++;
     this.opener?.focus();
@@ -53,6 +72,8 @@ export class Workbench {
     catch (error) { this.notify(error.message, true); }
   }
   async show(tab) {
+    this.cancelImport();
+    this.disposeBuild();
     if (this.mount.hidden) this.opener = document.activeElement;
     this.mount.hidden = false;
     this.tab = tab;
@@ -86,12 +107,22 @@ export class Workbench {
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
   setProject(project, sessionId) {
-    const changed = this.sessionId !== sessionId;
+    const changed = this.sessionId !== sessionId || (this.project?.projectId !== undefined && project?.projectId !== undefined && this.project.projectId !== project.projectId);
+    if (this.sessionId !== sessionId || this.project?.projectId !== project?.projectId) this.disposeBuild();
     this.project = project;
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
+    if (this.importer?.isActivating()) return;
     if (!this.mount.hidden && (changed || this.tab === 'sessions')) this.show(this.tab);
     else this.refreshProjectPanels();
+  }
+  cancelImport() {
+    const importer = this.importer; this.importer = null;
+    if (importer) void importer.dispose().catch(error => this.notify(error.message, true));
+  }
+  disposeBuild() {
+    this.builder?.dispose();
+    this.builder = null;
   }
   refreshProjectPanels() {
     this.refreshReplay();
@@ -205,6 +236,10 @@ export class Workbench {
   selectCommand(id) {
     const command = this.commands.find(command => command.id === id);
     if (!command) return;
+    this.disposeBuild();
+    const commandIdentity = this.commandIdentity = Symbol(id), sequence = this.sequence;
+    const selectionCurrent = () => this.commandIdentity === commandIdentity && sequence === this.sequence && this.tab === 'tools' && !this.mount.hidden;
+    const isBuild = command.method === 'POST' && command.path?.replace(/^\/api/, '') === '/workbench/build';
     this.commandDetail.replaceChildren(element('h3', command.label), element('code', command.id));
     this.body.querySelectorAll('[data-command]').forEach(btn => btn.classList.toggle('active', btn.dataset.command === id));
     if (command.description) this.commandDetail.append(element('p', command.description, 'workbench-hint'));
@@ -214,6 +249,7 @@ export class Workbench {
       return;
     }
     if (command.action === 'preview') { this.commandDetail.append(button('Open preview', () => { this.preview(); this.close(); })); return; }
+    if (command.action === 'import') { this.commandDetail.append(button('Choose project file', () => this.show('handoff'))); return; }
     if (command.action === 'batch') { this.renderBatch(this.commandDetail); return; }
     const values = structuredClone(command.body);
     if ('cell' in values) values.cell = this.getCell();
@@ -233,9 +269,11 @@ export class Workbench {
     const form = element('form', null, 'tool-form');
     const fields = [];
     for (const [key, value] of Object.entries(values)) {
-      const input = element(typeof value === 'object' && value !== null ? 'textarea' : 'input');
+      const choices = command.choices?.[key];
+      const input = element(choices ? 'select' : typeof value === 'object' && value !== null ? 'textarea' : 'input');
       input.name = key;
       const kind = value === null ? 'null' : typeof value;
+      if (choices) for (const [value, label] of Object.entries(choices)) { const option = element('option', label); option.value = value; input.append(option); }
       if (kind === 'boolean') { input.type = 'checkbox'; input.checked = value; }
       else { if (kind === 'number') { input.type = 'number'; input.step = 'any'; } input.value = kind === 'object' ? JSON.stringify(value) : value ?? ''; }
       form.append(field(key.replaceAll('_', ' '), input)); fields.push({ key, input, kind });
@@ -255,18 +293,42 @@ export class Workbench {
         kind === 'boolean' ? input.checked : kind === 'number' ? Number(input.value) : kind === 'object' ? JSON.parse(input.value) : kind === 'null' && !input.value ? null : input.value]));
     };
     for (const { input } of fields) input.addEventListener('input', () => { jsonEdited = false; try { json.value = JSON.stringify(read(), null, 2); } catch { /* partial field input */ } });
-    const submit = element('button', command.submitLabel ?? (command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
+    const submit = element('button', command.submitLabel ?? (isBuild ? 'Build' : command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
     const report = jsonReport({ onDownload: data => download(`${command.id.replaceAll(' ', '-')}-report.json`, data) });
     const animation = animationProof();
     const output = report.output;
+    let generatedAction, formBuild;
+    const buildProgress = element('div', null, 'build-progress'); buildProgress.hidden = true;
+    const buildStatus = element('p', '', 'workbench-hint'); buildStatus.dataset.buildStatus = ''; buildStatus.setAttribute('role', 'status');
+    const progress = element('progress'); progress.dataset.buildProgress = ''; progress.setAttribute('aria-label', 'Build progress');
+    const cancel = button('Cancel build', () => { if (selectionCurrent()) formBuild?.cancel(); }); cancel.dataset.buildCancel = ''; cancel.disabled = true;
+    if (isBuild) { buildProgress.append(buildStatus, progress, cancel); form.append(buildProgress); }
     form.addEventListener('submit', event => {
       event.preventDefault();
+      if (isBuild && (submit.disabled || !selectionCurrent())) return;
+      const sessionId = this.sessionId, projectId = this.project?.projectId;
+      let activeBuild;
+      const current = () => selectionCurrent() && this.sessionId === sessionId && this.project?.projectId === projectId && (!activeBuild || (this.builder === activeBuild && !activeBuild.disposed));
       this.run(async () => {
         submit.disabled = true;
         animation.set(null);
         try {
           const request = commandRequest(command, read());
-          const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
+          let result;
+          if (isBuild) {
+            generatedAction?.remove(); report.set(undefined);
+            const builder = activeBuild = formBuild = this.builder = new ProjectBuildController({ isCurrent: current, onUpdate: update => {
+              if (!current()) return;
+              buildProgress.hidden = false;
+              setStatus(buildStatus, buildMessage(update), update.state === 'failed');
+              progress.hidden = !update.busy;
+              if (Number.isFinite(update.completed) && update.total > 0) { progress.max = update.total; progress.value = update.completed; }
+              else { progress.max = 1; progress.removeAttribute('value'); }
+              cancel.disabled = !update.cancellable;
+            } });
+            result = await builder.start(request.body, { sessionId });
+            if (!current() || !result) return;
+          } else result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
           report.set(result.data ?? result);
           animation.set(result.preview, result.previewPoster);
           if (result.data?.ok === false) {
@@ -275,16 +337,19 @@ export class Workbench {
           }
           if (result.data?.artifacts?.project) {
             const projectPath = result.data.artifacts.project;
-            output.after(button('Open generated project', () => this.run(async () => {
+            generatedAction = button('Open generated project', () => this.run(async () => {
               await this.request('/session/open', { path: projectPath });
               this.notify('Generated project opened as a new session.'); this.refresh();
-            })));
+            }));
+            output.after(generatedAction);
           }
           if (result.data?.url?.startsWith('/casting.html?')) {
             const link = element('a', 'Open casting review'); link.href = result.data.url; link.target = '_blank'; link.rel = 'noopener'; output.after(link);
           }
-          this.notify(`${command.label} completed.`); this.refresh();
-        } finally { submit.disabled = false; }
+          this.notify(`${command.label} completed.`); if (!isBuild) this.refresh();
+        } catch (error) {
+          if (!isBuild || current()) throw error;
+        } finally { if (!isBuild || current()) submit.disabled = false; }
       });
     });
     this.commandDetail.append(form, animation.node, report.node);
@@ -315,8 +380,16 @@ export class Workbench {
   renderHandoff() {
     this.body.append(element('p', 'Pass the editable design, the selected frame, and a short review note between you and your agent. Imported files always become a new session.', 'workbench-hint'));
     const actions = element('div', null, 'workbench-actions');
+    const format = element('select'); format.name = 'project-format'; format.setAttribute('aria-label', 'Editable project format');
+    for (const [value, label] of [['', 'Current project format'], ['shared', 'Shared geometry (V2)'], ['expanded', 'Expanded (V1)']]) {
+      const option = element('option', label); option.value = value; format.append(option);
+    }
+    actions.append(format);
     actions.append(button('Download editable project', () => this.run(async () => {
-      const packet = await this.request('/workbench/project'); download(`${packet.data.name}.project.json`, packet.data);
+      const sessionId = this.sessionId, name = this.project?.name ?? 'design';
+      const response = await fetch(`/api/workbench/project-file${format.value ? `?format=${format.value}` : ''}`, { headers: { 'X-Sprite-Session': sessionId ?? '' } });
+      if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Could not download this project');
+      download(`${name}.project.json`, await response.blob());
     })));
     actions.append(button('Download PNG', () => this.run(async () => {
       const sessionId = this.sessionId, name = this.project?.name ?? 'design';
@@ -329,14 +402,30 @@ export class Workbench {
       const atlas = await this.request('/workbench/atlas', undefined, { sessionId });
       download(`${name}.atlas.json`, atlas.data);
     })));
-    const upload = element('input'); upload.type = 'file'; upload.accept = '.json,application/json'; upload.setAttribute('aria-label', 'Import editable project JSON');
+    const upload = element('input'); upload.type = 'file'; upload.accept = '.json,.json.gz,application/json,application/gzip'; upload.setAttribute('aria-label', 'Import editable project JSON or gzip');
+    const importStatus = element('p', 'Choose a .json or .json.gz project.'); importStatus.dataset.importStatus = ''; importStatus.setAttribute('role', 'status');
+    const importProgress = element('progress'); importProgress.hidden = true;
+    const cancelImport = button('Cancel import', () => this.run(() => this.importer?.cancel())); cancelImport.dataset.importCancel = ''; cancelImport.disabled = true;
+    const importSequence = this.sequence;
+    this.importer = new ProjectImportController({ getSessionId: () => this.sessionId,
+      isCurrent: () => importSequence === this.sequence && this.tab === 'handoff' && !this.mount.hidden,
+      onUpdate: status => {
+        if (importSequence !== this.sequence) return;
+        upload.disabled = status.busy; cancelImport.disabled = !status.busy;
+        importProgress.hidden = !status.busy;
+        if (status.state === 'uploading' && status.total) { importProgress.max = status.total; importProgress.value = status.loaded ?? 0; }
+        else importProgress.removeAttribute('value');
+        importStatus.textContent = status.error ?? `${status.phase ?? status.state}${status.loaded !== undefined ? ` · ${status.loaded.toLocaleString()}${status.total ? ` / ${status.total.toLocaleString()}` : ''} bytes` : ''}`;
+        importStatus.classList.toggle('error', status.state === 'failed');
+        if (!status.busy) upload.value = '';
+      },
+      onComplete: receipt => { this.notify(`Imported ${receipt.project_name} as a new session.`); this.refresh(); },
+    });
     upload.addEventListener('change', () => this.run(async () => {
       const file = upload.files[0]; if (!file) return;
-      if (file.size > 64 * 1024 * 1024) throw new Error('Project must be smaller than 64 MB');
-      await this.request('/session/import', { project: JSON.parse(await file.text()) });
-      this.notify(`Imported ${file.name} as a new session.`); this.refresh();
+      await this.importer?.start(file);
     }));
-    this.body.append(actions, element('label', 'Import an editable project'), upload);
+    this.body.append(actions, element('label', 'Import an editable project'), upload, importStatus, importProgress, cancelImport);
     const exportSection = element('section', null, 'surface-section');
     exportSection.append(element('h3', 'Export PNG and atlas on disk'), element('p', 'Write the sheet and atlas to the session export folder, or choose another destination. Auto includes normal assets when the design has authored normals.', 'workbench-hint'));
     const destination = input('export-dest', '', { placeholder: 'Use session export folder' });
@@ -374,9 +463,10 @@ export class Workbench {
       localStorage.removeItem(draftKey); this.notify('Review note saved with the project.'); this.refresh();
     })));
     this.body.append(button('Copy handoff for agent', () => this.run(async () => {
-      const packet = await this.request('/workbench/project');
+      const packet = await this.request('/workbench/project-summary');
+      const sessionId = packet.data.sessionId ?? this.sessionId;
       const port = location.port || (location.protocol === 'https:' ? '443' : '80');
-      const text = `Design: ${packet.data.name}\nPreview: ${location.origin}\nSession: ${packet.session_id}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nUse the matching managed agent-sprites runtime, bound to this preview port (do not use another server). In PowerShell:\n$env:SPRITE_PORT='${port}'\nagent-sprites open --session ${packet.session_id}\n\nRead the current editable project and its saved review note at ${location.origin}/api/workbench/project with X-Sprite-Session: ${packet.session_id}. Download the editable project for transfer to another machine.`;
+      const text = `Design: ${packet.data.name}\nPreview: ${location.origin}\nSession: ${sessionId}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nUse the matching managed agent-sprites runtime, bound to this preview port (do not use another server). In PowerShell:\n$env:SPRITE_PORT='${port}'\nagent-sprites open --session ${sessionId}\n\nRead design metadata and its saved review note at ${location.origin}/api/workbench/project-summary with X-Sprite-Session: ${sessionId}. Request pinned frames from /api/workbench/frames for editing. Download the editable project for transfer to another machine.`;
       await navigator.clipboard.writeText(text); this.notify('Design handoff copied.');
     })));
     this.body.append(element('p', 'Drafts save automatically. Save project on disk writes a portable file; downloads include the last saved review note.', 'workbench-hint'));

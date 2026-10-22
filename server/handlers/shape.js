@@ -1,4 +1,5 @@
 import { editCells } from './edit.js';
+import { publishPayload } from '../project-publication.js';
 
 export function handleNameShape(state, params) {
   if (!state.project) throw new Error('No project open');
@@ -49,7 +50,7 @@ export function handleCloneShape(state, params) {
   const shape = srcCell.shapes.get(params.shape);
   if (!shape) throw new Error(`Shape "${params.shape}" not found`);
   const newShape = dstCell.draw(shape.type, { ...shape.params }, shape.color, params.new_name ?? null);
-  state.broadcast?.({ type: 'draw', cell: params.to_cell, shape: newShape.toJSON() });
+  publishPayload(state, { type: 'draw', cell: params.to_cell }, () => ({ shape: newShape.toJSON() }));
   return { shapeId: newShape.id };
 }
 
@@ -104,7 +105,7 @@ export function handleDuplicateShape(state, params) {
   return editCells(state, [cell], scoped => {
     const copy = cell.draw(src.type, src.params, src.color, name);
     if (params.mirror) cell.flipShape(name, params.mirror, { about: 'cell' });
-    scoped.broadcast({ type: 'draw', cell: params.cell, shape: copy.toJSON() });
+    publishPayload(scoped, { type: 'draw', cell: params.cell }, () => ({ shape: copy.toJSON() }));
     return { shapeId: copy.id, shapeName: name };
   });
 }

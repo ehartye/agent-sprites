@@ -54,10 +54,11 @@ startWebServer(state, WEB_PORT).then((info) => {
 });
 
 let shuttingDown = false;
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.error(`Received ${signal}, flushing SQLite and exiting...`);
+  try { await state.disposeImports?.(); } catch (e) { console.error('Import cleanup error:', e.message); shuttingDown = false; return; }
   try { db.close(); } catch (e) { console.error('DB close error:', e.message); }
   process.exit(0);
 }

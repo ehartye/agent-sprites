@@ -259,9 +259,10 @@ SESSION
              positive safe-integer dimensions; no grid policy caps (actual allocation depends on memory/renderer)
              [--dest <folder>]   parent folder for exports (default: <cwd>/assets/claude-sprites)
   open <path>            open saved project file
+  import <path> [--name NAME] [--session ID]  stream JSON or gzip as a new session
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
-  save                   write editable project JSON (drafts already persist automatically)
+  save [--format shared|expanded]  write editable project JSON (default: current storage format)
   export [--dest <folder>] [--trim true] [--normal true|false]  color atlas plus automatic authored normal atlas
                          --trim packs each cell's opaque bounds with spriteSourceSize offsets
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
@@ -541,16 +542,37 @@ async function run() {
   }
   if (cmd === 'build') {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
-    await import('../server/build/producer-identity.js');
-    const { buildProject } = await import('../server/build/project-build.js');
-    const report = await buildProject(positional[0]);
+    const abort = new AbortController(), interrupted = () => abort.abort();
+    process.on('SIGINT', interrupted);
+    let report, publicationStarted = false, lastPhase = '', lastProgress = 0;
+    try {
+      await import('../server/build/producer-identity.js');
+      const { buildProject } = await import('../server/build/project-build.js');
+      report = await buildProject(positional[0], { signal: abort.signal, onProgress: progress => {
+        if (progress.phase === 'committing' || progress.phase === 'committed') publicationStarted = true;
+        const now = Date.now();
+        const complete = progress.completed !== undefined && progress.completed === progress.total;
+        if (progress.phase === lastPhase && now - lastProgress < 250 && !complete) return;
+        console.error(`${progress.phase}${progress.bytes !== undefined ? ` · ${progress.bytes.toLocaleString()} bytes` : ''}${progress.completed !== undefined ? ` · ${progress.completed} / ${progress.total} operations` : ''}`);
+        lastPhase = progress.phase; lastProgress = now;
+      } });
+    } finally { process.off('SIGINT', interrupted); }
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(report.ok ? 'Build published' : 'Build failed; previous output preserved');
+      console.log(report.ok ? 'Build published' : 'Build failed');
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+      const diagnostic = report.generatorStderr ?? report.generatorInput?.stderr;
+      if (diagnostic?.totalBytes > 0) {
+        console.error(`Generator stderr (${diagnostic.totalBytes} bytes total${diagnostic.truncated ? '; truncated' : ''}):`);
+        process.stderr.write(diagnostic.text + (diagnostic.text.endsWith('\n') ? '' : '\n'));
+      }
     }
-    if (!report.ok) process.exitCode = 1;
+    if (!report.ok) {
+      const canceled = abort.signal.aborted && !publicationStarted;
+      process.exitCode = canceled ? 130 : 1;
+      if (canceled) console.error('Build canceled; previous output preserved.');
+    }
     return;
   }
   if (cmd === 'verify') {
@@ -630,6 +652,29 @@ async function run() {
         ? await api('POST', '/api/session/open-session', { ref: args.session }, { sessionId: null })
         : await api('POST', '/api/session/open', { path: sub });
       break;
+    case 'import': {
+      if (positional.length !== 1 || Object.keys(args).some(key => !['name', 'session'].includes(key)) || (args.name !== undefined && typeof args.name !== 'string') || (args.session !== undefined && typeof args.session !== 'string')) throw new Error('Usage: agent-sprites import <path.json|path.json.gz> [--name NAME] [--session ID]');
+      const { importProjectFile } = await import('./project-import-client.js');
+      const abort = new AbortController(); const interrupted = () => abort.abort();
+      process.on('SIGINT', interrupted);
+      let lastPhase = '', lastProgress = 0;
+      try {
+        const receipt = await importProjectFile(resolve(sub), { baseUrl: BASE_URL, name: args.name, sessionId: args.session, signal: abort.signal,
+          onProgress: progress => {
+            const now = Date.now(), phase = progress.phase ?? progress.state;
+            if (phase !== lastPhase || now - lastProgress >= 250) {
+              console.error(`${phase}${progress.loaded !== undefined ? ` · ${progress.loaded.toLocaleString()} / ${progress.total.toLocaleString()} bytes` : ''}`);
+              lastPhase = phase; lastProgress = now;
+            }
+          },
+        });
+        console.log(JSON.stringify(receipt, null, 2));
+      } catch (error) {
+        if (!abort.signal.aborted || (error.importState && error.importState !== 'canceled')) throw error;
+        console.error('Import canceled.'); process.exitCode = 130;
+      } finally { process.off('SIGINT', interrupted); }
+      return;
+    }
     case 'cast': {
       if (sub === 'start') {
         const spec = JSON.parse(readFileSync(resolve(args.file), 'utf8'));
@@ -667,7 +712,7 @@ async function run() {
       break;
     }
     case 'save':
-      result = await api('POST', '/api/session/save', {});
+      result = await api('POST', '/api/session/save', { format: args.format });
       break;
     case 'export':
       result = await api('POST', '/api/session/export', {

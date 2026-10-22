@@ -6,10 +6,10 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { buildProject } from '../../server/build/project-build.js';
 
-const faults = vi.hoisted(() => ({ rename: null, write: null, platform: 'win32' }));
+const faults = vi.hoisted(() => ({ rename: null, write: null, cleanup: null, platform: 'win32' }));
 vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal();
-  return { ...actual, writeFileSync: vi.fn((path, ...args) => {
+  return { ...actual, closeSync: vi.fn(fd => { actual.closeSync(fd); faults.cleanup?.(); }), writeFileSync: vi.fn((path, ...args) => {
     const result = actual.writeFileSync(path, ...args);
     faults.write?.(path, actual.writeFileSync);
     return result;
@@ -34,6 +34,7 @@ beforeEach(async () => {
   faults.platform = 'win32';
   faults.rename = null;
   faults.write = null;
+  faults.cleanup = null;
   dir = realpathSync(mkdtempSync(join(tmpdir(), 'sprite-publication-')));
   output = join(dir, 'dist'); config = join(dir, 'sprite-project.json');
   writeFileSync(join(dir, 'ops.json'), JSON.stringify([
@@ -49,6 +50,7 @@ beforeEach(async () => {
 afterEach(() => {
   faults.rename = null;
   faults.write = null;
+  faults.cleanup = null;
   Object.defineProperty(process, 'platform', { value: originalPlatform });
   rmSync(dir, { recursive: true, force: true });
 });
@@ -188,4 +190,22 @@ test('foreign output remains rejected before any rename or retry', async () => {
   expect(renameSync).not.toHaveBeenCalled(); expect(delay).not.toHaveBeenCalled();
   expect(readFileSync(join(output, 'personal-notes.txt'), 'utf8')).toBe('keep');
   expect(outputBytes()).toEqual(before);
+});
+
+test('abort after the previous output moves still completes the replacement truthfully', async () => {
+  const abort = new AbortController();
+  faults.rename = from => { if (from === output) abort.abort(); };
+  const result = await buildProject(config, { signal: abort.signal });
+  expect(abort.signal.aborted).toBe(true); expect(result.ok).toBe(true);
+  expect(readFileSync(join(output, 'tiny.png'))).toEqual(previous);
+  expect(readdirSync(dir).some(name => /staging|previous|build-lock/.test(name))).toBe(false);
+});
+
+test('cleanup failure after commit warns and retains successful publication', async () => {
+  faults.cleanup = () => { throw new Error('cleanup failed'); };
+  const result = await buildProject(config);
+  expect(result.ok).toBe(true);
+  expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'build-cleanup', message: expect.stringContaining('cleanup failed') }));
+  expect(readFileSync(join(output, 'tiny.png'))).toEqual(previous);
+  expect(existsSync(output + '.build-lock')).toBe(false);
 });

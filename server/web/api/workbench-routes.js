@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { activateProjectCopy, projectName } from '../../session-activation.js';
 import { Project } from '../../engine/project.js';
 import { Palette } from '../../engine/palette.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
-import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
+import { captureProjectMetadata } from '../../project-state.js';
 import { saveDraft } from '../http.js';
 import { mapCommandToApi } from '../../../scripts/batch-commands.js';
 import { buildProject } from '../../build/project-build.js';
@@ -13,6 +13,8 @@ import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
 import { renderAtlasProof } from '../../engine/atlas-proof.js';
 import { applySkinTone, skinToneState } from '../../engine/skin-tones.js';
 import { COMMANDS } from '../../commands/catalog.js';
+import { projectSummary, projectFrames, FRAME_LIMITS } from '../../project-view.js';
+import { publishProject } from '../../project-publication.js';
 
 export function localFileRequestAllowed(req) {
   const remote = req.socket.remoteAddress;
@@ -23,13 +25,6 @@ export function localFileRequestAllowed(req) {
     const origin = req.get('origin');
     return !origin || new URL(origin).origin === server.origin;
   } catch { return false; }
-}
-
-function projectName(value) {
-  if (typeof value !== 'string' || !value.trim() || value.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(value) || /[. ]$/.test(value) || ['.', '..'].includes(value)) {
-    throw new Error('Use a project name of 1–120 characters without path separators or reserved filename characters');
-  }
-  return value.trim();
 }
 
 function validateImport(data) {
@@ -49,7 +44,7 @@ function validateImport(data) {
 }
 
 /** Browser collaboration uses the same project format and editing routes as CLI. */
-export function workbenchRoutes(state) {
+export function workbenchRoutes(state, { frames = FRAME_LIMITS } = {}) {
   const router = Router();
   const route = (fn) => async (req, res) => {
     try { await fn(req, res); }
@@ -63,39 +58,38 @@ export function workbenchRoutes(state) {
   router.get('/workbench/commands', route((_req, res) => {
     res.json({ ok: true, data: COMMANDS });
   }));
-  function activateCopy(project, origin) {
-    const parent = state.sessionId ? state.db.getSession(state.sessionId) : null;
-    const projectPath = parent?.project_path ?? process.cwd();
-    // Session id in the destination guarantees that saving a copy never overwrites
-    // another copy with the same friendly name, or the imported source file.
-    const session = state.db.db.transaction(() => {
-      const pending = state.db.createSession({ project_name: project.name, project_path: projectPath,
-        destination_folder: '', json_file: null, draft_json: JSON.stringify(project.toJSON()) });
-      state.db.updateSession(pending.id, { destination_folder: join(projectPath, 'assets', 'claude-sprites', pending.id, project.name) });
-      restoreProjectMetadata({ ...state, project, sessionId: pending.id });
-      return pending;
-    })();
-    state.project = project;
-    state.sessionId = session.id;
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: session.id });
-    return { session_id: session.id, project_name: project.name, copied_from: origin ?? null };
-  }
   router.post('/session/copy', route((req, res) => {
     const source = requireProject();
     const name = projectName(req.body.name ?? `${source.name} copy`);
-    const project = Project.fromJSON(source.toJSON());
+    const project = Project.fromJSON(source.toStorageJSON());
     project.name = name;
-    res.json({ ok: true, data: activateCopy(project, state.sessionId) });
+    res.json({ ok: true, data: activateProjectCopy(state, project, { origin: state.sessionId }) });
   }));
   router.post('/session/import', route((req, res) => {
     validateImport(req.body.project);
     const project = Project.fromJSON(req.body.project);
     project.name = projectName(req.body.name ?? project.name);
-    res.json({ ok: true, data: activateCopy(project) });
+    res.json({ ok: true, data: activateProjectCopy(state, project) });
   }));
   router.get('/workbench/project', route((_req, res) => {
     res.json({ ok: true, data: requireProject().toJSON(), session_id: state.sessionId });
   }));
+  // A portable file, independent of the legacy expanded collaboration envelope.
+  router.get('/workbench/project-file', (req, res) => {
+    try {
+      const project = requireProject();
+      const data = project.toStorageJSON({ format: req.query.format });
+      res.attachment(`${project.name}.project.json`).type('json').send(JSON.stringify(data));
+    } catch (error) { res.status(400).json({ ok: false, error: error.message }); }
+  });
+  router.get('/workbench/project-summary', (_req, res) => {
+    try { res.json({ ok: true, data: projectSummary(state) }); }
+    catch (error) { res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
+  });
+  router.get('/workbench/frames', (req, res) => {
+    try { res.type('json').send(projectFrames(state, req.query, req.originalUrl.split('?')[1] ?? '', frames)); }
+    catch (error) { res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
+  });
   router.get('/workbench/sheet.png', route((_req, res) => {
     const project = requireProject();
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
@@ -112,7 +106,7 @@ export function workbenchRoutes(state) {
     project.cells.getCell(cell);
     project.review = { note, cell, author, updatedAt: new Date().toISOString() };
     saveDraft(state);
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: state.sessionId });
+    publishProject(state, { metadataOnly: true });
     res.json({ ok: true, data: project.review });
   }));
   router.get('/workbench/palettes', route((_req, res) => {
@@ -126,7 +120,7 @@ export function workbenchRoutes(state) {
     const project = requireProject();
     const result = applySkinTone(project, req.body.tone);
     saveDraft(state);
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: state.sessionId });
+    publishProject(state);
     res.json({ ok: true, data: result });
   }));
   router.post('/workbench/map-operations', route((req, res) => {
@@ -144,7 +138,37 @@ export function workbenchRoutes(state) {
     if (!localFileRequestAllowed(req)) return res.status(403).json({ ok: false, error: 'Local file tools require this server’s localhost page and a matching origin.' });
     next();
   };
-  for (const command of ['build', 'trace', 'verify', 'atlas-proof']) {
+  router.post('/workbench/build', localFilesOnly, async (req, res) => {
+    const abort = new AbortController();
+    const abandon = () => { if (!res.writableEnded) abort.abort(); };
+    const explicitStream = (req.get('accept') ?? '').split(',').some(value => value.split(';')[0].trim().toLowerCase() === 'application/x-ndjson');
+    const streaming = explicitStream && Boolean(req.accepts('application/x-ndjson'));
+    let blocked = false, pending;
+    const write = event => {
+      if (res.destroyed || res.writableEnded) return;
+      if (blocked) { pending = event; return; }
+      blocked = !res.write(JSON.stringify({ type: 'progress', ...event }) + '\n');
+    };
+    const drain = () => { blocked = false; if (pending) { const event = pending; pending = undefined; write(event); } };
+    req.once('aborted', abandon); res.once('close', abandon); res.on('drain', drain);
+    try {
+      if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
+      if (streaming) { res.type('application/x-ndjson'); res.set('Cache-Control', 'no-store'); res.flushHeaders(); }
+      const report = await buildProject(req.body.path, { signal: abort.signal, ...(streaming ? { onProgress: write } : {}) });
+      if (res.destroyed) return;
+      if (streaming) {
+        if (pending) res.write(JSON.stringify({ type: 'progress', ...pending }) + '\n');
+        res.end(JSON.stringify({ type: 'result', ok: true, data: report }) + '\n');
+      } else res.json({ ok: true, data: report });
+    } catch (error) {
+      if (res.destroyed) return;
+      if (streaming && res.headersSent) res.end(JSON.stringify({ type: 'error', ok: false, error: error.message }) + '\n');
+      else res.json({ ok: false, error: error.message });
+    } finally {
+      req.off('aborted', abandon); res.off('close', abandon); res.off('drain', drain);
+    }
+  });
+  for (const command of ['trace', 'verify', 'atlas-proof']) {
     router.post(`/workbench/${command}`, localFilesOnly, route(async (req, res) => {
       if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
       let report;
@@ -155,7 +179,6 @@ export function workbenchRoutes(state) {
           previewPoster: `data:image/png;base64,${readFileSync(report.artifacts.frames[0]).toString('base64')}`,
         });
       }
-      if (command === 'build') report = await buildProject(req.body.path);
       if (command === 'trace') report = await traceImageFile(req.body.path, { output: req.body.out, name: req.body.name || 'image-trace' });
       if (command === 'verify') {
         const options = { ...req.body }; delete options.path;

@@ -6,6 +6,7 @@ import { buildProject } from '../../server/build/project-build.js';
 import { Project } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
 import { startWebServer } from '../../server/web/http.js';
+import { inspectArtifactIntegrity } from '../../server/build/artifact-integrity.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const exec = promisify(execFile);
@@ -26,6 +27,27 @@ beforeEach(() => {
   writeFileSync(config, JSON.stringify({ version: 1, ops: 'ops.json', output: 'dist', expectedTags: ['blink'] }));
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+test('optional shared editable artifact preserves pixels, metadata and build provenance while default stays V1', async () => {
+  const legacy = await buildProject(config); expect(legacy.ok, JSON.stringify(legacy.errors)).toBe(true);
+  const expanded = JSON.parse(readFileSync(legacy.artifacts.project, 'utf8'));
+  const png = readFileSync(legacy.artifacts.sheet); expect(expanded.version).toBe(1);
+  writeFileSync(config, JSON.stringify({ version: 1, ops: 'ops.json', output: 'dist', projectFormat: 'shared' }));
+  const shared = await buildProject(config); expect(shared.ok, JSON.stringify(shared.errors)).toBe(true);
+  const compact = JSON.parse(readFileSync(shared.artifacts.project, 'utf8')); expect(compact.version).toBe(2);
+  expect(Object.keys(compact.geometry)).toHaveLength(1);
+  const withoutIds = data => { for (const cell of Object.values(data.cells)) for (const shape of cell.shapes) delete shape.id; return data; };
+  expect(withoutIds(Project.fromJSON(compact).toJSON())).toEqual(withoutIds(expanded)); expect(readFileSync(shared.artifacts.sheet)).toEqual(png);
+  const manifest = JSON.parse(readFileSync(shared.artifacts.manifest, 'utf8'));
+  expect(manifest.build).toMatchObject({ inputs: expect.arrayContaining([expect.objectContaining({ path: 'sprite-project.json', sha256: expect.stringMatching(/^[a-f0-9]{64}$/) })]) });
+  expect(manifest.build.tool).toBeDefined();
+  expect(inspectArtifactIntegrity(join(dir, 'dist'), manifest)).toEqual([]);
+});
+test.each(['unknown', null, true])('invalid projectFormat %j fails before publication', async projectFormat => {
+  writeFileSync(config, JSON.stringify({ version: 1, ops: 'ops.json', output: 'dist', projectFormat }));
+  const result = await buildProject(config); expect(result.ok).toBe(false);
+  expect(JSON.stringify(result.errors)).toContain('projectFormat'); expect(existsSync(join(dir, 'dist'))).toBe(false);
+});
 
 test('isolated builds publish editable output without repeatedly persisting throwaway drafts', async () => {
   ops.push(...Array.from({length:40},(_,i)=>({command:'draw',type:'point',cell:'0,0',name:`dot_${i}`,x:i%16,y:Math.floor(i/16),color:'#ffffff'})));

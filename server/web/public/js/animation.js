@@ -1,4 +1,4 @@
-import { renderCellNative } from './cell-raster.js';
+import { nativeRasterService, nativeFrameKey, changedFrameRefs } from './native-frame-raster.js';
 import { durationFromFps } from './shared/timing.js';
 
 /**
@@ -11,6 +11,22 @@ const DEFAULT_FPS = 8;
 
 export class AnimationPreview {
   constructor(opts = {}) {
+    this._rasterService = opts.rasterService ?? nativeRasterService;
+    this._native = this._rasterService.createConsumer({ onAvailable: () => {
+      if (this._canvas && !this._destroyed) { this._renderFrame(); this._continuePreparation(); }
+    }, onInvalidate: ({ key, ref }) => {
+      const inputs = this._preparing ?? this._preparedInputs;
+      if (this._playing && !this._destroyed && inputs?.refs.some((input, index) => input === ref && inputs.keys[index] === key)) {
+        this._beginPreparation({ retainPending: true });
+      }
+    } });
+    this._rasterContext = {};
+    this._pendingNative = new Map();
+    this._missingNative = new Set();
+    this._rasterGeneration = 0;
+    this._preparing = null;
+    this._preparedInputs = null;
+    this._destroyed = false;
     this._canvas = null;
     this._ctx = null;
     this._container = null;
@@ -86,20 +102,75 @@ export class AnimationPreview {
 
   _attachResize() {
     const ro = new ResizeObserver(() => this.fitToMount());
+    this._resizeObserver = ro;
     const mount = document.getElementById(this._mountId);
     if (mount) ro.observe(mount);
     // Initial fit once layout settles.
     requestAnimationFrame(() => this.fitToMount());
   }
 
-  setBackground(background) { this._background = background ?? { mode: 'transparent' }; if (this._canvas) this._renderFrame(); }
-  setPalette(paletteMap) { this._palette = paletteMap; }
+  _nativeContextKey() {
+    return nativeFrameKey({ ...this._nativeTask(''), cell: undefined, cellVersion: 'context' });
+  }
+  _restartPreparation(previous) {
+    if (this._preparing && previous !== this._nativeContextKey()) this._beginPreparation();
+  }
+  setBackground(background) {
+    const previous = this._nativeContextKey(); this._background = { ...(background ?? { mode: 'transparent' }) };
+    this._restartPreparation(previous); if (this._canvas) this._renderFrame();
+  }
+  setPalette(paletteMap) {
+    const previous = this._nativeContextKey(); this._palette = { ...(paletteMap ?? {}) };
+    this._restartPreparation(previous); if (this._canvas) this._renderFrame();
+  }
   setCellSize(w, h = w) {
+    const previous = this._nativeContextKey();
     this._cellW = w;
     this._cellH = h;
     if (this._canvas) this._applyCanvasSize();
+    this._restartPreparation(previous); if (this._canvas) this._renderFrame();
   }
-  setCells(cells) { this._cells = cells || {}; if (this._canvas) this._renderFrame(); }
+  setCells(cells, context) {
+    const changed = context && this._applyRasterContext(context, true);
+    this._cells = cells || {}; this._missingNative.clear();
+    const inputs = this._preparing ?? this._preparedInputs;
+    const nativeChanged = this._playing && inputs?.refs.some((ref, index) => inputs.keys[index] !== nativeFrameKey(this._nativeTask(ref)));
+    if (this._canvas) this._renderFrame();
+    if ((changed || nativeChanged) && this._playing) this._beginPreparation(); else this._continuePreparation();
+  }
+  /** Stable progressive identity; onMissing(ref, demand) requests current,
+   * preparation or adjacent data without treating absent geometry as blank. */
+  setRasterContext(context = {}) {
+    const changed = this._applyRasterContext(context);
+    if (changed && this._playing) this._beginPreparation();
+    if (this._canvas) this._renderFrame();
+  }
+  _applyRasterContext(context, incoming = false) {
+    const changed = changedFrameRefs(this._rasterContext, context);
+    if (changed === null) {
+      this._rasterGeneration++; this._cancelNative();
+      if (!incoming) this._cells = {};
+      this._native.setProject(context.projectId);
+    } else if (changed.length) {
+      for (const [key, pending] of this._pendingNative) if (changed.includes(pending.ref)) { pending.cancel(); this._pendingNative.delete(key); }
+      if (!incoming) this._cells = Object.fromEntries(Object.entries(this._cells).filter(([ref]) => !changed.includes(ref)));
+    }
+    this._rasterContext = { ...context, cellVersions: context.cellVersions ? { ...context.cellVersions } : undefined }; this._missingNative.clear();
+    // Sparse arrivals outside this sequence must retain its queued work and
+    // authored clock. A project/view switch affects every prepared frame.
+    return changed === null || changed.some(ref => this._frames.includes(ref));
+  }
+  _nativeTask(ref) {
+    const { projectId, cellVersions, viewKey } = this._rasterContext;
+    return { projectId, ref, cellVersion: cellVersions?.[ref], viewKey, cell: this._cells[ref],
+      width: this._cellW, height: this._cellH, palette: this._palette, background: this._background, fallbackColor: '#ff00ff' };
+  }
+  _cancelNative() { for (const pending of this._pendingNative.values()) pending.cancel(); this._pendingNative.clear(); }
+  destroy() {
+    this._destroyed = true; this._playing = false; this._preparing = this._preparedInputs = null; this._stopInterval();
+    this._cancelNative(); this._native.dispose(); this._resizeObserver?.disconnect();
+    if (this._canvas) this._canvas.width = this._canvas.height = 0;
+  }
   setActiveCell(ref) { this._activeCell = ref; }
   onOnionSkin(cb) { this._onionCb = cb; }
   setFps(fps) {
@@ -110,7 +181,7 @@ export class AnimationPreview {
     this._fps = fps;
     if (this._fpsLabel) this._fpsLabel.textContent = this._durations ? 'Frame milliseconds' : `${fps} FPS`;
     if (this._fpsSlider) this._fpsSlider.value = String(fps);
-    if (this._playing) this._startInterval();
+    if (this._playing && !this._preparing) this._startInterval();
   }
 
   /**
@@ -132,7 +203,7 @@ export class AnimationPreview {
     this._updateFrameCounter();
     this._renderFrame();
     this._container.classList.toggle('has-frames', this._frames.length > 0);
-    if (this._playing) this._startInterval();
+    if (this._playing) this._beginPreparation();
   }
 
   /* -- Playback controls -- */
@@ -142,12 +213,15 @@ export class AnimationPreview {
     if (this._ended) { this._currentFrame = 0; this._frameElapsed=0; this._ended = false; this._renderFrame(); this._updateFrameCounter(); }
     this._playing = true;
     this._updatePlayState();
-    this._startInterval();
+    this._beginPreparation();
   }
 
   pause() {
     if(this._playing)this._updatePosition(performance.now());
     this._playing = false;
+    this._preparing = null;
+    this._preparedInputs = null;
+    this._cancelPreparation();
     this._playbackStart=null;
     this._updatePlayState();
     this._stopInterval();
@@ -156,6 +230,9 @@ export class AnimationPreview {
 
   stop() {
     this._playing = false;
+    this._preparing = null;
+    this._preparedInputs = null;
+    this._cancelPreparation();
     this._currentFrame = 0;
     this._ended = false;
     this._frameElapsed=0;this._playbackStart=null;
@@ -188,7 +265,7 @@ export class AnimationPreview {
 
   _getCellShapes(ref) {
     const cell = this._cells[ref];
-    if (!cell || !cell.shapes) return [];
+    if (!cell || !cell.shapes) { this._rasterContext.onMissing?.(ref, 'adjacent'); return []; }
     return cell.shapes.filter(s => s.visible !== false || s.params?.layers?.length);
   }
 
@@ -255,7 +332,7 @@ export class AnimationPreview {
       if (this._durations) return;
       this._fps = parseInt(fpsSlider.value, 10);
       this._fpsLabel.textContent = `${this._fps} FPS`;
-      if (this._playing) {
+      if (this._playing && !this._preparing) {
         this._stopInterval();
         this._startInterval();
       }
@@ -292,6 +369,27 @@ export class AnimationPreview {
   /* -- Internal: rendering -- */
 
   _renderFrame() {
+    if (!this._canvas || this._destroyed) return;
+    if (this._frames.length === 0) { this._paintChecker(); this._canvas.dataset.state = 'empty'; return; }
+
+    const ref = this._frames[this._currentFrame];
+    const task = this._nativeTask(ref), lease = this._native.peek(task);
+    if (lease) {
+      try { this._paintNative(lease.image); } finally { lease.release(); }
+    } else {
+      this._paintChecker();
+      this._canvas.dataset.state = this._preparing ? 'preparing' : 'loading';
+      this._canvas.setAttribute('aria-label', this._preparing ? 'Preparing animation' : 'Loading frame');
+      this._updateFrameCounter();
+      this._requestNative(ref, 0, 'current');
+    }
+    if (this._playing && !this._preparing && this._frames.length > 1) {
+      const next = this._frames[(this._currentFrame + 1) % this._frames.length];
+      if (next !== ref) this._requestNative(next, 3, 'adjacent');
+    }
+  }
+
+  _paintChecker() {
     const ctx = this._ctx;
     ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
@@ -306,20 +404,83 @@ export class AnimationPreview {
         ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
       }
     }
-
-    if (this._frames.length === 0) return;
-
-    const ref = this._frames[this._currentFrame];
-    const shapes = this._getCellShapes(ref);
-    const native = renderCellNative(shapes, this._cellW, this._cellH, ref => this._resolveColor(ref), { lighting: this._cells[ref]?.lighting, background: this._background, palette: this._palette });
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(native, 0, 0, this._canvas.width, this._canvas.height);
   }
 
-  _resolveColor(ref) {
-    if (!ref) return '#ff00ff';
-    if (ref.startsWith('#')) return ref;
-    return this._palette[ref] || '#ff00ff';
+  _paintNative(image) {
+    this._paintChecker();
+    this._ctx.imageSmoothingEnabled = false;
+    this._ctx.drawImage(image, 0, 0, this._canvas.width, this._canvas.height);
+    this._canvas.dataset.state = 'ready'; this._canvas.setAttribute('aria-label', 'Animation frame');
+    this._updateFrameCounter();
+  }
+
+  _requestNative(ref, priority, demand) {
+    const task = this._nativeTask(ref), key = nativeFrameKey(task);
+    const pending = this._pendingNative.get(key);
+    if (pending && priority >= pending.priority || this._missingNative.has(key ?? ref)) return;
+    pending?.cancel();
+    const generation = this._rasterGeneration;
+    this._pendingNative.set(key, { cancel() {}, priority });
+    const cancel = this._native.request(task, { priority,
+      onReady: lease => {
+        this._pendingNative.delete(key);
+        if (generation !== this._rasterGeneration || this._destroyed) return;
+        const current = this._nativeTask(this._frames[this._currentFrame]);
+        if (key === nativeFrameKey(current)) this._paintNative(lease.image);
+        this._continuePreparation(key);
+      },
+      onMissing: (_, reason) => {
+        this._pendingNative.delete(key); if (reason !== 'capacity') this._missingNative.add(key ?? ref);
+        if (reason === 'unloaded') this._rasterContext.onMissing?.(ref, demand);
+        if (!['unloaded', 'invalidated', 'capacity'].includes(reason) && this._preparing) {
+          this._preparing = this._preparedInputs = null; this._playing = false; this._updatePlayState();
+          this._frameInfo.textContent = 'Frame unavailable';
+        }
+      },
+    });
+    if (this._pendingNative.has(key)) this._pendingNative.set(key, { cancel, priority, demand, ref });
+  }
+
+  _cancelPreparation() {
+    for (const [key, pending] of this._pendingNative) {
+      if (pending.demand === 'preparation' || pending.demand === 'adjacent') { pending.cancel(); this._pendingNative.delete(key); }
+    }
+  }
+
+  _beginPreparation({ retainPending = false } = {}) {
+    if (!retainPending) this._cancelPreparation();
+    this._stopInterval(); this._playbackStart = null;
+    const refs = [...new Set(this._frames)];
+    const full = this._rasterService.canRetainFrames(refs.length, this._cellW, this._cellH);
+    const current = this._frames[this._currentFrame];
+    const preparingRefs = full ? refs : [current];
+    this._preparing = { refs: preparingRefs, keys: preparingRefs.map(ref => nativeFrameKey(this._nativeTask(ref))), index: 0, full, finalCheck: false };
+    // Retain only this bounded readiness window while playing, so legacy
+    // lighting/shape edits also invalidate frames warmed earlier in playback.
+    this._preparedInputs = this._preparing;
+    this._continuePreparation();
+  }
+
+  _continuePreparation(completedKey) {
+    const prep = this._preparing;
+    if (!prep || !this._playing || this._destroyed) return;
+    while (prep.index < prep.refs.length) {
+      const ref = prep.refs[prep.index], task = this._nativeTask(ref), key = nativeFrameKey(task);
+      const lease = this._native.peek(task);
+      if (lease) { lease.release(); prep.index++; continue; }
+      if (key && key === completedKey) { prep.index++; completedKey = null; continue; }
+      this._canvas.dataset.state = 'preparing';
+      this._frameInfo.textContent = `Preparing ${prep.index} / ${prep.refs.length}`;
+      this._requestNative(ref, 0, 'preparation'); return;
+    }
+    // One finite warm pass. Under competing cache pressure only the current
+    // frame is retried once; never pin an entire sequence or loop on LRU misses.
+    const current = this._nativeTask(this._frames[this._currentFrame]), lease = this._native.peek(current);
+    if (!lease && !prep.finalCheck && nativeFrameKey(current) !== completedKey) {
+      prep.finalCheck = true; prep.refs.push(current.ref); prep.keys.push(nativeFrameKey(current)); this._continuePreparation(); return;
+    }
+    if (lease) { try { this._paintNative(lease.image); } finally { lease.release(); } }
+    this._preparing = null; this._updateFrameCounter(); this._startInterval();
   }
 
   /* -- Internal: playback -- */
@@ -367,10 +528,12 @@ export class AnimationPreview {
 
   _updateFrameCounter() {
     if (this._frameInfo) {
-      if (this._frames.length === 0) {
+      if (this._preparing) {
+        this._frameInfo.textContent = `Preparing ${this._preparing.index} / ${this._preparing.refs.length}`;
+      } else if (this._frames.length === 0) {
         this._frameInfo.textContent = '— / —';
       } else {
-        this._frameInfo.textContent = `${this._currentFrame + 1} / ${this._frames.length}`;
+        this._frameInfo.textContent = `${this._canvas?.dataset.state === 'loading' ? 'Loading ' : ''}${this._currentFrame + 1} / ${this._frames.length}`;
       }
     }
   }
