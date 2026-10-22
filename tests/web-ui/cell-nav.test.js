@@ -10,9 +10,13 @@ describe('CellNavigator (browser)', () => {
 
   const enter = (...refs) => {
     const observer = observers.at(-1);
-    observer.callback(refs.map(ref => ({ target: document.querySelector(`[data-ref="${ref}"]`), isIntersecting: true })));
+    const targets = new Set(refs.flatMap(ref => [...document.querySelectorAll(`[data-ref="${ref}"]`)]));
+    observer.callback([...targets].map(target => ({ target, isIntersecting: true })));
   };
-  const leave = (...refs) => observers.at(-1).callback(refs.map(ref => ({ target: document.querySelector(`[data-ref="${ref}"]`), isIntersecting: false })));
+  const leave = (...refs) => {
+    const targets = new Set(refs.flatMap(ref => [...document.querySelectorAll(`[data-ref="${ref}"]`)]));
+    observers.at(-1).callback([...targets].map(target => ({ target, isIntersecting: false })));
+  };
   const cells = count => Object.fromEntries(Array.from({ length: count }, (_, i) => [`0,${i}`, { shapes: [] }]));
 
   const flush = () => {
@@ -25,8 +29,8 @@ describe('CellNavigator (browser)', () => {
     document.documentElement.style.removeProperty('--checker-a');
     observers = [];
     vi.stubGlobal('IntersectionObserver', class {
-      constructor(callback, options) { this.callback = callback; this.options = options; observers.push(this); }
-      observe() {}
+      constructor(callback, options) { this.callback = callback; this.options = options; this.targets = []; observers.push(this); }
+      observe(target) { this.targets.push(target); }
       disconnect() {}
     });
     document.body.innerHTML = '<div id="cell-strip"></div>';
@@ -81,6 +85,46 @@ describe('CellNavigator (browser)', () => {
     nav.setFilter(['0,0', '0,1']);
     expect(document.querySelector('.cell-thumb')).toBe(filtered[0]);
     expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0', '0,1', '0,2']);
+  });
+
+  it('observes and paints every repeated sequence occurrence using one cached raster per ref', () => {
+    const data = cells(3);
+    for (const cell of Object.values(data)) cell.shapes.push({ type: 'rect', params: { x: 0, y: 0, w: 16, h: 16, filled: true }, color: '#00ff00', zIndex: 0 });
+    nav.setGrid(1, 3); nav.setCells(data); nav.setFilter(['0,0', '0,1', '0,2', '0,1']);
+    const thumbs = [...document.querySelectorAll('.cell-thumb')];
+    expect(observers.at(-1).targets).toHaveLength(4);
+    const paint = vi.spyOn(nav, '_renderThumb');
+    const pixel = thumb => [...thumb.querySelector('canvas').getContext('2d').getImageData(0, 0, 1, 1).data];
+    flush();
+    expect(thumbs.map(pixel)).toEqual(Array.from({ length: 4 }, () => [0,255,0,255]));
+    expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0','0,1','0,2']);
+    thumbs[1].click();
+    expect(onSelect).toHaveBeenCalledWith('0,1');
+    expect(thumbs.map(thumb => thumb.classList.contains('active'))).toEqual([false,true,false,true]);
+
+    observers.at(-1).callback([{ target: thumbs[1], isIntersecting: false }]);
+    expect(thumbs[1].querySelector('canvas').width).toBe(0);
+    expect(pixel(thumbs[3])).toEqual([0,255,0,255]);
+    data['0,1'].shapes[0].color = '#0000ff'; data['0,1'].name = 'updated';
+    nav.refresh(['0,1']); vi.runAllTimers();
+    expect(thumbs[1].querySelector('canvas').width).toBe(0);
+    expect(pixel(thumbs[3])).toEqual([0,0,255,255]);
+    expect([thumbs[1], thumbs[3]].map(thumb => thumb.querySelector('.label').textContent)).toEqual(['updated','updated']);
+    observers.at(-1).callback([{ target: thumbs[1], isIntersecting: true }]); vi.runAllTimers();
+    expect(pixel(thumbs[1])).toEqual([0,0,255,255]);
+    expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0','0,1','0,2','0,1']);
+  });
+
+  it('paints repeated sequence occurrences in the observer fallback without duplicate native work', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const data = cells(3);
+    for (const cell of Object.values(data)) cell.shapes.push({ type: 'point', params: { x: 0, y: 0 }, color: '#00ff00', zIndex: 0 });
+    nav.setGrid(1, 3); nav.setCells(data);
+    const paint = vi.spyOn(nav, '_renderThumb');
+    nav.setFilter(['0,0','0,1','0,2','0,1']); vi.runAllTimers();
+    const pixels = [...document.querySelectorAll('canvas')].map(canvas => [...canvas.getContext('2d').getImageData(0, 0, 1, 1).data]);
+    expect(pixels).toEqual(Array.from({ length: 4 }, () => [0,255,0,255]));
+    expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0','0,1','0,2']);
   });
 
   it('invalidates changed refs only and leaves offscreen refreshes pending', () => {
