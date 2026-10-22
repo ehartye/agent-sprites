@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { COMMANDS } from "../server/commands/catalog.js";
 import { features, scenes, examples } from "./feature-guide.mjs";
 import { readExampleArtifacts } from "./example-artifacts.mjs";
+import { TESSEL_ACTIONS, tesselSequence } from "./tessel-data.js";
 import {
   atlasFrames,
   orderedFrames,
@@ -195,9 +196,82 @@ for (const s of scenes) {
     "Scene lacks named editable shapes",
   );
 }
-const html = read(join(dist, "index.html"));
-for (const match of html.matchAll(/(?:href|src)="(\.\/[^"#]+)(?:#[^"]*)?"/g))
-  assert(existsSync(resolve(dist, match[1])), `Broken HTML link ${match[1]}`);
+// The original character must retain real tag ranges: the atlas also contains
+// static grid entries and named aliases, which are not additional poses.
+{
+  const dir = join(dist, "assets/tessel"),
+    manifest = json(join(dir, "manifest.json")),
+    color = json(join(dir, "atlas.json")),
+    normal = json(join(dir, "normal.atlas.json")),
+    project = json(join(dir, "project.json"));
+  assert.equal(manifest.sourceCells, 128);
+  assert.equal(Object.keys(project.cells).length, 128);
+  assert.deepEqual(project.pivot, { x: 32, y: 55 });
+  assert.deepEqual(color.frames, normal.frames);
+  assert.deepEqual(color.meta.frameTags, normal.meta.frameTags);
+  assert.deepEqual(color.meta.slices, normal.meta.slices);
+  assert.equal(color.meta.frameTags.length, 16);
+  for (const cell of Object.values(project.cells)) {
+    assert.equal(cell.lighting.palettePolicy, "rgb");
+    assert(
+      cell.shapes.every((s) => s.name),
+      "Unnamed character geometry",
+    );
+    assert(
+      cell.shapes.some((s) => s.params?.surface),
+      "Missing retained character surfaces",
+    );
+  }
+  for (const action of TESSEL_ACTIONS) {
+    const expected = manifest.actions.find((a) => a.id === action.id);
+    for (const facing of ["right", "left"]) {
+      const sequence = tesselSequence(color, action.id, facing);
+      assert.equal(sequence.duration, action.duration);
+      assert.equal(sequence.loop, action.loop);
+      assert.deepEqual(
+        sequence.frames.map((f) => f.duration),
+        expected.holdsMs,
+      );
+      for (const frame of sequence.frames)
+        assert.deepEqual(frame.sourceSize, { w: 64, h: 64 });
+    }
+    const proof = json(join(dir, "actions", action.id, "proof.json"));
+    assert.equal(proof.ok, true);
+    assert.equal(proof.frameCount, 8);
+    assert.equal(proof.loop, action.loop);
+    assert.equal(proof.gif.driftMs, 0);
+    assert.deepEqual(proof.gif.delaysMs, expected.holdsMs);
+    assert.equal(proof.gif.pixelComparison.exact, true);
+  }
+  assert.throws(
+    () => tesselSequence(color, "missing", "right"),
+    /Missing Tessel/,
+  );
+  for (const [name, receipt] of Object.entries(manifest.integrity)) {
+    const bytes = readFileSync(join(dir, name));
+    assert.equal(bytes.length, receipt.bytes, `Tessel size: ${name}`);
+    assert.equal(hash(bytes), receipt.sha256, `Tessel digest: ${name}`);
+  }
+  for (const input of manifest.sourceInputs)
+    assert.equal(
+      hash(readFileSync(join(root, "examples/tessel", input.path))),
+      input.sha256,
+      `Tessel source drift: ${input.path}`,
+    );
+  for (const folder of [".reviews", "proof-work"])
+    assert(
+      !existsSync(join(dist, "source/examples/tessel", folder)),
+      `Local character review leaked: ${folder}`,
+    );
+}
+for (const name of ["index.html", "tessel.html"]) {
+  const html = read(join(dist, name));
+  for (const match of html.matchAll(/(?:href|src)="(\.\/[^"#]+)(?:#[^"]*)?"/g))
+    assert(
+      existsSync(resolve(dist, match[1])),
+      `Broken ${name} link ${match[1]}`,
+    );
+}
 console.log(
-  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scene receipts; timing, atlas bounds, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
+  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scene receipts; Tessel's 128 cells, 16 paired tags and 8 exact GIF receipts; timing, atlas bounds, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
 );
