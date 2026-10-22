@@ -76,7 +76,7 @@ export class CellManager {
       });
     }
     for (const shape of cell.shapes.listByZ()) {
-      const p = shape.params;
+      const p = shape.mutableParams();
       if ('x' in p) { p.x += dx; p.y += dy; }
       if ('x1' in p) { p.x1 += dx; p.y1 += dy; }
       if ('x2' in p) { p.x2 += dx; p.y2 += dy; }
@@ -95,7 +95,7 @@ export class CellManager {
       return transformLayerCell(cell, p => flipParams(p, axis, max), options);
     }
     for (const shape of cell.shapes.listByZ()) {
-      const p = shape.params;
+      const p = shape.mutableParams();
       if (axis === 'horizontal') {
         if ('points' in p) { for (const pt of p.points) pt.x = max - pt.x; }
         else if ('x1' in p) { p.x1 = max - p.x1; p.x2 = max - p.x2; }
@@ -123,7 +123,7 @@ export class CellManager {
       return transformLayerCell(cell, p => rotateParams(p, deg, px, py), options);
     }
     for (const shape of cell.shapes.listByZ()) {
-      rotateParams(shape.params, deg, px, py);
+      rotateParams(shape.mutableParams(), deg, px, py);
     }
   }
 
@@ -147,7 +147,7 @@ export class CellManager {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const cell = this._grid[r][c];
-        if (cell.shapes.listByZ().length > 0 || cell.name || cell.lighting !== undefined) {
+        if (cell.shapes.listByZ().length > 0 || cell.name || cell.lighting !== undefined || cell.reference) {
           cells[`${r},${c}`] = cell.toJSON();
         }
       }
@@ -155,11 +155,11 @@ export class CellManager {
     return { rows: this.rows, cols: this.cols, cells };
   }
 
-  static fromJSON(json, cellSize) {
+  static fromJSON(json, cellSize, options) {
     const cm = new CellManager(cellSize, json.rows, json.cols);
     for (const [coord, cellData] of Object.entries(json.cells)) {
       const { r, c } = cm._parseCoord(coord);
-      cm._grid[r][c] = Cell.fromJSON(cellData, { w: cm.cellWidth, h: cm.cellHeight });
+      cm._grid[r][c] = Cell.fromJSON(cellData, { w: cm.cellWidth, h: cm.cellHeight }, options);
     }
     return cm;
   }

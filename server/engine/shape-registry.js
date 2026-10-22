@@ -63,10 +63,10 @@ export class ShapeRegistry {
     return this.listByZ().map((s) => s.toJSON());
   }
 
-  static fromJSON(json) {
+  static fromJSON(json, options) {
     const reg = new ShapeRegistry();
     for (const data of json) {
-      reg.add(Shape.fromJSON(data));
+      reg.add(Shape.fromJSON(data, options));
     }
     return reg;
   }

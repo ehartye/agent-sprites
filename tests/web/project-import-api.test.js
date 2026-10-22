@@ -65,10 +65,35 @@ test('streams a project beyond the generic 64 MiB envelope and activates once wi
 test('gzip validates while malformed input and structural metadata fail without touching the draft', async () => {
   await start(); const original = state.project, session = state.db.getSession(state.sessionId);
   const good = await create('gzip'); await upload(good, gzipSync(JSON.stringify(project()))); await settled(good);
-  for (const [encoding, bytes] of [['json', '{bad'], ['gzip', gzipSync('{}').subarray(0, 12)], ['json', JSON.stringify({ ...project(), shapeGroups: { '9,9': { broken: ['name'] } } })], ['json', JSON.stringify({ ...project(), shapeGroups: { '0,0': { broken: [4] } } })]]) {
+  for (const [encoding, bytes] of [['json', '{bad'], ['gzip', gzipSync('{}').subarray(0, 12)], ['json', JSON.stringify({ ...project(), shapeGroups: { '0,0': ['not a group map'] } })], ['json', JSON.stringify({ ...project(), shapeGroups: { '0,0': { broken: [4] } } })]]) {
     const bad = await create(encoding); await upload(bad, bytes); const result = await settled(bad, 'failed'); expect(result.error.length).toBeLessThan(1000);
   }
   expect(state.project).toBe(original); expect(state.db.getSession(state.sessionId)).toEqual(session);
+});
+
+test('safe alias and orphan shape groups survive import and draft roundtrip without adopting orphan ownership', async () => {
+  await start();
+  const packet = project();
+  packet.cells['0,0'] = { name: 'named', reference: null, shapes: [{ id: 's1', name: 'dot', type: 'point', params: { x: 1, y: 1 }, color: 'red', zIndex: 0, visible: true }] };
+  packet.shapeGroups = {
+    named: { ['__proto__']: ['dot'], same: ['legacy-member'] },
+    '0,0': { same: ['dot'] },
+    '9,9': { orphan: ['dot'] },
+    missing: { old: ['missing-member'] },
+  };
+  const job = await create(); await upload(job, JSON.stringify(packet)); await settled(job);
+  expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
+  const stored = JSON.parse(state.db.getSession(state.sessionId).draft_json);
+  expect(stored.version).toBe(1); expect(state.project.storageVersion).toBe(1);
+  expect(stored.shapeGroups).toEqual(packet.shapeGroups);
+  expect(Project.fromJSON(stored).toJSON().shapeGroups).toEqual(packet.shapeGroups);
+  const summary = (await api('/workbench/project-summary')).data;
+  expect(Object.keys(summary.shapeGroups)).toEqual(['0,0']);
+  expect(summary.shapeGroups['0,0'].toSorted()).toEqual(['__proto__', 'same']);
+  const pins = new URLSearchParams({ sessionId: summary.sessionId, projectId: summary.projectId, revision: summary.revision });
+  const frame = await api(`/workbench/frames?refs=0,0&${pins}`);
+  expect(frame.data.shapeGroups['0,0']).toEqual({ ['__proto__']: ['dot'], same: ['dot'] });
+  expect(state.db.getAllShapeGroups(state.sessionId)).toEqual(packet.shapeGroups);
 });
 test('source and expanded gzip budgets are independent trusted server limits', async () => {
   await start({ maxSourceBytes: 2048, maxExpandedBytes: 4096 });

@@ -138,10 +138,10 @@ export class Cell {
     const oldColor = shape.color;
     const oldColor2 = shape.params.color2;
     this._exec({
-      execute: () => { shape.color = color; if (color2 != null) shape.params.color2 = color2; },
+      execute: () => { shape.color = color; if (color2 != null) shape.mutableParams().color2 = color2; },
       undo: () => {
         shape.color = oldColor;
-        if (color2 != null) { if (oldColor2 === undefined) delete shape.params.color2; else shape.params.color2 = oldColor2; }
+        if (color2 != null) { const params = shape.mutableParams(); if (oldColor2 === undefined) delete params.color2; else params.color2 = oldColor2; }
       },
     });
   }
@@ -167,7 +167,7 @@ export class Cell {
     if (Object.hasOwn(savedUpdates, 'surface')) savedUpdates.surface = validateSurface(savedUpdates.surface);
     this._preflightShape(shape, { ...shape, params: { ...oldParams, ...savedUpdates } });
     this._exec({
-      execute: () => { Object.assign(shape.params, structuredClone(savedUpdates)); this._reserveShapeZ(shape); },
+      execute: () => { Object.assign(shape.mutableParams(), structuredClone(savedUpdates)); this._reserveShapeZ(shape); },
       undo: () => { shape.params = structuredClone(oldParams); },
     });
   }
@@ -289,9 +289,9 @@ export class Cell {
     };
   }
 
-  static fromJSON(json, size) {
+  static fromJSON(json, size, options) {
     const cell = new Cell(size, { name: json.name, reference: json.reference ?? null, lighting: json.lighting });
-    const shapes = ShapeRegistry.fromJSON(json.shapes);
+    const shapes = ShapeRegistry.fromJSON(json.shapes, options);
     for (const shape of shapes.listByZ()) {
       cell.shapes.add(shape);
       cell._reserveShapeZ(shape);
