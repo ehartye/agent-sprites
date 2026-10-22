@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { request } from 'node:http';
 import { SessionDB } from '../../server/db/session.js';
@@ -46,6 +47,26 @@ async function settled(job, expected = 'ready') {
   }, { timeout: 12000, interval: 20 });
   return result.data;
 }
+test.each([1, 2])('owned V%s imports publish a compact receipt without expanding the activated project', async version => {
+  await start(); const packet = project();
+  packet.cells['0,0'] = { name: null, reference: null, shapes: [{ id: 's1', name: 'dot', type: 'point', params: { x: 1, y: 2 }, color: 'red', zIndex: 0, visible: true }] };
+  const data = version === 2 ? Project.fromJSON(packet).toSharedJSON() : packet;
+  const source = Buffer.from(JSON.stringify(data)), job = await create(); await upload(job, source);
+  const ready = await settled(job), internal = server.imports.jobs.get(job.id);
+  expect(internal.worker).toBeNull();
+  const output = await readFile(join(internal.dir, 'validated.json'));
+  expect(JSON.parse(output).version).toBe(2);
+  expect(ready.source).toMatchObject({ bytes: source.length, sha256: createHash('sha256').update(source).digest('hex') });
+  expect(ready.expanded).toMatchObject({ bytes: source.length, sha256: createHash('sha256').update(source).digest('hex') });
+  expect(ready.output).toMatchObject({ bytes: output.length, sha256: createHash('sha256').update(output).digest('hex') });
+  const expanded = vi.spyOn(Project.prototype, 'toJSON').mockImplementation(() => { throw new Error('expanded activation snapshot'); });
+  try {
+    const activated = await api(`/workbench/imports/${job.id}/activate`, {});
+    expect(activated.ok, activated.error).toBe(true); expect(expanded).not.toHaveBeenCalled();
+    expect(state.project.storageVersion).toBe(2);
+    expect(JSON.parse(state.db.getSession(state.sessionId).draft_json).version).toBe(2);
+  } finally { expanded.mockRestore(); }
+});
 test('streams a project beyond the generic 64 MiB envelope and activates once with a bounded receipt', async () => {
   await start(); const original = state.project, id = state.sessionId, job = await create();
   const json = JSON.stringify(project());
@@ -84,7 +105,7 @@ test('safe alias and orphan shape groups survive import and draft roundtrip with
   const job = await create(); await upload(job, JSON.stringify(packet)); await settled(job);
   expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
   const stored = JSON.parse(state.db.getSession(state.sessionId).draft_json);
-  expect(stored.version).toBe(1); expect(state.project.storageVersion).toBe(1);
+  expect(stored.version).toBe(2); expect(state.project.storageVersion).toBe(2);
   expect(stored.shapeGroups).toEqual(packet.shapeGroups);
   expect(Project.fromJSON(stored).toJSON().shapeGroups).toEqual(packet.shapeGroups);
   const summary = (await api('/workbench/project-summary')).data;

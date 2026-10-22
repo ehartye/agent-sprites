@@ -113,6 +113,7 @@ export async function buildProject(configPath, { signal, onProgress, generatorPo
     const { sourceKind, inline, source } = resolveBuildSource(configPath, config);
     assertTrimOption(config.trim);
     if(config.normal!==undefined&&typeof config.normal!=='boolean')throw new Error('normal must be true or false');
+    if (config.projectFormat !== undefined && !['shared', 'expanded'].includes(config.projectFormat)) throw new Error('projectFormat must be shared or expanded.');
     // Large generated sets can leave out the bulky editable and review artifacts when only the game files are published.
     const OMITTABLE = ['project', 'operations', 'preview', 'contactSheet'];
     if (config.omit !== undefined && (!Array.isArray(config.omit) || config.omit.some(k => !OMITTABLE.includes(k)))) throw new Error(`omit must be an array drawn from: ${OMITTABLE.join(', ')}.`);
@@ -267,7 +268,7 @@ export async function buildProject(configPath, { signal, onProgress, generatorPo
     artifacts.manifest = buildManifest;
     verified.artifacts = { atlas: artifacts.atlas, image: artifacts.sheet, ...(artifacts.contactSheet ? { contactSheet: artifacts.contactSheet } : {}) };
     writeFileSync(join(stage, artifacts.verification), json(verified));
-    if (artifacts.project) writeFileSync(join(stage, artifacts.project), json(project.toJSON()));
+    if (artifacts.project) writeFileSync(join(stage, artifacts.project), json(project.toStorageJSON({ format: config.projectFormat })));
     if (artifacts.operations) writeFileSync(join(stage, artifacts.operations), json(operations));
     if (artifacts.preview) writeFileSync(join(stage, artifacts.preview), createPreview(atlas, png, name));
     writeFileSync(join(stage, marker), json({ ...outputOwner(output, configPath), files: Object.values(artifacts) }));

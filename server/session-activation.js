@@ -12,7 +12,7 @@ export function projectName(value) {
 export function activateProjectCopy(state, project, { origin } = {}) {
   const parent = state.sessionId ? state.db.getSession(state.sessionId) : null;
   const projectPath = parent?.project_path ?? process.cwd();
-  const json = JSON.stringify(project.toJSON());
+  const json = JSON.stringify(project.toStorageJSON());
   const session = state.db.db.transaction(() => {
     const pending = state.db.createSession({ project_name: project.name, project_path: projectPath,
       destination_folder: '', json_file: null, draft_json: json });

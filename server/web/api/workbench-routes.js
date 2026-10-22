@@ -61,7 +61,7 @@ export function workbenchRoutes(state, { frames = FRAME_LIMITS } = {}) {
   router.post('/session/copy', route((req, res) => {
     const source = requireProject();
     const name = projectName(req.body.name ?? `${source.name} copy`);
-    const project = Project.fromJSON(source.toJSON());
+    const project = Project.fromJSON(source.toStorageJSON());
     project.name = name;
     res.json({ ok: true, data: activateProjectCopy(state, project, { origin: state.sessionId }) });
   }));
@@ -74,6 +74,14 @@ export function workbenchRoutes(state, { frames = FRAME_LIMITS } = {}) {
   router.get('/workbench/project', route((_req, res) => {
     res.json({ ok: true, data: requireProject().toJSON(), session_id: state.sessionId });
   }));
+  // A portable file, independent of the legacy expanded collaboration envelope.
+  router.get('/workbench/project-file', (req, res) => {
+    try {
+      const project = requireProject();
+      const data = project.toStorageJSON({ format: req.query.format });
+      res.attachment(`${project.name}.project.json`).type('json').send(JSON.stringify(data));
+    } catch (error) { res.status(400).json({ ok: false, error: error.message }); }
+  });
   router.get('/workbench/project-summary', (_req, res) => {
     try { res.json({ ok: true, data: projectSummary(state) }); }
     catch (error) { res.status(error.status ?? 400).json({ ok: false, error: error.message }); }

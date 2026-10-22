@@ -1,4 +1,4 @@
-import { buildLayerTree, translateParams, validateLayers } from '../web/public/js/shared/shape-layers.js';
+import { buildLayerTree, translateGeometryParams, validateLayers } from '../web/public/js/shared/shape-layers.js';
 import { patternTest } from './patterns.js';
 import { surfacePrimitiveWork, validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 import { SURFACE_LIMITS, validateSurface } from '../web/public/js/shared/surface-model.js';
@@ -63,7 +63,7 @@ function validateRasterShapes(shapes, width, height) {
     const visit = node => {
       for (const unit of node.children) {
         if (unit.kind === 'layer') visit(unit);
-        else validate(unit.shape, translateParams(unit.shape.params, -node.x, -node.y), node.w, node.h);
+        else validate(unit.shape, translateGeometryParams(unit.shape.params, -node.x, -node.y), node.w, node.h);
       }
     };
     visit(buildLayerTree(shapes, width, height));

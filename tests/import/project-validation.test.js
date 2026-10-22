@@ -51,3 +51,16 @@ test.each([1, 2])('rejects a coerced non-string primitive in imported V%s before
     expect(allocation).not.toHaveBeenCalled();
   } finally { allocation.mockRestore(); }
 });
+
+test('hydrates imports directly as shared geometry without an expanded snapshot', () => {
+  const data = packet('point', { x: 1, y: 2 });
+  data.grid.cols = 2; data.cells['0,1'] = structuredClone(data.cells['0,0']);
+  const snapshot = vi.spyOn(Project.prototype, 'toJSON').mockImplementation(() => { throw new Error('expanded snapshot'); });
+  try {
+    const { project, summary } = validateImportedProject(data, limits);
+    expect(project.storageVersion).toBe(2);
+    expect(project.cells.getCell('0,0').shapes.listByZ()[0].params).toBe(project.cells.getCell('0,1').shapes.listByZ()[0].params);
+    expect(summary).toMatchObject({ rows: 1, cols: 2, shapes: 2 });
+    expect(snapshot).not.toHaveBeenCalled();
+  } finally { snapshot.mockRestore(); }
+});

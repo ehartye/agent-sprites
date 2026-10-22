@@ -66,6 +66,38 @@ beforeEach(() => {
   bench = new Workbench({ request, getCell: () => '1,2', getColor: () => '#aabbcc', setColor: color, refresh: vi.fn() });
   bench.init();
 });
+
+test('editable project downloads pass the response Blob directly with pinned session and format choices', async () => {
+  const blob = new Blob(['portable bytes'], { type: 'application/json' });
+  const fetchFile = vi.fn(async () => ({ ok: true, headers: new Headers({ 'content-type': 'application/json' }), blob: async () => blob,
+    json: () => { throw new Error('must not parse a project'); } }));
+  vi.stubGlobal('fetch', fetchFile);
+  const oldCreate = URL.createObjectURL, oldRevoke = URL.revokeObjectURL;
+  const create = vi.fn(() => 'blob:project'); URL.createObjectURL = create; URL.revokeObjectURL = vi.fn();
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    bench.project = { name: 'Shared art', storageVersion: 2 }; bench.sessionId = 'pinned'; await bench.show('handoff');
+    const select = document.querySelector('[name="project-format"]'); expect(select).not.toBeNull();
+    const action = [...document.querySelectorAll('button')].find(button => button.textContent === 'Download editable project');
+    for (const [value, suffix] of [['', ''], ['shared', '?format=shared'], ['expanded', '?format=expanded']]) {
+      select.value = value; action.click();
+      await vi.waitFor(() => expect(fetchFile).toHaveBeenLastCalledWith('/api/workbench/project-file' + suffix, { headers: { 'X-Sprite-Session': 'pinned' } }));
+      await vi.waitFor(() => expect(create).toHaveBeenLastCalledWith(blob));
+    }
+    expect(request.mock.calls.some(([path]) => path === '/workbench/project')).toBe(false);
+    expect(click).toHaveBeenCalledTimes(3);
+  } finally { URL.createObjectURL = oldCreate; URL.revokeObjectURL = oldRevoke; click.mockRestore(); vi.unstubAllGlobals(); }
+});
+
+test('save tool offers current, shared and expanded format and omits the current format override', async () => {
+  await bench.show('tools'); bench.selectCommand('save');
+  const select = document.querySelector('select[name="format"]'); expect(select).not.toBeNull();
+  expect([...select.options].map(option => option.value)).toEqual(['', 'shared', 'expanded']);
+  expect(commandRequest(COMMANDS.find(command => command.id === 'save'), { format: '' }).body).toEqual({});
+  const submit = () => document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  submit(); await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/save', {}));
+  select.value = 'expanded'; submit(); await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/session/save', { format: 'expanded' }));
+});
 test('handoff streams large files, disables duplicate input, and cancels when the drawer closes', async () => {
   const calls = [], uploads = [];
   class Upload {

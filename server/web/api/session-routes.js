@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { Project } from '../../engine/project.js';
+import { Shape } from '../../engine/shape.js';
 import { GroupManager } from '../../engine/group-manager.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
 import { exportSpriteAtlases } from '../../engine/sprite-export.js';
 import { anchorPoint } from '../public/js/shared/atlas-timeline.js';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
 import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
@@ -37,9 +38,9 @@ export function sessionRoutes(state) {
       const w = width ?? size;
       const h = height ?? w;
       const project = Project.create({ name, cellWidth: w, cellHeight: h, rows, cols, palette });
-      state.project = project;
-      const draft_json = JSON.stringify(project.toJSON());
+      const draft_json = JSON.stringify(project.toStorageJSON());
       const session = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: null, draft_json });
+      state.project = project;
       state.sessionId = session.id;
       publishProject(state);
       res.json({ ok: true, data: `Created "${name}" (${w}x${h}px ${rows}x${cols})` });
@@ -50,17 +51,22 @@ export function sessionRoutes(state) {
     try {
       const { path: filePath } = req.body;
       if (!filePath) return res.json({ ok: false, error: 'path required' });
-      const project = Project.load(filePath);
+      const { project, session } = Shape.withIdAllocationTransaction(() => {
+        const project = Project.load(filePath), name = project.name;
+        const project_path = process.cwd();
+        const destination_folder = join(project_path, 'assets', 'claude-sprites', name);
+        const draft_json = JSON.stringify(project.toStorageJSON());
+        const session = state.db.db.transaction(() => {
+          const pending = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: filePath, draft_json });
+          restoreProjectMetadata({ ...state, project, sessionId: pending.id });
+          return pending;
+        })();
+        return { project, session };
+      });
       state.project = project;
-      const name = project.name;
-      const project_path = process.cwd();
-      const destination_folder = join(project_path, 'assets', 'claude-sprites', name);
-      const draft_json = JSON.stringify(project.toJSON());
-      const session = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: filePath, draft_json });
       state.sessionId = session.id;
-      restoreProjectMetadata(state);
       publishProject(state);
-      res.json({ ok: true, data: `Opened "${name}" from ${filePath}` });
+      res.json({ ok: true, data: `Opened "${project.name}" from ${filePath}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
@@ -68,14 +74,15 @@ export function sessionRoutes(state) {
     try {
       if (!state.project) return res.json({ ok: false, error: 'No active project' });
       const session = state.db.getSession(state.sessionId);
+      captureProjectMetadata(state);
+      const json = JSON.stringify(state.project.toStorageJSON({ format: req.body?.format }), null, 2);
       let target = session?.json_file;
       if (!target) {
         mkdirSync(session.destination_folder, { recursive: true });
         target = join(session.destination_folder, `${session.project_name}.json`);
-        state.db.updateSession(state.sessionId, { json_file: target });
       }
-      captureProjectMetadata(state);
-      writeFileSync(target, JSON.stringify(state.project.toJSON(), null, 2));
+      writeFileSync(target, json);
+      if (!session.json_file) state.db.updateSession(state.sessionId, { json_file: target });
       res.json({ ok: true, data: `Saved to ${target}`, artifacts: [{ type: 'project', path: resolve(target) }] });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -96,9 +103,10 @@ export function sessionRoutes(state) {
       const session = state.db.getSession(ref) ?? state.db.findSessionByName(ref);
       if (!session) return res.json({ ok: false, error: `No session matching "${ref}"` });
       if (!session.draft_json) return res.json({ ok: false, error: `Session "${ref}" has no draft to restore` });
-      state.project = Project.fromJSON(JSON.parse(session.draft_json));
+      const project = Project.fromJSON(JSON.parse(session.draft_json));
+      project.groups = GroupManager.fromJSON(state.db.getCellGroups(session.id));
+      state.project = project;
       state.sessionId = session.id;
-      state.project.groups = GroupManager.fromJSON(state.db.getCellGroups(session.id));
       publishProject(state);
       res.json({ ok: true, data: `Opened "${session.project_name}" (${session.id})` });
     } catch (e) { res.json({ ok: false, error: e.message }); }

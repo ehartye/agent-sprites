@@ -24,13 +24,19 @@ export function validateLayers(layers) {
   return layers;
 }
 
-/** Copy global primitive geometry to a new origin. Layer origins move only explicitly. */
-export function translateParams(params, dx, dy, { layers = false } = {}) {
-  const p = structuredClone(params);
-  if (Object.hasOwn(p, 'surface')) p.surface = translateSurface(p.surface, dx, dy);
+/** Read-only geometry view for preflight; unrelated metadata keeps its identity. */
+export function translateGeometryParams(params, dx, dy) {
+  const p = { ...params };
   for (const key of ['x', 'x1', 'x2', 'cx']) if (key in p) p[key] += dx;
   for (const key of ['y', 'y1', 'y2', 'cy']) if (key in p) p[key] += dy;
-  if (p.points) for (const point of p.points) { point.x += dx; point.y += dy; }
+  if (p.points) p.points = p.points.map(point => ({ ...point, x: point.x + dx, y: point.y + dy }));
+  return p;
+}
+
+/** Independent editable copy. Layer origins move only explicitly. */
+export function translateParams(params, dx, dy, { layers = false } = {}) {
+  const p = translateGeometryParams(structuredClone(params), dx, dy);
+  if (Object.hasOwn(p, 'surface')) p.surface = translateSurface(p.surface, dx, dy);
   if (layers && p.layers) for (const layer of p.layers) { layer.x += dx; layer.y += dy; }
   return p;
 }

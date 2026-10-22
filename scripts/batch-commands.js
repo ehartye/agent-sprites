@@ -61,7 +61,7 @@ export function mapCommandToApi(cmd) {
             cell: params.cell, path: resolve(String(params.path)), opacity: params.opacity,
           }};
     case 'save':
-      return { method: 'POST', path: '/api/session/save', body: {} };
+      return { method: 'POST', path: '/api/session/save', body: { ...(params.format === undefined ? {} : { format: params.format }) } };
     case 'export':
       return { method: 'POST', path: '/api/session/export', body: {
         dest: params.dest ? resolve(String(params.dest)) : undefined,

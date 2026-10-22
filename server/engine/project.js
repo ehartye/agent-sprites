@@ -11,6 +11,8 @@ import { createGeometryPool, geometryKey, geometryRecord, isSharedParams } from 
 
 /** Tag playback directions shared by project authoring, preview and atlas output. */
 export const TAG_DIRECTIONS = ANIMATION_DIRECTIONS;
+// Only the successful pure shared loader can prove scene preflight already ran.
+const VALIDATED_SHARED_SCENES = Symbol('validated shared scenes');
 
 function canonicalGroups(cells,groups) {
   if(!groups||typeof groups!=='object'||Array.isArray(groups))throw new Error('Animation groups must map names to cell arrays');
@@ -21,7 +23,7 @@ function canonicalGroups(cells,groups) {
 }
 
 export class Project {
-  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay, storageVersion = 1 }) {
+  constructor({ name, cellWidth, cellHeight, cells, palette, groups, background, pivot, animationFps, animationDirections, frameDurations, animationLoops, shapeGroups, review, constructionReplay, storageVersion = 1 }, sceneProof) {
     this.name = name;
     this.cellWidth = cellWidth;
     this.cellHeight = cellHeight;
@@ -36,7 +38,7 @@ export class Project {
     this.animationLoops = validateAnimationLoops(animationLoops);
     this.shapeGroups = shapeGroups ?? {};
     cells.surfaceContext = () => ({ background: this.background, palette: this.palette.toJSON() });
-    for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
+    if (sceneProof !== VALIDATED_SHARED_SCENES) for(let row=0;row<cells.rows;row++)for(let col=0;col<cells.cols;col++){
       const cell=cells.getCell(`${row},${col}`);
       if(cell.lighting!==undefined||cell._hasSurfaceData)validateSurfaceScene({shapes:cell.shapes.listByZ(),width:cell.width,height:cell.height,lighting:cell.lighting,background:this.background,palette:palette.toJSON()});
     }
@@ -161,7 +163,7 @@ export class Project {
         review: data.review,
         constructionReplay: data.constructionReplay,
         storageVersion: sharedGeometry ? 2 : 1,
-      });
+      }, sharedGeometry ? VALIDATED_SHARED_SCENES : undefined);
       Shape.assertIdAllocationAvailable();
       return project;
     });

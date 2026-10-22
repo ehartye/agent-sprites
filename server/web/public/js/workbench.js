@@ -242,9 +242,11 @@ export class Workbench {
     const form = element('form', null, 'tool-form');
     const fields = [];
     for (const [key, value] of Object.entries(values)) {
-      const input = element(typeof value === 'object' && value !== null ? 'textarea' : 'input');
+      const choices = command.choices?.[key];
+      const input = element(choices ? 'select' : typeof value === 'object' && value !== null ? 'textarea' : 'input');
       input.name = key;
       const kind = value === null ? 'null' : typeof value;
+      if (choices) for (const [value, label] of Object.entries(choices)) { const option = element('option', label); option.value = value; input.append(option); }
       if (kind === 'boolean') { input.type = 'checkbox'; input.checked = value; }
       else { if (kind === 'number') { input.type = 'number'; input.step = 'any'; } input.value = kind === 'object' ? JSON.stringify(value) : value ?? ''; }
       form.append(field(key.replaceAll('_', ' '), input)); fields.push({ key, input, kind });
@@ -324,8 +326,16 @@ export class Workbench {
   renderHandoff() {
     this.body.append(element('p', 'Pass the editable design, the selected frame, and a short review note between you and your agent. Imported files always become a new session.', 'workbench-hint'));
     const actions = element('div', null, 'workbench-actions');
+    const format = element('select'); format.name = 'project-format'; format.setAttribute('aria-label', 'Editable project format');
+    for (const [value, label] of [['', 'Current project format'], ['shared', 'Shared geometry (V2)'], ['expanded', 'Expanded (V1)']]) {
+      const option = element('option', label); option.value = value; format.append(option);
+    }
+    actions.append(format);
     actions.append(button('Download editable project', () => this.run(async () => {
-      const packet = await this.request('/workbench/project'); download(`${packet.data.name}.project.json`, packet.data);
+      const sessionId = this.sessionId, name = this.project?.name ?? 'design';
+      const response = await fetch(`/api/workbench/project-file${format.value ? `?format=${format.value}` : ''}`, { headers: { 'X-Sprite-Session': sessionId ?? '' } });
+      if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Could not download this project');
+      download(`${name}.project.json`, await response.blob());
     })));
     actions.append(button('Download PNG', () => this.run(async () => {
       const sessionId = this.sessionId, name = this.project?.name ?? 'design';

@@ -262,7 +262,7 @@ SESSION
   import <path> [--name NAME] [--session ID]  stream JSON or gzip as a new session
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
-  save                   write editable project JSON (drafts already persist automatically)
+  save [--format shared|expanded]  write editable project JSON (default: current storage format)
   export [--dest <folder>] [--trim true] [--normal true|false]  color atlas plus automatic authored normal atlas
                          --trim packs each cell's opaque bounds with spriteSourceSize offsets
                          atlas has frameTags from cell groups, per-group fps durations, pivot slice
@@ -707,7 +707,7 @@ async function run() {
       break;
     }
     case 'save':
-      result = await api('POST', '/api/session/save', {});
+      result = await api('POST', '/api/session/save', { format: args.format });
       break;
     case 'export':
       result = await api('POST', '/api/session/export', {

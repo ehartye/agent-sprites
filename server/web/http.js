@@ -51,7 +51,7 @@ export function saveDraft(state) {
   // default; request bodies and unrelated concurrent sessions cannot change it.
   if (state.persistDrafts === false) return;
   if (state.sessionId && state.project) {
-    state.db.updateDraft(state.sessionId, JSON.stringify(state.project.toJSON()));
+    state.db.updateDraft(state.sessionId, JSON.stringify(state.project.toStorageJSON()));
   }
 }
 
