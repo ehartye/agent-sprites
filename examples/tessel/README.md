@@ -1,5 +1,7 @@
 # Tessel the Foldback
 
+![Tessel's eight authored action tracks](../../site/assets/tessel/montage.gif)
+
 An original 64×64 character made from named, editable polygons. Tessel has a low
 crescent of five folded shell leaves, six soft paddles, a doubled-back ribbon
 tail and a luminous face beneath its hood. Its silhouette, anatomy, palette and
@@ -28,7 +30,11 @@ Every proof uses a new directory under ignored `.reviews/`. Earlier reviews are
 preserved. Machine-local command results use ignored `.raw-*.json` names.
 
 Canonical art inputs are `generate.mjs`, `poses.mjs` and `palette.json`, with the
-build driver declared as an additional hashed input. `sprite-project.json` records
+editable contour compiler and build driver declared as additional hashed inputs.
+The contour compiler uses the shared primitive raster rules to derive named,
+editable polyline edges from the original part polygons. It paints a consistent
+one-pixel aubergine edge without flattening the character or replacing its parts.
+Its shared raster imports are also declared build inputs. `sprite-project.json` records
 the tag contract, paired normal export and bounded construction replay. Rebuilds
 replace the generated `dist/` and this example's published `site/assets/tessel/`
 files. Keep manual variants outside those generated directories.

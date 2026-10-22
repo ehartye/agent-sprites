@@ -1,7 +1,7 @@
 {
   "version": 1,
   "generator": "generate.mjs",
-  "inputs": ["palette.json", "poses.mjs", "build.mjs"],
+  "inputs": ["palette.json", "poses.mjs", "contour.mjs", "build.mjs", "../../server/web/public/js/shared/raster.js", "../../server/web/public/js/shared/patterns.js"],
   "output": "dist",
   "normal": true,
   "scale": 4,

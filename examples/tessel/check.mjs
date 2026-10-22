@@ -27,7 +27,7 @@ const pixels=async name=>{const image=await loadImage(join(asset,name)),canvas=c
 const color=await pixels('sheet.png'),norm=await pixels('normal.png');
 assert.equal(color.width,norm.width);assert.equal(color.height,norm.height);
 for(let p=3;p<color.data.length;p+=4)assert.equal(color.data[p],norm.data[p],`paired alpha at ${p}`);
-const result={ok:true,physicalSourceCells:128,tags:16,pairedAlphaPixels:color.width*color.height,mirrors:[],proofs:[]};
+const result={ok:true,physicalSourceCells:128,tags:16,pairedAlphaPixels:color.width*color.height,boundaryPixels:0,mirrors:[],proofs:[]};
 const coord=(frame,x,y)=>((frame.y+y)*color.width+frame.x+x)*4;
 for(const action of actions){
   for(const side of ['right','left']){
@@ -41,6 +41,13 @@ for(const action of actions){
       const f=frame.frame;
       for(let x=0;x<64;x++)assert.equal(color.data[coord(f,x,0)+3]+color.data[coord(f,x,63)+3],0,`${action.id}_${side} vertical clipping`);
       for(let y=0;y<64;y++)assert.equal(color.data[coord(f,0,y)+3]+color.data[coord(f,63,y)+3],0,`${action.id}_${side} horizontal clipping`);
+      for(let y=1;y<63;y++)for(let x=1;x<63;x++){
+        const i=coord(f,x,y);
+        if(color.data[i+3]&&[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].some(([px,py])=>!color.data[coord(f,px,py)+3])){
+          result.boundaryPixels++;
+          assert.deepEqual(Array.from(color.data.slice(i,i+3)),[41,34,51],`${action.id}_${side} exposed non-ink edge at ${x},${y}`);
+        }
+      }
     }
   }
   let alphaMismatch=0,colorMismatch=0,normalMismatch=0,maxNormalError=0;
@@ -61,6 +68,7 @@ for(const action of actions){
   }
   result.mirrors.push({action:action.id,alphaMismatch,colorMismatch,normalMismatch,maxNormalError});
   assert.equal(alphaMismatch,0,`${action.id} mirror alpha`);
+  assert.equal(colorMismatch,0,`${action.id} mirror color`);
   assert.equal(normalMismatch,0,`${action.id} mirror normal handedness`);
   const proof=read(join(asset,'actions',action.id,'proof.json'));
   assert.equal(proof.ok,true);

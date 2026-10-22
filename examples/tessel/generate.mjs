@@ -1,5 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {actions} from './poses.mjs';
+import {contourShapes} from './contour.mjs';
 
 const C=JSON.parse(readFileSync(new URL('./palette.json',import.meta.url),'utf8'));
 const ops=[{command:'new',name:'tessel',size:64,rows:16,cols:8,palette:'db-32'}];
@@ -107,6 +108,7 @@ function character(action,p){
     poly('mouth','ink',P([[43,46],[46,45],[46,46],[44,47],[42,47]])),
     poly('chin','seaGlass',P([[40,46],[42,47],[45,47],[44,48],[40,47]]))
   ]);
+  add('outer-contour',contourShapes(parts,placements,C.ink));
   return {parts,placements};
 }
 for(const [a,action] of actions.entries()){
