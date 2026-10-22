@@ -3,10 +3,26 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { Workbench } from '../../server/web/public/js/workbench.js';
 import { COMMANDS } from '../../server/commands/catalog.js';
 import { commandRequest } from '../../server/web/public/js/command-catalog.js';
-import { ShapePanel } from '../../server/web/public/js/panels.js';
+import { ShapePanel, ShapeGroupPanel } from '../../server/web/public/js/panels.js';
 import { jsonReport, animationProof } from '../../server/web/public/js/components.js';
 
 let bench, request, color;
+test('shape-group membership badges preserve prototype-like names without loading other cells', () => {
+  document.body.innerHTML = '<section><ul id="shape-group-items"></ul></section>';
+  const panel = new ShapeGroupPanel(); panel.init({}); panel.setActiveCell('0,0');
+  const groups = { ['__proto__']: ['dot'], constructor: ['dot'] };
+  panel.setAllCellGroups({ '0,0': groups, '0,1': groups }); panel.setCellGroups(groups);
+  expect([...document.querySelectorAll('.shape-group-badge')].map(node => node.textContent)).toEqual(['🔗2', '🔗2']);
+});
+test('copy handoff uses metadata summary without reading expanded geometry', async () => {
+  const writeText = vi.fn(); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  bench.setProject({ name: 'Sparse', cells: { '0,0': { shapeCount: 5 } } }, 'pinned');
+  request.mockImplementation(async path => { if (path !== '/workbench/project-summary') throw new Error('Expanded read forbidden'); return { data: { name: 'Sparse', sessionId: 'pinned' } }; });
+  await bench.show('handoff'); [...bench.body.querySelectorAll('button')].find(button => button.textContent === 'Copy handoff for agent').click();
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+  expect(writeText.mock.calls[0][0]).toContain('Session: pinned');
+  expect(request).not.toHaveBeenCalledWith('/workbench/project');
+});
 test('large shared reports disclose preview limits and retain the complete downloadable result', () => {
   const onDownload = vi.fn(), report = jsonReport({ onDownload });
   const data = { instances: [{ name: 'one' }], shapes: [], detail: 'x'.repeat(30000) };

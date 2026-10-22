@@ -20,7 +20,7 @@ import { constructionReplayRoutes } from './api/construction-replay-routes.js';
 import { API_BODY_LIMIT } from './api/policy.js';
 import { ProjectImportJobs } from '../import/project-import-jobs.js';
 import { projectImportRoutes } from './api/project-import-routes.js';
-import { projectSummary, frameLimits, assertProjectPins, assertOptionalProjectPins, invalidateProject } from '../project-view.js';
+import { projectSummary, projectView, frameLimits, assertProjectPins, assertOptionalProjectPins, invalidateProject } from '../project-view.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
@@ -152,8 +152,18 @@ export async function startWebServer(state, port, options = {}) {
     }
 
     ws.on('message', (raw) => {
+      let requestId;
+      const receipt = () => {
+        if (!requestId) return {};
+        const view = projectView(state);
+        return { requestId, ...(state.project ? { pins: { sessionId: view.sessionId, projectId: view.projectId, revision: view.revision } } : {}) };
+      };
       try {
         const msg = JSON.parse(raw);
+        if (progressive && msg.requestId !== undefined) {
+          if (typeof msg.requestId !== 'string' || !msg.requestId.length || msg.requestId.length > 80) throw new Error('requestId must be a nonempty string of at most 80 characters');
+          requestId = msg.requestId;
+        }
         // Handle project state request (for resync after MCP mutations)
         if (msg.action === 'get_project') {
           if (state.project) {
@@ -165,9 +175,9 @@ export async function startWebServer(state, port, options = {}) {
         else if (msg.sessionId && msg.sessionId !== state.sessionId) throw new Error('The active session changed. Refresh the design before editing.');
         const result = dispatchWebMessage(state, msg);
         saveDraft(state);
-        ws.send(JSON.stringify({ type: 'result', action: msg.action, data: result }));
+        ws.send(JSON.stringify({ type: 'result', action: msg.action, data: result, ...receipt() }));
       } catch (e) {
-        ws.send(JSON.stringify({ type: 'error', message: e.message }));
+        ws.send(JSON.stringify({ type: 'error', message: e.message, ...receipt(), ...(requestId ? { status: e.status ?? 400 } : {}) }));
       }
     });
   });

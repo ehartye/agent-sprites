@@ -26,7 +26,7 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="workbench-mount"></div><div id="workbench-status"></div>';
   project = fixture(); refresh = vi.fn(); selectedCell = 'rest';
   request = vi.fn(async (path, body) => {
-    if (path === '/workbench/project') return { data: structuredClone(project) };
+    if (path === '/workbench/project-summary') return { data: structuredClone(project) };
     if (path === '/cell/surface') {
       const shape = project.cells[body.cell].shapes.find(shape => shape.id === body.shapeId);
       if (body.surface === null) delete shape.params.surface;
@@ -41,6 +41,39 @@ beforeEach(() => {
   });
   bench = new Workbench({ request, getCell: () => selectedCell, getShape: () => project.cells['0,0'].shapes[1], getColor: () => '#fff', setColor: vi.fn(), refresh });
   bench.init(); bench.setProject(project, 'surface-session');
+});
+
+test('sparse selected cells show loading and block authoring without erasing a draft', async () => {
+  await bench.show('lighting'); edit('surface-json', '{"material":{"unlit":true}}');
+  const sparse = { ...project, projectId: 'p', cellVersions: { '0,0': 2 }, cells: { '0,0': { name: 'rest', shapeCount: 2 } } };
+  bench.setProject(sparse, 'surface-session');
+  expect(document.querySelector('[data-surface-cell]').textContent).toContain('Loading');
+  expect(action('save').disabled).toBe(true); expect(action('lighting-save').disabled).toBe(true);
+  expect(surface()).toEqual({ material: { unlit: true } });
+  bench.setProject(project, 'surface-session'); expect(surface()).toEqual({ material: { unlit: true } });
+  expect(action('save').disabled).toBe(false);
+});
+
+test('same-session project replacement resets panel drafts instead of carrying old shape edits', async () => {
+  project.projectId = 'first'; bench.setProject(project, 'surface-session'); await bench.show('lighting');
+  edit('surface-json', '{"material":{"unlit":true}}');
+  bench.setProject({ ...fixture(), projectId: 'second' }, 'surface-session');
+  await vi.waitFor(() => expect(control('surface-json')).not.toBeNull());
+  expect(surface()).toEqual({});
+});
+
+test('a sparse live packet during save retains selected shape and later normalizes the acknowledged draft', async () => {
+  project.projectId = 'p'; await bench.show('lighting');
+  let resolveRead;
+  request.mockImplementation(async path => path === '/workbench/project-summary' ? new Promise(resolve => { resolveRead = resolve; }) : { data: {} });
+  edit('surface-json', '{"normal":{"mode":"flat","vector":[1,0,1]}}'); action('save').click();
+  await vi.waitFor(() => expect(resolveRead).toBeTypeOf('function'));
+  const sparse = { ...project, cellVersions: { '0,0': 2 }, cells: { '0,0': { name: 'rest', shapeCount: 2 } } };
+  bench.setProject(sparse, 'surface-session'); resolveRead({ data: structuredClone(project) });
+  await vi.waitFor(() => expect(feedback().textContent).toBe('Surface saved.'));
+  expect(bench.lightingPanel.shapeId).toBe('body');
+  const loaded = structuredClone(project); loaded.cells['0,0'].shapes[1].params.surface = { normal: { mode: 'flat', vector: [.707, 0, .707] } };
+  bench.setProject(loaded, 'surface-session'); expect(surface().normal.vector).toEqual([.707, 0, .707]);
 });
 
 test('Lighting tab shows the canonical cell and selects unnamed shapes by typed ID', async () => {
@@ -86,7 +119,7 @@ test('surface set and clear use pinned typed IDs and repaint normalized canonica
   choose('normal-mode', 'flat'); edit('normal-vector', '[4, 0, 4]'); action('save').click();
   await vi.waitFor(() => expect(feedback().textContent).toBe('Surface saved.'));
   expect(request).toHaveBeenCalledWith('/cell/surface', { cell: '0,0', shapeId: 'body', surface: validateSurface({ normal: { mode: 'flat', vector: [4, 0, 4] } }) }, { sessionId: 'surface-session' });
-  expect(request).toHaveBeenCalledWith('/workbench/project', undefined, { sessionId: 'surface-session' });
+  expect(request).toHaveBeenCalledWith('/workbench/project-summary', undefined, { sessionId: 'surface-session' });
   expect(surface().normal.vector[0]).toBeCloseTo(Math.SQRT1_2);
   expect(refresh).toHaveBeenCalledTimes(1);
   action('clear').click();
@@ -157,7 +190,7 @@ test('rejected preview URLs and preview errors never display arbitrary media', a
   expect(action('preview').disabled).toBe(false);
 });
 
-test.each(['/cell/surface', '/workbench/project'])('a failed %s preserves the complete draft and restores submission controls', async failedPath => {
+test.each(['/cell/surface', '/workbench/project-summary'])('a failed %s preserves the complete draft and restores submission controls', async failedPath => {
   await bench.show('lighting');
   request.mockImplementation(async path => { if (path === failedPath) throw new Error('Disk unavailable'); return { data: {} }; });
   edit('surface-json', '{"material":{"wall":false},"lamps":[]}'); action('save').click();
@@ -180,7 +213,7 @@ test('edits during a save survive canonical refresh and pending actions cannot s
 test.each([false, true])('newer live state wins over a stale project read and preserves subsequent edits=%s', async edited => {
   let resolveProject;
   await bench.show('lighting');
-  request.mockImplementation(async path => path === '/workbench/project' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
+  request.mockImplementation(async path => path === '/workbench/project-summary' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
   edit('surface-json', '{"material":{"solid":true}}'); action('save').click();
   await vi.waitFor(() => expect(resolveProject).toBeTypeOf('function'));
   if (edited) edit('surface-json', '{"material":{"solid":false}}');

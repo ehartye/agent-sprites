@@ -23,7 +23,7 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="workbench-mount"></div><div id="workbench-status"></div>';
   project = fixture(); refresh = vi.fn();
   request = vi.fn(async (path, body) => {
-    if (path === '/workbench/project') return { data: structuredClone(project) };
+    if (path === '/workbench/project-summary') return { data: structuredClone(project) };
     if (path === '/cell/duration') {
       if (body.ms === null) delete project.frameDurations[body.cell];
       else project.frameDurations[body.cell] = body.ms;
@@ -71,7 +71,7 @@ test('setting 75ms and clearing restores 250ms group inheritance through pinned 
   edit(row('0,0').querySelector('input'), '75'); action('apply', row('0,0')).click();
   await vi.waitFor(() => expect(row('0,0').textContent).toContain('75 ms'));
   expect(request).toHaveBeenCalledWith('/cell/duration', { cell: '0,0', ms: 75, group: 'walk' }, { sessionId: 'timing-session' });
-  expect(request).toHaveBeenCalledWith('/workbench/project', undefined, { sessionId: 'timing-session' });
+  expect(request).toHaveBeenCalledWith('/workbench/project-summary', undefined, { sessionId: 'timing-session' });
   expect(refresh).toHaveBeenCalledTimes(1);
   choose('slow'); expect(row('0,0').textContent).toContain('75 ms');
   choose('walk'); action('clear', row('0,0')).click();
@@ -189,7 +189,7 @@ test('switching sessions rejects the former session save and retains the new can
 
 test('a late canonical read cannot overwrite a newer live project update', async () => {
   let resolveProject;
-  request.mockImplementation(async path => path === '/workbench/project' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
+  request.mockImplementation(async path => path === '/workbench/project-summary' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
   await bench.show('timing'); choose('walk');
   edit(row('0,0').querySelector('input'), '75'); action('apply', row('0,0')).click();
   await vi.waitFor(() => expect(resolveProject).toBeTypeOf('function'));
@@ -203,7 +203,7 @@ test('a late canonical read cannot overwrite a newer live project update', async
 
 test('a newer live project cannot clear edits made after the submitted draft', async () => {
   let resolveProject;
-  request.mockImplementation(async path => path === '/workbench/project' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
+  request.mockImplementation(async path => path === '/workbench/project-summary' ? new Promise(resolve => { resolveProject = resolve; }) : { data: {} });
   await bench.show('timing'); choose('walk');
   edit(row('0,0').querySelector('input'), '75'); action('apply', row('0,0')).click();
   await vi.waitFor(() => expect(resolveProject).toBeTypeOf('function'));
@@ -216,7 +216,7 @@ test('a newer live project cannot clear edits made after the submitted draft', a
 
 test('a failed canonical refresh retains the draft so it can be retried', async () => {
   request.mockImplementation(async path => {
-    if (path === '/workbench/project') throw new Error('Refresh unavailable');
+    if (path === '/workbench/project-summary') throw new Error('Refresh unavailable');
     return { data: {} };
   });
   await bench.show('timing'); choose('walk');

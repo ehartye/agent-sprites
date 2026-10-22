@@ -265,7 +265,7 @@ export class AnimationPreview {
 
   _getCellShapes(ref) {
     const cell = this._cells[ref];
-    if (!cell || !cell.shapes) return [];
+    if (!cell || !cell.shapes) { this._rasterContext.onMissing?.(ref, 'adjacent'); return []; }
     return cell.shapes.filter(s => s.visible !== false || s.params?.layers?.length);
   }
 

@@ -58,6 +58,7 @@ export class CanvasEditor {
   }
 
   destroy() {
+    this._clearReference(); this._refRequest = (this._refRequest ?? 0) + 1;
     this._releaseNative();
     if (this._abortController) {
       this._abortController.abort();
@@ -66,6 +67,14 @@ export class CanvasEditor {
   }
 
   /* -- Public API -- */
+
+  batchUpdate(update) {
+    this._batchDepth = (this._batchDepth ?? 0) + 1;
+    try { update(); }
+    finally {
+      if (!--this._batchDepth && this._batchDirty) { this._batchDirty = false; this.render(); }
+    }
+  }
 
   setCell(cellData) {
     this._releaseNative();
@@ -83,7 +92,14 @@ export class CanvasEditor {
   }
 
   /** Tracing reference underlay: refInfo = { opacity } from cell data, or null. */
-  setReference(refInfo, cellRef) {
+  _clearReference() {
+    this._referenceAbort?.abort(); this._referenceAbort = null;
+    if (this._referenceURL) { URL.revokeObjectURL(this._referenceURL); this._referenceURL = null; }
+    if (this._referenceImage) { this._referenceImage.onload = this._referenceImage.onerror = null; this._referenceImage.src = ''; this._referenceImage = null; }
+    this._refImage = null;
+  }
+  setReference(refInfo, cellRef, pins) {
+    this._clearReference();
     const request = this._refRequest = (this._refRequest ?? 0) + 1;
     this._refImage = null;
     this.render();
@@ -93,6 +109,20 @@ export class CanvasEditor {
       return;
     }
     this._refOpacity = refInfo.opacity ?? 0.35;
+    if (pins?.projectId) {
+      const controller = this._referenceAbort = new AbortController();
+      const current = () => request === this._refRequest && !controller.signal.aborted;
+      const query = new URLSearchParams({ cell: cellRef, sessionId: pins.sessionId, projectId: pins.projectId, revision: pins.revision });
+      void fetch(`/api/cell/reference-image?${query}`, { signal: controller.signal, cache: 'no-store', headers: { 'X-Sprite-Session': pins.sessionId } }).then(async response => {
+        if (!response.ok) throw new Error('Reference unavailable');
+        const blob = await response.blob(); if (!current()) return;
+        const url = this._referenceURL = URL.createObjectURL(blob), img = this._referenceImage = new window.Image();
+        img.onload = () => { if (!current()) return; this._refImage = img; this.render(); };
+        img.onerror = () => { if (current()) { this._clearReference(); this.render(); } };
+        img.src = url;
+      }).catch(() => { if (current()) { this._clearReference(); this.render(); } });
+      return;
+    }
     const img = new window.Image();
     img.onload = () => { if (request !== this._refRequest) return; this._refImage = img; this.render(); };
     img.onerror = () => { if (request !== this._refRequest) return; this._refImage = null; this.render(); };
@@ -135,6 +165,8 @@ export class CanvasEditor {
    * @param {{ prev: object[], next: object[] }|null} data
    */
   setOnionSkin(data) {
+    const equal = (a, b) => a === b || (Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((shape, i) => shape === b[i]));
+    if (data === this._onionSkinData || (data && this._onionSkinData && equal(data.prev, this._onionSkinData.prev) && equal(data.next, this._onionSkinData.next))) return;
     this._onionSkinData = data;
     this.render();
   }
@@ -142,6 +174,7 @@ export class CanvasEditor {
   /* -- Rendering -- */
 
   render() {
+    if (this._batchDepth) { this._batchDirty = true; return; }
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;

@@ -151,6 +151,12 @@ export class SurfacePanel {
       this.surfaceSection.hidden = true; this.lightingSection.hidden = true; this.setPendingControls(); return;
     }
     this.surfaceSection.hidden = false; this.lightingSection.hidden = false;
+    this.loaded = !project.projectId || Array.isArray(project.cells?.[cell]?.shapes);
+    if (!this.loaded) {
+      this.target.textContent = `Cell ${cell} · Loading…`;
+      this.emptyShapes.hidden = true;
+      this.setPendingControls(); return;
+    }
     this.paint();
   }
   draft(key, canonical, enabled = true) {
@@ -160,7 +166,7 @@ export class SurfacePanel {
     return draft;
   }
   paint() {
-    if (!this.cell || !this.current()) return;
+    if (!this.cell || !this.current() || this.loaded === false) return;
     const cell = this.project.cells?.[this.cell] ?? {}, shapes = cell.shapes ?? [];
     this.target.textContent = `Cell ${this.cell}${cell.name ? ` · ${cell.name}` : ''}`;
     const selected = this.selections.get(this.cell) ?? this.getShape()?.id;
@@ -227,16 +233,17 @@ export class SurfacePanel {
   }
   invalidatePreview() { this.previewSequence++; this.proof?.set(null); }
   setPendingControls() {
-    const disabled = this.pending || !this.cell || !this.sessionId;
+    const disabled = this.pending || !this.cell || !this.sessionId || this.loaded === false;
     this.root.setAttribute('aria-busy', String(this.pending));
     for (const control of this.root.querySelectorAll('button')) control.disabled = disabled;
     for (const control of [this.saveSurface, this.clearSurface, ...this.surfaceSection.querySelectorAll('[data-action^="surface-lamp-"]')]) control.disabled = disabled || !this.shapeId;
-    for (const control of this.surfaceSection.querySelectorAll('input, textarea, select')) control.disabled = !this.cell || !this.sessionId || !this.shapeId;
+    for (const control of this.surfaceSection.querySelectorAll('input, textarea, select')) control.disabled = !this.cell || !this.sessionId || !this.shapeId || this.loaded === false;
+    for (const control of this.lightingSection.querySelectorAll('input, textarea, select')) control.disabled = !this.cell || !this.sessionId || this.loaded === false;
     this.shape.disabled = disabled || !this.shapeId;
     this.previewButton.disabled = disabled || this.previewPending;
   }
   async attempt(action) {
-    if (!this.current() || this.pending || !this.cell || !this.sessionId) return;
+    if (!this.current() || this.pending || !this.cell || !this.sessionId || this.loaded === false) return;
     const view = this.viewSequence;
     try { await action(); } catch (error) { if (this.current(view)) setStatus(this.status, error.message, true); }
   }
@@ -255,7 +262,7 @@ export class SurfacePanel {
       await this.request(`/cell/${kind}`, body, { sessionId: this.sessionId });
       if (!this.current(view)) return;
       const revision = this.projectRevision;
-      const result = await this.request('/workbench/project', undefined, { sessionId: this.sessionId });
+      const result = await this.request('/workbench/project-summary', undefined, { sessionId: this.sessionId });
       if (!this.current(view)) return;
       // An acknowledged unchanged draft clears even when a newer live packet wins the read race.
       if (draft.version === version) draft.dirty = false;

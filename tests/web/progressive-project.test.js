@@ -5,6 +5,8 @@ import { Project } from '../../server/engine/project.js';
 import { startWebServer } from '../../server/web/http.js';
 import { frameLimits } from '../../server/project-view.js';
 import { Shape } from '../../server/engine/shape.js';
+import { LiveMutations } from '../../server/web/public/js/live-mutations.js';
+import { WebSocketClient } from '../../server/web/public/js/websocket.js';
 
 describe('progressive project protocol', () => {
   let state, server, base, sockets;
@@ -90,6 +92,60 @@ describe('progressive project protocol', () => {
     const { initial } = await connect(false);
     expect(initial.type).toBe('project');
     expect(initial.data.cells['0,0'].shapes).toHaveLength(1);
+  });
+
+  test('reference-image optional query pins reject same-session replacement before reading a file', async () => {
+    const current = await summary();
+    state.project = Project.create({ name: 'Replacement', cellSize: 8, rows: 1, cols: 1 });
+    const response = await fetch(`${base}/api/cell/reference-image?cell=0,0&${pins(current)}`);
+    expect(response.status).toBe(409);
+    expect((await fetch(`${base}/api/cell/reference-image?cell=0,0`)).status).toBe(404);
+  });
+
+  test('request-aware progressive receipts correlate success/conflict and carry cheap current pins', async () => {
+    const { ws, initial } = await connect();
+    const messages = [];
+    ws.on('message', raw => messages.push(JSON.parse(raw)));
+    const wait = async id => { await vi.waitFor(() => expect(messages.some(m => m.requestId === id)).toBe(true)); return messages.find(m => m.requestId === id); };
+    const message = { action: 'draw', type: 'point', params: { cell: '0,1', x: 1, y: 1, color: '#fff' } };
+    ws.send(JSON.stringify({ ...message, ...initial.data, requestId: 'first' }));
+    const first = await wait('first'); expect(first.type).toBe('result');
+    expect(first.pins.revision).toBeGreaterThan(initial.data.revision);
+    ws.send(JSON.stringify({ ...message, ...first.pins, requestId: 'second' }));
+    expect((await wait('second')).type).toBe('result');
+    expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(2);
+    ws.send(JSON.stringify({ ...message, ...initial.data, requestId: 'stale' }));
+    expect(await wait('stale')).toMatchObject({ type: 'error', status: 409, pins: { projectId: first.pins.projectId } });
+    const next = receive(ws); ws.send(JSON.stringify({ ...message, ...first.pins, requestId: 'x'.repeat(81) }));
+    expect(await next).toMatchObject({ type: 'error', message: expect.stringContaining('requestId') });
+    expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(2);
+  });
+
+  test('real browser transport and shared lane apply two rapid draws once, undo, and reject old-session queued intent', async () => {
+    vi.stubGlobal('WebSocket', WebSocket); vi.stubGlobal('document', { getElementById: () => null });
+    const client = new WebSocketClient(); let current, release;
+    client.on('project_summary', data => { current = data; });
+    client.connect(`${base.replace('http:', 'ws:')}/?project=progressive-v1`);
+    sockets.push(client._ws);
+    try {
+      await vi.waitFor(() => expect(current).toBeDefined());
+      const queue = new LiveMutations({ getPins: () => current });
+      const message = { action: 'draw', type: 'point', params: { cell: '0,1', x: 2, y: 3, color: '#fff' } };
+      const operation = pins => client.request({ ...message, ...pins });
+      const first = queue.enqueue(operation), second = queue.enqueue(operation);
+      await Promise.all([first, second]); expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(2);
+      await queue.enqueue(pins => client.request({ action: 'undo', params: { cell: '0,1' }, ...pins }));
+      expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(1);
+      const held = queue.enqueue(async pins => { const receipt = await operation(pins); await new Promise(resolve => { release = resolve; }); return receipt; });
+      const oldIntent = queue.enqueue(operation); const failure = expect(oldIntent).rejects.toThrow('changed');
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+      const old = state.project;
+      state.sessionId = state.db.createSession({ project_name: 'Other', project_path: '.', destination_folder: '.', draft_json: '{}' }).id;
+      state.project = Project.create({ name: 'Other', cellSize: 8, rows: 1, cols: 3 }); state.broadcastProject();
+      await vi.waitFor(() => expect(current.sessionId).toBe(state.sessionId)); release(); await held; await failure;
+      expect(old.cells.getCell('0,1').shapes._byId.size).toBe(2);
+      expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(0);
+    } finally { client._ws.onclose = null; client._ws.terminate(); vi.unstubAllGlobals(); }
   });
 
   test('progressive edits guard identity before mutation and invalidate only the edited frame', async () => {

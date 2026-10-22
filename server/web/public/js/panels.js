@@ -301,7 +301,7 @@ export class ShapeGroupPanel {
 
   setAllCellGroups(allGroups) {
     // allGroups: { "0,0": {name:[shapes]}, "0,1": {...} }
-    const counts = {};
+    const counts = Object.create(null);
     for (const groupMap of Object.values(allGroups || {})) {
       for (const name of Object.keys(groupMap)) {
         counts[name] = (counts[name] ?? 0) + 1;

@@ -21,3 +21,11 @@ test('the two visibility controls work independently across cells', () => {
   expect(cellsForView(source, { trace: true, reference: false })['0,0'].shapes).toHaveLength(1);
   expect(cellsForView({}, { trace: false })).toEqual({});
 });
+
+test('sparse source filtering preserves unloaded metadata and stable unchanged cell/shape identities', () => {
+  const source = { '0,0': { name: 'unloaded', shapeCount: 9 }, '0,1': { shapes: [{ type: 'point', name: 'art' }] } };
+  const first = cellsForView(source, { trace: false, reference: false });
+  expect(first['0,0']).not.toHaveProperty('shapes');
+  expect(cellsForView({ ...source }, { trace: false, reference: false })['0,1']).toBe(first['0,1']);
+  expect(first['0,1'].shapes[0]).toBe(source['0,1'].shapes[0]);
+});

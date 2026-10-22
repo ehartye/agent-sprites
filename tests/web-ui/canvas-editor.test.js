@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CanvasEditor } from '../../server/web/public/js/canvas-editor.js';
 
 function makeEditor({ cellW = 16, cellH = 16, width = 320, height = 320, zoom = 4 } = {}) {
@@ -20,6 +20,33 @@ function pixelAt(ed, x, y) {
 }
 
 describe('CanvasEditor (browser)', () => {
+  it('batches selection/reference/context replacement into one paint of the final frame', () => {
+    const ed = makeEditor(); const clear = vi.spyOn(ed.ctx, 'clearRect');
+    ed.batchUpdate(() => { ed.setCell(null); ed.setReference(null, '0,1'); ed.setCellSize(8, 8); ed.setSelectedShape(null); });
+    expect(clear).toHaveBeenCalledTimes(1); ed.destroy();
+  });
+  it('pins and aborts asynchronous underlays, drops stale blob/decode completions and revokes owned URLs', async () => {
+    const ed = makeEditor(), pending = [], images = [], revoked = [];
+    const originalImage = window.Image;
+    window.Image = class { constructor() { images.push(this); } };
+    vi.stubGlobal('fetch', vi.fn((url, options) => new Promise(resolve => pending.push({ url, options, resolve }))));
+    const create = URL.createObjectURL, revoke = URL.revokeObjectURL;
+    URL.createObjectURL = () => `blob:owned-${images.length}`; URL.revokeObjectURL = url => revoked.push(url);
+    const pins = { sessionId: 's', projectId: 'p', revision: 1, cellVersion: 1 };
+    try {
+      ed.setReference({ opacity: .2 }, '0,0', pins);
+      ed.setReference({ opacity: .4 }, '0,1', { ...pins, cellVersion: 2 });
+      expect(pending[0].options.signal.aborted).toBe(true);
+      pending[0].resolve({ ok: true, blob: async () => new Blob(['old']) });
+      pending[1].resolve({ ok: true, blob: async () => new Blob(['new']) });
+      await vi.waitFor(() => expect(images).toHaveLength(1));
+      expect(pending[1].url).toContain('projectId=p'); expect(pending[1].options.headers['X-Sprite-Session']).toBe('s');
+      const oldLoad = images[0].onload;
+      ed.setReference(null, '0,1', { ...pins, sessionId: 'new', projectId: 'new' });
+      oldLoad(); expect(ed._refImage).toBeNull(); expect(revoked).toEqual(['blob:owned-0']);
+      ed.destroy();
+    } finally { window.Image = originalImage; URL.createObjectURL = create; URL.revokeObjectURL = revoke; vi.unstubAllGlobals(); }
+  });
   it('does not restore a hidden reference when its earlier image request finishes', () => {
     const ed = makeEditor();
     const ImageClass = window.Image;

@@ -89,7 +89,7 @@ export class Workbench {
     } catch (error) { if (sequence === this.sequence) this.body.replaceChildren(element('p', error.message, 'error')); }
   }
   setProject(project, sessionId) {
-    const changed = this.sessionId !== sessionId;
+    const changed = this.sessionId !== sessionId || (this.project?.projectId !== undefined && project?.projectId !== undefined && this.project.projectId !== project.projectId);
     this.project = project;
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
@@ -409,9 +409,10 @@ export class Workbench {
       localStorage.removeItem(draftKey); this.notify('Review note saved with the project.'); this.refresh();
     })));
     this.body.append(button('Copy handoff for agent', () => this.run(async () => {
-      const packet = await this.request('/workbench/project');
+      const packet = await this.request('/workbench/project-summary');
+      const sessionId = packet.data.sessionId ?? this.sessionId;
       const port = location.port || (location.protocol === 'https:' ? '443' : '80');
-      const text = `Design: ${packet.data.name}\nPreview: ${location.origin}\nSession: ${packet.session_id}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nUse the matching managed agent-sprites runtime, bound to this preview port (do not use another server). In PowerShell:\n$env:SPRITE_PORT='${port}'\nagent-sprites open --session ${packet.session_id}\n\nRead the current editable project and its saved review note at ${location.origin}/api/workbench/project with X-Sprite-Session: ${packet.session_id}. Download the editable project for transfer to another machine.`;
+      const text = `Design: ${packet.data.name}\nPreview: ${location.origin}\nSession: ${sessionId}\nFrame: ${this.getCell()}\nReview: ${note.value}\n\nUse the matching managed agent-sprites runtime, bound to this preview port (do not use another server). In PowerShell:\n$env:SPRITE_PORT='${port}'\nagent-sprites open --session ${sessionId}\n\nRead design metadata and its saved review note at ${location.origin}/api/workbench/project-summary with X-Sprite-Session: ${sessionId}. Request pinned frames from /api/workbench/frames for editing. Download the editable project for transfer to another machine.`;
       await navigator.clipboard.writeText(text); this.notify('Design handoff copied.');
     })));
     this.body.append(element('p', 'Drafts save automatically. Save project on disk writes a portable file; downloads include the last saved review note.', 'workbench-hint'));

@@ -17,6 +17,15 @@ describe('AnimationPreview (browser)', () => {
     document.body.innerHTML = '<div id="anim-panel"></div>';
   });
   afterEach(() => { for (const ap of previews.splice(0)) ap.destroy(); vi.clearAllTimers(); vi.useRealTimers(); });
+  it('demands only the two selected onion neighbours when onion skin is enabled', () => {
+    const ap = makePreview({ mountId: 'anim-panel' }), missing = vi.fn(); ap.init();
+    ap.setCells({ '0,0': { shapes: [] }, '0,1': { shapeCount: 1 }, '0,2': { shapeCount: 1 } },
+      { projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1, '0,2': 1 }, onMissing: missing });
+    ap.setFrames(['0,0', '0,1', '0,2']); ap.setActiveCell('0,0'); missing.mockClear();
+    expect(ap.getOnionSkinData()).toBeNull(); expect(missing).not.toHaveBeenCalled();
+    ap._onionSkin = true; expect(ap.getOnionSkinData()).toEqual({ prev: [], next: [] });
+    expect(missing.mock.calls).toEqual([['0,2', 'adjacent'], ['0,1', 'adjacent']]);
+  });
   it('refreshes a paused frame after an edit and applies saved group timing', () => {
     const ap = makePreview({ mountId: 'anim-panel', size: 64 }); ap.init();
     ap.setCellSize(16, 16); ap.setPalette({}); ap.setFrames(['0,0']);
