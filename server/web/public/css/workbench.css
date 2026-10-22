@@ -45,6 +45,10 @@
 .tool-form { display: flex; flex-direction: column; gap: .6rem; }
 .tool-form details { font-size: .7rem; }
 .tool-form summary { cursor: pointer; padding: .4rem 0; }
+.build-progress { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
+.build-progress[hidden] { display: none; }
+.build-progress progress { width: 100%; accent-color: var(--accent); }
+.build-progress > button { align-self: start; }
 .tool-output { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.5 var(--mono); max-height: 250px; overflow: auto; color: var(--text-secondary); }
 .animation-proof { margin: 0; max-width: 100%; }
 .animation-proof img { display: block; max-width: 100%; max-height: 40vh; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 0 / 16px 16px; }

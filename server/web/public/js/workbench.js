@@ -5,6 +5,22 @@ import { ConstructionReplayPanel } from './construction-replay.js';
 import { FrameTimingPanel } from './frame-timing.js';
 import { SurfacePanel } from './surface-panel.js';
 import { ProjectImportController } from './project-import.js';
+import { ProjectBuildController } from './project-build.js';
+
+const buildPhases = {
+  prepare: 'Preparing build', generator: 'Reading generator output', 'generator-parse': 'Reading generated operations',
+  operations: 'Applying operations', render: 'Rendering sprites', verify: 'Checking build', artifacts: 'Writing build files',
+  prepublication: 'Checking files before publishing', committing: 'Publishing build files', committed: 'Build files published; waiting for report',
+};
+function buildMessage(update) {
+  if (update.message || update.error) return update.message ?? update.error;
+  if (update.state === 'complete') return 'Build completed.';
+  if (update.state === 'failed') return 'Build failed. See the report below.';
+  const phase = buildPhases[update.phase] ?? 'Building project';
+  if (Number.isFinite(update.bytes)) return `${phase} · ${update.bytes.toLocaleString()} bytes read`;
+  if (Number.isFinite(update.completed) && Number.isFinite(update.total)) return `${phase} · ${update.completed.toLocaleString()} of ${update.total.toLocaleString()} operations`;
+  return `${phase}…`;
+}
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -42,6 +58,7 @@ export class Workbench {
   }
   close() {
     this.cancelImport();
+    this.disposeBuild();
     this.mount.hidden = true;
     this.sequence++;
     this.opener?.focus();
@@ -56,6 +73,7 @@ export class Workbench {
   }
   async show(tab) {
     this.cancelImport();
+    this.disposeBuild();
     if (this.mount.hidden) this.opener = document.activeElement;
     this.mount.hidden = false;
     this.tab = tab;
@@ -90,6 +108,7 @@ export class Workbench {
   }
   setProject(project, sessionId) {
     const changed = this.sessionId !== sessionId || (this.project?.projectId !== undefined && project?.projectId !== undefined && this.project.projectId !== project.projectId);
+    if (this.sessionId !== sessionId || this.project?.projectId !== project?.projectId) this.disposeBuild();
     this.project = project;
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
@@ -100,6 +119,10 @@ export class Workbench {
   cancelImport() {
     const importer = this.importer; this.importer = null;
     if (importer) void importer.dispose().catch(error => this.notify(error.message, true));
+  }
+  disposeBuild() {
+    this.builder?.dispose();
+    this.builder = null;
   }
   refreshProjectPanels() {
     this.refreshReplay();
@@ -213,6 +236,10 @@ export class Workbench {
   selectCommand(id) {
     const command = this.commands.find(command => command.id === id);
     if (!command) return;
+    this.disposeBuild();
+    const commandIdentity = this.commandIdentity = Symbol(id), sequence = this.sequence;
+    const selectionCurrent = () => this.commandIdentity === commandIdentity && sequence === this.sequence && this.tab === 'tools' && !this.mount.hidden;
+    const isBuild = command.method === 'POST' && command.path?.replace(/^\/api/, '') === '/workbench/build';
     this.commandDetail.replaceChildren(element('h3', command.label), element('code', command.id));
     this.body.querySelectorAll('[data-command]').forEach(btn => btn.classList.toggle('active', btn.dataset.command === id));
     if (command.description) this.commandDetail.append(element('p', command.description, 'workbench-hint'));
@@ -266,18 +293,42 @@ export class Workbench {
         kind === 'boolean' ? input.checked : kind === 'number' ? Number(input.value) : kind === 'object' ? JSON.parse(input.value) : kind === 'null' && !input.value ? null : input.value]));
     };
     for (const { input } of fields) input.addEventListener('input', () => { jsonEdited = false; try { json.value = JSON.stringify(read(), null, 2); } catch { /* partial field input */ } });
-    const submit = element('button', command.submitLabel ?? (command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
+    const submit = element('button', command.submitLabel ?? (isBuild ? 'Build' : command.method === 'GET' ? 'Inspect' : 'Apply')); submit.type = 'submit'; form.append(submit);
     const report = jsonReport({ onDownload: data => download(`${command.id.replaceAll(' ', '-')}-report.json`, data) });
     const animation = animationProof();
     const output = report.output;
+    let generatedAction, formBuild;
+    const buildProgress = element('div', null, 'build-progress'); buildProgress.hidden = true;
+    const buildStatus = element('p', '', 'workbench-hint'); buildStatus.dataset.buildStatus = ''; buildStatus.setAttribute('role', 'status');
+    const progress = element('progress'); progress.dataset.buildProgress = ''; progress.setAttribute('aria-label', 'Build progress');
+    const cancel = button('Cancel build', () => { if (selectionCurrent()) formBuild?.cancel(); }); cancel.dataset.buildCancel = ''; cancel.disabled = true;
+    if (isBuild) { buildProgress.append(buildStatus, progress, cancel); form.append(buildProgress); }
     form.addEventListener('submit', event => {
       event.preventDefault();
+      if (isBuild && (submit.disabled || !selectionCurrent())) return;
+      const sessionId = this.sessionId, projectId = this.project?.projectId;
+      let activeBuild;
+      const current = () => selectionCurrent() && this.sessionId === sessionId && this.project?.projectId === projectId && (!activeBuild || this.builder === activeBuild);
       this.run(async () => {
         submit.disabled = true;
         animation.set(null);
         try {
           const request = commandRequest(command, read());
-          const result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
+          let result;
+          if (isBuild) {
+            generatedAction?.remove(); report.set(undefined);
+            const builder = activeBuild = formBuild = this.builder = new ProjectBuildController({ isCurrent: current, onUpdate: update => {
+              if (!current()) return;
+              buildProgress.hidden = false;
+              setStatus(buildStatus, buildMessage(update), update.state === 'failed');
+              progress.hidden = !update.busy;
+              if (Number.isFinite(update.completed) && update.total > 0) { progress.max = update.total; progress.value = update.completed; }
+              else { progress.max = 1; progress.removeAttribute('value'); }
+              cancel.disabled = !update.cancellable;
+            } });
+            result = await builder.start(request.body, { sessionId });
+            if (!current() || !result) return;
+          } else result = await this.request(request.path.replace(/^\/api/, ''), request.method === 'POST' ? request.body : undefined);
           report.set(result.data ?? result);
           animation.set(result.preview, result.previewPoster);
           if (result.data?.ok === false) {
@@ -286,16 +337,19 @@ export class Workbench {
           }
           if (result.data?.artifacts?.project) {
             const projectPath = result.data.artifacts.project;
-            output.after(button('Open generated project', () => this.run(async () => {
+            generatedAction = button('Open generated project', () => this.run(async () => {
               await this.request('/session/open', { path: projectPath });
               this.notify('Generated project opened as a new session.'); this.refresh();
-            })));
+            }));
+            output.after(generatedAction);
           }
           if (result.data?.url?.startsWith('/casting.html?')) {
             const link = element('a', 'Open casting review'); link.href = result.data.url; link.target = '_blank'; link.rel = 'noopener'; output.after(link);
           }
           this.notify(`${command.label} completed.`); this.refresh();
-        } finally { submit.disabled = false; }
+        } catch (error) {
+          if (!isBuild || current()) throw error;
+        } finally { if (!isBuild || current()) submit.disabled = false; }
       });
     });
     this.commandDetail.append(form, animation.node, report.node);
