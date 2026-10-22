@@ -1,6 +1,6 @@
 ---
 name: sprite-editing
-description: Create, edit, animate, and export pixel-art sprites with agent-sprites. Use for sprite drawing, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, source-aware construction replay, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
+description: Create, edit, animate, import, and export pixel-art sprites with agent-sprites. Use for sprite drawing, large editable project files, ASCII region readback and patches, reusable parts, stamps, tiling, seeded scatter, source-aware construction replay, named frames, JSON operation batches, sprite sheets, and Aseprite atlases. Not for CSS/SVG animation or editing an existing vector logo.
 ---
 
 # Sprite Sheet Editing
@@ -35,6 +35,14 @@ sprite.js new myproject --size 16 --rows 4 --cols 4 --palette pico8
 - Changes are drafted automatically in SQLite. `save` explicitly writes project
   JSON (by default into the session's asset folder); omit it when assets should
   contain only the PNG and atlas. Inspect supplied ops for `save` and destinations.
+
+## Import a large editable project
+
+For a large editable JSON/gzip project, streamed generator output, compact saved
+geometry or an expanded V1 handoff, read [large editable projects](references/large-projects.md)
+before choosing an import or build command. Import the file into a new session;
+do not send it through the ordinary JSON request body. Inspect the authoritative
+completion receipt before retrying an interrupted activation or publication.
 
 ## Trace a supplied reference
 

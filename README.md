@@ -20,7 +20,8 @@ Open the server's preview URL to work on the same live draft as your agent.
 - **ASCII** reads a bounded region as text, reports unmapped RGBA colors, and applies one undoable patch with explicit keep and erase symbols.
 - **Lighting** edits retained shape normals, material flags and attached lamps, enables cell lighting with an explicit palette policy, and previews color/normal/light channels through the shared server.
 - **All tools** provides searchable forms for drawing, shading, transformations, groups, animation, references, saving and exporting. JSON parameters expose advanced options. Build, trace, atlas proof and verification forms run file workflows from the server's localhost page; restart remains a terminal command.
-- **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. The agent can read the saved design and review at `GET /api/workbench/project`.
+- **Pass design** downloads editable project JSON, PNG and atlas, imports a project into a new session, and saves a review note and selected frame in the portable project. Copy the handoff to give your agent the exact server port and session ID. Agents can read metadata and review at `GET /api/workbench/project-summary`, then fetch pinned frames on demand; `GET /api/workbench/project` retains the complete legacy snapshot.
+- **Large editable projects** upload JSON or gzip directly to an owned validation job with progress and cancellation. The editor loads selected and visible frames on demand, shares cached native renders, and preserves compact geometry through editing and saves. See the [large-project workflow](skills/sprite-editing/references/large-projects.md).
 - Expanded CLI batch operations can be pasted into **Apply agent operations**. Session creation and disk publication use their separate controls. The batch stops on the first failure; earlier edits remain applied.
 
 Draft changes persist automatically. **Save project** writes the editable file on disk. Copies preserve animation timing and shape groups. Session guards stop stale tabs or in-flight batches from editing a different design after a switch. Large traces fit the canvas and have searchable, paged shape lists.
@@ -416,6 +417,20 @@ the generator runs in the config directory, with a 60-second timeout. Run only
 generators you trust: they execute as ordinary local code. Generator diagnostics
 belong on stderr. Both inputs use existing batch operations, beginning with one
 `new`; omit `save`, `export`, `ref`, and further `new` operations.
+
+Generator stdout streams to owned temporary storage with a 512 MiB default bound;
+the complete operations document is parsed after capture. Build progress goes to
+stderr while `--json` keeps the final report on stdout. The browser's **All tools
+→ Build a project** shows streamed phases, bytes and operation progress. A cancel
+request stops work at supported boundaries; once publication is committing, wait
+for the receipt to learn whether it committed or restored the previous output.
+An interrupted browser request alone cannot confirm rollback.
+
+Add `"projectFormat": "shared"` to write a compact V2 editable project artifact.
+Existing configs default to expanded V1. File imports retain V2 in drafts and
+default saves; **Pass design → Expanded (V1)** produces a separate file for older
+consumers. See [large editable projects](skills/sprite-editing/references/large-projects.md)
+for import limits, explicit save formats and progressive loading behavior.
 
 Build uses a fresh in-memory session and a temporary loopback API, independent of
 your editing server and its database. Operations run sequentially through the
