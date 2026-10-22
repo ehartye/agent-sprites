@@ -1,11 +1,12 @@
 import { renderCellNative } from './cell-raster.js';
+import { ThumbnailCache } from './thumbnail-cache.js';
 /**
  * Cell navigator — thumbnail strip at the bottom showing all cells.
  * Click to switch active cell, filter by group.
  */
 
 export class CellNavigator {
-  constructor() {
+  constructor({ cacheEntries, cacheBytes } = {}) {
     this._grid = { rows: 0, cols: 0 };
     this._cellW = 16;
     this._cellH = 16;
@@ -16,6 +17,21 @@ export class CellNavigator {
     this._filter = null; // null = all, or array of cell refs
 
     this._selectCb = null;
+    this._thumbs = new Map();
+    this._visible = new Set();
+    this._painted = new Set();
+    this._timer = null;
+    this._observer = null;
+    this._observerActive = false;
+    this._generation = 0;
+    this._cache = new ThumbnailCache(cacheEntries, cacheBytes);
+    this._cellIdentities = new Map();
+    this._renderedRefs = [];
+    this._strip = null;
+    this._fallbackCleanup = null;
+    this._checkerKey = null;
+    this._paletteKey = '[]';
+    this._backgroundKey = JSON.stringify(this._background);
   }
 
   /**
@@ -27,24 +43,43 @@ export class CellNavigator {
   }
 
   setGrid(rows, cols, cellW = 16, cellH = cellW) {
+    if (rows !== this._grid.rows || cols !== this._grid.cols || cellW !== this._cellW || cellH !== this._cellH) this._stopObserving();
+    if (cellW !== this._cellW || cellH !== this._cellH) this._invalidateAll();
     this._grid = { rows, cols };
     this._cellW = cellW;
     this._cellH = cellH;
   }
 
-  setBackground(background) { this._background = background ?? { mode: 'transparent' }; }
+  setBackground(background) {
+    const value = background ?? { mode: 'transparent' }, key = JSON.stringify(value);
+    if (key !== this._backgroundKey) this._invalidateAll();
+    this._backgroundKey = key;
+    this._background = { ...value };
+  }
 
   setPalette(paletteMap) {
-    this._palette = paletteMap;
+    const palette = paletteMap || {};
+    const key = JSON.stringify(Object.entries(palette).sort(([a], [b]) => a.localeCompare(b)));
+    if (key !== this._paletteKey) this._invalidateAll();
+    this._paletteKey = key;
+    this._palette = { ...palette };
   }
 
   setCells(cells) {
     this._cells = cells || {};
+    this._cancelWork();
+    for (const [ref, cell] of this._cellIdentities) {
+      if (this._cells[ref] !== cell) this._invalidateRef(ref);
+    }
+    this._cellIdentities = new Map(Object.entries(this._cells));
+    this._schedule();
   }
 
   setActive(ref) {
     this._activeRef = ref;
     this._updateHighlight();
+    if (this._fallbackCleanup) this._updateFallback();
+    this._schedule();
   }
 
   /**
@@ -53,15 +88,36 @@ export class CellNavigator {
    * @param {string[]|null} refs
    */
   setFilter(refs) {
-    this._filter = refs;
+    const unchanged = (this._filter === null && refs === null) ||
+      (this._filter && refs && this._filter.length === refs.length && this._filter.every((ref, i) => ref === refs[i]));
+    if (unchanged && this._observerActive) return;
+    this._filter = refs ? [...refs] : null;
     this.render();
   }
 
   render() {
     const strip = document.getElementById('cell-strip');
-    strip.innerHTML = '';
-
+    if (!strip) return;
+    this._checkTheme();
     const refs = this._filter || this._allRefs();
+    if (strip === this._strip && this._renderedCellW === this._cellW && this._renderedCellH === this._cellH &&
+        refs.length === this._renderedRefs.length && refs.every((ref, i) => ref === this._renderedRefs[i]) &&
+        strip.children.length === refs.length && this._observerActive) {
+      this._updateLabels();
+      this._schedule();
+      return;
+    }
+    this._stopObserving();
+    for (const thumb of this._thumbs.values()) this._releaseDisplay(thumb.dataset.ref);
+    this._thumbs.clear();
+    this._visible.clear();
+    this._painted.clear();
+    strip.innerHTML = '';
+    this._strip = strip;
+    this._viewport = this._findViewport(strip);
+    this._renderedRefs = [...refs];
+    this._renderedCellW = this._cellW;
+    this._renderedCellH = this._cellH;
 
     for (const ref of refs) {
       const thumb = document.createElement('div');
@@ -73,12 +129,10 @@ export class CellNavigator {
       const canvas = document.createElement('canvas');
       const fit = 64 / Math.max(this._cellW, this._cellH);
       const scale = fit >= 1 ? Math.floor(fit) : fit;
-      canvas.width = Math.max(1, Math.round(this._cellW * scale));
-      canvas.height = Math.max(1, Math.round(this._cellH * scale));
+      this._sizeCanvas(canvas);
       canvas.style.width = `${this._cellW * scale}px`;
       canvas.style.height = `${this._cellH * scale}px`;
       canvas.className = 'cell-thumb-canvas';
-      this._renderThumb(canvas, ref);
       thumb.appendChild(canvas);
 
       const label = document.createElement('span');
@@ -88,28 +142,170 @@ export class CellNavigator {
       thumb.appendChild(label);
 
       thumb.addEventListener('click', () => {
-        this._activeRef = ref;
-        this._updateHighlight();
+        this.setActive(ref);
         if (this._selectCb) this._selectCb(ref);
       });
 
       strip.appendChild(thumb);
+      this._thumbs.set(ref, thumb);
+    }
+    this._observerActive = true;
+    if (typeof IntersectionObserver === 'function') {
+      const generation = this._generation;
+      this._observer = new IntersectionObserver(entries => {
+        if (generation !== this._generation) return;
+        for (const { target, isIntersecting } of entries) {
+          const ref = target.dataset.ref;
+          if (this._thumbs.get(ref) !== target) continue;
+          if (isIntersecting) this._visible.add(ref);
+          else {
+            this._visible.delete(ref);
+            this._releaseDisplay(ref);
+          }
+        }
+        this._schedule();
+      }, { root: this._viewport });
+      for (const thumb of this._thumbs.values()) this._observer.observe(thumb);
+    } else {
+      const update = () => this._updateFallback();
+      this._viewport.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      this._fallbackCleanup = () => {
+        this._viewport.removeEventListener('scroll', update);
+        window.removeEventListener('resize', update);
+      };
+      update();
     }
   }
 
+  _schedule() {
+    if (this._timer !== null) return;
+    if (!this._nextRef()) return;
+    const generation = this._generation;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      if (generation !== this._generation) return;
+      const ref = this._nextRef();
+      const thumb = this._thumbs.get(ref);
+      if (thumb) {
+        let bitmap = this._cache.get(ref);
+        const fresh = !bitmap;
+        if (fresh) {
+          bitmap = document.createElement('canvas');
+          this._sizeCanvas(bitmap);
+          this._renderThumb(bitmap, ref);
+        }
+        const canvas = thumb.querySelector('canvas');
+        this._sizeCanvas(canvas);
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        if (fresh) this._cache.set(ref, bitmap);
+        this._painted.add(ref);
+      }
+      this._schedule();
+    }, 0);
+  }
+
+  _nextRef() {
+    const needsPaint = ref => this._thumbs.has(ref) && !this._painted.has(ref) && Array.isArray(this._cells[ref]?.shapes);
+    if (this._visible.has(this._activeRef) && needsPaint(this._activeRef)) return this._activeRef;
+    for (const ref of this._visible) if (needsPaint(ref)) return ref;
+    return null;
+  }
+
+  _sizeCanvas(canvas) {
+    const fit = 64 / Math.max(this._cellW, this._cellH);
+    const scale = fit >= 1 ? Math.floor(fit) : fit;
+    canvas.width = Math.max(1, Math.round(this._cellW * scale));
+    canvas.height = Math.max(1, Math.round(this._cellH * scale));
+  }
+
+  _cancelWork() {
+    clearTimeout(this._timer);
+    this._timer = null;
+  }
+
+  _stopObserving() {
+    this._cancelWork();
+    this._generation++;
+    this._observer?.disconnect();
+    this._observer = null;
+    this._observerActive = false;
+    this._fallbackCleanup?.();
+    this._fallbackCleanup = null;
+    this._visible.clear();
+  }
+
+  _releaseDisplay(ref) {
+    const canvas = this._thumbs.get(ref)?.querySelector('canvas');
+    if (canvas) canvas.width = canvas.height = 0;
+    this._painted.delete(ref);
+  }
+
+  _invalidateRef(ref) {
+    this._cache.delete(ref);
+    this._releaseDisplay(ref);
+  }
+
+  _invalidateAll() {
+    this._cancelWork();
+    this._cache.clear();
+    for (const ref of this._painted) this._releaseDisplay(ref);
+  }
+
+  _checkTheme() {
+    const style = getComputedStyle(document.documentElement);
+    const key = JSON.stringify([document.documentElement.getAttribute('data-theme'), style.getPropertyValue('--checker-a'), style.getPropertyValue('--checker-b')]);
+    if (key !== this._checkerKey) this._invalidateAll();
+    this._checkerKey = key;
+  }
+
+  _updateLabels() {
+    for (const [ref, thumb] of this._thumbs) thumb.querySelector('.label').textContent = this._cells[ref]?.name || ref;
+  }
+
+  _updateFallback() {
+    const bounds = this._viewport.getBoundingClientRect();
+    const refs = [...this._thumbs.keys()];
+    let visible;
+    if (bounds.width > 0 && bounds.height > 0) {
+      visible = refs.filter(ref => {
+        const rect = this._thumbs.get(ref).getBoundingClientRect();
+        return rect.right > bounds.left && rect.left < bounds.right && rect.bottom > bounds.top && rect.top < bounds.bottom;
+      });
+    } else {
+      // Hidden/no-layout surfaces must not turn missing observer support into
+      // an eager full-project render. Selection still gets a deterministic slot.
+      visible = refs.includes(this._activeRef) ? [this._activeRef, ...refs.filter(ref => ref !== this._activeRef)].slice(0, 8) : refs.slice(0, 8);
+    }
+    const next = new Set(visible);
+    for (const ref of this._visible) if (!next.has(ref)) this._releaseDisplay(ref);
+    this._visible = next;
+    this._schedule();
+  }
+
+  _findViewport(strip) {
+    for (let element = strip; element; element = element.parentElement) {
+      const style = getComputedStyle(element);
+      if (/(auto|scroll|hidden|clip)/.test(`${style.overflowX} ${style.overflow}`)) return element;
+    }
+    return strip;
+  }
+
   /**
-   * Repaint just these cells' thumbnails (and labels) in place. Cells not in the
-   * strip are skipped; an empty strip falls back to a full render.
+   * Invalidate changed cells and update labels in place. Only visible, loaded
+   * previews are scheduled; offscreen cells stay invalid until they are needed.
    */
   refresh(refs) {
+    this._checkTheme();
+    for (const ref of refs) this._invalidateRef(ref);
     const strip = document.getElementById('cell-strip');
-    if (!strip.children.length) { this.render(); return; }
+    if (!strip?.children.length) { this.render(); return; }
     for (const ref of refs) {
-      const thumb = [...strip.children].find(el => el.dataset.ref === ref);
+      const thumb = this._thumbs.get(ref);
       if (!thumb) continue;
-      this._renderThumb(thumb.querySelector('canvas'), ref);
       thumb.querySelector('.label').textContent = this._cells[ref]?.name || ref;
     }
+    this._schedule();
   }
 
   _allRefs() {
