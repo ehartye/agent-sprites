@@ -252,12 +252,17 @@ for (const s of scenes) {
     assert.equal(bytes.length, receipt.bytes, `Tessel size: ${name}`);
     assert.equal(hash(bytes), receipt.sha256, `Tessel digest: ${name}`);
   }
-  for (const input of manifest.sourceInputs)
-    assert.equal(
-      hash(readFileSync(join(root, "examples/tessel", input.path))),
-      input.sha256,
-      `Tessel source drift: ${input.path}`,
-    );
+  for (const input of manifest.sourceInputs) {
+    const bytes = readFileSync(join(root, "examples/tessel", input.path));
+    // Raw hashes identify captured build bytes. A shared module may be checked
+    // out with different line endings; only its explicit text identity may vary.
+    if (hash(bytes) !== input.sha256)
+      assert.equal(
+        hash(Buffer.from(bytes.toString("utf8").replace(/\r\n?/g, "\n"))),
+        input.normalizedTextSha256,
+        `Tessel source drift: ${input.path}`,
+      );
+  }
   for (const folder of [".reviews", "proof-work"])
     assert(
       !existsSync(join(dist, "source/examples/tessel", folder)),
