@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Marmalade's little morning: an original animated pixel-art short about a cat, a little bed and a ball of yarn. Play, inspect and download the editable scene."
+    />
+    <meta name="theme-color" content="#f5f2e8" />
+    <title>Marmalade's little morning — Agent Sprites</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23bd653d' d='M2 2l4 3h4l4-3v10l-3 3H5l-3-3z'/%3E%3Cpath fill='%23fff1cf' d='M4 8h2v2H4zm6 0h2v2h-2zM6 12h4v1H6z'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./cat.css" />
+    <script type="module" src="./cat.js"></script>
+  </head>
+  <body class="cat-page">
+    <a class="skip" href="#cat-player">Skip to the animation</a>
+    <header class="masthead wrap">
+      <a class="brand" href="./"
+        ><span class="brand-mark" aria-hidden="true">✦</span> agent sprites<span
+          class="edition"
+          >AN ANIMATED LITTLE STORY</span
+        ></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="./#feature-animation">The field guide ↗</a
+        ><a href="./tessel.html">Meet Tessel ↗</a>
+      </nav>
+    </header>
+    <main>
+      <section class="cat-intro wrap">
+        <div>
+          <p class="eyebrow">A CAT. A LITTLE BED. A BALL OF YARN.</p>
+          <h1>Marmalade’s<br /><span>little morning.</span></h1>
+        </div>
+        <p class="cat-lede">
+          A sleepy tumble out of the basket.<br />A stretch. A very important
+          pounce.<br />A little trouble in the morning light.
+        </p>
+      </section>
+      <section
+        class="cat-player wrap"
+        id="cat-player"
+        aria-labelledby="story-title"
+      >
+        <div class="cat-screen">
+          <div class="screen-label">
+            <span>AN ORIGINAL PIXEL-ART SHORT</span
+            ><span id="cat-channel-label">COLOR / 160 × 112</span>
+          </div>
+          <div class="cat-stage">
+            <canvas
+              id="cat-canvas"
+              width="640"
+              height="448"
+              role="img"
+              aria-label="Marmalade rolling out of bed and playing with yarn"
+            ></canvas>
+          </div>
+          <p class="screen-footer">
+            <span>NEAREST-NEIGHBOR PREVIEW</span
+            ><a href="./assets/cozy-cat/scene.gif" download>Save the GIF ↓</a>
+          </p>
+        </div>
+        <div class="cat-inspector">
+          <p class="eyebrow">NOW PLAYING</p>
+          <h2 id="story-title">One little morning.</h2>
+          <p id="story-description">Loading the exported scene…</p>
+          <label class="cat-timeline"
+            >Find a moment<input
+              id="cat-timeline"
+              type="range"
+              min="0"
+              max="79"
+              value="0"
+              disabled /></label
+          ><output id="cat-time" aria-live="off"
+            >Loading exact frame timing…</output
+          >
+          <div class="cat-transport">
+            <button
+              id="cat-motion"
+              class="button primary"
+              aria-pressed="true"
+              disabled
+            >
+              Pause short Ⅱ</button
+            ><button id="cat-restart" class="text-button" disabled>
+              Start again ↶
+            </button>
+          </div>
+          <label class="cat-channel-control"
+            >Look under the drawing<select id="cat-channel" disabled>
+              <option value="color">Color</option>
+              <option value="normal">Normal map</option>
+            </select></label
+          >
+          <p class="cat-player-note">
+            An eight-second loop, drawn as named editable shapes. Scrub to pause
+            on a pose; press play to keep the story going.
+          </p>
+          <p id="cat-error" role="alert" class="error"></p>
+        </div>
+      </section>
+      <section class="cat-story wrap" aria-labelledby="story-beats-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE IMPORTANT BITS</p>
+            <h2 id="story-beats-title">
+              A very full<br /><em>little schedule.</em>
+            </h2>
+          </div>
+          <p>
+            Pick a moment to inspect.<br />Each still comes from the exported
+            animation.
+          </p>
+        </div>
+        <div id="cat-story-beats" class="cat-story-beats"></div>
+      </section>
+      <section class="cat-making wrap">
+        <div>
+          <p class="eyebrow">MADE TO BE OPENED</p>
+          <h2>Every whisker<br />has a handle.</h2>
+          <p>
+            The cat, basket, yarn and room are original editable geometry. Named
+            parts, exact timing, retained surface lighting and construction
+            replay keep the scene ready for its next little adventure.
+          </p>
+        </div>
+        <div class="cat-files">
+          <a href="./assets/cozy-cat/project.json" download
+            >Editable scene <span>JSON ↓</span></a
+          ><a href="./assets/cozy-cat/sheet.png" download
+            >Color sprite sheet <span>PNG ↓</span></a
+          ><a href="./assets/cozy-cat/atlas.json" download
+            >Color atlas <span>JSON ↓</span></a
+          ><a href="./assets/cozy-cat/normal.png" download
+            >Normal sheet <span>PNG ↓</span></a
+          ><a href="./assets/cozy-cat/normal.atlas.json" download
+            >Normal atlas <span>JSON ↓</span></a
+          ><a href="./assets/cozy-cat/replay.json" download
+            >Construction recording <span>JSON ↓</span></a
+          ><a href="./assets/cozy-cat/proof.json"
+            >GIF proof receipt <span>JSON ↗</span></a
+          ><a
+            href="https://github.com/ehartye/agent-sprites/tree/main/examples/cozy-cat"
+            >Drawing & motion source <span>GITHUB ↗</span></a
+          >
+        </div>
+      </section>
+    </main>
+    <footer class="wrap">
+      <a class="brand" href="./">✦ agent sprites</a>
+      <p>Small paws. A whole morning.</p>
+      <div>
+        <a href="./">Back to the field guide ↗</a
+        ><a href="./LICENSE">MIT license</a>
+      </div>
+    </footer>
+    <noscript
+      ><p class="wrap">
+        JavaScript powers the player.
+        <a href="./assets/cozy-cat/scene.gif"
+          >Watch Marmalade’s morning as a GIF</a
+        >, or download the editable scene above.
+      </p></noscript
+    >
+  </body>
+</html>

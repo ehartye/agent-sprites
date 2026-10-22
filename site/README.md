@@ -4,6 +4,13 @@ Public demo: https://ehartye.github.io/agent-sprites/
 
 Original character study: https://ehartye.github.io/agent-sprites/tessel.html
 
+Cozy animated short: https://ehartye.github.io/agent-sprites/cat.html
+
+Marmalade's scene player uses the actual `little_morning` tag, exact frame
+durations, a timeline scrubber and color/normal channels. Its story cues render
+stills from the same atlas, and reduced motion starts paused. See
+[the original cat scene](../examples/cozy-cat/README.md) for source and proofs.
+
 Tessel the Foldback has eight actions in both directions, a pose scrubber,
 color/normal channel inspection and downloadable editable source. Its player
 uses actual tag ranges and per-frame atlas durations; one-shot actions hold

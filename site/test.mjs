@@ -269,7 +269,61 @@ for (const s of scenes) {
       `Local character review leaked: ${folder}`,
     );
 }
-for (const name of ["index.html", "tessel.html"]) {
+{
+  const dir = join(dist, "assets/cozy-cat"),
+    manifest = json(join(dir, "manifest.json")),
+    atlas = json(join(dir, "atlas.json")),
+    normal = json(join(dir, "normal.atlas.json")),
+    project = json(join(dir, "project.json")),
+    proof = json(join(dir, "proof.json")),
+    tag = atlas.meta.frameTags.find((t) => t.name === "little_morning");
+  assert(tag, "Missing cat story tag");
+  assert.equal(tag.loop, true);
+  const frames = atlasFrames(atlas).slice(tag.from, tag.to + 1);
+  assert.equal(frames.length, 80);
+  assert(frames.every((f) => f.duration === 100));
+  assert.equal(
+    frames.reduce((sum, f) => sum + f.duration, 0),
+    8000,
+  );
+  assert.deepEqual(atlas.frames, normal.frames);
+  assert.deepEqual(atlas.meta.frameTags, normal.meta.frameTags);
+  assert.deepEqual(atlas.meta.slices, normal.meta.slices);
+  assert.equal(Object.keys(project.cells).length, 80);
+  assert.deepEqual(project.pivot, { x: 0, y: 0 });
+  assert(frames.every((f) => f.sourceSize.w === 160 && f.sourceSize.h === 112));
+  assert(manifest.storyBeats.length >= 4);
+  assert(
+    manifest.storyBeats.every(
+      (b) =>
+        Number.isInteger(b.frame) &&
+        b.frame >= 0 &&
+        b.frame < 80 &&
+        b.title &&
+        b.description,
+    ),
+  );
+  assert.equal(proof.ok, true);
+  assert.equal(proof.durationMs, 8000);
+  assert.equal(proof.loop, true);
+  assert.equal(proof.gif.driftMs, 0);
+  for (const [name, receipt] of Object.entries(manifest.integrity)) {
+    const bytes = readFileSync(join(dir, name));
+    assert.equal(bytes.length, receipt.bytes, `Cat artifact size: ${name}`);
+    assert.equal(hash(bytes), receipt.sha256, `Cat artifact digest: ${name}`);
+  }
+  for (const input of manifest.sourceInputs) {
+    const bytes = readFileSync(join(root, "examples/cozy-cat", input.path));
+    if (hash(bytes) !== input.sha256)
+      assert.equal(
+        hash(Buffer.from(bytes.toString("utf8").replace(/\r\n?/g, "\n"))),
+        input.normalizedTextSha256,
+        `Cat source drift: ${input.path}`,
+      );
+  }
+  assert(!existsSync(join(dist, "source/examples/cozy-cat/.reviews")));
+}
+for (const name of ["index.html", "tessel.html", "cat.html"]) {
   const html = read(join(dist, name));
   for (const match of html.matchAll(/(?:href|src)="(\.\/[^"#]+)(?:#[^"]*)?"/g))
     assert(
@@ -278,5 +332,5 @@ for (const name of ["index.html", "tessel.html"]) {
     );
 }
 console.log(
-  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scene receipts; Tessel's 128 cells, 16 paired tags and 8 exact GIF receipts; timing, atlas bounds, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
+  `PASS: 8 chapters; ${COMMANDS.length} exact catalog commands; 9 build sources; 4 editable 32-frame scenes; Tessel's 128 cells/16 tags/8 GIF receipts; Marmalade's 80-pose story/paired atlases/GIF receipt; timing, atlas bounds, shared-module identity, imports, links and public-path checks. ${files} static files, ${(total / 1024 / 1024).toFixed(1)} MiB.`,
 );
