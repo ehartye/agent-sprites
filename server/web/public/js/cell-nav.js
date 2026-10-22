@@ -1,4 +1,4 @@
-import { renderCellNative } from './cell-raster.js';
+import { nativeRasterService, nativeFrameKey, changedFrameRefs } from './native-frame-raster.js';
 import { ThumbnailCache } from './thumbnail-cache.js';
 /**
  * Cell navigator — thumbnail strip at the bottom showing all cells.
@@ -6,7 +6,15 @@ import { ThumbnailCache } from './thumbnail-cache.js';
  */
 
 export class CellNavigator {
-  constructor({ cacheEntries, cacheBytes } = {}) {
+  constructor({ cacheEntries, cacheBytes, rasterService = nativeRasterService } = {}) {
+    this._capacityBlocked = new Set();
+    this._native = rasterService.createConsumer({ onAvailable: () => {
+      for (const ref of this._capacityBlocked) this._blocked.delete(ref);
+      this._capacityBlocked.clear(); this._schedule();
+    } });
+    this._rasterContext = {};
+    this._pending = new Map();
+    this._blocked = new Set();
     this._grid = { rows: 0, cols: 0 };
     this._cellW = 16;
     this._cellH = 16;
@@ -45,6 +53,37 @@ export class CellNavigator {
     this._selectCb = onSelect;
   }
 
+  /** Optional progressive source identity and a bounded visible-frame demand hook. */
+  setRasterContext(context = {}) {
+    this._applyRasterContext(context);
+    this._schedule();
+  }
+
+  _applyRasterContext(context, incoming = false) {
+    const changed = changedFrameRefs(this._rasterContext, context);
+    if (changed === null) {
+      this._native.setProject(context.projectId); this._invalidateAll();
+      if (!incoming) this._cells = {};
+    } else for (const ref of changed) {
+      this._invalidateRef(ref, false);
+      if (!incoming && Object.hasOwn(this._cells, ref)) { this._cells = { ...this._cells }; delete this._cells[ref]; }
+    }
+    this._rasterContext = { ...context, cellVersions: context.cellVersions ? { ...context.cellVersions } : undefined };
+    this._blocked.clear();
+  }
+
+  _nativeTask(ref) {
+    const { projectId, cellVersions, viewKey } = this._rasterContext;
+    return { projectId, ref, cellVersion: cellVersions?.[ref], viewKey, cell: this._cells[ref],
+      width: this._cellW, height: this._cellH, palette: this._palette, background: this._background };
+  }
+
+  destroy() {
+    this._stopObserving(); this._native.dispose(); this._cache.clear();
+    for (const thumb of this._thumbs) this._releaseDisplay(thumb);
+    this._thumbs.clear(); this._thumbsByRef.clear();
+  }
+
   setGrid(rows, cols, cellW = 16, cellH = cellW) {
     if (rows !== this._grid.rows || cols !== this._grid.cols || cellW !== this._cellW || cellH !== this._cellH) this._stopObserving();
     if (cellW !== this._cellW || cellH !== this._cellH) this._invalidateAll();
@@ -68,9 +107,9 @@ export class CellNavigator {
     this._palette = { ...palette };
   }
 
-  setCells(cells) {
+  setCells(cells, context) {
+    if (context) this._applyRasterContext(context, true);
     this._cells = cells || {};
-    this._cancelWork();
     const identities = new Map();
     for (const [ref, cell] of Object.entries(this._cells)) {
       const previous = this._cellIdentities.get(ref);
@@ -80,13 +119,13 @@ export class CellNavigator {
           previous.shapes.every((shape, i) => shape === shapes[i]));
       if (unchanged) identities.set(ref, previous);
       else {
-        this._invalidateRef(ref);
+        this._invalidateRef(ref, false);
         // View filtering creates fresh cell/array wrappers. Only ordered shape
         // identities and lighting affect pixels; in-place edits use refresh().
         identities.set(ref, { shapes: shapes ? [...shapes] : null, lighting: cell?.lighting });
       }
     }
-    for (const ref of this._cellIdentities.keys()) if (!identities.has(ref)) this._invalidateRef(ref);
+    for (const ref of this._cellIdentities.keys()) if (!identities.has(ref)) this._invalidateRef(ref, false);
     this._cellIdentities = identities;
     this._schedule();
   }
@@ -197,7 +236,7 @@ export class CellNavigator {
   }
 
   _schedule() {
-    if (this._timer !== null) return;
+    if (this._timer !== null || this._pending.size) return;
     if (!this._nextThumb()) return;
     const generation = this._generation;
     this._timer = setTimeout(() => {
@@ -207,24 +246,42 @@ export class CellNavigator {
       if (thumb) {
         const ref = thumb.dataset.ref;
         let bitmap = this._cache.get(ref);
-        const fresh = !bitmap;
-        if (fresh) {
-          bitmap = document.createElement('canvas');
-          this._sizeCanvas(bitmap);
-          this._renderThumb(bitmap, ref);
+        const paint = image => {
+          if (generation !== this._generation || !this._visible.has(thumb)) return;
+          if (!bitmap) {
+            bitmap = document.createElement('canvas'); this._sizeCanvas(bitmap); this._renderThumb(bitmap, ref, image);
+          }
+          const canvas = thumb.querySelector('canvas'); this._sizeCanvas(canvas);
+          canvas.getContext('2d').drawImage(bitmap, 0, 0); this._painted.add(thumb);
+          if (image) this._cache.set(ref, bitmap);
+        };
+        if (bitmap) paint();
+        else {
+          const task = this._nativeTask(ref), key = nativeFrameKey(task);
+          this._pending.set(ref, () => {});
+          const cancel = this._native.request(task, {
+            priority: ref === this._activeRef ? 1 : 2,
+            onReady: lease => {
+              this._pending.delete(ref);
+              if (key === nativeFrameKey(this._nativeTask(ref))) paint(lease.image);
+              this._schedule();
+            },
+            onMissing: (_, reason) => {
+              this._pending.delete(ref); this._blocked.add(ref);
+              if (reason === 'capacity') this._capacityBlocked.add(ref);
+              if (reason === 'unloaded') this._rasterContext.onMissing?.(ref, 'visible');
+              this._schedule();
+            },
+          });
+          if (this._pending.has(ref)) this._pending.set(ref, cancel);
         }
-        const canvas = thumb.querySelector('canvas');
-        this._sizeCanvas(canvas);
-        canvas.getContext('2d').drawImage(bitmap, 0, 0);
-        if (fresh) this._cache.set(ref, bitmap);
-        this._painted.add(thumb);
       }
       this._schedule();
     }, 0);
   }
 
   _nextThumb() {
-    const needsPaint = thumb => this._thumbs.has(thumb) && !this._painted.has(thumb) && Array.isArray(this._cells[thumb.dataset.ref]?.shapes);
+    const needsPaint = thumb => this._thumbs.has(thumb) && !this._painted.has(thumb) && !this._blocked.has(thumb.dataset.ref);
     for (const thumb of this._visible) if (thumb.dataset.ref === this._activeRef && needsPaint(thumb)) return thumb;
     for (const thumb of this._visible) if (needsPaint(thumb)) return thumb;
     return null;
@@ -240,6 +297,9 @@ export class CellNavigator {
   _cancelWork() {
     clearTimeout(this._timer);
     this._timer = null;
+    for (const cancel of this._pending.values()) cancel();
+    this._pending.clear(); this._blocked.clear();
+    this._capacityBlocked.clear();
   }
 
   _stopObserving() {
@@ -259,7 +319,9 @@ export class CellNavigator {
     this._painted.delete(thumb);
   }
 
-  _invalidateRef(ref) {
+  _invalidateRef(ref, invalidateNative = true) {
+    if (invalidateNative) this._native.invalidate(this._nativeTask(ref));
+    this._pending.get(ref)?.(); this._pending.delete(ref); this._blocked.delete(ref);
     this._cache.delete(ref);
     for (const thumb of this._thumbsByRef.get(ref) || []) this._releaseDisplay(thumb);
   }
@@ -346,7 +408,7 @@ export class CellNavigator {
   /**
    * Render a small preview of the cell's shapes into a thumbnail canvas.
    */
-  _renderThumb(canvas, ref) {
+  _renderThumb(canvas, ref, native) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -367,20 +429,8 @@ export class CellNavigator {
       }
     }
 
-    const cell = this._cells[ref];
-    if (!cell || !cell.shapes) return;
-
-    const sorted = [...cell.shapes]
-      .filter(s => s.visible !== false || s.params?.layers?.length)
-      .sort((a, b) => a.zIndex - b.zIndex);
-    const native = renderCellNative(sorted, cellW, cellH, r => this._resolveColor(r), { lighting: cell.lighting, background: this._background, palette: this._palette });
     ctx.imageSmoothingEnabled = canvas.width < cellW;
     ctx.drawImage(native, 0, 0, cellW, cellH);
   }
 
-  _resolveColor(ref) {
-    if (!ref) return '#888';
-    if (ref.startsWith('#')) return ref;
-    return this._palette[ref] || '#888';
-  }
 }

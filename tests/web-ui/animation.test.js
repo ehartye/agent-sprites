@@ -1,15 +1,27 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
+import { NativeRasterService } from '../../server/web/public/js/native-frame-raster.js';
+
+const previews = [];
+const makePreview = options => { const ap = new AnimationPreview({ ...options, rasterService: new NativeRasterService({ workerFactory: () => null }) }); previews.push(ap); return ap; };
+const warm = ap => {
+  ap.setCells(Object.fromEntries(ap._frames.map(ref => [ref, { shapes: [] }])));
+  for (const ref of ap._frames) ap._requestNative(ref, 0, 'preparation');
+  vi.runAllTimers();
+};
 
 describe('AnimationPreview (browser)', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     document.body.innerHTML = '<div id="anim-panel"></div>';
   });
+  afterEach(() => { for (const ap of previews.splice(0)) ap.destroy(); vi.clearAllTimers(); vi.useRealTimers(); });
   it('refreshes a paused frame after an edit and applies saved group timing', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 64 }); ap.init();
+    const ap = makePreview({ mountId: 'anim-panel', size: 64 }); ap.init();
     ap.setCellSize(16, 16); ap.setPalette({}); ap.setFrames(['0,0']);
     ap.setCells({ '0,0': { shapes: [{ type: 'point', params: { x: 0, y: 0 }, color: '#ff0000', zIndex: 0 }] } });
+    vi.runAllTimers();
     expect(document.querySelector('.anim-canvas').getContext('2d').getImageData(0, 0, 1, 1).data[0]).toBe(255);
     ap.setFps(6);
     expect(document.querySelector('.anim-fps-label').textContent).toBe('6 FPS');
@@ -19,8 +31,9 @@ describe('AnimationPreview (browser)', () => {
   it('plays exact mixed milliseconds and stops after the final one-shot hold', () => {
     vi.useFakeTimers();
     try {
-      const ap = new AnimationPreview({ mountId: 'anim-panel' }); ap.init();
+      const ap = makePreview({ mountId: 'anim-panel' }); ap.init();
       ap.setFrames(['0,0','0,1','0,2'], { durations: [75,125,200], loop: false });
+      warm(ap);
       ap.play(); vi.advanceTimersByTime(74); expect(ap._currentFrame).toBe(0);
       vi.advanceTimersByTime(1); expect(ap._currentFrame).toBe(1);
       vi.advanceTimersByTime(124); expect(ap._currentFrame).toBe(1);
@@ -31,18 +44,18 @@ describe('AnimationPreview (browser)', () => {
     } finally { vi.useRealTimers(); }
   });
   it('rejects an unrepresentable timeline before replacing current playback state',()=>{
-    const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0'],{durations:[75]});
+    const ap=makePreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0'],{durations:[75]});
     expect(()=>ap.setFrames(['0,0','0,1'],{durations:[Number.MAX_SAFE_INTEGER,1]})).toThrow(/safe|duration/);
     expect(ap._frames).toEqual(['0,0']);expect(ap._playing).toBe(false);
   });
   it('rejects an inherited FPS whose aggregate is unsafe before changing rate or play state',()=>{
-    const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1']);
+    const ap=makePreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1']);
     expect(()=>ap.setFps(2e-13)).toThrow(/safe|duration/);expect(ap._fps).toBe(8);expect(ap._playing).toBe(false);expect(ap._intervalId).toBeNull();
   });
   it('pause and resume preserve the remaining milliseconds of the current hold',()=>{
     vi.useFakeTimers();
     try {
-      const ap=new AnimationPreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1'],{durations:[75,125],loop:false});
+      const ap=makePreview({mountId:'anim-panel'});ap.init();ap.setFrames(['0,0','0,1'],{durations:[75,125],loop:false}); warm(ap);
       ap.play();vi.advanceTimersByTime(50);ap.pause();vi.advanceTimersByTime(1000);ap.play();
       vi.advanceTimersByTime(24);expect(ap._currentFrame).toBe(0);
       vi.advanceTimersByTime(1);expect(ap._currentFrame).toBe(1);
@@ -51,7 +64,7 @@ describe('AnimationPreview (browser)', () => {
   });
 
   it('snaps the canvas to an integer pixel scale of the cell dims', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 128 });
+    const ap = makePreview({ mountId: 'anim-panel', size: 128 });
     ap.init();
     ap.setCellSize(16, 32);
     const canvas = document.querySelector('.anim-canvas');
@@ -60,7 +73,7 @@ describe('AnimationPreview (browser)', () => {
     expect(canvas.height).toBe(128);
   });
   it('reserves actual controls and mount padding when fitting a responsive preview', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 512 }); ap.init();
+    const ap = makePreview({ mountId: 'anim-panel', size: 512 }); ap.init();
     ap.setCellSize(16, 32);
     const mount = document.getElementById('anim-panel');
     mount.style.padding = '16px';
@@ -72,25 +85,26 @@ describe('AnimationPreview (browser)', () => {
   });
 
   it('constructs without an explicit size (default preview size)', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel' });
+    const ap = makePreview({ mountId: 'anim-panel' });
     ap.init();
     expect(document.querySelector('.anim-canvas')).toBeTruthy();
   });
 
   it('renders the current frame including polygons', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 64 });
+    const ap = makePreview({ mountId: 'anim-panel', size: 64 });
     ap.init();
     ap.setCellSize(16, 16); // scale 4 -> 64x64
     ap.setPalette({});
     ap.setCells({ '0,0': { shapes: [{ type: 'polygon', params: { points: [{ x: 1, y: 1 }, { x: 10, y: 1 }, { x: 1, y: 10 }], filled: true }, color: '#ff0000', zIndex: 0 }] } });
     ap.setFrames(['0,0']);
+    vi.runAllTimers();
     const ctx = document.querySelector('.anim-canvas').getContext('2d');
     const d = ctx.getImageData(3 * 4, 3 * 4, 1, 1).data; // interior pixel (3,3)
     expect(d[0]).toBe(255);
   });
 
   it('steps frames on play tick data (frame counter follows setFrames)', () => {
-    const ap = new AnimationPreview({ mountId: 'anim-panel', size: 64 });
+    const ap = makePreview({ mountId: 'anim-panel', size: 64 });
     ap.init();
     ap.setCellSize(16, 16);
     ap.setPalette({});
@@ -99,6 +113,7 @@ describe('AnimationPreview (browser)', () => {
       '0,1': { shapes: [{ type: 'point', params: { x: 1, y: 0 }, color: '#00ff00', zIndex: 0 }] },
     });
     ap.setFrames(['0,0', '0,1']);
+    vi.runAllTimers();
     const ctx = document.querySelector('.anim-canvas').getContext('2d');
     expect(ctx.getImageData(0, 0, 1, 1).data[0]).toBe(255); // frame 0 red point at 0,0
   });

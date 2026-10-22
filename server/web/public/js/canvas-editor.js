@@ -58,6 +58,7 @@ export class CanvasEditor {
   }
 
   destroy() {
+    this._releaseNative();
     if (this._abortController) {
       this._abortController.abort();
       this._abortController = null;
@@ -67,6 +68,7 @@ export class CanvasEditor {
   /* -- Public API -- */
 
   setCell(cellData) {
+    this._releaseNative();
     this._lighting = cellData?.lighting;
     this._shapes = cellData
       ? (cellData.shapes || []).filter(s => s.visible !== false || s.params?.layers?.length).sort((a, b) => a.zIndex - b.zIndex)
@@ -243,7 +245,8 @@ export class CanvasEditor {
 
   _renderShapes(ctx, ox, oy, z) {
     if (hasSurfaceData(this._shapes, this._lighting) || this._shapes.some(shape => Object.hasOwn(shape.params ?? {}, 'layers'))) {
-      const native = renderCellNative(this._shapes, this.cellW, this.cellH, ref => this._resolveColor(ref), { lighting: this._lighting, background: this._refImage ? { mode: 'transparent' } : this._background, palette: this._palette });
+      const background = this._refImage ? { mode: 'transparent' } : this._background;
+      const native = this._nativeFrame('canonical', () => renderCellNative(this._shapes, this.cellW, this.cellH, ref => this._resolveColor(ref), { lighting: this._lighting, background, palette: this._palette }));
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
       return;
@@ -251,9 +254,10 @@ export class CanvasEditor {
     if (z < 1) {
       // Fit large traces using nearest-neighbor sampling of the native raster.
       // Fractional fillRect edges would otherwise introduce seams between runs.
-      const native = document.createElement('canvas');
-      native.width = this.cellW; native.height = this.cellH;
-      this._renderShapes(native.getContext('2d'), 0, 0, 1);
+      const native = this._nativeFrame('primitive', () => {
+        const canvas = document.createElement('canvas'); canvas.width = this.cellW; canvas.height = this.cellH;
+        this._renderShapes(canvas.getContext('2d'), 0, 0, 1); return canvas;
+      });
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(native, ox, oy, this.cellW * z, this.cellH * z);
       return;
@@ -269,6 +273,20 @@ export class CanvasEditor {
       }
       this._renderOneShape(ctx, ox, oy, z, shape, this._color2(shape));
     });
+  }
+
+  _nativeFrame(kind, paint) {
+    const key = JSON.stringify([kind, this.cellW, this.cellH, this._lighting,
+      Object.entries(this._palette ?? {}).sort(([a], [b]) => a.localeCompare(b)), this._background, !!this._refImage]);
+    if (!this._native || this._nativeKey !== key) {
+      this._releaseNative(); this._native = paint(); this._nativeKey = key;
+    }
+    return this._native;
+  }
+
+  _releaseNative() {
+    if (this._native) this._native.width = this._native.height = 0;
+    this._native = null; this._nativeKey = null;
   }
 
   _renderGrid(ctx, ox, oy, z) {

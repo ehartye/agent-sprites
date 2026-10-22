@@ -2,6 +2,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
 import { cellsForView } from '../../server/web/public/js/view-visibility.js';
+import { NativeRasterService } from '../../server/web/public/js/native-frame-raster.js';
+
+const makeNavigator = options => new CellNavigator({ ...options, rasterService: new NativeRasterService({ workerFactory: () => null }) });
 
 describe('CellNavigator (browser)', () => {
   let nav;
@@ -34,13 +37,13 @@ describe('CellNavigator (browser)', () => {
       disconnect() {}
     });
     document.body.innerHTML = '<div id="cell-strip"></div>';
-    nav = new CellNavigator();
+    nav = makeNavigator();
     onSelect = vi.fn();
     nav.init({ onSelect });
     nav.setPalette({});
   });
 
-  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+  afterEach(() => { nav.destroy(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it('creates forty cheap shells and paints only visible cells, one per turn with active priority', () => {
     nav.setGrid(1, 40);
@@ -53,6 +56,7 @@ describe('CellNavigator (browser)', () => {
     expect(observers[0].options.root).toBe(document.getElementById('cell-strip'));
     enter('0,0', '0,1', '0,2');
     vi.runOnlyPendingTimers();
+    vi.runOnlyPendingTimers(); // The native fallback runs on its own scheduled turn.
     expect(paint.mock.calls.map(call => call[1])).toEqual(['0,2']);
     vi.runAllTimers();
     expect(paint.mock.calls.map(call => call[1])).toEqual(['0,2', '0,0', '0,1']);
@@ -214,7 +218,7 @@ describe('CellNavigator (browser)', () => {
 
   for (const [limit, options] of [['entry', { cacheEntries: 2 }], ['byte', { cacheBytes: 2 * 64 * 64 * 4 }]]) {
     it(`evicts the least recently used bitmap at the ${limit} limit and releases it`, () => {
-      nav = new CellNavigator(options); nav.setGrid(1, 3); nav.setCells(cells(3));
+      nav.destroy(); nav = makeNavigator(options); nav.setGrid(1, 3); nav.setCells(cells(3));
       const paint = vi.spyOn(nav, '_renderThumb');
       const show = ref => { nav.setFilter([ref]); flush(); };
       show('0,0'); const firstBitmap = paint.mock.calls[0][0];

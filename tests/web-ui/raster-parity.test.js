@@ -46,16 +46,21 @@ describe('thumbnails match the export', () => {
     vi.runAllTimers();
     const canvas = document.querySelector('.cell-thumb-canvas');
     expect(differences(sample(canvas, canvas.width / CELL), exportPixels(entry.shapes))).toEqual([]);
+    nav.destroy();
   });
 });
 
 describe('animation preview matches the export', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
   for (const entry of CORPUS) it(entry.name, () => {
     document.body.innerHTML = '<div id="anim-panel"></div>';
     const ap = new AnimationPreview({ mountId: 'anim-panel', size: CELL * 4 }); ap.init();
     ap.setCellSize(CELL, CELL); ap.setPalette({}); ap.setCells({ '0,0': { shapes: entry.shapes } }); ap.setFrames(['0,0']);
+    vi.runAllTimers();
     const canvas = document.querySelector('.anim-canvas');
     expect(differences(sample(canvas, canvas.width / CELL), exportPixels(entry.shapes))).toEqual([]);
+    ap.destroy();
   });
 });
 

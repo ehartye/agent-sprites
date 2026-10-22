@@ -1,14 +1,14 @@
 // Erase shapes punch transparency through the shapes below them, never through
 // the editor's checkerboard, clip, dimming or tracing reference. Cells without
 // an erase shape paint directly, exactly as before.
-export function paintShapes(ctx, shapes, paint) {
+export function paintShapes(ctx, shapes, paint, createCanvas = (width, height) => {
+  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; return canvas;
+}) {
   if (!shapes.some(shape => shape.params?.erase)) {
     for (const shape of shapes) paint(ctx, shape);
     return;
   }
-  const layer = document.createElement('canvas');
-  layer.width = ctx.canvas.width;
-  layer.height = ctx.canvas.height;
+  const layer = createCanvas(ctx.canvas.width, ctx.canvas.height);
   const lctx = layer.getContext('2d');
   lctx.setTransform(ctx.getTransform());
   lctx.imageSmoothingEnabled = false;
