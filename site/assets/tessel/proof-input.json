@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "canvas": {
+    "w": 256,
+    "h": 128
+  },
+  "scale": 2,
+  "matte": "#171d2c",
+  "loop": true,
+  "tracks": [
+    {
+      "name": "idle",
+      "atlas": "atlas.json",
+      "tag": "idle_right",
+      "x": 32,
+      "y": 55,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "scuttle",
+      "atlas": "atlas.json",
+      "tag": "scuttle_right",
+      "x": 96,
+      "y": 55,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "burst",
+      "atlas": "atlas.json",
+      "tag": "burst_right",
+      "x": 160,
+      "y": 55,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "hop",
+      "atlas": "atlas.json",
+      "tag": "hop_right",
+      "x": 224,
+      "y": 55,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "listen",
+      "atlas": "atlas.json",
+      "tag": "listen_right",
+      "x": 32,
+      "y": 119,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "bloom",
+      "atlas": "atlas.json",
+      "tag": "bloom_right",
+      "x": 96,
+      "y": 119,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "flinch",
+      "atlas": "atlas.json",
+      "tag": "flinch_right",
+      "x": 160,
+      "y": 119,
+      "anchor": "pivot",
+      "loop": true
+    },
+    {
+      "name": "rest",
+      "atlas": "atlas.json",
+      "tag": "rest_right",
+      "x": 224,
+      "y": 119,
+      "anchor": "pivot",
+      "loop": true
+    }
+  ]
+}

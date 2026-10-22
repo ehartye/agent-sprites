@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "canvas": {
+    "w": 64,
+    "h": 64
+  },
+  "scale": 4,
+  "matte": "#171d2c",
+  "tracks": [
+    {
+      "name": "rest",
+      "atlas": "../../atlas.json",
+      "tag": "rest_right",
+      "x": 32,
+      "y": 55,
+      "anchor": "pivot"
+    }
+  ]
+}
