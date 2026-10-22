@@ -67,6 +67,27 @@ test.each([1, 2])('owned V%s imports publish a compact receipt without expanding
     expect(JSON.parse(state.db.getSession(state.sessionId).draft_json).version).toBe(2);
   } finally { expanded.mockRestore(); }
 });
+test.each([1, 2])('owned V%s imports reject nearest lighting after palette hydration without changing session or ID allocation', async version => {
+  await start();
+  const baseline = await api('/draw', { type: 'point', cell: '0,0', x: 0, y: 0, color: '#fff' });
+  const beforeId = BigInt(baseline.data.shapeId.slice(1)), original = state.project, id = state.sessionId, saved = state.db.getSession(id), count = state.db.listSessions().length;
+  const packet = project();
+  packet.cells['0,0'] = { name: null, reference: null, lighting: { palettePolicy: 'nearest' }, shapes: [{ id: 's900000', name: 'dot', type: 'point', params: { x: 1, y: 2 }, color: '#fff', zIndex: 0, visible: true }] };
+  if (version === 2) {
+    packet.version = 2; packet.geometry = { g0: { type: 'point', params: { x: 1, y: 2 } } };
+    packet.cells['0,0'].shapes = packet.cells['0,0'].shapes.map(({ type, params, ...instance }) => ({ ...instance, geometryRef: 'g0' }));
+  }
+  packet.palette = [{ name: 'same', color: '#fff' }, { name: 'same', color: 'transparent' }];
+  const job = await create(); await upload(job, JSON.stringify(packet));
+  let result;
+  await vi.waitFor(async () => { result = (await api(`/workbench/imports/${job.id}`)).data; expect(['uploading', 'validating']).not.toContain(result.state); });
+  expect(result.state).toBe('failed'); expect(result.error).toMatch(/nonempty opaque palette/);
+  expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(false);
+  expect(state.project).toBe(original); expect(state.sessionId).toBe(id); expect(state.db.getSession(id)).toEqual(saved); expect(state.db.listSessions()).toHaveLength(count);
+  expect(await readdir(temp)).toEqual([]);
+  const next = await api('/draw', { type: 'point', cell: '0,0', x: 1, y: 0, color: '#fff' });
+  expect(next.data.shapeId).toBe(`s${beforeId + 1n}`);
+});
 test('streams a project beyond the generic 64 MiB envelope and activates once with a bounded receipt', async () => {
   await start(); const original = state.project, id = state.sessionId, job = await create();
   const json = JSON.stringify(project());

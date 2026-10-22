@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { Project } from '../../server/engine/project.js';
 import { Shape } from '../../server/engine/shape.js';
+import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 import * as layers from '../../server/web/public/js/shared/shape-layers.js';
 import * as surfaceRaster from '../../server/web/public/js/shared/surface-raster.js';
 import { SURFACE_LIMITS } from '../../server/web/public/js/shared/surface-model.js';
@@ -48,4 +49,41 @@ test.each(['grid', 'lamp'])('shared and legacy loaders reject translated %s over
 test('ordinary constructor cannot receive validation proof through options or an arbitrary second argument', () => {
   const p = fixture(); p.cells.getCell('0,0').shapes.listByZ()[0].params.surface = null;
   expect(() => new Project({ ...p, storageVersion: 2, skipSceneValidation: true }, Symbol('validated'))).toThrow(/surface/);
+});
+
+test.each([1, 2])('shared V%s nearest lighting rejects a palette whose last duplicate removes its only opaque color before allocating IDs', version => {
+  const p = fixture(), legacy = p.toJSON(), data = version === 2 ? p.toSharedJSON() : p.toJSON();
+  for (const packet of [legacy, data]) {
+    packet.palette = [{ name: 'same', color: '#fff' }, { name: 'same', color: 'transparent' }];
+    packet.cells['0,0'].lighting = { palettePolicy: 'nearest' };
+    packet.cells['0,0'].shapes[0].id = 's900000';
+  }
+  const before = new Shape('point', { x: 0, y: 0 }, '#fff').id;
+  expect(() => Project.fromJSON(legacy)).toThrow(/nonempty opaque palette/);
+  const allocate = vi.spyOn(Shape, 'fromJSON');
+  expect(() => Project.fromJSON(data, { sharedGeometry: true })).toThrow(/nonempty opaque palette/);
+  expect(allocate).not.toHaveBeenCalled();
+  expect(+new Shape('point', { x: 0, y: 0 }, '#fff').id.slice(1)).toBe(+before.slice(1) + 1);
+});
+
+test.each([1, 2])('shared V%s nearest lighting rejects string-only palettes using the same hydration semantics as legacy', version => {
+  const p = fixture(), legacy = p.toJSON(), data = version === 2 ? p.toSharedJSON() : p.toJSON();
+  for (const packet of [legacy, data]) { packet.palette = ['#fff']; packet.cells['0,0'].lighting = { palettePolicy: 'nearest' }; }
+  expect(() => Project.fromJSON(legacy)).toThrow(/nonempty opaque palette/);
+  expect(() => Project.fromJSON(data, { sharedGeometry: true })).toThrow(/nonempty opaque palette/);
+});
+
+test.each([1, 2])('shared V%s preserves valid last-winner duplicates and compatible string entries with native parity', version => {
+  for (const palette of [
+    [{ name: 'same', color: 'transparent' }, { name: 'same', color: '#fff' }],
+    ['#f00', { name: 'same', color: '#fff' }],
+  ]) {
+    const p = fixture(), legacy = p.toJSON(), data = version === 2 ? p.toSharedJSON() : p.toJSON();
+    for (const packet of [legacy, data]) { packet.palette = palette; packet.cells['0,0'].lighting = { palettePolicy: 'nearest' }; }
+    const ordinary = Project.fromJSON(legacy), shared = Project.fromJSON(data, { sharedGeometry: true });
+    expect(shared.toJSON()).toEqual(ordinary.toJSON());
+    for (const channel of ['color', 'normal']) {
+      expect(new CanvasRenderer(shared.palette).renderCellRaw(shared.cells.getCell('0,0'), { channel })).toEqual(new CanvasRenderer(ordinary.palette).renderCellRaw(ordinary.cells.getCell('0,0'), { channel }));
+    }
+  }
 });

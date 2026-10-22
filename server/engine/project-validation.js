@@ -3,6 +3,7 @@ import { patternTest } from './patterns.js';
 import { surfacePrimitiveWork, validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 import { SURFACE_LIMITS, validateSurface } from '../web/public/js/shared/surface-model.js';
 import { snapParams } from '../web/public/js/shared/raster.js';
+import { Palette } from './palette.js';
 
 export const PROJECT_LIMITS = Object.freeze({ maxCells: 10000, maxShapes: 200000, maxGeometry: 200000, maxDepth: 64 });
 // Root project -> geometry dictionary -> entry -> params.
@@ -130,6 +131,8 @@ export function validateProjectData(data, options = {}) {
   if (![rows, cols].every(n => Number.isSafeInteger(n) && n > 0) || !Number.isSafeInteger(rows * cols) || rows * cols > maxCells) throw new Error(`Project exceeds ${maxCells} declared cells or has invalid dimensions`);
   if (![width, height].every(n => Number.isSafeInteger(n) && n > 0) || ![width * cols, height * rows, width * cols * height * rows].every(Number.isSafeInteger)) throw new Error('Grid dimensions and pixel count must be exactly representable as safe integers');
   if (!Array.isArray(data.palette) || !map(data.cells)) throw new Error('Invalid project palette or cells');
+  // Scene preflight must see the hydrated palette, including last-name-wins.
+  const palette = Palette.fromJSON(data.palette).toJSON();
   if (version === 2) {
     if (!map(data.geometry) || Object.keys(data.geometry).length > maxGeometry) throw new Error(`Project exceeds ${maxGeometry} geometry entries or has an invalid geometry dictionary`);
     for (const [key, entry] of Object.entries(data.geometry)) {
@@ -149,7 +152,7 @@ export function validateProjectData(data, options = {}) {
   for (const cell of Object.values(data.cells)) {
     const views = version === 2 ? resolvedShapes(data, cell) : cell.shapes;
     validateShapes(views, width, height, version === 2);
-    if (cell.lighting !== undefined || views.some(shape => Object.hasOwn(shape.params, 'surface'))) validateSurfaceScene({ shapes: views, width, height, lighting: cell.lighting, background: data.background, palette: data.palette });
+    if (cell.lighting !== undefined || views.some(shape => Object.hasOwn(shape.params, 'surface'))) validateSurfaceScene({ shapes: views, width, height, lighting: cell.lighting, background: data.background, palette });
   }
   if (data.shapeGroups !== undefined) {
     if (!map(data.shapeGroups)) throw new Error('Shape groups must map cell references to groups');
