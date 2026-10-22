@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
+import { createCanvas } from 'canvas';
 import { mkdtemp, readdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +14,12 @@ import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 
 let state, server, base, temp;
 const project = () => Project.create({ name: 'Imported', cellSize: 8, rows: 1, cols: 1, palette: 'pico8' }).toJSON();
+beforeAll(() => {
+  // Initialize the native context without allocating project or shape IDs.
+  const started = performance.now(), canvas = createCanvas(1, 1);
+  canvas.getContext('2d'); canvas.width = canvas.height = 0;
+  console.info(`Native Canvas fixture initialized in ${Math.round(performance.now() - started)} ms`);
+}, 60_000);
 beforeEach(async () => {
   temp = await mkdtemp(join(tmpdir(), 'sprite-import-test-'));
   state = { db: new SessionDB(':memory:'), project: null, sessionId: null };

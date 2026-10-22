@@ -8,10 +8,12 @@ import { CanvasEditor } from '../../server/web/public/js/canvas-editor.js';
 import * as raster from '../../server/web/public/js/cell-raster.js';
 
 beforeAll(() => {
-  // Initialize the real native binding before checking each display's first context request.
+  // Cold native startup has its own setup budget; display policy checks keep normal test deadlines.
+  const started = performance.now();
   const canvas = document.createElement('canvas'); canvas.width = canvas.height = 4;
   canvas.getContext('2d'); canvas.width = canvas.height = 0;
-});
+  console.info(`Native HTMLCanvasElement fixture initialized in ${Math.round(performance.now() - started)} ms`);
+}, 60_000);
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const shape = color => ({ type: 'point', params: { x: 0, y: 0 }, color, zIndex: 0 });
 const frame = color => { const image = createCanvas(4, 4), ctx = image.getContext('2d'); ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4); return image; };
