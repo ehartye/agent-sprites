@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -17,10 +17,12 @@ const assertClean = () => {
   expect(readFileSync(join(dir, 'agent-sprites-generator-foreign', 'sentinel'), 'utf8')).toBe('keep');
 };
 
-test('owned spool is gone after parsing while executable arguments and cwd remain exact', async () => {
+test('owned spool is gone after parsing while executable arguments and working directory are preserved', async () => {
   writeFileSync(source, `process.stdout.write(JSON.stringify({args:process.argv.slice(2),cwd:process.cwd()}));`);
   const result = await invoke({ args: ['a space', '芽'] });
-  expect(result.data).toEqual({ args: ['a space', '芽'], cwd: dir }); expect(result.receipt.sha256).toMatch(/^[a-f0-9]{64}$/); assertClean();
+  expect(result.data.args).toEqual(['a space', '芽']);
+  expect(realpathSync(result.data.cwd)).toBe(realpathSync(dir));
+  expect(result.receipt.sha256).toMatch(/^[a-f0-9]{64}$/); assertClean();
 });
 
 test.each(['parse', 'exit', 'limit', 'timeout', 'abort'])('%s closes its exact child and removes only its owned spool', async kind => {

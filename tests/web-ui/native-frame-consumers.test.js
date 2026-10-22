@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { createCanvas } from 'canvas';
 import { NativeRasterService } from '../../server/web/public/js/native-frame-raster.js';
 import { AnimationPreview } from '../../server/web/public/js/animation.js';
@@ -7,6 +7,11 @@ import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
 import { CanvasEditor } from '../../server/web/public/js/canvas-editor.js';
 import * as raster from '../../server/web/public/js/cell-raster.js';
 
+beforeAll(() => {
+  // Initialize the real native binding before checking each display's first context request.
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 4;
+  canvas.getContext('2d'); canvas.width = canvas.height = 0;
+});
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const shape = color => ({ type: 'point', params: { x: 0, y: 0 }, color, zIndex: 0 });
 const frame = color => { const image = createCanvas(4, 4), ctx = image.getContext('2d'); ctx.fillStyle = color; ctx.fillRect(0, 0, 4, 4); return image; };
@@ -23,16 +28,21 @@ const pixel = ap => [...ap._ctx.getImageData(0, 0, 1, 1).data];
 describe('asynchronous shared native consumers', () => {
   it('keeps editor, thumbnail and preview display contexts on their existing policy', () => {
     vi.useFakeTimers();
-    document.body.innerHTML = '<div id="wrap"><canvas id="editor-canvas"></canvas></div><div id="cell-strip"></div><div id="anim-panel"></div>';
+    document.body.innerHTML = '<div id="wrap"><canvas id="editor-canvas" width="4" height="4"></canvas></div><div id="cell-strip"></div><div id="anim-panel"></div>';
     const contexts = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');
     const service = new NativeRasterService({ workerFactory: () => null }), cell = { lighting: { palettePolicy: 'rgb', ambient: 1 }, shapes: [shape('#f00')] };
-    const editor = new CanvasEditor(), wrap = document.getElementById('wrap'); wrap.getBoundingClientRect = () => ({ width: 4, height: 4 }); editor.init(wrap, 4); editor.setCell(cell);
+    const editor = new CanvasEditor(), wrap = document.getElementById('wrap');
+    Object.defineProperty(wrap, 'clientWidth', { value: 4, configurable: true });
+    Object.defineProperty(wrap, 'clientHeight', { value: 4, configurable: true });
+    editor.init(wrap, 4); editor.setZoom(1); editor.setCell(cell);
+    expect([editor.canvas.width, editor.canvas.height]).toEqual([4, 4]);
     const ap = new AnimationPreview({ rasterService: service, size: 4 }); configure(ap, { '0,0': cell });
     const nav = new CellNavigator({ rasterService: service }); nav.init({ onSelect() {} }); nav.setGrid(1, 1, 4); nav.setCells({ '0,0': cell }); nav.render(); vi.runAllTimers();
     for (const canvas of [editor.canvas, ap._canvas, document.querySelector('.cell-thumb-canvas')]) {
       const first = contexts.mock.contexts.indexOf(canvas);
       expect(first).toBeGreaterThanOrEqual(0);
       expect(contexts.mock.calls[first]).toEqual(['2d']);
+      expect([...canvas.getContext('2d').getImageData(0, 0, 1, 1).data]).toEqual([255, 0, 0, 255]);
     }
     editor.destroy(); ap.destroy(); nav.destroy();
   });
