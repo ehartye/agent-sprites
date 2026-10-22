@@ -41,9 +41,9 @@ Implementation order for the remaining slices is generator spooling, progressive
 
 ## Milestone 3: shared geometry and integrated delivery
 
-- [ ] Define deterministic versioned dictionary/instance JSON in codec tests. Assert complete V1 semantic round trip before implementing the encoder/decoder.
-- [ ] Add malformed-reference/grid/work-budget tests. Implement bounded validation and loader support without changing default expanded JSON output.
-- [ ] Add shared identity and frame-local edit/copy/transform/undo/redo tests. Implement immutable shared geometry with explicit detachment; audit every direct parameter mutation.
+- [x] Define deterministic versioned dictionary/instance JSON in codec tests. Assert complete V1 semantic round trip before implementing the encoder/decoder.
+- [x] Add malformed-reference/grid/work-budget tests. Implement bounded validation and loader support without changing default expanded JSON output.
+- [x] Add shared identity and frame-local edit/copy/transform/undo/redo tests. Implement immutable shared geometry with explicit detachment; audit every direct parameter mutation.
 - [ ] Deliberately integrate compact persistence/download and import validation, retaining legacy files/routes. Test reconstruction of timing, groups, layers, normals, lighting, pivots, review and replay.
 - [ ] Run unchanged existing engine/handler/API/CLI/UI suites appropriate to touched paths. Validate real full detailed animation imports in a disposable database and compare raster output with canonical fixtures.
 - [ ] Measure input/compact sizes, parameter sharing, peak memory, first interactive/frame latency and thumbnail render counts. Resolve observed bottlenecks rather than relying only on byte acceptance.
@@ -53,3 +53,5 @@ Implementation order for the remaining slices is generator spooling, progressive
 The later milestones require their exact implementation file/task breakdown after the preceding boundaries are verified; do not treat this checklist as permission to skip the design, failing tests or independent reviews for those changes.
 
 The shared-geometry work has two review boundaries: first the deterministic codec, direct interned hydration and frame-local mutation isolation; then compact worker snapshots, persistence and explicit file formats. Native raster scheduling and progressive browser integration follow those reviewed boundaries. This retains the approved scope while allowing each model and I/O contract to be verified separately.
+
+The model and codec boundary passed independent spec and quality review. Its latest broad gate passed 1,456 tests across 105 files. Replacement parameters become owned mutable data, while constructor and clone paths retain immutable sharing. Encoder and loader depth limits agree. Compact I/O integration is next; codec size reduction alone does not establish faster activation or responsive browser playback.
