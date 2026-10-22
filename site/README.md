@@ -4,12 +4,22 @@ Public demo: https://ehartye.github.io/agent-sprites/
 
 Original character study: https://ehartye.github.io/agent-sprites/tessel.html
 
-Cozy animated short: https://ehartye.github.io/agent-sprites/cat.html
+Cozy animated scenes: https://ehartye.github.io/agent-sprites/cat.html
 
-Marmalade's scene player uses the actual `little_morning` tag, exact frame
-durations, a timeline scrubber and color/normal channels. Its story cues render
-stills from the same atlas, and reduced motion starts paused. See
-[the original cat scene](../examples/cozy-cat/README.md) for source and proofs.
+Marmalade's scene player switches between the detailed 384×256 bed-and-yarn
+story (`little_morning`, 160 frames) and paw-washing scene (`paw_wash`, 120 frames).
+Both use exact 50ms frame durations, a timeline scrubber and color/normal
+channels. Story cues render stills from the selected atlas, scene downloads
+follow the selection, and reduced motion starts paused. See
+[the new scene sources](../examples/cozy-cat-detail/README.md) for the editable
+art, image-generated concept reference and exported-atlas proofs. The earlier
+[160×112 short](../examples/cozy-cat/README.md) remains preserved separately.
+The editor ZIP contains independently editable sections sized for the current
+workbench import path. The complete native timelines are also available as
+lossless `JSON.GZ` archives. The rebuild source includes a portable unpacker.
+An actual forty-frame section imported successfully, but the current workbench
+renders all section thumbnails eagerly: initial browser startup can take several
+minutes. The static scene player uses the exported atlases.
 
 Tessel the Foldback has eight actions in both directions, a pose scrubber,
 color/normal channel inspection and downloadable editable source. Its player

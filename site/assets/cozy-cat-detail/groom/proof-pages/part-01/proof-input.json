@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "canvas": {
+    "w": 384,
+    "h": 256
+  },
+  "scale": 1,
+  "loop": false,
+  "matte": "#aaa392",
+  "tracks": [
+    {
+      "name": "paw_wash_proof_part_01",
+      "atlas": "atlas.json",
+      "tag": "paw_wash_proof_part_01",
+      "x": 0,
+      "y": 0,
+      "anchor": "pivot",
+      "loop": false
+    }
+  ]
+}

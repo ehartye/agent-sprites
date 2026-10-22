@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta
       name="description"
-      content="Marmalade's little morning: an original animated pixel-art short about a cat, a little bed and a ball of yarn. Play, inspect and download the editable scene."
+      content="Two detailed animated pixel-art scenes: Marmalade rolls from a wicker bed to play with yarn, then licks a paw and washes its face. Play, inspect and download the editable art."
     />
     <meta name="theme-color" content="#f5f2e8" />
     <title>Marmalade's little morning — Agent Sprites</title>
@@ -23,7 +23,7 @@
       <a class="brand" href="./"
         ><span class="brand-mark" aria-hidden="true">✦</span> agent sprites<span
           class="edition"
-          >AN ANIMATED LITTLE STORY</span
+          >TWO LITTLE MORNING STORIES</span
         ></a
       >
       <nav aria-label="Main navigation">
@@ -34,12 +34,12 @@
     <main>
       <section class="cat-intro wrap">
         <div>
-          <p class="eyebrow">A CAT. A LITTLE BED. A BALL OF YARN.</p>
+          <p class="eyebrow">SOFT PAWS. SMALL PLEASURES.</p>
           <h1>Marmalade’s<br /><span>little morning.</span></h1>
         </div>
         <p class="cat-lede">
-          A sleepy tumble out of the basket.<br />A stretch. A very important
-          pounce.<br />A little trouble in the morning light.
+          A sleepy tumble. A very important pounce.<br />Then a pink tongue, a
+          raised paw,<br />and a moment to put everything right.
         </p>
       </section>
       <section
@@ -47,23 +47,44 @@
         id="cat-player"
         aria-labelledby="story-title"
       >
+        <div
+          class="cat-scene-switch"
+          role="group"
+          aria-label="Choose an animation"
+        >
+          <button type="button" data-cat-scene="play" aria-pressed="true">
+            <span class="scene-number">01 / PLAY</span>
+            <span class="scene-title">A little mischief</span>
+            <span class="scene-caption">The bed, the tumble & the yarn.</span>
+          </button>
+          <button type="button" data-cat-scene="groom" aria-pressed="false">
+            <span class="scene-number">02 / GROOM</span>
+            <span class="scene-title">A little wash</span>
+            <span class="scene-caption">A lick, a paw & a clean face.</span>
+          </button>
+        </div>
         <div class="cat-screen">
           <div class="screen-label">
-            <span>AN ORIGINAL PIXEL-ART SHORT</span
-            ><span id="cat-channel-label">COLOR / 160 × 112</span>
+            <span id="cat-scene-name">A little mischief</span
+            ><span id="cat-channel-label">COLOR / 384 × 256</span>
           </div>
           <div class="cat-stage">
             <canvas
               id="cat-canvas"
-              width="640"
-              height="448"
+              width="768"
+              height="512"
               role="img"
               aria-label="Marmalade rolling out of bed and playing with yarn"
             ></canvas>
           </div>
           <p class="screen-footer">
-            <span>NEAREST-NEIGHBOR PREVIEW</span
-            ><a href="./assets/cozy-cat/scene.gif" download>Save the GIF ↓</a>
+            <span>DRAWN AT 384 × 256 · 20 FPS</span
+            ><a
+              href="./assets/cozy-cat-detail/play/scene.gif"
+              data-cat-file="scene.gif"
+              download
+              >Save this GIF ↓</a
+            >
           </p>
         </div>
         <div class="cat-inspector">
@@ -75,7 +96,7 @@
               id="cat-timeline"
               type="range"
               min="0"
-              max="79"
+              max="159"
               value="0"
               disabled /></label
           ><output id="cat-time" aria-live="off"
@@ -88,7 +109,7 @@
               aria-pressed="true"
               disabled
             >
-              Pause short Ⅱ</button
+              Pause scene Ⅱ</button
             ><button id="cat-restart" class="text-button" disabled>
               Start again ↶
             </button>
@@ -100,8 +121,11 @@
             </select></label
           >
           <p class="cat-player-note">
-            An eight-second loop, drawn as named editable shapes. Scrub to pause
-            on a pose; press play to keep the story going.
+            Two little scenes, drawn as named editable shapes. Scrub to pause on
+            a pose; press play to keep the story going.
+          </p>
+          <p id="cat-load-status" role="status" class="cat-load-status">
+            Opening the morning…
           </p>
           <p id="cat-error" role="alert" class="error"></p>
         </div>
@@ -126,28 +150,62 @@
           <p class="eyebrow">MADE TO BE OPENED</p>
           <h2>Every whisker<br />has a handle.</h2>
           <p>
-            The cat, basket, yarn and room are original editable geometry. Named
-            parts, exact timing, retained surface lighting and construction
-            replay keep the scene ready for its next little adventure.
+            A larger canvas gives Marmalade room for whiskers, shaped paws and
+            curled tabby bands. The cat, wicker bed, yarn and room remain
+            editable geometry, with paired normal maps and exact frame timing. A
+            generated concept image guided the new drawing.
+          </p>
+          <p>
+            The editor bundle contains short editable sections. The full archive
+            keeps the complete timeline. Opening a detailed section in the local
+            workbench can take several minutes.
           </p>
         </div>
         <div class="cat-files">
-          <a href="./assets/cozy-cat/project.json" download
-            >Editable scene <span>JSON ↓</span></a
-          ><a href="./assets/cozy-cat/sheet.png" download
+          <a
+            href="./assets/cozy-cat-detail/play/editor-projects.zip"
+            data-cat-file="editor-projects.zip"
+            download
+            >Editor projects <span>ZIP ↓</span></a
+          ><a
+            href="./assets/cozy-cat-detail/play/project.json.gz"
+            data-cat-file="project.json.gz"
+            download
+            >Full timeline archive <span>JSON.GZ ↓</span></a
+          ><a
+            href="./source/examples/cozy-cat-detail/reference/marmalade-concept.png"
+            >Concept reference <span>PNG ↗</span></a
+          ><a
+            href="./assets/cozy-cat-detail/play/sheet.png"
+            data-cat-file="sheet.png"
+            download
             >Color sprite sheet <span>PNG ↓</span></a
-          ><a href="./assets/cozy-cat/atlas.json" download
+          ><a
+            href="./assets/cozy-cat-detail/play/atlas.json"
+            data-cat-file="atlas.json"
+            download
             >Color atlas <span>JSON ↓</span></a
-          ><a href="./assets/cozy-cat/normal.png" download
+          ><a
+            href="./assets/cozy-cat-detail/play/normal.png"
+            data-cat-file="normal.png"
+            download
             >Normal sheet <span>PNG ↓</span></a
-          ><a href="./assets/cozy-cat/normal.atlas.json" download
+          ><a
+            href="./assets/cozy-cat-detail/play/normal.atlas.json"
+            data-cat-file="normal.atlas.json"
+            download
             >Normal atlas <span>JSON ↓</span></a
-          ><a href="./assets/cozy-cat/replay.json" download
+          ><a
+            href="./assets/cozy-cat-detail/play/replay.json"
+            data-cat-file="replay.json"
+            download
             >Construction recording <span>JSON ↓</span></a
-          ><a href="./assets/cozy-cat/proof.json"
+          ><a
+            href="./assets/cozy-cat-detail/play/proof.json"
+            data-cat-file="proof.json"
             >GIF proof receipt <span>JSON ↗</span></a
           ><a
-            href="https://github.com/ehartye/agent-sprites/tree/main/examples/cozy-cat"
+            href="https://github.com/ehartye/agent-sprites/tree/main/examples/cozy-cat-detail"
             >Drawing & motion source <span>GITHUB ↗</span></a
           >
         </div>
@@ -164,9 +222,12 @@
     <noscript
       ><p class="wrap">
         JavaScript powers the player.
-        <a href="./assets/cozy-cat/scene.gif"
+        <a href="./assets/cozy-cat-detail/play/scene.gif"
           >Watch Marmalade’s morning as a GIF</a
-        >, or download the editable scene above.
+        >,
+        <a href="./assets/cozy-cat-detail/groom/scene.gif"
+          >watch the paw-washing scene</a
+        >, or download the editable art above.
       </p></noscript
     >
   </body>
