@@ -10,6 +10,7 @@ const identity = value => {
 const stable = value => JSON.stringify(value, (_, item) => item && !Array.isArray(item) && typeof item === 'object'
   ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 const close = image => { if (image?.close) image.close(); else if (image) image.width = image.height = 0; };
+const taskBytes = task => task.width * task.height * 4 + stable(task).length * 2;
 const fallbackVariant = task => `|fallback:${task.fallbackColor ?? '#888'}`;
 const rasterKey = task => {
   const base = nativeFrameKey(task);
@@ -73,7 +74,7 @@ export class NativeRasterService {
       // callers own their lease until release. Consumers never own the image.
       request: (task, options = {}) => this._request(owner, task, options),
       peek: task => { if (owner.disposed) return null; this._setProject(owner, task.projectId); return this._peek(task); },
-      invalidate: task => { if (!owner.disposed) this._invalidate(nativeFrameKey(task)); },
+      invalidate: task => { if (!owner.disposed) this._invalidate(task); },
       setProject: project => this._setProject(owner, project),
       dispose: () => {
         if (owner.disposed) return;
@@ -105,6 +106,7 @@ export class NativeRasterService {
   _deliver(subscriber, entry) {
     if (!subscriber.active) return;
     subscriber.active = false; subscriber.owner.subscriptions.delete(subscriber);
+    subscriber.job?.subscribers.delete(subscriber);
     const lease = this._lease(entry);
     try { subscriber.onReady?.(lease); } finally { lease.release(); }
   }
@@ -114,14 +116,17 @@ export class NativeRasterService {
     const project = task.projectId ?? 'legacy';
     this._setProject(owner, project);
     const key = rasterKey(task), lease = this._peek(task);
-    const subscriber = { owner, onReady, onMissing, active: true };
     if (lease) { try { onReady?.(lease); } finally { lease.release(); } return () => {}; }
     if (!key || !Array.isArray(task.cell?.shapes)) { onMissing?.(task.ref, 'unloaded'); return () => {}; }
     let job = this._jobs.get(key);
+    // An invalidated job retains its live subscribers in one bounded slot,
+    // even if a source edit splits or merges their fallback-color variants.
+    job ??= [...this._jobs.values()].find(candidate => candidate.refreshed && nativeFrameKey(candidate.task) === nativeFrameKey(task));
+    if (job?.refreshed) task = { ...task, cell: job.task.cell };
+    const bytes = taskBytes(task);
+    if (!Number.isSafeInteger(bytes) || bytes < 1) { onMissing?.(task.ref, 'invalid'); return () => {}; }
+    if (bytes > this._maxQueueBytes || this._maxQueue < 1) { onMissing?.(task.ref, 'oversize'); return () => {}; }
     if (!job) {
-      const bytes = task.width * task.height * 4 + stable(task).length * 2;
-      if (!Number.isSafeInteger(bytes) || bytes < 1) { onMissing?.(task.ref, 'invalid'); return () => {}; }
-      if (bytes > this._maxQueueBytes || this._maxQueue < 1) { onMissing?.(task.ref, 'oversize'); return () => {}; }
       job = { key, task, project, priority, bytes, subscribers: new Set(), id: ++this._sequence };
       while (this._queue.length >= this._maxQueue || this.stats.queuedBytes + bytes > this._maxQueueBytes) {
         const worst = [...this._queue].sort((a, b) => b.priority - a.priority || b.id - a.id)[0];
@@ -129,7 +134,13 @@ export class NativeRasterService {
         this._drop(worst, 'capacity');
       }
       this._jobs.set(key, job); this._queue.push(job);
+    } else if (bytes > job.bytes) {
+      if (this._queue.includes(job) && this.stats.queuedBytes - job.bytes + bytes > this._maxQueueBytes) {
+        owner.capacityBlocked = true; onMissing?.(task.ref, 'capacity'); return () => {};
+      }
+      job.bytes = bytes;
     }
+    const subscriber = { owner, onReady, onMissing, active: true, task, priority };
     job.priority = Math.min(job.priority, priority); job.subscribers.add(subscriber); subscriber.job = job; owner.subscriptions.add(subscriber);
     this._schedule();
     return () => this._cancel(subscriber);
@@ -148,11 +159,25 @@ export class NativeRasterService {
     for (const sub of subscribers) { sub.active = false; sub.owner.subscriptions.delete(sub); }
     if (reason) for (const sub of subscribers) { if (reason === 'capacity') sub.owner.capacityBlocked = true; sub.onMissing?.(job.task.ref, reason); }
   }
-  _invalidate(key) {
+  _invalidate(task) {
+    const key = nativeFrameKey(task);
     if (!key) return;
     for (const candidate of this._cache.keys()) if (candidate === key || candidate.startsWith(key + '|fallback:')) this._evict(candidate);
     for (const [candidate, job] of [...this._jobs]) if (candidate === key || candidate.startsWith(key + '|fallback:')) {
-      job.invalid = true; this._drop(job, 'invalidated');
+      const refreshed = [...job.subscribers].map(sub => ({ sub, task: { ...sub.task, cell: task.cell ?? sub.task.cell } }));
+      const bytes = refreshed.reduce((max, item) => Math.max(max, taskBytes(item.task)), taskBytes({ ...job.task, cell: task.cell ?? job.task.cell }));
+      job.refreshed = true; job.invalid = job === this._running;
+      if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > this._maxQueueBytes) {
+        this._drop(job, Number.isSafeInteger(bytes) && bytes > 0 ? 'oversize' : 'invalid');
+        job.task = { ...job.task, cell: undefined };
+        continue;
+      }
+      job.bytes = bytes; job.task = { ...job.task, cell: task.cell ?? job.task.cell };
+      for (const item of refreshed) item.sub.task = item.task;
+    }
+    while (this.stats.queuedBytes > this._maxQueueBytes) {
+      const worst = [...this._queue].sort((a, b) => b.priority - a.priority || b.id - a.id)[0];
+      this._drop(worst, 'capacity');
     }
   }
   _evict(key) {
@@ -180,6 +205,23 @@ export class NativeRasterService {
     if (this._running || !this._queue.length) return;
     this._queue.sort((a, b) => a.priority - b.priority || a.id - b.id);
     const job = this._running = this._queue.shift();
+    this._dispatch(job);
+  }
+  _dispatch(job) {
+    if (this._running !== job) { this._schedule(); return; }
+    if (job.refreshed) {
+      const next = [...job.subscribers].sort((a, b) => a.priority - b.priority)[0];
+      if (!next) { this._finishOrRepeat(job); return; }
+      job.task = next.task;
+    }
+    job.invalid = false; job.renderKey = rasterKey(job.task);
+    const cached = this._cache.get(job.renderKey);
+    if (cached) {
+      this._cache.delete(job.renderKey); this._cache.set(job.renderKey, cached);
+      const lease = this._lease(cached);
+      try { this._deliverMatching(job, cached); } finally { lease.release(); }
+      this._finishOrRepeat(job); return;
+    }
     if (!this._workerDisabled && !this._worker) {
       try {
         this._worker = this._workerFactory();
@@ -206,23 +248,41 @@ export class NativeRasterService {
   _workerFailed() {
     this._workerDisabled = true; this._worker?.terminate(); this._worker = null;
     const job = this._running;
-    if (job) this._timer = setTimeout(() => { this._timer = null; this._fallback(job); }, 0);
+    if (job) this._timer = setTimeout(() => { this._timer = null; this._dispatch(job); }, 0);
     else this._schedule();
   }
   _receive({ id, image, error }) {
     const job = this._running;
     if (!job || id !== job.id) { close(image); return; }
     if (error && this._worker) { close(image); this._workerFailed(); return; }
-    this._running = null; if (this._jobs.get(job.key) === job) this._jobs.delete(job.key);
-    if (error || job.invalid) {
-      close(image); for (const sub of [...job.subscribers]) { this._cancel(sub); sub.onMissing?.(job.task.ref, error ? 'error' : 'invalidated'); }
+    if (job.invalid) {
+      close(image);
+    } else if (error) {
+      close(image); this._drop(job, 'error');
     } else {
       const entry = { image, bytes: job.task.width * job.task.height * 4, project: job.project, borrowers: 1, retained: true };
-      this._cache.set(job.key, entry); this._bytes += entry.bytes;
+      if (this._cache.has(job.renderKey)) this._evict(job.renderKey);
+      this._cache.set(job.renderKey, entry); this._bytes += entry.bytes;
       while (this._cache.size > this._maxEntries || this._bytes > this._maxBytes) this._evict(this._cache.keys().next().value);
-      try { for (const sub of job.subscribers) this._deliver(sub, entry); }
+      try { this._deliverMatching(job, entry); }
       finally { entry.borrowers--; if (!entry.retained && !entry.borrowers) close(image); }
     }
+    this._finishOrRepeat(job);
+  }
+  _deliverMatching(job, entry) {
+    for (const sub of [...job.subscribers]) {
+      if (job.invalid) break;
+      if (!job.refreshed || rasterKey(sub.task) === job.renderKey) this._deliver(sub, entry);
+    }
+  }
+  _finishOrRepeat(job) {
+    if (this._running !== job) return;
+    if (job.subscribers.size && (job.invalid || job.refreshed)) {
+      job.id = ++this._sequence;
+      this._timer = setTimeout(() => { this._timer = null; this._dispatch(job); }, 0);
+      return;
+    }
+    this._running = null; if (this._jobs.get(job.key) === job) this._jobs.delete(job.key);
     this._schedule();
     for (const owner of this._consumers) if (owner.capacityBlocked) {
       owner.capacityBlocked = false; owner.onAvailable?.();

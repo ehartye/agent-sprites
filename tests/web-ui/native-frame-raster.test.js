@@ -154,11 +154,87 @@ describe('bounded shared native frame service', () => {
     worker.onmessage({ data: { id: worker.postMessage.mock.calls[0][0].id, error: 'unsupported canvas operation' } }); expect(ready).not.toHaveBeenCalled(); vi.runAllTimers(); expect(ready).toHaveBeenCalledOnce(); owner.dispose();
   });
 
-  it('notifies every invalidated subscriber immediately so unchanged legacy identities can request replacements', () => {
+  it.each(['running', 'queued'])('retains other consumers and cancellation closures when invalidating a shared %s job', state => {
     vi.useFakeTimers();
-    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), owner = service.createConsumer(), missing = vi.fn();
-    owner.request(descriptor(), { onMissing: missing }); vi.runAllTimers(); owner.invalidate(descriptor()); expect(missing).toHaveBeenCalledWith('0,0', 'invalidated');
-    owner.request(descriptor('0,1'), { onMissing: missing }); owner.invalidate(descriptor('0,1')); expect(missing).toHaveBeenCalledWith('0,1', 'invalidated'); owner.dispose();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), a = service.createConsumer(), b = service.createConsumer(), c = service.createConsumer();
+    const task = descriptor(), ready = vi.fn(), canceled = vi.fn(), missing = vi.fn();
+    const old = rasterNativeFrame(structuredClone(task), createCanvas);
+    a.request(task); b.request(task, { onReady: lease => ready(pixels(lease.image)), onMissing: missing }); const cancel = c.request(task, { onReady: canceled });
+    if (state === 'running') vi.runAllTimers();
+    task.cell.shapes[0].params.x = 1; a.invalidate(task); cancel(); a.dispose();
+    expect(missing).not.toHaveBeenCalled();
+    if (state === 'running') { wire.finish(old); expect(old.width).toBe(0); expect(ready).not.toHaveBeenCalled(); }
+    vi.runAllTimers(); const next = wire.workers.at(-1).postMessage.mock.calls.at(-1)[0].task; const fresh = wire.finish(rasterNativeFrame(next, createCanvas));
+    expect(ready).toHaveBeenCalledOnce(); expect(ready.mock.calls[0][0].slice(0, 8)).toEqual([0, 0, 0, 0, 255, 0, 0, 255]); expect(canceled).not.toHaveBeenCalled();
+    const lease = b.peek(task); b.invalidate(task); expect(fresh.width).toBe(4); lease.release(); expect(fresh.width).toBe(0); b.dispose(); c.dispose();
+  });
+
+  it('keeps invalidation fallback variants and late joins inside a full queue and one running lane', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), a = service.createConsumer(), b = service.createConsumer(), late = service.createConsumer(), other = service.createConsumer();
+    const task = descriptor(), seenA = [], seenB = [], seenLate = [];
+    const ready = output => lease => output.push(pixels(lease.image).slice(0, 4));
+    a.request({ ...task, fallbackColor: '#888' }, { priority: 0, onReady: ready(seenA) }); b.request({ ...task, fallbackColor: '#ff00ff' }, { priority: 0, onReady: ready(seenB) }); vi.runAllTimers();
+    const stale = rasterNativeFrame(structuredClone(task), createCanvas);
+    for (let i = 0; i < 32; i++) other.request(descriptor(`queued-${i}`), { priority: 2 });
+    task.cell.shapes[0].color = 'unknown'; a.invalidate(task);
+    late.request({ ...task, fallbackColor: '#ff00ff' }, { priority: 0, onReady: ready(seenLate) });
+    expect(service.stats.queued).toBe(32); wire.finish(stale); expect(stale.width).toBe(0); expect(service.stats.inFlight).toBe(1);
+    for (let i = 0; i < 2; i++) { vi.runOnlyPendingTimers(); const next = wire.workers[0].postMessage.mock.calls.at(-1)[0].task; wire.finish(rasterNativeFrame(next, createCanvas)); expect(service.stats.queued).toBeLessThanOrEqual(32); }
+    expect(seenA).toEqual([[136, 136, 136, 255]]); expect(seenB).toEqual([[255, 0, 255, 255]]); expect(seenLate).toEqual(seenB);
+    expect(wire.workers[0].postMessage).toHaveBeenCalledTimes(3);
+    a.dispose(); b.dispose(); late.dispose(); other.dispose();
+  });
+
+  it('reuses one refreshed resolved bitmap after previously distinct fallback jobs converge', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), a = service.createConsumer(), b = service.createConsumer(), other = service.createConsumer(), seen = [];
+    const task = descriptor('0,0', { cell: { shapes: [{ type: 'point', params: { x: 0, y: 0 }, color: 'unknown' }] } });
+    const ready = lease => seen.push(pixels(lease.image).slice(0, 4));
+    a.request({ ...task, fallbackColor: '#888' }, { onReady: ready }); b.request({ ...task, fallbackColor: '#ff00ff' }, { onReady: ready }); vi.runAllTimers();
+    for (let i = 0; i < 31; i++) other.request(descriptor(`queued-${i}`));
+    expect(service.stats.queued).toBe(32);
+    const stale = rasterNativeFrame({ ...structuredClone(task), fallbackColor: '#888' }, createCanvas);
+    task.cell.shapes[0].color = '#0000ff'; a.invalidate(task); wire.finish(stale); expect(stale.width).toBe(0); vi.runOnlyPendingTimers();
+    const next = wire.workers[0].postMessage.mock.calls.at(-1)[0].task; wire.finish(rasterNativeFrame(next, createCanvas)); vi.runOnlyPendingTimers();
+    expect(seen).toEqual([[0, 0, 255, 255], [0, 0, 255, 255]]); expect(wire.workers[0].postMessage).toHaveBeenCalledTimes(2); a.dispose(); b.dispose(); other.dispose();
+  });
+
+  it.each(['running', 'queued'])('rejects an oversized refreshed %s task and releases its subscribers', state => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory, maxQueueBytes: 2000 }), a = service.createConsumer(), b = service.createConsumer(), ready = vi.fn(), missing = vi.fn();
+    const task = descriptor(); a.request(task); b.request(task, { onReady: ready, onMissing: missing }); if (state === 'running') vi.runAllTimers();
+    task.cell.shapes[0].params.extra = 'x'.repeat(2000); a.invalidate(task);
+    expect(missing).toHaveBeenCalledWith('0,0', 'oversize'); expect(service.stats.queuedBytes).toBe(0);
+    if (state === 'running') { const stale = wire.finish(); expect(stale.width).toBe(0); }
+    vi.runAllTimers(); expect(ready).not.toHaveBeenCalled(); expect(service.stats.inFlight).toBe(0); a.dispose(); b.dispose();
+  });
+
+  it('recounts grown queued geometry and maintains the total byte cap', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory, maxQueueBytes: 10000 }), a = service.createConsumer(), other = service.createConsumer(), missing = vi.fn();
+    other.request(descriptor('running')); vi.runAllTimers(); const task = descriptor(); a.request(task, { priority: 0 });
+    for (let i = 0; i < 9; i++) other.request(descriptor(`queued-${i}`), { priority: 2, onMissing: missing });
+    const before = service.stats.queuedBytes; task.cell.shapes[0].params.extra = 'x'.repeat(4000); a.invalidate(task);
+    expect(service.stats.queuedBytes).toBeGreaterThan(before); expect(service.stats.queuedBytes).toBeLessThanOrEqual(10000);
+    expect(missing).toHaveBeenCalledWith(expect.stringContaining('queued-'), 'capacity'); a.dispose(); other.dispose();
+  });
+
+  it('keeps remaining refreshed demand alive when another subscriber switches projects', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), a = service.createConsumer(), b = service.createConsumer(), readyA = vi.fn(), readyB = vi.fn(), task = descriptor();
+    a.request({ ...task, fallbackColor: '#888' }, { onReady: readyA }); b.request({ ...task, fallbackColor: '#ff00ff' }, { onReady: readyB }); vi.runAllTimers();
+    task.cell.shapes[0].color = 'unknown'; a.invalidate(task); b.setProject('other'); const stale = wire.finish(); expect(stale.width).toBe(0); vi.runAllTimers();
+    expect(wire.workers[0].terminate).not.toHaveBeenCalled(); const next = wire.workers[0].postMessage.mock.calls.at(-1)[0].task; wire.finish(rasterNativeFrame(next, createCanvas));
+    expect(readyA).toHaveBeenCalledOnce(); expect(readyB).not.toHaveBeenCalled(); expect(wire.workers[0].postMessage).toHaveBeenCalledTimes(2); a.dispose(); b.dispose();
+  });
+
+  it('validates a late subscriber variant before attaching it to a refreshed slot', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory, maxQueueBytes: 2000 }), a = service.createConsumer(), b = service.createConsumer(), missing = vi.fn(), task = descriptor();
+    a.request(task); vi.runAllTimers(); task.cell.shapes[0].color = 'unknown'; a.invalidate(task);
+    b.request({ ...task, fallbackColor: 'x'.repeat(2000) }, { onMissing: missing });
+    expect(missing).toHaveBeenCalledWith('0,0', 'oversize'); expect(service.stats.queuedBytes).toBe(0); a.dispose(); b.dispose();
   });
 
   it('registers cache-only consumers before releasing another project owner', () => {

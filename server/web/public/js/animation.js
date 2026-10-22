@@ -20,6 +20,7 @@ export class AnimationPreview {
     this._missingNative = new Set();
     this._rasterGeneration = 0;
     this._preparing = null;
+    this._preparedInputs = null;
     this._destroyed = false;
     this._canvas = null;
     this._ctx = null;
@@ -127,8 +128,10 @@ export class AnimationPreview {
   setCells(cells, context) {
     const changed = context && this._applyRasterContext(context, true);
     this._cells = cells || {}; this._missingNative.clear();
+    const inputs = this._preparing ?? this._preparedInputs;
+    const nativeChanged = this._playing && inputs?.refs.some((ref, index) => inputs.keys[index] !== nativeFrameKey(this._nativeTask(ref)));
     if (this._canvas) this._renderFrame();
-    if (changed && this._playing) this._beginPreparation(); else this._continuePreparation();
+    if ((changed || nativeChanged) && this._playing) this._beginPreparation(); else this._continuePreparation();
   }
   /** Stable progressive identity; onMissing(ref, demand) requests current,
    * preparation or adjacent data without treating absent geometry as blank. */
@@ -159,7 +162,7 @@ export class AnimationPreview {
   }
   _cancelNative() { for (const pending of this._pendingNative.values()) pending.cancel(); this._pendingNative.clear(); }
   destroy() {
-    this._destroyed = true; this._playing = false; this._preparing = null; this._stopInterval();
+    this._destroyed = true; this._playing = false; this._preparing = this._preparedInputs = null; this._stopInterval();
     this._cancelNative(); this._native.dispose(); this._resizeObserver?.disconnect();
     if (this._canvas) this._canvas.width = this._canvas.height = 0;
   }
@@ -212,6 +215,7 @@ export class AnimationPreview {
     if(this._playing)this._updatePosition(performance.now());
     this._playing = false;
     this._preparing = null;
+    this._preparedInputs = null;
     this._cancelPreparation();
     this._playbackStart=null;
     this._updatePlayState();
@@ -222,6 +226,7 @@ export class AnimationPreview {
   stop() {
     this._playing = false;
     this._preparing = null;
+    this._preparedInputs = null;
     this._cancelPreparation();
     this._currentFrame = 0;
     this._ended = false;
@@ -423,7 +428,7 @@ export class AnimationPreview {
         this._pendingNative.delete(key); if (reason !== 'capacity') this._missingNative.add(key ?? ref);
         if (reason === 'unloaded') this._rasterContext.onMissing?.(ref, demand);
         if (!['unloaded', 'invalidated', 'capacity'].includes(reason) && this._preparing) {
-          this._preparing = null; this._playing = false; this._updatePlayState();
+          this._preparing = this._preparedInputs = null; this._playing = false; this._updatePlayState();
           this._frameInfo.textContent = 'Frame unavailable';
         }
       },
@@ -443,7 +448,11 @@ export class AnimationPreview {
     const refs = [...new Set(this._frames)];
     const full = this._rasterService.canRetainFrames(refs.length, this._cellW, this._cellH);
     const current = this._frames[this._currentFrame];
-    this._preparing = { refs: full ? refs : [current], index: 0, full, finalCheck: false };
+    const preparingRefs = full ? refs : [current];
+    this._preparing = { refs: preparingRefs, keys: preparingRefs.map(ref => nativeFrameKey(this._nativeTask(ref))), index: 0, full, finalCheck: false };
+    // Retain only this bounded readiness window while playing, so legacy
+    // lighting/shape edits also invalidate frames warmed earlier in playback.
+    this._preparedInputs = this._preparing;
     this._continuePreparation();
   }
 
@@ -463,7 +472,7 @@ export class AnimationPreview {
     // frame is retried once; never pin an entire sequence or loop on LRU misses.
     const current = this._nativeTask(this._frames[this._currentFrame]), lease = this._native.peek(current);
     if (!lease && !prep.finalCheck && nativeFrameKey(current) !== completedKey) {
-      prep.finalCheck = true; prep.refs.push(current.ref); this._continuePreparation(); return;
+      prep.finalCheck = true; prep.refs.push(current.ref); prep.keys.push(nativeFrameKey(current)); this._continuePreparation(); return;
     }
     if (lease) { try { this._paintNative(lease.image); } finally { lease.release(); } }
     this._preparing = null; this._updateFrameCounter(); this._startInterval();

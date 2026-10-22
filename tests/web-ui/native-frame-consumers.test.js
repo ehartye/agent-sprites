@@ -209,6 +209,52 @@ describe('asynchronous shared native consumers', () => {
     complete('#0f0'); vi.runAllTimers(); complete('#00f'); expect(ap._preparing).toBeNull(); expect(pixel(ap)).toEqual([0, 255, 0, 255]);
     vi.advanceTimersByTime(50); expect(ap._currentFrame).toBe(1); vi.advanceTimersByTime(50); expect(ap._playing).toBe(false); ap.destroy();
   });
+
+  it.each(['shape replacement', 'lighting mutation'])('prepares a changed legacy noncurrent frame again after %s', change => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')], lighting: { palettePolicy: 'rgb', ambient: 1 } }, '0,2': { shapes: [shape('#0f0')] } };
+    ap.init(); ap.setCellSize(4); ap.setCells(cells); ap.setFrames(['0,0', '0,1', '0,2'], { durations: [50, 50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    complete('#f00'); vi.runAllTimers(); complete('#00f'); vi.runAllTimers();
+    const thirdId = workers[0].postMessage.mock.calls.at(-1)[0].id;
+    ap.setCells({ ...cells, '0,2': { shapes: [...cells['0,2'].shapes] }, '0,3': { shapes: [] } });
+    expect(workers[0].postMessage.mock.calls.at(-1)[0].id).toBe(thirdId);
+    if (change === 'shape replacement') cells['0,1'] = { ...cells['0,1'], shapes: [shape('#fff')] };
+    else cells['0,1'].lighting.ambient = 0.5;
+    ap.setCells({ ...cells }); complete('#0f0');
+    expect(ap._preparing).not.toBeNull(); expect(ap._playbackStart).toBeNull(); vi.runOnlyPendingTimers();
+    expect(workers[0].postMessage.mock.calls.at(-1)[0].task.ref).toBe('0,1');
+    complete('#fff'); expect(ap._preparing).toBeNull();
+    const lease = ap._native.peek(ap._nativeTask('0,1')); expect(lease).not.toBeNull(); lease?.release();
+    vi.advanceTimersByTime(50); expect(pixel(ap)).toEqual([255, 255, 255, 255]); vi.advanceTimersByTime(100); expect(ap._playing).toBe(false); ap.destroy();
+  });
+
+  it.each(['shape replacement', 'lighting mutation'])('restarts an already-playing legacy sequence after %s while unrelated wrappers preserve elapsed time', change => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')], lighting: { palettePolicy: 'rgb', ambient: 1 } }, '0,2': { shapes: [shape('#0f0')] } };
+    ap.init(); ap.setCellSize(4); ap.setCells(cells); ap.setFrames(['0,0', '0,1', '0,2'], { durations: [50, 50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    complete('#f00'); vi.runAllTimers(); complete('#00f'); vi.runAllTimers(); complete('#0f0'); vi.advanceTimersByTime(25);
+    const start = ap._playbackStart; ap.setCells({ ...cells, '0,1': { ...cells['0,1'], shapes: [...cells['0,1'].shapes] }, '0,3': { shapes: [] } });
+    expect(ap._playbackStart).toBe(start); expect(ap._preparing).toBeNull();
+    if (change === 'shape replacement') cells['0,1'] = { ...cells['0,1'], shapes: [shape('#fff')] };
+    else cells['0,1'].lighting.ambient = 0.5;
+    ap.setCells({ ...cells }); expect(ap._preparing).not.toBeNull(); expect(ap._playbackStart).toBeNull(); vi.runOnlyPendingTimers();
+    expect(workers[0].postMessage.mock.calls.at(-1)[0].task.ref).toBe('0,1'); complete('#fff'); expect(ap._preparing).toBeNull();
+    vi.advanceTimersByTime(50); expect(pixel(ap)).toEqual([255, 255, 255, 255]); vi.advanceTimersByTime(100); expect(ap._playing).toBe(false); ap.destroy();
+  });
+
+  it.each(['paused preview', 'cold preparation'])('keeps a shared native request alive through thumbnail refresh for %s', state => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 }), nav = new CellNavigator({ rasterService: service });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } }, context = { projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1 } };
+    configure(ap, cells, context); if (state === 'cold preparation') { ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); }
+    nav.setGrid(1, 2, 4); nav.setCells(cells, context); nav.setFilter(['0,0']); vi.runAllTimers();
+    expect(workers[0].postMessage).toHaveBeenCalledTimes(1); cells['0,0'].shapes[0].color = '#0f0'; nav.refresh(['0,0']);
+    complete('#f00'); vi.runAllTimers(); complete('#0f0');
+    if (state === 'cold preparation') { vi.runAllTimers(); complete('#00f'); }
+    expect(pixel(ap)).toEqual([0, 255, 0, 255]); expect(ap._missingNative.size).toBe(0); expect(ap._preparing).toBeNull();
+    expect([...document.querySelector('.cell-thumb-canvas').getContext('2d').getImageData(0, 0, 1, 1).data]).toEqual([0, 255, 0, 255]);
+    if (state === 'cold preparation') { vi.advanceTimersByTime(50); expect(ap._currentFrame).toBe(1); }
+    ap.destroy(); nav.destroy();
+  });
 });
 
 describe('selected editor one-frame native reuse', () => {
