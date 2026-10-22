@@ -18,6 +18,8 @@ import { castingRoutes } from './api/casting-routes.js';
 import { workbenchRoutes } from './api/workbench-routes.js';
 import { constructionReplayRoutes } from './api/construction-replay-routes.js';
 import { API_BODY_LIMIT } from './api/policy.js';
+import { ProjectImportJobs } from '../import/project-import-jobs.js';
+import { projectImportRoutes } from './api/project-import-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
@@ -58,8 +60,10 @@ export function dispatchWebMessage(state, msg) {
   return handler(state, msg);
 }
 
-export async function startWebServer(state, port) {
+export async function startWebServer(state, port, options = {}) {
   const app = express();
+  const imports = new ProjectImportJobs(state, options.imports);
+  app.use('/api/workbench/imports', projectImportRoutes(state, imports));
   app.use(express.json({ limit: API_BODY_LIMIT }));
   // Optional optimistic session guard for the collaborative browser. CLI clients
   // remain compatible, while stale tabs cannot accidentally edit a newly opened design.
@@ -127,5 +131,8 @@ export async function startWebServer(state, port) {
     });
   });
 
-  return { port: actualPort, httpServer, wss };
+  const dispose = () => imports.close();
+  state.disposeImports = dispose;
+  httpServer.once('close', () => { void dispose(); });
+  return { port: actualPort, httpServer, wss, imports, dispose };
 }

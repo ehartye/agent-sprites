@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { activateProjectCopy, projectName } from '../../session-activation.js';
 import { Project } from '../../engine/project.js';
 import { Palette } from '../../engine/palette.js';
 import { CanvasRenderer } from '../../engine/canvas-renderer.js';
-import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
+import { captureProjectMetadata } from '../../project-state.js';
 import { saveDraft } from '../http.js';
 import { mapCommandToApi } from '../../../scripts/batch-commands.js';
 import { buildProject } from '../../build/project-build.js';
@@ -23,13 +23,6 @@ export function localFileRequestAllowed(req) {
     const origin = req.get('origin');
     return !origin || new URL(origin).origin === server.origin;
   } catch { return false; }
-}
-
-function projectName(value) {
-  if (typeof value !== 'string' || !value.trim() || value.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(value) || /[. ]$/.test(value) || ['.', '..'].includes(value)) {
-    throw new Error('Use a project name of 1–120 characters without path separators or reserved filename characters');
-  }
-  return value.trim();
 }
 
 function validateImport(data) {
@@ -63,35 +56,18 @@ export function workbenchRoutes(state) {
   router.get('/workbench/commands', route((_req, res) => {
     res.json({ ok: true, data: COMMANDS });
   }));
-  function activateCopy(project, origin) {
-    const parent = state.sessionId ? state.db.getSession(state.sessionId) : null;
-    const projectPath = parent?.project_path ?? process.cwd();
-    // Session id in the destination guarantees that saving a copy never overwrites
-    // another copy with the same friendly name, or the imported source file.
-    const session = state.db.db.transaction(() => {
-      const pending = state.db.createSession({ project_name: project.name, project_path: projectPath,
-        destination_folder: '', json_file: null, draft_json: JSON.stringify(project.toJSON()) });
-      state.db.updateSession(pending.id, { destination_folder: join(projectPath, 'assets', 'claude-sprites', pending.id, project.name) });
-      restoreProjectMetadata({ ...state, project, sessionId: pending.id });
-      return pending;
-    })();
-    state.project = project;
-    state.sessionId = session.id;
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: session.id });
-    return { session_id: session.id, project_name: project.name, copied_from: origin ?? null };
-  }
   router.post('/session/copy', route((req, res) => {
     const source = requireProject();
     const name = projectName(req.body.name ?? `${source.name} copy`);
     const project = Project.fromJSON(source.toJSON());
     project.name = name;
-    res.json({ ok: true, data: activateCopy(project, state.sessionId) });
+    res.json({ ok: true, data: activateProjectCopy(state, project, { origin: state.sessionId }) });
   }));
   router.post('/session/import', route((req, res) => {
     validateImport(req.body.project);
     const project = Project.fromJSON(req.body.project);
     project.name = projectName(req.body.name ?? project.name);
-    res.json({ ok: true, data: activateCopy(project) });
+    res.json({ ok: true, data: activateProjectCopy(state, project) });
   }));
   router.get('/workbench/project', route((_req, res) => {
     res.json({ ok: true, data: requireProject().toJSON(), session_id: state.sessionId });
