@@ -28,12 +28,14 @@ Milestone 1 passed independent spec and quality review, including repeated frame
 - [x] Write/run failing real-request tests for direct streamed JSON above 64 MiB, compressed/uncompressed byte limits, malformed data and unchanged original session on failure.
 - [x] Implement owned job upload/storage, worker validation, status/progress and cancellation/cleanup. Add explicit session-change/worker-failure rollback tests before activation wiring.
 - [x] Replace the browser's complete-file parse/request with direct upload and visible progress/cancel states. Preserve the legacy JSON import endpoint.
-- [ ] Write/run failing generator tests for stdout above 8 MiB, bounded stderr and cancellation; implement spawn/stream-to-owned-file while preserving report parsing, existing work budgets and provenance.
+- [x] Write/run failing generator tests for stdout above 8 MiB, bounded stderr and cancellation; implement spawn/stream-to-owned-file while preserving report parsing, existing work budgets and provenance.
 - [ ] Add progressive project summary and bounded frame retrieval tests, including session/revision races and response limits; wire new opt-in browser protocol and bounded frame cache.
 - [ ] Exercise selection, edits, undo, onion skin, tags, construction review and session switching with sparse frame data. Add behavior tests at actual integration boundaries.
 - [ ] Independent spec/quality review and milestone commit after focused gates pass.
 
 The file-import slice passed independent spec and quality review. Its broad regression gate passed 775 tests across 47 files. Browser checks exercised File upload without File.text(), validation, activation and cancellation. Whole-model worker parsing and hydration remain explicit limitations until compact storage is integrated.
+
+Generator spooling and the progressive server protocol also passed independent spec and quality review. Generator receipts preserve bounded diagnostics and publication outcomes. Server summaries avoid publication-only geometry cloning, and bounded frame responses enforce pins and byte limits. Legacy payload ordering, rollback, canonical group ownership and targeted versions were exercised through real requests. The latest server regression gate passed 1,028 tests across 85 files; browser progressive integration remains pending.
 
 Implementation order for the remaining slices is generator spooling, progressive server protocol, shared codec/persistence, then progressive browser caches and asynchronous native preview work. Defining transport before the codec and wiring the browser afterward avoids building a temporary full-graph client path. Each slice retains independent spec and quality review; the final integration gate still covers all three approved outcomes together.
 
@@ -49,3 +51,5 @@ Implementation order for the remaining slices is generator spooling, progressive
 - [ ] Coordinate a fresh wiki window for actual architecture/roadmap state and measured delivery evidence. Preserve older authored comparison/evidence/raw/provenance and foreign work.
 
 The later milestones require their exact implementation file/task breakdown after the preceding boundaries are verified; do not treat this checklist as permission to skip the design, failing tests or independent reviews for those changes.
+
+The shared-geometry work has two review boundaries: first the deterministic codec, direct interned hydration and frame-local mutation isolation; then compact worker snapshots, persistence and explicit file formats. Native raster scheduling and progressive browser integration follow those reviewed boundaries. This retains the approved scope while allowing each model and I/O contract to be verified separately.
