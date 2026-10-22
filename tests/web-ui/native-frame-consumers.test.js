@@ -298,6 +298,37 @@ describe('asynchronous shared native consumers', () => {
     expect(ap._preparing).toBeNull(); expect(ap._playing).toBe(true); expect(workers[0].postMessage).toHaveBeenCalledTimes(4); expect(ap._native.peek(ap._nativeTask('0,1'))).toBeNull();
     vi.advanceTimersByTime(50); expect(ap._canvas.dataset.state).toBe('loading'); expect(ap._preparing).toBeNull(); vi.advanceTimersByTime(50); expect(ap._playing).toBe(false); ap.destroy(); other.dispose();
   });
+
+  it.each(['palette', 'background'])('owns flat %s settings across caller edits before and after setters', kind => {
+    const { service } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const settings = kind === 'palette' ? { ink: '#f00' } : { mode: 'chroma', color: '#f00' }, field = kind === 'palette' ? 'ink' : 'color', setter = kind === 'palette' ? 'setPalette' : 'setBackground';
+    ap[setter](settings); settings[field] = '#fff'; expect(ap._nativeTask('0,0')[kind][field]).toBe('#f00');
+    ap[setter](settings); settings[field] = '#0f0'; expect(ap._nativeTask('0,0')[kind][field]).toBe('#fff'); ap.destroy();
+  });
+
+  it.each(['palette', 'background'])('warms every frame after a same-object %s update during cold preparation', kind => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const settings = kind === 'palette' ? { ink: '#f00' } : { mode: 'chroma', color: '#f00' }, field = kind === 'palette' ? 'ink' : 'color', setter = kind === 'palette' ? 'setPalette' : 'setBackground';
+    const cells = Object.fromEntries(['0,0', '0,1', '0,2'].map(ref => [ref, { shapes: [shape('ink')] }]));
+    ap.init(); ap.setCellSize(4); ap.setPalette({ ink: '#f00' }); ap[setter](settings); ap.setCells(cells); ap.setFrames(['0,0', '0,1', '0,2'], { durations: [50, 50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    complete('#f00'); vi.runAllTimers(); complete('#f00'); vi.runAllTimers(); settings[field] = '#fff'; ap[setter](settings); complete('#f00');
+    const color = kind === 'palette' ? '#fff' : '#f00';
+    for (const ref of ['0,0', '0,1', '0,2']) {
+      vi.runOnlyPendingTimers(); const task = workers[0].postMessage.mock.calls.at(-1)[0].task;
+      expect(task.ref).toBe(ref); expect(task[kind][field]).toBe('#fff'); expect(ap._playbackStart).toBeNull(); complete(color);
+    }
+    expect(ap._preparing).toBeNull(); const lease = ap._native.peek(ap._nativeTask('0,1')); expect(lease).not.toBeNull(); lease?.release();
+    vi.advanceTimersByTime(50); expect(ap._currentFrame).toBe(1); vi.advanceTimersByTime(100); expect(ap._playing).toBe(false); ap.destroy();
+  });
+
+  it.each(['palette', 'background'])('keeps preparation FIFO for an equal-value %s wrapper', kind => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 }), other = service.createConsumer();
+    const settings = kind === 'palette' ? { ink: '#f00' } : { mode: 'chroma', color: '#f00' }, setter = kind === 'palette' ? 'setPalette' : 'setBackground';
+    ap.init(); ap.setCellSize(4); ap.setRasterContext({ projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1 } }); ap[setter](settings);
+    ap.setCells({ '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } }); ap.setFrames(['0,0', '0,1']); ap.play(); vi.runAllTimers(); complete('#f00');
+    other.request({ projectId: 'p', ref: 'later', cellVersion: 1, width: 4, height: 4, cell: { shapes: [] } }, { priority: 0 });
+    ap[setter]({ ...settings }); vi.runOnlyPendingTimers(); const next = workers[0].postMessage.mock.calls.at(-1)[0]; expect(next.task.ref).toBe('0,1'); expect(next.id).toBe(2); ap.destroy(); other.dispose();
+  });
 });
 
 describe('selected editor one-frame native reuse', () => {

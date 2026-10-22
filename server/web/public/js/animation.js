@@ -116,11 +116,11 @@ export class AnimationPreview {
     if (this._preparing && previous !== this._nativeContextKey()) this._beginPreparation();
   }
   setBackground(background) {
-    const previous = this._nativeContextKey(); this._background = background ?? { mode: 'transparent' };
+    const previous = this._nativeContextKey(); this._background = { ...(background ?? { mode: 'transparent' }) };
     this._restartPreparation(previous); if (this._canvas) this._renderFrame();
   }
   setPalette(paletteMap) {
-    const previous = this._nativeContextKey(); this._palette = paletteMap ?? {};
+    const previous = this._nativeContextKey(); this._palette = { ...(paletteMap ?? {}) };
     this._restartPreparation(previous); if (this._canvas) this._renderFrame();
   }
   setCellSize(w, h = w) {
