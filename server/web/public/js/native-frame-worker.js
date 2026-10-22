@@ -2,7 +2,10 @@ import { rasterNativeFrame } from './native-frame-raster.js';
 
 self.onmessage = ({ data: { id, task } }) => {
   try {
-    const canvas = rasterNativeFrame(task, (width, height) => new OffscreenCanvas(width, height));
+    const canvas = rasterNativeFrame(task, (width, height) => {
+      const image = new OffscreenCanvas(width, height);
+      image.getContext('2d', { willReadFrequently: true }); return image;
+    });
     const image = canvas.transferToImageBitmap();
     self.postMessage({ id, image }, [image]);
   } catch (error) { self.postMessage({ id, error: error.message }); }

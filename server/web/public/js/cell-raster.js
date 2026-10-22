@@ -34,7 +34,9 @@ function rgbaOf(color, createCanvas) {
 }
 
 const createNativeCanvas = (w, h) => {
-  const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; return canvas;
+  const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+  // Native masks repeatedly read pixels; this policy must be set on the first context request.
+  canvas.getContext('2d', { willReadFrequently: true }); return canvas;
 };
 
 const nativeShapePainter = (resolveColor, createCanvas) => (ctx, shape) => {

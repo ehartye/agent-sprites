@@ -21,6 +21,22 @@ const configure = (ap, cells, context = { projectId: 'p', cellVersions: { '0,0':
 const pixel = ap => [...ap._ctx.getImageData(0, 0, 1, 1).data];
 
 describe('asynchronous shared native consumers', () => {
+  it('keeps editor, thumbnail and preview display contexts on their existing policy', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="wrap"><canvas id="editor-canvas"></canvas></div><div id="cell-strip"></div><div id="anim-panel"></div>';
+    const contexts = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');
+    const service = new NativeRasterService({ workerFactory: () => null }), cell = { lighting: { palettePolicy: 'rgb', ambient: 1 }, shapes: [shape('#f00')] };
+    const editor = new CanvasEditor(), wrap = document.getElementById('wrap'); wrap.getBoundingClientRect = () => ({ width: 4, height: 4 }); editor.init(wrap, 4); editor.setCell(cell);
+    const ap = new AnimationPreview({ rasterService: service, size: 4 }); configure(ap, { '0,0': cell });
+    const nav = new CellNavigator({ rasterService: service }); nav.init({ onSelect() {} }); nav.setGrid(1, 1, 4); nav.setCells({ '0,0': cell }); nav.render(); vi.runAllTimers();
+    for (const canvas of [editor.canvas, ap._canvas, document.querySelector('.cell-thumb-canvas')]) {
+      const first = contexts.mock.contexts.indexOf(canvas);
+      expect(first).toBeGreaterThanOrEqual(0);
+      expect(contexts.mock.calls[first]).toEqual(['2d']);
+    }
+    editor.destroy(); ap.destroy(); nav.destroy();
+  });
+
   it('deduplicates preview sizes and visible thumbs, then reuses native art for setters and scaling', () => {
     const { service, workers, complete } = setup(), cells = { '0,0': { shapes: [shape('#f00')] } };
     const ap = new AnimationPreview({ rasterService: service, size: 4 }), full = new AnimationPreview({ rasterService: service, mountId: 'full-preview', size: 8 });

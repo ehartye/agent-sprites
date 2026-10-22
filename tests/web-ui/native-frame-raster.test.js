@@ -5,10 +5,46 @@ import { renderCellNative } from '../../server/web/public/js/cell-raster.js';
 import { CORPUS, CELL } from './raster-corpus.js';
 import { NativeRasterService, rasterNativeFrame, nativeFrameKey } from '../../server/web/public/js/native-frame-raster.js';
 
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const pixels = image => [...image.getContext('2d').getImageData(0, 0, image.width, image.height).data];
 
 describe('worker-safe canonical native raster', () => {
+  it('selects readback contexts before painting on every default native DOM canvas', () => {
+    const contexts = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');
+    rasterNativeFrame(readbackTask());
+    const firstCalls = contexts.mock.calls.filter((_, i) => contexts.mock.contexts.indexOf(contexts.mock.contexts[i]) === i);
+    expect(firstCalls.length).toBeGreaterThan(1);
+    for (const args of firstCalls) expect(args).toEqual(['2d', { willReadFrequently: true }]);
+  });
+
+  it('preserves context policy supplied by an injected native canvas factory', () => {
+    const contexts = [], task = readbackTask(), expected = pixels(rasterNativeFrame(task));
+    const image = rasterNativeFrame(task, (width, height) => {
+      const canvas = createCanvas(width, height); contexts.push(vi.spyOn(canvas, 'getContext')); return canvas;
+    });
+    expect(contexts.length).toBeGreaterThan(1);
+    for (const context of contexts) expect(context.mock.calls[0]).toEqual(['2d']);
+    expect(pixels(image)).toEqual(expected);
+  });
+
+  it('selects readback contexts in the worker factory before canonical painting and bitmap transfer', async () => {
+    const contexts = [], worker = { postMessage: vi.fn() }, task = readbackTask(), expected = pixels(rasterNativeFrame(task));
+    vi.stubGlobal('self', worker);
+    // Exercise the real worker handler and raster with a Cairo-backed browser API boundary.
+    vi.stubGlobal('OffscreenCanvas', function (width, height) {
+      const canvas = createCanvas(width, height); contexts.push(vi.spyOn(canvas, 'getContext'));
+      canvas.transferToImageBitmap = vi.fn(() => canvas); return canvas;
+    });
+    await import('../../server/web/public/js/native-frame-worker.js');
+    worker.onmessage({ data: { id: 7, task } });
+    const image = worker.postMessage.mock.calls[0]?.[0].image;
+    expect(worker.postMessage).toHaveBeenCalledWith({ id: 7, image: expect.anything() }, [image]);
+    expect(contexts.length).toBeGreaterThan(1);
+    for (const context of contexts) expect(context.mock.calls[0]).toEqual(['2d', { willReadFrequently: true }]);
+    expect(image.transferToImageBitmap).toHaveBeenCalledOnce();
+    expect(pixels(image)).toEqual(expected);
+  });
+
   it('uses the supplied canvas factory for colors, fills and plain erasers without a document', () => {
     const shapes = CORPUS.find(entry => entry.name === 'erase-alpha').shapes.concat({ type: 'fill', params: { x: 0, y: 0 }, color: '#12345680', zIndex: 9 });
     const expected = pixels(renderCellNative(shapes, CELL, CELL, c => c));
@@ -38,6 +74,11 @@ describe('worker-safe canonical native raster', () => {
 });
 
 const descriptor = (ref = '0,0', more = {}) => ({ projectId: 'project', ref, cellVersion: 1, width: 4, height: 4, palette: {}, cell: { shapes: [{ type: 'point', params: { x: 0, y: 0 }, color: '#ff0000' }] }, ...more });
+const readbackTask = () => descriptor('surface', { cell: { lighting: { palettePolicy: 'rgb', ambient: 0.5 }, shapes: [
+  { type: 'rect', color: '#ff000080', params: { x: 0, y: 0, w: 4, h: 4, filled: true, surface: { normal: { mode: 'bevel' } } } },
+  { type: 'fill', color: '#00ff0080', params: { x: 1, y: 1, layers: [{ id: 'child', x: 1, y: 1, w: 3, h: 3, z: 1, background: { mode: 'transparent' } }] } },
+  { type: 'point', color: '#fff', params: { x: 2, y: 2, erase: true } },
+] } });
 const transport = () => {
   const workers = [];
   const factory = () => {
