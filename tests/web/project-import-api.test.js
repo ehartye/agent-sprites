@@ -8,6 +8,7 @@ import { request } from 'node:http';
 import { SessionDB } from '../../server/db/session.js';
 import { Project } from '../../server/engine/project.js';
 import { startWebServer } from '../../server/web/http.js';
+import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 
 let state, server, base, temp;
 const project = () => Project.create({ name: 'Imported', cellSize: 8, rows: 1, cols: 1, palette: 'pico8' }).toJSON();
@@ -100,9 +101,10 @@ test('rejects receipt tampering and rolls back metadata transaction failures', a
 });
 test('cancels a slow upload and shutdown removes only owned files', async () => {
   await start(); await writeFile(join(temp, 'foreign-sentinel'), 'keep'); const job = await create();
-  const req = request(`${base}/workbench/imports/${job.id}/file`, { method: 'PUT' }); req.on('error', () => {}); req.write('{');
+  let closed = false;
+  const req = request(`${base}/workbench/imports/${job.id}/file`, { method: 'PUT' }); req.on('error', () => {}); req.on('close', () => { closed = true; }); req.write('{');
   await vi.waitFor(async () => expect((await api(`/workbench/imports/${job.id}`)).data.source.bytes).toBe(1));
-  await api(`/workbench/imports/${job.id}`, undefined, 'DELETE'); req.destroy(); await settled(job, 'canceled');
+  await api(`/workbench/imports/${job.id}`, undefined, 'DELETE'); await vi.waitFor(() => expect(closed).toBe(true)); await settled(job, 'canceled');
   await create(); await server.dispose(); expect(await readdir(temp)).toEqual(['foreign-sentinel']);
   expect(await readFile(join(temp, 'foreign-sentinel'), 'utf8')).toBe('keep');
 });
@@ -129,7 +131,7 @@ test.each([
   ['timeout', 'import-worker-hang.js', /timed out/],
   ['worker failure', 'import-worker-exit.js', /worker exited/],
 ])('cleans %s with a bounded diagnostic', async (_label, fixture, error) => {
-  await start({ workerUrl: new URL(`../fixtures/${fixture}`, import.meta.url), validationTimeoutMs: 100 });
+  await start({ workerUrl: new URL(`../fixtures/${fixture}`, import.meta.url), validationTimeoutMs: fixture.includes('hang') ? 100 : 2000 });
   const original = state.project, job = await create(); await upload(job, JSON.stringify(project()));
   expect((await settled(job, 'failed')).error).toMatch(error);
   expect(state.project).toBe(original); expect(await readdir(temp)).toEqual([]);
@@ -149,9 +151,65 @@ test('a cleanup error after commit retains the successful receipt and retries on
   const done = await settled(job, 'complete'); expect(done.receipt).toEqual(activated.data); expect(done.cleanupWarning).toContain('locked');
   await server.dispose(); expect(await readdir(temp)).toEqual([]); cleanup.mockRestore();
 });
+test('notification failure after commit retains the successful activated session', async () => {
+  await start(); const job = await create(); await upload(job, JSON.stringify(project())); await settled(job);
+  const original = state.sessionId, logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+  state.broadcast = () => { throw new Error('notification unavailable'); };
+  try {
+    const activated = await api(`/workbench/imports/${job.id}/activate`, {});
+    expect(activated.ok, activated.error).toBe(true); expect(state.sessionId).not.toBe(original);
+    expect(state.db.getSession(activated.data.session_id).project_name).toBe('Imported');
+    expect((await settled(job, 'complete')).receipt).toEqual(activated.data);
+    expect(logged).toHaveBeenCalledWith('Project activated; notification failed:', 'notification unavailable');
+  } finally { logged.mockRestore(); }
+});
 test('closing during job allocation cannot leave a newly allocated directory', async () => {
   await start();
   const creating = server.imports.create({ filename: 'race.json', encoding: 'json' });
   const rejection = expect(creating).rejects.toThrow(/shutting down|canceled/i);
   await server.dispose(); await rejection; expect(await readdir(temp)).toEqual([]);
+});
+test('expiry keeps ownership when temporary file removal fails so shutdown can retry', async () => {
+  await start(); const job = await create(); const internal = server.imports.jobs.get(job.id);
+  const cleanup = vi.spyOn(server.imports, 'cleanup').mockRejectedValueOnce(new Error('temporary file locked'));
+  internal.touched -= server.imports.limits.expiryMs + 1;
+  await server.imports.expire(); expect(server.imports.jobs.has(job.id)).toBe(true);
+  cleanup.mockRestore(); await server.dispose(); expect(await readdir(temp)).toEqual([]);
+});
+test('storage diagnostics do not expose owned temporary paths', async () => {
+  await start(); const job = await create(); await upload(job, JSON.stringify(project())); await settled(job);
+  const [dir] = await readdir(temp); await rm(join(temp, dir, 'validated.json'));
+  const result = await api(`/workbench/imports/${job.id}/activate`, {});
+  expect(result.ok).toBe(false); expect(JSON.stringify(result)).not.toContain(temp);
+  const failed = await settled(job, 'failed'); expect(failed.error).not.toContain(temp);
+});
+test.each([
+  ['unknown primitive', shape => { shape.type = 'unknown'; }],
+  ['missing geometry', shape => { delete shape.params.x; }],
+  ['nonfinite geometry', shape => { shape.params.x = 'OVERFLOW'; }],
+  ['malformed points', shape => { shape.type = 'polygon'; shape.params = { points: [{ x: 0, y: 0 }, { x: 1 }, { x: 2, y: 2 }] }; }],
+  ['unsafe ID', shape => { shape.id = 's9007199254740991'; }],
+  ['unsafe z', shape => { shape.zIndex = 1e30; }],
+  ['retained layer without lighting', shape => { shape.params.layers = [{ id: 'bad-layer' }]; }],
+  ['runaway primitive work', shape => { shape.type = 'line'; shape.params = { x1: 0, y1: 0, x2: 1e12, y2: 1e12 }; }],
+])('rejects %s during worker validation before readiness', async (_label, mutate) => {
+  await start(); const original = state.project, packet = project();
+  const shape = { id: 's1', name: null, type: 'point', params: { x: 1, y: 2 }, color: 'red', zIndex: 0, visible: true }; mutate(shape);
+  packet.cells['0,0'] = { name: null, shapes: [shape] }; const job = await create(); await upload(job, JSON.stringify(packet).replace('"OVERFLOW"', '1e309'));
+  let result; await vi.waitFor(async () => { result = (await api('/workbench/imports/' + job.id)).data; expect(['uploading', 'validating']).not.toContain(result.state); }); expect(result.state).toBe('failed'); expect(result.error).toMatch(/shape|geometry|layer|ID|z/i); expect(state.project).toBe(original);
+});
+test('preserves fractional V1 geometry and z, exhausted z, and native snapping through import', async () => {
+  await start(); const packet = project();
+  packet.cells['0,0'] = { name: null, shapes: [
+    { id: 's1', name: 'fractional', type: 'line', params: { x1: 0.4, y1: 0.6, x2: 4.2, y2: 5.8 }, color: 'red', zIndex: 500.25, visible: true },
+    { id: 's2', name: 'exhausted', type: 'point', params: { x: 7.2, y: 1.6 }, color: 'blue', zIndex: Number.MAX_SAFE_INTEGER, visible: true },
+  ] };
+  const canonical = Project.fromJSON(packet), renderer = new CanvasRenderer(canonical.palette);
+  const expected = renderer.renderCellRaw(canonical.cells.getCell('0,0'));
+  const job = await create(); await upload(job, JSON.stringify(packet));
+  let ready; await vi.waitFor(async () => { ready = (await api('/workbench/imports/' + job.id)).data; expect(['uploading', 'validating']).not.toContain(ready.state); });
+  expect(ready.state, ready.error).toBe('ready');
+  expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
+  expect(state.project.toJSON()).toEqual(canonical.toJSON());
+  expect(renderer.renderCellRaw(state.project.cells.getCell('0,0'))).toEqual(expected);
 });

@@ -52,7 +52,11 @@ export class ProjectImportJobs {
       await job.allocation;
       if (this.closed || job.abort.signal.aborted) { await this.cleanup(job); throw fail('Import allocation canceled during shutdown', 503); }
     }
-    catch (error) { this.jobs.delete(job.id); throw error; }
+    catch (error) {
+      if (!job.dir) this.jobs.delete(job.id);
+      else await this.failed(job, error);
+      throw new Error(this.diagnostic(error));
+    }
     return job;
   }
   async cleanup(job) {
@@ -62,13 +66,18 @@ export class ProjectImportJobs {
     await rm(job.dir, { recursive: true, force: true }); job.dir = null;
   }
   async failed(job, error) {
+    const message = this.diagnostic(error);
     await this.releaseFiles(job);
-    if (job.state !== 'canceled') { job.state = 'failed'; job.phase = 'failed'; job.error = String(error.message ?? error).slice(0, 600); }
+    if (job.state !== 'canceled') { job.state = 'failed'; job.phase = 'failed'; job.error = message; }
     job.touched = Date.now(); job.project = null;
   }
   async releaseFiles(job) {
     try { await this.cleanup(job); delete job.cleanupWarning; }
-    catch (error) { job.cleanupWarning = String(error.message).slice(0, 300); }
+    catch (error) { job.cleanupWarning = this.diagnostic(error).slice(0, 300); }
+  }
+  diagnostic(error) {
+    if (error?.code) return `Import storage or worker operation failed (${String(error.code).replace(/[^A-Z0-9_]/g, '').slice(0, 40)})`;
+    return String(error?.message ?? error).replaceAll(this.directory, '[temporary storage]').slice(0, 600);
   }
   async upload(job, input) {
     this.pins(job);
@@ -106,7 +115,7 @@ export class ProjectImportJobs {
     try {
       const result = await new Promise((resolve, reject) => {
         timeout = setTimeout(() => { reject(new Error('Import validation timed out')); }, this.limits.validationTimeoutMs);
-        worker.once('message', resolve); worker.once('error', reject);
+        worker.once('message', resolve); worker.once('error', () => reject(new Error('Import validation worker failed')));
         worker.once('exit', code => reject(new Error(`Import validation worker exited (${code})`)));
       });
       if (job.abort.signal.aborted) return;
@@ -130,7 +139,7 @@ export class ProjectImportJobs {
         this.pins(job);
         job.receipt = activateProjectCopy(this.state, project); job.state = 'complete'; job.phase = 'complete'; job.touched = Date.now(); job.project = null;
         await this.releaseFiles(job); return job.receipt;
-      } catch (error) { await this.failed(job, error); throw error; }
+      } catch (error) { await this.failed(job, error); throw new Error(this.diagnostic(error)); }
     })();
     try { return await job.operation; } finally { job.operation = null; }
   }
@@ -142,7 +151,10 @@ export class ProjectImportJobs {
   }
   async expire() {
     const now = Date.now();
-    for (const [id, job] of this.jobs) if (now - job.touched >= this.limits.expiryMs) { await this.cancel(job); this.jobs.delete(id); }
+    for (const [id, job] of this.jobs) if (now - job.touched >= this.limits.expiryMs) {
+      await this.cancel(job);
+      if (!job.dir) this.jobs.delete(id);
+    }
   }
   async close() {
     this.closed = true; clearInterval(this.timer);

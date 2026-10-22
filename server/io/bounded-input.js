@@ -5,6 +5,7 @@ import { createGunzip } from 'node:zlib';
 import { createHash } from 'node:crypto';
 
 export function byteCounter({ limit, label, onProgress }) {
+  if (!Number.isSafeInteger(limit) || limit < 0) throw new Error(`${label} byte limit must be a nonnegative safe integer`);
   const hash = createHash('sha256'); let bytes = 0, digest;
   const stream = new Transform({ transform(chunk, _encoding, callback) {
     bytes += chunk.length;

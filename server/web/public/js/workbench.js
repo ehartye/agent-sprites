@@ -4,6 +4,7 @@ import { RegionEditor } from './region-editor.js';
 import { ConstructionReplayPanel } from './construction-replay.js';
 import { FrameTimingPanel } from './frame-timing.js';
 import { SurfacePanel } from './surface-panel.js';
+import { ProjectImportController } from './project-import.js';
 export function download(name, data, type = 'application/json') {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type }));
   const link = element('a');
@@ -40,6 +41,7 @@ export class Workbench {
     this.mount.addEventListener('keydown', event => { if (event.key === 'Escape') this.close(); });
   }
   close() {
+    this.cancelImport();
     this.mount.hidden = true;
     this.sequence++;
     this.opener?.focus();
@@ -53,6 +55,7 @@ export class Workbench {
     catch (error) { this.notify(error.message, true); }
   }
   async show(tab) {
+    this.cancelImport();
     if (this.mount.hidden) this.opener = document.activeElement;
     this.mount.hidden = false;
     this.tab = tab;
@@ -90,8 +93,13 @@ export class Workbench {
     this.project = project;
     this.sessionId = sessionId;
     document.getElementById('session-indicator')?.replaceChildren(document.createTextNode(sessionId ? `Shared session · ${sessionId.slice(-8)}` : 'No active session'));
+    if (this.importer?.isActivating()) return;
     if (!this.mount.hidden && (changed || this.tab === 'sessions')) this.show(this.tab);
     else this.refreshProjectPanels();
+  }
+  cancelImport() {
+    const importer = this.importer; this.importer = null;
+    if (importer) void importer.dispose().catch(error => this.notify(error.message, true));
   }
   refreshProjectPanels() {
     this.refreshReplay();
@@ -214,6 +222,7 @@ export class Workbench {
       return;
     }
     if (command.action === 'preview') { this.commandDetail.append(button('Open preview', () => { this.preview(); this.close(); })); return; }
+    if (command.action === 'import') { this.commandDetail.append(button('Choose project file', () => this.show('handoff'))); return; }
     if (command.action === 'batch') { this.renderBatch(this.commandDetail); return; }
     const values = structuredClone(command.body);
     if ('cell' in values) values.cell = this.getCell();
@@ -329,14 +338,30 @@ export class Workbench {
       const atlas = await this.request('/workbench/atlas', undefined, { sessionId });
       download(`${name}.atlas.json`, atlas.data);
     })));
-    const upload = element('input'); upload.type = 'file'; upload.accept = '.json,application/json'; upload.setAttribute('aria-label', 'Import editable project JSON');
+    const upload = element('input'); upload.type = 'file'; upload.accept = '.json,.json.gz,application/json,application/gzip'; upload.setAttribute('aria-label', 'Import editable project JSON or gzip');
+    const importStatus = element('p', 'Choose a .json or .json.gz project.'); importStatus.dataset.importStatus = ''; importStatus.setAttribute('role', 'status');
+    const importProgress = element('progress'); importProgress.hidden = true;
+    const cancelImport = button('Cancel import', () => this.run(() => this.importer?.cancel())); cancelImport.dataset.importCancel = ''; cancelImport.disabled = true;
+    const importSequence = this.sequence;
+    this.importer = new ProjectImportController({ getSessionId: () => this.sessionId,
+      isCurrent: () => importSequence === this.sequence && this.tab === 'handoff' && !this.mount.hidden,
+      onUpdate: status => {
+        if (importSequence !== this.sequence) return;
+        upload.disabled = status.busy; cancelImport.disabled = !status.busy;
+        importProgress.hidden = !status.busy;
+        if (status.state === 'uploading' && status.total) { importProgress.max = status.total; importProgress.value = status.loaded ?? 0; }
+        else importProgress.removeAttribute('value');
+        importStatus.textContent = status.error ?? `${status.phase ?? status.state}${status.loaded !== undefined ? ` · ${status.loaded.toLocaleString()}${status.total ? ` / ${status.total.toLocaleString()}` : ''} bytes` : ''}`;
+        importStatus.classList.toggle('error', status.state === 'failed');
+        if (!status.busy) upload.value = '';
+      },
+      onComplete: receipt => { this.notify(`Imported ${receipt.project_name} as a new session.`); this.refresh(); },
+    });
     upload.addEventListener('change', () => this.run(async () => {
       const file = upload.files[0]; if (!file) return;
-      if (file.size > 64 * 1024 * 1024) throw new Error('Project must be smaller than 64 MB');
-      await this.request('/session/import', { project: JSON.parse(await file.text()) });
-      this.notify(`Imported ${file.name} as a new session.`); this.refresh();
+      await this.importer?.start(file);
     }));
-    this.body.append(actions, element('label', 'Import an editable project'), upload);
+    this.body.append(actions, element('label', 'Import an editable project'), upload, importStatus, importProgress, cancelImport);
     const exportSection = element('section', null, 'surface-section');
     exportSection.append(element('h3', 'Export PNG and atlas on disk'), element('p', 'Write the sheet and atlas to the session export folder, or choose another destination. Auto includes normal assets when the design has authored normals.', 'workbench-hint'));
     const destination = input('export-dest', '', { placeholder: 'Use session export folder' });

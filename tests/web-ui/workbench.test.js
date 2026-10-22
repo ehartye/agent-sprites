@@ -66,6 +66,52 @@ beforeEach(() => {
   bench = new Workbench({ request, getCell: () => '1,2', getColor: () => '#aabbcc', setColor: color, refresh: vi.fn() });
   bench.init();
 });
+test('handoff streams large files, disables duplicate input, and cancels when the drawer closes', async () => {
+  const calls = [], uploads = [];
+  class Upload {
+    constructor() { this.upload = {}; uploads.push(this); }
+    open() {} setRequestHeader() {} send(file) { this.file = file; } abort() { this.onabort?.(); }
+  }
+  vi.stubGlobal('XMLHttpRequest', Upload);
+  vi.stubGlobal('fetch', async (path, options) => { calls.push({ path, ...options }); return { ok: true, json: async () => ({ ok: true, data: { id: 'file-job' } }) }; });
+  try {
+    bench.sessionId = 'pinned'; await bench.show('handoff');
+    const upload = document.querySelector('input[type="file"]');
+    expect(upload.accept).toContain('.json.gz');
+    const file = new File(['x'], 'large.json'); Object.defineProperty(file, 'size', { value: 65 * 1024 * 1024 });
+    file.text = () => { throw new Error('must not buffer'); };
+    Object.defineProperty(upload, 'files', { value: [file] }); upload.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(uploads).toHaveLength(1)); expect(uploads[0].file).toBe(file); expect(upload.disabled).toBe(true);
+    uploads[0].upload.onprogress({ loaded: 1024, total: file.size, lengthComputable: true });
+    expect(document.querySelector('[data-import-status]').textContent).toMatch(/1,024|1024/);
+    expect(document.querySelector('[data-import-cancel]').disabled).toBe(false);
+    bench.close(); await vi.waitFor(() => expect(calls.some(call => call.method === 'DELETE')).toBe(true));
+    expect(request.mock.calls.some(([path]) => path === '/session/import')).toBe(false);
+    expect(bench.refresh).not.toHaveBeenCalled();
+  } finally { vi.unstubAllGlobals(); }
+});
+test('own import broadcast preserves handoff until its receipt arrives, then refreshes actual state', async () => {
+  const calls = [], uploads = [];
+  class Upload {
+    constructor() { this.upload = {}; uploads.push(this); }
+    open() {} setRequestHeader() {} send() {} abort() { this.onabort?.(); }
+  }
+  vi.stubGlobal('XMLHttpRequest', Upload);
+  vi.stubGlobal('fetch', async (path, options) => {
+    calls.push({ path, ...options }); let data = { id: 'own-import', state: options.method === 'GET' ? 'ready' : 'uploading' };
+    if (path.endsWith('/activate')) { bench.setProject({ name: 'Imported' }, 'new-session'); data = { session_id: 'new-session', project_name: 'Imported' }; }
+    return { ok: true, json: async () => ({ ok: true, data }) };
+  });
+  try {
+    bench.sessionId = 'original'; await bench.show('handoff');
+    const upload = document.querySelector('input[type="file"]'), status = document.querySelector('[data-import-status]');
+    Object.defineProperty(upload, 'files', { value: [new File(['x'], 'own.json')] }); upload.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(uploads).toHaveLength(1)); uploads[0].status = 202; uploads[0].onload();
+    await vi.waitFor(() => expect(bench.refresh).toHaveBeenCalledOnce());
+    expect(document.querySelector('[data-import-status]')).toBe(status); expect(status.textContent).toContain('complete');
+    expect(bench.sessionId).toBe('new-session'); expect(calls.some(call => call.method === 'DELETE')).toBe(false);
+  } finally { vi.unstubAllGlobals(); }
+});
 test('renders all palette families together; selecting another palette uses exact hex without renaming existing colors', async () => {
   await bench.show('palettes');
   expect(document.querySelectorAll('.palette-family')).toHaveLength(2);
@@ -95,6 +141,14 @@ test('drawing forms start with the selected cell and literal active color', asyn
   bench.selectCommand('draw rect');
   expect(document.querySelector('[name="cell"]').value).toBe('1,2');
   expect(document.querySelector('[name="color"]').value).toBe('#aabbcc');
+});
+test('the import command opens the streamed file handoff rather than an edit form', async () => {
+  await bench.show('tools');
+  expect(COMMANDS.find(command => command.id === 'import')).toMatchObject({ action: 'import' });
+  bench.selectCommand('import');
+  const open = [...document.querySelectorAll('.command-detail button')].find(button => button.textContent === 'Choose project file');
+  expect(open).toBeDefined(); open.click();
+  await vi.waitFor(() => expect(document.querySelector('input[type="file"]')?.accept).toContain('.json.gz'));
 });
 
 test('layer edit controls use the selected child and the common guarded request workflow',async()=>{

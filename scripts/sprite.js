@@ -259,6 +259,7 @@ SESSION
              positive safe-integer dimensions; no grid policy caps (actual allocation depends on memory/renderer)
              [--dest <folder>]   parent folder for exports (default: <cwd>/assets/claude-sprites)
   open <path>            open saved project file
+  import <path> [--name NAME] [--session ID]  stream JSON or gzip as a new session
   open --session <name|id>  reopen an earlier project from its stored draft
   sessions               list recent projects (id, name, last updated)
   save                   write editable project JSON (drafts already persist automatically)
@@ -630,6 +631,29 @@ async function run() {
         ? await api('POST', '/api/session/open-session', { ref: args.session }, { sessionId: null })
         : await api('POST', '/api/session/open', { path: sub });
       break;
+    case 'import': {
+      if (positional.length !== 1 || Object.keys(args).some(key => !['name', 'session'].includes(key)) || (args.name !== undefined && typeof args.name !== 'string') || (args.session !== undefined && typeof args.session !== 'string')) throw new Error('Usage: agent-sprites import <path.json|path.json.gz> [--name NAME] [--session ID]');
+      const { importProjectFile } = await import('./project-import-client.js');
+      const abort = new AbortController(); const interrupted = () => abort.abort();
+      process.on('SIGINT', interrupted);
+      let lastPhase = '', lastProgress = 0;
+      try {
+        const receipt = await importProjectFile(resolve(sub), { baseUrl: BASE_URL, name: args.name, sessionId: args.session, signal: abort.signal,
+          onProgress: progress => {
+            const now = Date.now(), phase = progress.phase ?? progress.state;
+            if (phase !== lastPhase || now - lastProgress >= 250) {
+              console.error(`${phase}${progress.loaded !== undefined ? ` · ${progress.loaded.toLocaleString()} / ${progress.total.toLocaleString()} bytes` : ''}`);
+              lastPhase = phase; lastProgress = now;
+            }
+          },
+        });
+        console.log(JSON.stringify(receipt, null, 2));
+      } catch (error) {
+        if (!abort.signal.aborted) throw error;
+        console.error('Import canceled.'); process.exitCode = 130;
+      } finally { process.off('SIGINT', interrupted); }
+      return;
+    }
     case 'cast': {
       if (sub === 'start') {
         const spec = JSON.parse(readFileSync(resolve(args.file), 'utf8'));

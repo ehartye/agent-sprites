@@ -18,6 +18,7 @@ const COMPOSITION_SAMPLE = {
 export const COMMANDS = [
   post('new', 'Session', 'New design', '/api/session/new', { name: 'New design', width: 32, height: 48, rows: 1, cols: 4, palette: 'db-32' }),
   post('open', 'Session', 'Open project on disk', '/api/session/open', { path: '' }),
+  { id: 'import', category: 'Session', label: 'Import JSON or gzip project', action: 'import', description: 'Choose an editable .json or .json.gz project. Upload and validate it before opening an independent session.' },
   post('open-session', 'Session', 'Open saved session', '/api/session/open-session', { ref: '' }),
   post('session-copy', 'Session', 'Copy as a new session', '/api/session/copy', { name: 'Design variation' }),
   get('sessions', 'Session', 'List sessions', '/api/session/list'),
