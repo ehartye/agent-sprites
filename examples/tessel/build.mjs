@@ -109,7 +109,13 @@ if(frameContract(atlas)!==frameContract(normal))throw new Error('Normal packing,
 const source=read(join(publish,'project.json'));
 const replay=read(join(publish,'replay.json'));
 const cells=Object.values(source.cells);
-const sources=read(join(dist,'sprite-manifest.json')).build.inputs;
+const sources=read(join(dist,'sprite-manifest.json')).build.inputs.map(input=>{
+  const bytes=readFileSync(resolve(here,input.path));
+  const rawSha256=createHash('sha256').update(bytes).digest('hex');
+  if(rawSha256!==input.sha256||(input.bytes!==undefined&&input.bytes!==bytes.length))throw new Error(`Source input changed after build: ${input.path}`);
+  const text=/\.(?:[cm]?js|json|md|txt|ya?ml|html?|css|svg|ts|pxl)$/i.test(input.path);
+  return {...input,bytes:input.bytes??bytes.length,...(text?{normalizedTextSha256:createHash('sha256').update(bytes.toString('utf8').replace(/\r\n?/g,'\n')).digest('hex')}:{})};
+});
 const walkFiles=(folder,prefix='')=>readdirSync(folder,{withFileTypes:true}).flatMap(item=>item.isDirectory()?walkFiles(join(folder,item.name),`${prefix}${item.name}/`):[`${prefix}${item.name}`]);
 const fileNames=walkFiles(publish).filter(n=>n!=='manifest.json'&&n!=='.gitattributes');
 const integrity=Object.fromEntries(fileNames.map(name=>{const bytes=readFileSync(join(publish,name));return[name,{bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}];}));

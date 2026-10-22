@@ -195,35 +195,51 @@
   "sourceInputs": [
     {
       "path": "sprite-project.json",
-      "sha256": "33b4edb736f1a9a87d7191f46ee8abc2f78122b3370844ddcf3df3917b28b732"
+      "sha256": "33b4edb736f1a9a87d7191f46ee8abc2f78122b3370844ddcf3df3917b28b732",
+      "bytes": 569,
+      "normalizedTextSha256": "33b4edb736f1a9a87d7191f46ee8abc2f78122b3370844ddcf3df3917b28b732"
     },
     {
       "path": "generate.mjs",
-      "sha256": "7787bca867d16d2743c872a1d49bfa3f28dca0d8a16c0d9d2d14579a50b23346"
+      "sha256": "7787bca867d16d2743c872a1d49bfa3f28dca0d8a16c0d9d2d14579a50b23346",
+      "bytes": 8996,
+      "normalizedTextSha256": "7787bca867d16d2743c872a1d49bfa3f28dca0d8a16c0d9d2d14579a50b23346"
     },
     {
       "path": "palette.json",
-      "sha256": "57cf404c64ecad92df6b66023f78e87e0722c7cbd39b6bb584eb882d6898b111"
+      "sha256": "57cf404c64ecad92df6b66023f78e87e0722c7cbd39b6bb584eb882d6898b111",
+      "bytes": 322,
+      "normalizedTextSha256": "57cf404c64ecad92df6b66023f78e87e0722c7cbd39b6bb584eb882d6898b111"
     },
     {
       "path": "poses.mjs",
-      "sha256": "fa1e247c22d849f69cde48beb00ba43bd390e9086d31e0738a051da637a00810"
+      "sha256": "fa1e247c22d849f69cde48beb00ba43bd390e9086d31e0738a051da637a00810",
+      "bytes": 2399,
+      "normalizedTextSha256": "fa1e247c22d849f69cde48beb00ba43bd390e9086d31e0738a051da637a00810"
     },
     {
       "path": "contour.mjs",
-      "sha256": "30ec7334ba582faf8ce963113f47eec5d2564c496bdf1edc67321259a3e70aec"
+      "sha256": "30ec7334ba582faf8ce963113f47eec5d2564c496bdf1edc67321259a3e70aec",
+      "bytes": 2674,
+      "normalizedTextSha256": "30ec7334ba582faf8ce963113f47eec5d2564c496bdf1edc67321259a3e70aec"
     },
     {
       "path": "build.mjs",
-      "sha256": "b09226cac58e17f30acd3528c776bccaf63c7001a5ba31ca2d4555eb3c9fcbbf"
+      "sha256": "10f571358164336c043291c7d70731f7ac3cd790476fd0a4b8cc427a23bd4237",
+      "bytes": 9547,
+      "normalizedTextSha256": "10f571358164336c043291c7d70731f7ac3cd790476fd0a4b8cc427a23bd4237"
     },
     {
       "path": "../../server/web/public/js/shared/raster.js",
-      "sha256": "9f0cf07b0551519e7a7d030a414a37c8d17af9eaec8f95f69ece2b4304275a1b"
+      "sha256": "9f0cf07b0551519e7a7d030a414a37c8d17af9eaec8f95f69ece2b4304275a1b",
+      "bytes": 7974,
+      "normalizedTextSha256": "2347a28f8ad44e1965f03c6dec8c8e895325137cc2980f0eb92a940be5151d17"
     },
     {
       "path": "../../server/web/public/js/shared/patterns.js",
-      "sha256": "5dec22a8ddc75b9e014e2232295f24b3980ec6850d77ab477600153cc6935e5f"
+      "sha256": "5dec22a8ddc75b9e014e2232295f24b3980ec6850d77ab477600153cc6935e5f",
+      "bytes": 926,
+      "normalizedTextSha256": "c53d63572e46e7eaf934b3307f14b66b360c6341aeb0551d0ed8df39240d98a0"
     }
   ],
   "unusedFrames": [],
@@ -949,7 +965,7 @@
     },
     "project.json": {
       "bytes": 3426841,
-      "sha256": "6b60caea9370a2a72a1ed1e21dfd21f8dd4066eac77f69441800060476019cea"
+      "sha256": "693557e2533cdba9189b75ef287fde10268f0be62c9dd18a216ece290a4c7507"
     },
     "proof-input.json": {
       "bytes": 1479,
@@ -961,7 +977,7 @@
     },
     "replay.json": {
       "bytes": 103100,
-      "sha256": "640999049541afaf5c947595d8368f3ec4b24dd985969881bc679f68da0f7edf"
+      "sha256": "1ba2486111394ce2997a42c4092668c25f42a9009ab1aa59b2144a037ecda5e3"
     },
     "sheet.png": {
       "bytes": 62493,

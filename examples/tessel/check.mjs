@@ -23,6 +23,17 @@ for(const [name,identity] of Object.entries(manifest.integrity)){
   assert.equal(bytes.length,identity.bytes,name);
   assert.equal(createHash('sha256').update(bytes).digest('hex'),identity.sha256,name);
 }
+for(const input of manifest.sourceInputs){
+  const bytes=readFileSync(resolve(here,input.path));
+  const rawSha256=createHash('sha256').update(bytes).digest('hex');
+  assert(Number.isSafeInteger(input.bytes)&&input.bytes>=0,`${input.path} captured raw byte count`);
+  if(input.normalizedTextSha256!==undefined){
+    assert.match(input.normalizedTextSha256,/^[0-9a-f]{64}$/);
+    const normalized=createHash('sha256').update(bytes.toString('utf8').replace(/\r\n?/g,'\n')).digest('hex');
+    assert.equal(normalized,input.normalizedTextSha256,`${input.path} normalized text identity`);
+  }else assert.equal(rawSha256,input.sha256,`${input.path} raw binary identity`);
+  if(rawSha256===input.sha256)assert.equal(bytes.length,input.bytes,`${input.path} matching raw byte count`);
+}
 const pixels=async name=>{const image=await loadImage(join(asset,name)),canvas=createCanvas(image.width,image.height),ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);return{width:image.width,height:image.height,data:ctx.getImageData(0,0,image.width,image.height).data};};
 const color=await pixels('sheet.png'),norm=await pixels('normal.png');
 assert.equal(color.width,norm.width);assert.equal(color.height,norm.height);

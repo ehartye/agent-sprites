@@ -101,6 +101,15 @@ that arbitrary RGB lighting remains within GIF's palette limit. Public proof
 reports relocate path strings while preserving input hashes, timing and pixel
 measurements. The published manifest hashes every delivered file other than itself.
 
+Each `sourceInputs` record preserves the build's raw `sha256` and `bytes` as
+captured source evidence. Text inputs also include `normalizedTextSha256`: the
+SHA-256 of UTF-8 text after CRLF and lone CR line endings become LF. A checkout
+may have different raw bytes because Git checks text out with platform-specific
+line endings. Verify its normalized text identity when the raw hash differs;
+do not rewrite the captured raw evidence or normalize binary artifacts. The
+normalization applies only to source identity verification. Exported artifact
+and proof input hashes continue to identify exact bytes.
+
 `check.mjs` verifies delivered bytes and proof input hashes, all tag timing and
 loop policies, border clearance, names, six retained paddles and one lamp per cell,
 paired alpha, and mirrored normal handedness. Mirrored encoded normal directions
