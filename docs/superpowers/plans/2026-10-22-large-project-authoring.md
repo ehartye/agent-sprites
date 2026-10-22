@@ -12,24 +12,30 @@
 
 **Files:** `server/web/public/js/cell-nav.js`, new focused scheduler/cache module if needed, `tests/web-ui/cell-nav.test.js`, new cache tests if separated. Avoid HTTP/model changes in this milestone.
 
-- [ ] Write a failing behavioral test that rendering forty thumbnail shells with a controlled viewport does not rasterize all forty cells. Use a controllable IntersectionObserver/scheduler at the boundary while retaining the real cell drawing path.
-- [ ] Run the focused test and confirm failure is eager rendering, not missing DOM setup.
-- [ ] Implement viewport observation, bounded scheduled work and active-frame priority. Cancel jobs for an obsolete strip. Preserve fitting/names/selection.
-- [ ] Add failing tests for unchanged-filter reuse, changed-cell invalidation, offscreen refresh, palette/background/dimension invalidation and LRU capacity. Implement only the necessary cache/lifecycle behavior.
-- [ ] Verify fallback behavior without IntersectionObserver and ensure its work is bounded; adjust existing synchronous pixel tests to explicitly flush scheduled visible work.
-- [ ] Run `node node_modules/vitest/vitest.mjs run tests/web-ui/cell-nav.test.js tests/web-ui/animation.test.js tests/web-ui/preview-sequences.test.js --maxWorkers=2` and syntax/diff checks.
-- [ ] Independently review spec, then quality. Commit only the milestone's owned source/tests after fixes. Root performs actual browser timing against the original forty-frame fixture before final delivery.
+- [x] Write a failing behavioral test that rendering forty thumbnail shells with a controlled viewport does not rasterize all forty cells. Use a controllable IntersectionObserver/scheduler at the boundary while retaining the real cell drawing path.
+- [x] Run the focused test and confirm failure is eager rendering, not missing DOM setup.
+- [x] Implement viewport observation, bounded scheduled work and active-frame priority. Cancel jobs for an obsolete strip. Preserve fitting/names/selection.
+- [x] Add failing tests for unchanged-filter reuse, changed-cell invalidation, offscreen refresh, palette/background/dimension invalidation and LRU capacity. Implement only the necessary cache/lifecycle behavior.
+- [x] Verify fallback behavior without IntersectionObserver and ensure its work is bounded; adjust existing synchronous pixel tests to explicitly flush scheduled visible work.
+- [x] Run `node node_modules/vitest/vitest.mjs run tests/web-ui/cell-nav.test.js tests/web-ui/animation.test.js tests/web-ui/preview-sequences.test.js --maxWorkers=2` and syntax/diff checks.
+- [x] Independently review spec, then quality. Commit only the milestone's owned source/tests after fixes. Root performs actual browser timing against the original forty-frame fixture before final delivery.
+
+Milestone 1 passed independent spec and quality review, including repeated frame occurrences and stable wrapper identities. The initial real forty-frame check rendered only the fifteen visible thumbnails; unchanged filters and repeated scrolls reused cached output. Final integrated measurements remain below because main-thread native raster cost is still visible.
 
 ## Milestone 2: owned file import and generated input
 
-- [ ] Map existing activation, persistence, loopback/origin checks, CLI build inputs and API tests before selecting exact helper boundaries. Keep new job lifecycle and stream helpers separate from route wiring.
-- [ ] Write/run failing real-request tests for direct streamed JSON above 64 MiB, compressed/uncompressed byte limits, malformed data and unchanged original session on failure.
-- [ ] Implement owned job upload/storage, worker validation, status/progress and cancellation/cleanup. Add explicit session-change/worker-failure rollback tests before activation wiring.
-- [ ] Replace the browser's complete-file parse/request with direct upload and visible progress/cancel states. Preserve the legacy JSON import endpoint.
+- [x] Map existing activation, persistence, loopback/origin checks, CLI build inputs and API tests before selecting exact helper boundaries. Keep new job lifecycle and stream helpers separate from route wiring.
+- [x] Write/run failing real-request tests for direct streamed JSON above 64 MiB, compressed/uncompressed byte limits, malformed data and unchanged original session on failure.
+- [x] Implement owned job upload/storage, worker validation, status/progress and cancellation/cleanup. Add explicit session-change/worker-failure rollback tests before activation wiring.
+- [x] Replace the browser's complete-file parse/request with direct upload and visible progress/cancel states. Preserve the legacy JSON import endpoint.
 - [ ] Write/run failing generator tests for stdout above 8 MiB, bounded stderr and cancellation; implement spawn/stream-to-owned-file while preserving report parsing, existing work budgets and provenance.
 - [ ] Add progressive project summary and bounded frame retrieval tests, including session/revision races and response limits; wire new opt-in browser protocol and bounded frame cache.
 - [ ] Exercise selection, edits, undo, onion skin, tags, construction review and session switching with sparse frame data. Add behavior tests at actual integration boundaries.
 - [ ] Independent spec/quality review and milestone commit after focused gates pass.
+
+The file-import slice passed independent spec and quality review. Its broad regression gate passed 775 tests across 47 files. Browser checks exercised File upload without File.text(), validation, activation and cancellation. Whole-model worker parsing and hydration remain explicit limitations until compact storage is integrated.
+
+Implementation order for the remaining slices is generator spooling, progressive server protocol, shared codec/persistence, then progressive browser caches and asynchronous native preview work. Defining transport before the codec and wiring the browser afterward avoids building a temporary full-graph client path. Each slice retains independent spec and quality review; the final integration gate still covers all three approved outcomes together.
 
 ## Milestone 3: shared geometry and integrated delivery
 
