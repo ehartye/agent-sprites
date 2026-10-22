@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "canvas": {
+    "w": 160,
+    "h": 112
+  },
+  "scale": 2,
+  "matte": "#ecdab9",
+  "tracks": [
+    {
+      "name": "little_morning",
+      "atlas": "atlas.json",
+      "tag": "little_morning",
+      "x": 0,
+      "y": 0,
+      "anchor": "pivot"
+    }
+  ]
+}
