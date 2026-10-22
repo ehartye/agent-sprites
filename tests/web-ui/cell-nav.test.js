@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CellNavigator } from '../../server/web/public/js/cell-nav.js';
+import { cellsForView } from '../../server/web/public/js/view-visibility.js';
 
 describe('CellNavigator (browser)', () => {
   let nav;
@@ -94,6 +95,41 @@ describe('CellNavigator (browser)', () => {
     expect(document.querySelector('[data-ref="0,2"] .label').textContent).toBe('updated');
     leave('0,1'); enter('0,1', '0,2'); vi.runAllTimers();
     expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0', '0,2']);
+  });
+
+  for (const visibility of [{ trace: false }, { reference: false }, { trace: false, reference: false }]) {
+    it(`preserves unchanged visible and offscreen caches through view wrappers ${JSON.stringify(visibility)}`, () => {
+      const data = cells(3);
+      for (const cell of Object.values(data)) cell.shapes.push({ type: 'point', params: { x: 0, y: 0 }, color: '#ff0000', zIndex: 0 });
+      nav.setGrid(1, 3); nav.setCells(cellsForView(data, visibility)); nav.render(); flush();
+      leave('0,2');
+      const paint = vi.spyOn(nav, '_renderThumb');
+      data['0,0'].shapes[0].params.x = 1;
+      nav.setCells(cellsForView(data, visibility)); nav.refresh(['0,0']); vi.runAllTimers();
+      expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0']);
+      enter('0,2'); vi.runAllTimers();
+      expect(paint.mock.calls.map(call => call[1])).toEqual(['0,0']);
+    });
+  }
+
+  it('invalidates changed effective shapes, order and lighting independently of wrapper metadata', () => {
+    const point = color => ({ type: 'point', params: { x: 0, y: 0 }, color, zIndex: 0 });
+    const data = { '0,0': { name: 'original', shapes: [point('#ff0000'), point('#00ff00')] } };
+    nav.setGrid(1, 1); nav.setCells(cellsForView(data, { reference: false })); nav.render(); flush();
+    const paint = vi.spyOn(nav, '_renderThumb');
+    data['0,0'].name = 'renamed';
+    nav.setCells(cellsForView(data, { reference: false })); nav.render(); vi.runAllTimers();
+    expect(paint).not.toHaveBeenCalled();
+    expect(document.querySelector('.label').textContent).toBe('renamed');
+    data['0,0'].shapes.reverse();
+    nav.setCells(cellsForView(data, { reference: false })); vi.runAllTimers();
+    expect(paint).toHaveBeenCalledTimes(1);
+    data['0,0'].shapes[0] = point('#0000ff');
+    nav.setCells(cellsForView(data, { reference: false })); vi.runAllTimers();
+    expect(paint).toHaveBeenCalledTimes(2);
+    data['0,0'].lighting = { palettePolicy: 'rgb', ambient: 0.4 };
+    nav.setCells(cellsForView(data, { reference: false })); vi.runAllTimers();
+    expect(paint).toHaveBeenCalledTimes(3);
   });
 
   for (const [name, same, change] of [

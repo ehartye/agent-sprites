@@ -68,10 +68,23 @@ export class CellNavigator {
   setCells(cells) {
     this._cells = cells || {};
     this._cancelWork();
-    for (const [ref, cell] of this._cellIdentities) {
-      if (this._cells[ref] !== cell) this._invalidateRef(ref);
+    const identities = new Map();
+    for (const [ref, cell] of Object.entries(this._cells)) {
+      const previous = this._cellIdentities.get(ref);
+      const shapes = Array.isArray(cell?.shapes) ? cell.shapes : null;
+      const unchanged = previous && previous.lighting === cell?.lighting &&
+        (previous.shapes === null ? shapes === null : shapes !== null && previous.shapes.length === shapes.length &&
+          previous.shapes.every((shape, i) => shape === shapes[i]));
+      if (unchanged) identities.set(ref, previous);
+      else {
+        this._invalidateRef(ref);
+        // View filtering creates fresh cell/array wrappers. Only ordered shape
+        // identities and lighting affect pixels; in-place edits use refresh().
+        identities.set(ref, { shapes: shapes ? [...shapes] : null, lighting: cell?.lighting });
+      }
     }
-    this._cellIdentities = new Map(Object.entries(this._cells));
+    for (const ref of this._cellIdentities.keys()) if (!identities.has(ref)) this._invalidateRef(ref);
+    this._cellIdentities = identities;
     this._schedule();
   }
 
