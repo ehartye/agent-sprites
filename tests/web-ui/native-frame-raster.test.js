@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createCanvas } from 'canvas';
 import { renderCellNative } from '../../server/web/public/js/cell-raster.js';
 import { CORPUS, CELL } from './raster-corpus.js';
-import { NativeRasterService, rasterNativeFrame } from '../../server/web/public/js/native-frame-raster.js';
+import { NativeRasterService, rasterNativeFrame, nativeFrameKey } from '../../server/web/public/js/native-frame-raster.js';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 const pixels = image => [...image.getContext('2d').getImageData(0, 0, image.width, image.height).data];
@@ -235,6 +235,25 @@ describe('bounded shared native frame service', () => {
     a.request(task); vi.runAllTimers(); task.cell.shapes[0].color = 'unknown'; a.invalidate(task);
     b.request({ ...task, fallbackColor: 'x'.repeat(2000) }, { onMissing: missing });
     expect(missing).toHaveBeenCalledWith('0,0', 'oversize'); expect(service.stats.queuedBytes).toBe(0); a.dispose(); b.dispose();
+  });
+
+  it('notifies live consumers after invalidation is coherent and permits a reentrant replacement request', () => {
+    vi.useFakeTimers();
+    const wire = transport(), service = new NativeRasterService({ workerFactory: wire.factory }), task = descriptor(), ready = vi.fn(), events = [];
+    const a = service.createConsumer(), b = service.createConsumer({ onInvalidate: event => {
+      events.push(event); expect(b.peek(task)).toBeNull(); b.request(task, { onReady: ready });
+    } });
+    a.request(task); vi.runAllTimers(); const old = wire.finish(); b.peek(task).release();
+    task.cell.shapes[0].params.x = 1; a.invalidate(task); expect(events).toEqual([{ key: nativeFrameKey(task), ref: '0,0' }]); expect(old.width).toBe(0);
+    vi.runAllTimers(); const next = wire.workers[0].postMessage.mock.calls.at(-1)[0].task; wire.finish(rasterNativeFrame(next, createCanvas)); expect(ready).toHaveBeenCalledOnce();
+    b.dispose(); a.invalidate(task); expect(events).toHaveLength(1); a.dispose();
+  });
+
+  it.each(['dispose', 'project switch'])('skips an invalidation listener made stale by a preceding callback: %s', action => {
+    const service = new NativeRasterService(), notified = vi.fn();
+    const a = service.createConsumer({ onInvalidate: () => { if (action === 'dispose') b.dispose(); else b.setProject('other'); } });
+    const b = service.createConsumer({ onInvalidate: notified }); a.setProject('project'); b.setProject('project');
+    a.invalidate(descriptor()); expect(notified).not.toHaveBeenCalled(); a.dispose(); b.dispose();
   });
 
   it('registers cache-only consumers before releasing another project owner', () => {

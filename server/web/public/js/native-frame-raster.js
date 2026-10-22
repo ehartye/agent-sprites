@@ -66,8 +66,8 @@ export class NativeRasterService {
   get stats() { return { queued: this._queue.length, queuedBytes: this._queue.reduce((n, job) => n + job.bytes, 0), inFlight: this._running ? 1 : 0, entries: this._cache.size, bytes: this._bytes }; }
   canRetainFrames(count, width, height) { return count <= this._maxEntries && count * width * height * 4 <= this._maxBytes; }
 
-  createConsumer({ onAvailable } = {}) {
-    const owner = { project: null, subscriptions: new Set(), disposed: false, onAvailable, capacityBlocked: false };
+  createConsumer({ onAvailable, onInvalidate } = {}) {
+    const owner = { project: null, subscriptions: new Set(), disposed: false, onAvailable, onInvalidate, capacityBlocked: false };
     this._consumers.add(owner);
     return {
       // onReady borrows synchronously; the service releases in finally. peek
@@ -160,7 +160,7 @@ export class NativeRasterService {
     if (reason) for (const sub of subscribers) { if (reason === 'capacity') sub.owner.capacityBlocked = true; sub.onMissing?.(job.task.ref, reason); }
   }
   _invalidate(task) {
-    const key = nativeFrameKey(task);
+    const key = nativeFrameKey(task), ref = task.ref, project = task.projectId ?? 'legacy';
     if (!key) return;
     for (const candidate of this._cache.keys()) if (candidate === key || candidate.startsWith(key + '|fallback:')) this._evict(candidate);
     for (const [candidate, job] of [...this._jobs]) if (candidate === key || candidate.startsWith(key + '|fallback:')) {
@@ -178,6 +178,11 @@ export class NativeRasterService {
     while (this.stats.queuedBytes > this._maxQueueBytes) {
       const worst = [...this._queue].sort((a, b) => b.priority - a.priority || b.id - a.id)[0];
       this._drop(worst, 'capacity');
+    }
+    // Consumers may request replacements or cancel subscriptions here; the
+    // cache, refreshed jobs and byte accounting are coherent before notifying.
+    for (const owner of [...this._consumers]) if (!owner.disposed && owner.project === project) {
+      owner.onInvalidate?.({ key, ref });
     }
   }
   _evict(key) {

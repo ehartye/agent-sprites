@@ -255,6 +255,49 @@ describe('asynchronous shared native consumers', () => {
     if (state === 'cold preparation') { vi.advanceTimersByTime(50); expect(ap._currentFrame).toBe(1); }
     ap.destroy(); nav.destroy();
   });
+
+  it.each(['mid preparation', 'already playing'])('restarts readiness for explicit in-place invalidation of a warmed legacy frame while %s', state => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 }), nav = new CellNavigator({ rasterService: service });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] }, '0,2': { shapes: [shape('#0f0')] } };
+    ap.init(); ap.setCellSize(4); ap.setCells(cells); ap.setFrames(['0,0', '0,1', '0,2'], { durations: [50, 50, 50], loop: false }); ap.play();
+    nav.setGrid(1, 3, 4); nav.setCells(cells); nav.setFilter(['0,1']); vi.runAllTimers();
+    complete('#f00'); vi.runAllTimers(); complete('#00f'); vi.runAllTimers();
+    if (state === 'already playing') { complete('#0f0'); vi.advanceTimersByTime(25); }
+    cells['0,1'].shapes[0].color = '#fff'; nav.refresh(['0,1']); ap.setCells(cells);
+    expect(ap._preparing).not.toBeNull(); expect(ap._playbackStart).toBeNull();
+    if (state === 'mid preparation') { complete('#0f0'); expect(ap._preparing).not.toBeNull(); expect(ap._playbackStart).toBeNull(); }
+    vi.runOnlyPendingTimers(); expect(workers[0].postMessage.mock.calls.at(-1)[0].task.ref).toBe('0,1'); complete('#fff');
+    expect(ap._preparing).toBeNull(); vi.advanceTimersByTime(50); expect(pixel(ap)).toEqual([255, 255, 255, 255]);
+    vi.advanceTimersByTime(100); expect(ap._playing).toBe(false); ap.destroy(); nav.destroy();
+  });
+
+  it.each(['mid preparation', 'already playing'])('ignores invalidation of unrelated native refs and contexts while %s', state => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 }), other = service.createConsumer();
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } };
+    ap.init(); ap.setCellSize(4); ap.setCells(cells); ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); vi.runAllTimers(); complete('#f00');
+    other.setProject();
+    if (state === 'already playing') { vi.runAllTimers(); complete('#00f'); vi.advanceTimersByTime(25); }
+    else other.request({ ref: 'later', cellVersion: 1, width: 4, height: 4, cell: { shapes: [] } }, { priority: 0 });
+    const prep = ap._preparing, start = ap._playbackStart, task = ap._nativeTask('0,1');
+    for (const context of [{ ref: '0,2' }, { viewKey: 'other' }, { channel: 'normal' }, { width: 8 }, { cellVersion: 2 }, { palette: { ink: '#fff' } }, { background: { mode: 'chroma', color: '#fff' } }, { projectId: 'other' }]) other.invalidate({ ...task, ...context });
+    expect(ap._preparing).toBe(prep); expect(ap._playbackStart).toBe(start);
+    if (state === 'mid preparation') { vi.runOnlyPendingTimers(); const next = workers[0].postMessage.mock.calls.at(-1)[0]; expect(next.task.ref).toBe('0,1'); expect(next.id).toBe(2); }
+    else { vi.advanceTimersByTime(25); expect(ap._currentFrame).toBe(1); }
+    ap.destroy(); other.dispose();
+  });
+
+  it('keeps cache-pressure preparation finite after one current-frame retry', () => {
+    const { service, workers, complete } = setup({ maxEntries: 2 }), ap = new AnimationPreview({ rasterService: service, size: 4 }), other = service.createConsumer();
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } };
+    const foreign = { ref: 'foreign', cellVersion: 1, width: 4, height: 4, cell: { shapes: [] } };
+    ap.init(); ap.setCellSize(4); ap.setCells(cells); ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    other.request(foreign, { priority: 0 }); complete('#f00'); vi.runAllTimers();
+    expect(workers[0].postMessage.mock.calls.at(-1)[0].task.ref).toBe('foreign'); complete('#0f0'); vi.runAllTimers(); complete('#00f');
+    expect(ap._preparing).not.toBeNull(); const lease = other.peek(foreign); expect(lease).not.toBeNull(); lease.release();
+    other.invalidate({ ...foreign, viewKey: 'unrelated' }); vi.runAllTimers(); complete('#f00');
+    expect(ap._preparing).toBeNull(); expect(ap._playing).toBe(true); expect(workers[0].postMessage).toHaveBeenCalledTimes(4); expect(ap._native.peek(ap._nativeTask('0,1'))).toBeNull();
+    vi.advanceTimersByTime(50); expect(ap._canvas.dataset.state).toBe('loading'); expect(ap._preparing).toBeNull(); vi.advanceTimersByTime(50); expect(ap._playing).toBe(false); ap.destroy(); other.dispose();
+  });
 });
 
 describe('selected editor one-frame native reuse', () => {

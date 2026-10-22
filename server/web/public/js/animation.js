@@ -14,6 +14,11 @@ export class AnimationPreview {
     this._rasterService = opts.rasterService ?? nativeRasterService;
     this._native = this._rasterService.createConsumer({ onAvailable: () => {
       if (this._canvas && !this._destroyed) { this._renderFrame(); this._continuePreparation(); }
+    }, onInvalidate: ({ key, ref }) => {
+      const inputs = this._preparing ?? this._preparedInputs;
+      if (this._playing && !this._destroyed && inputs?.refs.some((input, index) => input === ref && inputs.keys[index] === key)) {
+        this._beginPreparation({ retainPending: true });
+      }
     } });
     this._rasterContext = {};
     this._pendingNative = new Map();
@@ -442,8 +447,8 @@ export class AnimationPreview {
     }
   }
 
-  _beginPreparation() {
-    this._cancelPreparation();
+  _beginPreparation({ retainPending = false } = {}) {
+    if (!retainPending) this._cancelPreparation();
     this._stopInterval(); this._playbackStart = null;
     const refs = [...new Set(this._frames)];
     const full = this._rasterService.canRetainFrames(refs.length, this._cellW, this._cellH);
