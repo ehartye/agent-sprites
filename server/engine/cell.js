@@ -283,7 +283,7 @@ export class Cell {
   toJSON() {
     return {
       name: this.name,
-      reference: this.reference,
+      reference: structuredClone(this.reference),
       shapes: this.shapes.toJSON(),
       ...(this.lighting === undefined ? {} : { lighting: structuredClone(this.lighting) }),
     };

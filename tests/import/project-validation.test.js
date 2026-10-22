@@ -1,5 +1,6 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { Project } from '../../server/engine/project.js';
+import { Shape } from '../../server/engine/shape.js';
 import { validateImportedProject } from '../../server/import/project-validation.js';
 import { translateParams } from '../../server/web/public/js/shared/shape-layers.js';
 import { snapParams } from '../../server/web/public/js/shared/raster.js';
@@ -36,4 +37,17 @@ test('checks the rendered local rectangle endpoint rather than an unused global 
   const local = snapParams(translateParams(params, -params.layers[0].x, 0));
   expect(Number.isSafeInteger(local.x + local.w)).toBe(true);
   expect(() => validateImportedProject(packet('rect', params), limits)).not.toThrow();
+});
+
+test.each([1, 2])('rejects a coerced non-string primitive in imported V%s before shape allocation', version => {
+  const data = packet(['point'], { x: 1, y: 1 });
+  if (version === 2) {
+    data.version = 2; data.geometry = { g0: { type: ['point'], params: { x: 1, y: 1 } } };
+    data.cells['0,0'].shapes = data.cells['0,0'].shapes.map(({ type, params, ...instance }) => ({ ...instance, geometryRef: 'g0' }));
+  }
+  const allocation = vi.spyOn(Shape, 'fromJSON');
+  try {
+    expect(() => validateImportedProject(data, limits)).toThrow(/shape.*type|geometry.*type/i);
+    expect(allocation).not.toHaveBeenCalled();
+  } finally { allocation.mockRestore(); }
 });

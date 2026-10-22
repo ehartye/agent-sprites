@@ -69,7 +69,7 @@ function validateRasterShapes(shapes, width, height) {
 }
 
 function validateShapeGeometry(type, params) {
-  if (!Object.hasOwn(geometry, type) || !map(params)) throw new Error('Invalid shape type or geometry');
+  if (typeof type !== 'string' || !Object.hasOwn(geometry, type) || !map(params)) throw new Error('Invalid shape type or geometry');
   validateGeometry(type, params, finiteGeometry, 'geometry');
   for (const key of ['w', 'h', 'r', 'rx', 'ry']) if (key in params && params[key] < 0) throw new Error('Invalid negative shape geometry');
   for (const key of ['erase', 'filled']) if (key in params && typeof params[key] !== 'boolean') throw new Error(`Invalid shape ${key}`);

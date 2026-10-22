@@ -69,19 +69,19 @@ export class Project {
       cellWidth: this.cellWidth,
       cellHeight: this.cellHeight,
       grid: { rows: this.cells.rows, cols: this.cells.cols },
-      background: this.background,
-      pivot: this.pivot,
+      background: structuredClone(this.background),
+      pivot: structuredClone(this.pivot),
       palette: this.palette.toJSON(),
       cells,
       ...(geometry ? { geometry } : {}),
       groups: canonicalGroups(this.cells,this.groups.toJSON()),
-      animationFps: this.animationFps,
+      animationFps: structuredClone(this.animationFps),
       // Omitted when empty so existing project files stay byte-identical.
-      ...(Object.keys(this.animationDirections).length ? { animationDirections: this.animationDirections } : {}),
+      ...(Object.keys(this.animationDirections).length ? { animationDirections: structuredClone(this.animationDirections) } : {}),
       ...(Object.keys(this.frameDurations).length ? { frameDurations: { ...this.frameDurations } } : {}),
       ...(Object.keys(this.animationLoops).length ? { animationLoops: { ...this.animationLoops } } : {}),
-      shapeGroups: this.shapeGroups,
-      ...(this.review ? { review: this.review } : {}),
+      shapeGroups: structuredClone(this.shapeGroups),
+      ...(this.review ? { review: structuredClone(this.review) } : {}),
       ...(this.constructionReplay ? { constructionReplay: structuredClone(this.constructionReplay) } : {}),
     };
   }
@@ -95,7 +95,7 @@ export class Project {
       const cell = this.cells.getCell(`${row},${col}`), shapes = cell.shapes.listByZ();
       if (!shapes.length && !cell.name && cell.lighting === undefined && !cell.reference) continue;
       cells[`${row},${col}`] = {
-        name: cell.name, reference: cell.reference,
+        name: cell.name, reference: structuredClone(cell.reference),
         shapes: shapes.map(shape => {
           if (!isSharedParams(shape.params)) validateProjectJSON(shape.params);
           const key = geometryKey(shape.type, shape.params);

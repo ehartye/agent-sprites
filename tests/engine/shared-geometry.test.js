@@ -59,6 +59,28 @@ test('shared encoder walks live instances without expanded serializers or repeat
   expect(first(project).params).toBe(params);
 });
 
+const metadataMutations = [
+  ['background', snapshot => { snapshot.background.color = '#ffffff'; }],
+  ['pivot', snapshot => { snapshot.pivot.x = 0; }],
+  ['animation FPS', snapshot => { snapshot.animationFps.__proto__ = 24; }],
+  ['animation direction', snapshot => { snapshot.animationDirections.__proto__ = 'reverse'; }],
+  ['shape groups', snapshot => { snapshot.shapeGroups.start.__proto__.push('eye'); }],
+  ['review', snapshot => { snapshot.review.notes[0] = 'changed'; }],
+  ['reference', snapshot => { snapshot.cells['0,0'].reference.opacity = 1; }],
+];
+test.each(['toJSON', 'toSharedJSON'].flatMap(codec => metadataMutations.map(([field, mutate]) => [codec, field, mutate])))('%s snapshots detach mutable %s metadata', (codec, _, mutate) => {
+  const project = shared();
+  project.background = { mode: 'chroma', color: '#112233' }; project.pivot = { x: 4, y: 7 };
+  project.animationFps = own([['__proto__', 12]]);
+  project.animationDirections = own([['__proto__', 'pingpong']]);
+  project.shapeGroups = { start: own([['__proto__', ['body']]]), orphan: { old: ['body'] } };
+  project.review = { notes: ['inspect'] };
+  const before = structuredClone(project.toJSON()), snapshot = project[codec](), other = project[codec]();
+  mutate(snapshot);
+  expect(project.toJSON()).toEqual(before);
+  expect(project[codec]()).toEqual(other);
+});
+
 test.each([['direct V2', () => Project.fromJSON(v2())], ['explicit V1', shared]])('%s hydrates one detached deeply frozen parameter tree per unique geometry', (_, load) => {
   const project = load(), a = first(project), b = second(project);
   expect(project.storageVersion).toBe(2);
@@ -163,6 +185,7 @@ test.each([
   ['invalid dictionary key', d => { d.geometry.bad = d.geometry.g0; }, /geometry.*key/i],
   ['unknown dictionary field', d => { d.geometry.g0.extra = true; }, /geometry.*field/i],
   ['unsupported primitive', d => { d.geometry.g0.type = 'script'; }, /shape.*type|geometry.*type/i],
+  ['non-string primitive', d => { d.geometry.g0.type = ['polygon']; }, /shape.*type|geometry.*type/i],
   ['dangling reference', d => { d.cells['0,1'].shapes[0].geometryRef = 'g9'; }, /geometry.*ref/i],
   ['inherited reference', d => { d.cells['0,1'].shapes[0].geometryRef = 'constructor'; }, /geometry.*ref/i],
   ['expanded instance', d => { d.cells['0,1'].shapes[0].params = {}; }, /instance.*field/i],
