@@ -20,19 +20,29 @@ export class ProjectFrames {
       this.generation++; this.inflight?.controller.abort(); this.inflight = null;
       this.entries.clear(); this.pending.clear(); this.errors.clear(); this.attempts.clear(); this.bytes = 0;
     }
-    const previous = this.project;
     this.metadata = summary.cells;
     this.project = { ...summary, cells: { ...summary.cells } };
     for (const [ref, entry] of this.entries) {
       if (entry.version !== summary.cellVersions[ref]) this._evict(ref);
       else this.project.cells[ref] = entry.cell;
     }
-    for (const ref of new Set([...this.errors.keys(), ...this.attempts.keys()])) if (previous?.cellVersions[ref] !== summary.cellVersions[ref]) { this.errors.delete(ref); this.attempts.delete(ref); }
     this.onChange(this.project);
     if (this.selected) this.demand(this.selected, 'selected');
     this._schedule(); return true;
   }
-  select(ref) { this.selected = ref; this.demand(ref, 'selected'); }
+  select(ref, { retry = false } = {}) {
+    this.selected = ref;
+    // Packet-driven selection and moving versions belong to the same logical
+    // demand. Only an explicit user retry starts a fresh conflict budget.
+    if (retry && this.errors.has(ref)) {
+      this.errors.delete(ref); this.attempts.delete(ref);
+      if (this.inflight?.refs.includes(ref)) {
+        const old = this.inflight; old.controller.abort(); this.inflight = null;
+        for (const item of old.refs) if (item !== ref && !this.entries.has(item) && !this.errors.has(item)) this._enqueue(item, priority.visible);
+      }
+    }
+    this.demand(ref, 'selected');
+  }
   status(ref) {
     if (this.errors.has(ref)) return { state: 'error', error: this.errors.get(ref) };
     return { state: Array.isArray(this.project?.cells[ref]?.shapes) ? 'ready' : 'loading' };
@@ -110,6 +120,7 @@ export class ProjectFrames {
           this.entries.set(ref, { cell, groups, version: data.cellVersions[ref], bytes: size }); this.bytes += size;
           this.project.cells[ref] = cell;
         }
+        this.attempts.delete(ref);
       }
       while (this.entries.size > this.maxEntries || this.bytes > this.maxBytes) {
         const ref = [...this.entries.keys()].find(ref => ref !== this.selected);

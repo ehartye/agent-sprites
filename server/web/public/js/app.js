@@ -230,13 +230,24 @@ function init() {
     },
     onDelete: (name, { allCells }) => {
       if (allCells) {
-        // Delete in every cell that has it
-        // Enqueue every captured target now; the shared lane advances pins and
-        // rejects remaining old-session intent if the project changes midqueue.
-        const requests = Object.entries(state.allShapeGroups || {})
+        const targets = Object.entries(state.allShapeGroups || {})
           .filter(([_, groups]) => Object.hasOwn(groups, name))
-          .map(([cell]) => apiPost('/api/group/shape/delete', { cell, name }));
-        Promise.all(requests).then(refreshShapeGroups);
+          .map(([cell]) => cell);
+        // One owned intent paces arbitrarily many metadata targets through the
+        // existing lane. Never adopt a replacement project between targets.
+        return workbench.run(() => mutations.enqueue(async pins => {
+          const { sessionId, projectId } = pins;
+          const assertCurrent = () => {
+            if (frames.pins.sessionId !== sessionId || frames.pins.projectId !== projectId) throw new Error('The active project changed. Remaining group deletions were not sent.');
+          };
+          for (const cell of targets) {
+            assertCurrent();
+            await rawRequest('/group/shape/delete', { cell, name }, pins);
+            await refreshProject();
+            assertCurrent(); pins = frames.pins;
+          }
+          refreshShapeGroups();
+        }));
       } else {
         apiPost('/api/group/shape/delete', { cell: state.activeCell, name })
           .then(refreshShapeGroups);
@@ -245,7 +256,7 @@ function init() {
   });
 
   cellNav.init({
-    onSelect: (ref) => selectCell(ref),
+    onSelect: (ref) => selectCell(ref, { retry: true }),
   });
 
   editor.onPixelClick((x, y) => { if (editable()) tools.handleClick(x, y); });
@@ -418,10 +429,10 @@ function setCellData(ref, data) {
   state.project.cells[ref] = data;
 }
 
-function selectCell(ref) {
+function selectCell(ref, { retry = false } = {}) {
   const switched = state.activeCell !== ref;
   state.activeCell = ref;
-  frames.select(ref);
+  frames.select(ref, { retry });
   const cell = viewCell(ref);
   const ready = Array.isArray(cell?.shapes);
   const input = ready ? cell : null;

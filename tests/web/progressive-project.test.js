@@ -148,6 +148,34 @@ describe('progressive project protocol', () => {
     } finally { client._ws.onclose = null; client._ws.terminate(); vi.unstubAllGlobals(); }
   });
 
+  test('an unrelated real WS error cannot settle a pending owned mutation receipt', async () => {
+    vi.stubGlobal('WebSocket', WebSocket); vi.stubGlobal('document', { getElementById: () => null });
+    const client = new WebSocketClient(); let current, releaseReceipt, settled = false;
+    client.on('project_summary', data => { current = data; });
+    const unrelated = vi.fn(); client.on('error', unrelated);
+    client.connect(`${base.replace('http:', 'ws:')}/?project=progressive-v1`); sockets.push(client._ws);
+    let hold;
+    try {
+      await vi.waitFor(() => expect(current).toBeDefined());
+      const peer = [...server.wss.clients][0], send = peer.send.bind(peer);
+      // Delay delivery only; the request, mutation, notifications and eventual
+      // correlated receipt all travel through the real WebSocket connection.
+      hold = vi.spyOn(peer, 'send').mockImplementation((raw, ...args) => {
+        const message = JSON.parse(raw);
+        if (message.type === 'result' && message.requestId) releaseReceipt = () => send(raw, ...args);
+        else return send(raw, ...args);
+      });
+      const owned = client.request({ action: 'draw', type: 'point', params: { cell: '0,1', x: 2, y: 3, color: '#fff' },
+        sessionId: current.sessionId, projectId: current.projectId, revision: current.revision }).finally(() => { settled = true; });
+      await vi.waitFor(() => expect(releaseReceipt).toBeTypeOf('function'));
+      state.broadcast({ type: 'error', message: 'An unrelated operation failed' });
+      await vi.waitFor(() => expect(unrelated).toHaveBeenCalledWith(expect.objectContaining({ message: 'An unrelated operation failed' })));
+      expect(settled).toBe(false);
+      releaseReceipt(); expect(await owned).toMatchObject({ type: 'result', requestId: expect.any(String), pins: { projectId: current.projectId } });
+      expect(state.project.cells.getCell('0,1').shapes._byId.size).toBe(1);
+    } finally { hold?.mockRestore(); client._ws.onclose = null; client._ws.terminate(); vi.unstubAllGlobals(); }
+  });
+
   test('progressive edits guard identity before mutation and invalidate only the edited frame', async () => {
     const { ws, initial } = await connect(), current = initial.data;
     const message = { action: 'draw', type: 'point', params: { cell: '0,1', x: 2, y: 2, color: '#fff' } };

@@ -95,3 +95,27 @@ test('a selected exhausted conflict becomes an error even when its batch include
   await tick(); await tick(); await tick();
   expect(cache.status('0,0').state).toBe('error'); expect(reads).toBeLessThanOrEqual(2); cache.destroy();
 });
+
+test('moving frame versions cannot renew an exhausted logical demand; explicit user retry recovers', async () => {
+  let cache, revision = 1, succeed = false;
+  const fetch = vi.fn(async url => {
+    const result = response(url, succeed ? 200 : 409);
+    if (succeed) { const json = result.json; result.json = async () => { const result = await json(); result.data.cellVersions['0,0'] = revision; return result; }; }
+    return result;
+  });
+  const refresh = vi.fn(async () => {
+    // Stop the old implementation's endless self-refresh without leaving a
+    // live runaway promise after the regression assertion fails.
+    if (++revision > 6) { cache.destroy(); return; }
+    cache.setSummary(summary({ revision, cellVersions: { ...summary().cellVersions, '0,0': revision } }));
+  });
+  cache = new ProjectFrames({ fetch, refresh }); cache.setSummary(summary()); cache.select('0,0');
+  for (let i = 0; i < 10; i++) await tick();
+  expect(fetch).toHaveBeenCalledTimes(2); expect(refresh).toHaveBeenCalledTimes(1);
+  expect(cache.status('0,0').state).toBe('error');
+  cache.setSummary(summary({ revision: ++revision, cellVersions: { ...summary().cellVersions, '0,0': revision } }));
+  cache.select('0,0'); cache.demand('0,0', 'current'); await tick();
+  expect(fetch).toHaveBeenCalledTimes(2); expect(cache.status('0,0').state).toBe('error');
+  succeed = true; cache.select('0,0', { retry: true }); await tick();
+  expect(fetch).toHaveBeenCalledTimes(3); expect(cache.status('0,0').state).toBe('ready'); cache.destroy();
+});

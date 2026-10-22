@@ -93,5 +93,19 @@ test('actual app loads sparse selected cell once; unrelated arrivals/metadata do
   holdSummary = false;
   await expect(bench.request('/session/open-session', { ref: 'opened' })).resolves.toMatchObject({ ok: true });
   expect(document.getElementById('project-name').textContent).toBe('Sparse');
+  await vi.waitFor(() => expect(waiting.at(-1).q.get('projectId')).toBe('opened'));
+  waiting.at(-1).resolve({ ok: false, status: 413 });
+  await vi.waitFor(() => expect(document.getElementById('cell-ref').textContent).toContain('too large'));
+  const beforeRetry = waiting.length;
+  serverSummary = { ...serverSummary, revision: 2, cellVersions: { '0,0': 2, '0,1': 1 } }; push(serverSummary);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(waiting.slice(beforeRetry).some(request => request.q.get('refs').split('|').includes('0,0'))).toBe(false);
+  // Packet-driven selection stays terminal; an actual navigator click retries.
+  document.querySelector('.cell-thumb[data-ref="0,0"]').click();
+  await vi.waitFor(() => expect(waiting.slice(beforeRetry).some(request => request.q.get('refs').split('|').includes('0,0'))).toBe(true));
+  const retry = waiting.at(-1);
+  retry.resolve({ ok: true, status: 200, json: async () => ({ ok: true, data: { ...serverSummary,
+    cells: Object.fromEntries(retry.q.get('refs').split('|').map(ref => [ref, { shapes: [] }])), shapeGroups: {} } }) });
+  await vi.waitFor(() => expect(document.getElementById('cell-ref').textContent).toBe('Cell 0,0'));
   expect(calls.some(path => /\/workbench\/project(?:$|\?)|group\/shape\/list-all/.test(path))).toBe(false);
 });
