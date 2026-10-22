@@ -9,6 +9,7 @@ import { CanvasRenderer } from '../../server/engine/canvas-renderer.js';
 import { editLayer } from '../../server/engine/shape-layers.js';
 import { createConstructionRecorder } from '../../server/engine/construction-replay.js';
 import { handleCloneShape, handleDuplicateShape, handleResizeShape, handleMoveShapeTo } from '../../server/handlers/shape.js';
+import { PROJECT_LIMITS, validateProjectData } from '../../server/engine/project-validation.js';
 
 afterEach(() => vi.restoreAllMocks());
 const own = entries => Object.fromEntries(entries);
@@ -219,6 +220,59 @@ test('rejects declared dictionary and expanded instance budgets before hydration
   expect(allocation).not.toHaveBeenCalled();
 });
 
+test('undefined resource overrides retain default declared-cell protection', () => {
+  const data = v2(); data.grid.cols = PROJECT_LIMITS.maxCells + 1;
+  const options = Object.fromEntries(Object.keys(PROJECT_LIMITS).map(key => [key, undefined]));
+  expect(() => validateProjectData(data, options)).toThrow(/declared cells/i);
+});
+
+test.each(Object.keys(PROJECT_LIMITS).flatMap(key => [NaN, Infinity, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, null, '10'].map(value => [key, value])))('rejects invalid resource limit %s=%s', (key, value) => {
+  expect(() => validateProjectData(v2(), { [key]: value })).toThrow(new RegExp(`${key}.*nonnegative safe integer`, 'i'));
+});
+
+test.each([
+  ['maxCells', /declared cells/i], ['maxShapes', /expanded shapes/i],
+  ['maxGeometry', /geometry/i], ['maxDepth', /depth/i],
+])('zero %s is a valid budget that rejects a nonempty project', (key, error) => {
+  expect(() => validateProjectData(v2(), { [key]: 0 })).toThrow(error);
+});
+
+test('zero geometry and shape budgets accept empty content', () => {
+  const data = v2(); data.geometry = {}; data.cells = {};
+  expect(validateProjectData(data, { maxShapes: 0, maxGeometry: 0 }).shapes).toBe(0);
+});
+
+function nestedParams(levels) {
+  const params = { x: 1, y: 1 };
+  let child = params;
+  for (let index = 0; index < levels; index++) child = child.detail = {};
+  return params;
+}
+
+test('shared encoding roundtrips the exact full-document JSON depth boundary', () => {
+  const project = Project.create({ name: 'Depth boundary', cellSize: 8, rows: 1, cols: 1 });
+  project.cells.getCell('0,0').draw('point', nestedParams(61), 'red');
+  const encoded = project.toSharedJSON(), loaded = Project.fromJSON(encoded);
+  expect(loaded.toSharedJSON()).toEqual(encoded);
+  const params = loaded.cells.getCell('0,0').shapes.listByZ()[0].params;
+  const keys = vi.spyOn(Object, 'keys'), ownKeys = vi.spyOn(Reflect, 'ownKeys');
+  expect(loaded.toSharedJSON().geometry.g0.params).toBe(params);
+  expect(keys).not.toHaveBeenCalledWith(params);
+  expect(ownKeys).not.toHaveBeenCalledWith(params);
+});
+
+test('shared encoding rejects params one level beyond the V2 envelope depth budget', () => {
+  const project = Project.create({ name: 'Excess depth', cellSize: 8, rows: 1, cols: 1 });
+  project.cells.getCell('0,0').draw('point', nestedParams(62), 'red');
+  expect(() => project.toSharedJSON()).toThrow(/JSON depth/i);
+});
+
+test('cached shared geometry loaded with a larger explicit depth limit still respects the default encoder budget', () => {
+  const data = v2(); data.geometry.g1.params = nestedParams(62);
+  const loaded = Project.fromJSON(data, { maxDepth: 65 });
+  expect(() => loaded.toSharedJSON()).toThrow(/JSON depth/i);
+});
+
 test('charges repeated shared geometry against expanded raster work before hydration', () => {
   const data = v2();
   data.geometry = { g0: { type: 'line', params: { x1: 0, y1: 0, x2: 32000000, y2: 0 } } };
@@ -322,6 +376,27 @@ test('assigning known shared params detaches a replacement from its source', () 
   expect(a.params).not.toBe(b.params);
   a.params.points[0].x = 6;
   expect(b.params.points[0].x).toBe(1);
+});
+
+test('replacement from another frame owns mutable parameters instead of aliasing the source', () => {
+  const project = shared(), a = first(project), b = second(project);
+  a.mutableParams().points[0].x = 2;
+  b.params = a.params;
+  b.mutableParams().points[0].x = 5;
+  expect(a.params.points[0].x).toBe(2);
+  expect(b.params.points[0].x).toBe(5);
+  expect(b.params.points).not.toBe(a.params.points);
+});
+
+test('replacement from unknown frozen input becomes an owned mutable tree', () => {
+  const shape = shared().cells.getCell('0,0').shapes.get('eye');
+  const incoming = Object.freeze({ x: 3, y: 3, detail: Object.freeze({ shade: 1 }) });
+  shape.params = incoming;
+  const params = shape.mutableParams();
+  expect(params).not.toBe(incoming);
+  params.x = 5; params.detail.shade = 2;
+  expect(incoming).toEqual({ x: 3, y: 3, detail: { shade: 1 } });
+  expect(params).toEqual({ x: 5, y: 3, detail: { shade: 2 } });
 });
 
 test('layer/surface/lighting edits and native color/normal/atlas output retain compact parity', () => {

@@ -4,9 +4,10 @@ const sharedParams = new WeakSet();
 const immutableKeys = new WeakMap();
 export const isSharedParams = params => params !== null && typeof params === 'object' && sharedParams.has(params);
 
-function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+function canonical(value, state, depth = 0) {
+  state.depth = Math.max(state.depth, depth);
+  if (Array.isArray(value)) return value.map(child => canonical(child, state, depth + 1));
+  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key], state, depth + 1)]));
   return value;
 }
 function freeze(value) {
@@ -31,8 +32,8 @@ export function geometryKey(type, params) {
 export function geometryRecord(type, params) {
   let cache = isSharedParams(params) ? immutableKeys.get(params) : undefined;
   if (cache?.has(type)) return cache.get(type);
-  const ordered = canonical(params);
-  const record = { key: geometryKey(type, params), type, params: freeze(ordered) };
+  const state = { depth: 0 }, ordered = canonical(params, state);
+  const record = { key: geometryKey(type, params), type, params: freeze(ordered), depth: state.depth };
   sharedParams.add(record.params);
   if (isSharedParams(params)) {
     if (!cache) immutableKeys.set(params, cache = new Map());

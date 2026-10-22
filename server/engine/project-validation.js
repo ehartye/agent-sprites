@@ -5,12 +5,14 @@ import { SURFACE_LIMITS, validateSurface } from '../web/public/js/shared/surface
 import { snapParams } from '../web/public/js/shared/raster.js';
 
 export const PROJECT_LIMITS = Object.freeze({ maxCells: 10000, maxShapes: 200000, maxGeometry: 200000, maxDepth: 64 });
+// Root project -> geometry dictionary -> entry -> params.
+export const SHARED_PARAMS_DEPTH = 3;
 const map = value => value !== null && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const geometry = { point: ['x', 'y'], fill: ['x', 'y'], line: ['x1', 'y1', 'x2', 'y2'], rect: ['x', 'y', 'w', 'h'], circle: ['cx', 'cy', 'r'], ellipse: ['cx', 'cy', 'rx', 'ry'], polygon: ['points'], polyline: ['points'] };
 const finiteGeometry = value => Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
 
 /** Reject unsupported values and cycles before cloning, canonicalizing or allocating a model. */
-export function validateProjectJSON(value, maxDepth = PROJECT_LIMITS.maxDepth) {
+export function validateProjectJSON(value, maxDepth = PROJECT_LIMITS.maxDepth, initialDepth = 0) {
   const ancestors = new Set();
   const visit = (entry, depth, path) => {
     if (depth > maxDepth) throw new Error(`Project JSON depth exceeds ${maxDepth}`);
@@ -31,7 +33,7 @@ export function validateProjectJSON(value, maxDepth = PROJECT_LIMITS.maxDepth) {
     }
     ancestors.delete(entry);
   };
-  visit(value, 0, '$');
+  visit(value, initialDepth, '$');
 }
 
 function validateGeometry(type, params, valid, label) {
@@ -113,7 +115,13 @@ function resolvedShapes(data, cell) {
 
 /** Pure raw-data checks shared by direct shared loading and the import worker. */
 export function validateProjectData(data, options = {}) {
-  const { maxCells, maxShapes, maxGeometry, maxDepth } = { ...PROJECT_LIMITS, ...options };
+  const limits = {};
+  for (const [key, fallback] of Object.entries(PROJECT_LIMITS)) {
+    const value = options[key] === undefined ? fallback : options[key];
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${key} must be a nonnegative safe integer`);
+    limits[key] = value;
+  }
+  const { maxCells, maxShapes, maxGeometry, maxDepth } = limits;
   const version = data?.version === undefined ? 1 : data.version;
   if (![1, 2].includes(version)) throw new Error(`Unsupported project version "${version}"`);
   validateProjectJSON(data, maxDepth);

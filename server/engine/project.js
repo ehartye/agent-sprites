@@ -6,7 +6,7 @@ import { validateConstructionReplay } from './construction-replay.js';
 import { resolveFrameDurationMs, validateFrameDurations, validateAnimationLoops, validateAnimationFps, ANIMATION_DIRECTIONS, resolveAnimationDirection } from '../web/public/js/shared/timing.js';
 import { validateSurfaceScene } from '../web/public/js/shared/surface-raster.js';
 import { Shape } from './shape.js';
-import { validateProjectData, validateProjectJSON } from './project-validation.js';
+import { PROJECT_LIMITS, SHARED_PARAMS_DEPTH, validateProjectData, validateProjectJSON } from './project-validation.js';
 import { createGeometryPool, geometryKey, geometryRecord, isSharedParams } from './shared-geometry.js';
 
 /** Tag playback directions shared by project authoring, preview and atlas output. */
@@ -97,12 +97,13 @@ export class Project {
       cells[`${row},${col}`] = {
         name: cell.name, reference: structuredClone(cell.reference),
         shapes: shapes.map(shape => {
-          if (!isSharedParams(shape.params)) validateProjectJSON(shape.params);
+          if (!isSharedParams(shape.params)) validateProjectJSON(shape.params, PROJECT_LIMITS.maxDepth, SHARED_PARAMS_DEPTH);
           const key = geometryKey(shape.type, shape.params);
           let ref = refs.get(key);
           if (ref === undefined) {
             ref = `g${refs.size}`;
             const record = geometryRecord(shape.type, shape.params);
+            if (record.depth + SHARED_PARAMS_DEPTH > PROJECT_LIMITS.maxDepth) throw new Error(`Project JSON depth exceeds ${PROJECT_LIMITS.maxDepth}`);
             geometry[ref] = { type: record.type, params: record.params };
             refs.set(key, ref);
           }

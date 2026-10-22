@@ -2,7 +2,7 @@ import { validateSurface } from '../web/public/js/shared/surface-model.js';
 import { isSharedParams } from './shared-geometry.js';
 let nextId = 1;
 function getParams() { return this._params; }
-function setParams(value) { this._params = isSharedParams(value) ? structuredClone(value) : value; }
+function setParams(value) { this._params = structuredClone(value); }
 
 export class Shape {
   constructor(type, params, color, opts = {}) {
