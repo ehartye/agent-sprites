@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { saveDraft } from '../http.js';
 import { captureProjectMetadata, restoreProjectMetadata } from '../../project-state.js';
+import { publishProject } from '../../project-publication.js';
 
 export function sessionRoutes(state) {
   const r = Router();
@@ -40,7 +41,7 @@ export function sessionRoutes(state) {
       const draft_json = JSON.stringify(project.toJSON());
       const session = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: null, draft_json });
       state.sessionId = session.id;
-      state.broadcast?.({ type: 'project', data: project.toJSON() });
+      publishProject(state);
       res.json({ ok: true, data: `Created "${name}" (${w}x${h}px ${rows}x${cols})` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -58,7 +59,7 @@ export function sessionRoutes(state) {
       const session = state.db.createSession({ project_name: name, project_path, destination_folder, json_file: filePath, draft_json });
       state.sessionId = session.id;
       restoreProjectMetadata(state);
-      state.broadcast?.({ type: 'project', data: project.toJSON() });
+      publishProject(state);
       res.json({ ok: true, data: `Opened "${name}" from ${filePath}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -98,7 +99,7 @@ export function sessionRoutes(state) {
       state.project = Project.fromJSON(JSON.parse(session.draft_json));
       state.sessionId = session.id;
       state.project.groups = GroupManager.fromJSON(state.db.getCellGroups(session.id));
-      state.broadcast?.({ type: 'project', data: state.project.toJSON() });
+      publishProject(state);
       res.json({ ok: true, data: `Opened "${session.project_name}" (${session.id})` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
@@ -119,6 +120,7 @@ export function sessionRoutes(state) {
       }
       state.project.pivot = pivot;
       saveDraft(state);
+      publishProject(state, { metadataOnly: true });
       res.json({ ok: true, data: `Pivot set to ${pivot.x},${pivot.y}` });
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });

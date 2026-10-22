@@ -20,6 +20,7 @@ import { constructionReplayRoutes } from './api/construction-replay-routes.js';
 import { API_BODY_LIMIT } from './api/policy.js';
 import { ProjectImportJobs } from '../import/project-import-jobs.js';
 import { projectImportRoutes } from './api/project-import-routes.js';
+import { projectSummary, frameLimits, assertProjectPins, assertOptionalProjectPins, invalidateProject } from '../project-view.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runtimeRoot = realpathSync(path.join(__dirname, '..', '..'));
@@ -62,12 +63,19 @@ export function dispatchWebMessage(state, msg) {
 
 export async function startWebServer(state, port, options = {}) {
   const app = express();
+  const frames = frameLimits(options.frames);
   const imports = new ProjectImportJobs(state, options.imports);
   app.use('/api/workbench/imports', projectImportRoutes(state, imports));
   app.use(express.json({ limit: API_BODY_LIMIT }));
   // Optional optimistic session guard for the collaborative browser. CLI clients
   // remain compatible, while stale tabs cannot accidentally edit a newly opened design.
   app.use('/api', (req, res, next) => {
+    const readOnly = req.method === 'GET' || ['/cell/ascii-read', '/cell/compose-plan', '/cell/view', '/view/stack', '/view/sheet', '/workbench/replay', '/workbench/map-operations', '/workbench/build', '/workbench/trace', '/workbench/verify', '/workbench/atlas-proof'].includes(req.path);
+    const projectId = req.get('X-Sprite-Project'), revision = req.get('X-Sprite-Revision');
+    if (!readOnly) {
+      try { assertOptionalProjectPins(state, { sessionId: req.get('X-Sprite-Session'), projectId, revision }); }
+      catch (error) { return res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
+    }
     const expected = req.get('X-Sprite-Session');
     if (expected && expected !== state.sessionId) {
       return res.status(409).json({ ok: false, error: 'The active session changed. Refresh the design before editing.' });
@@ -76,7 +84,7 @@ export async function startWebServer(state, port, options = {}) {
   });
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'agent-sprites', protocol: 1, version, runtimeRoot }));
   app.use('/api/session', sessionRoutes(state));
-  app.use('/api', workbenchRoutes(state));
+  app.use('/api', workbenchRoutes(state, { frames }));
   app.use('/api', constructionReplayRoutes(state));
   app.use('/api', drawRoutes(state));
   app.use('/api', shapeRoutes(state));
@@ -97,18 +105,47 @@ export async function startWebServer(state, port, options = {}) {
   const wss = new WebSocketServer({ server: httpServer });
   state.wss = wss;
 
-  // Broadcast helper — tools call this after state changes
-  state.broadcast = (msg) => {
-    const data = JSON.stringify({ ...msg, sessionId: state.sessionId });
-    for (const client of wss.clients) {
-      if (client.readyState === 1) client.send(data);
-    }
+  let summaryPending = false, disposed = false;
+  const clients = progressive => [...wss.clients].filter(client => client.readyState === 1 && client.progressiveProject === progressive);
+  const publishSummary = () => {
+    if (disposed || summaryPending || !clients(true).length) return;
+    summaryPending = true;
+    queueMicrotask(() => {
+      summaryPending = false;
+      if (disposed) return;
+      const recipients = clients(true);
+      if (!recipients.length || !state.project) return;
+      try {
+        const data = JSON.stringify({ type: 'project_summary', data: projectSummary(state) });
+        for (const client of recipients) client.send(data);
+      } catch (error) {
+        const data = JSON.stringify({ type: 'error', message: `Project summary unavailable: ${error.message}` });
+        for (const client of recipients) if (client.readyState === 1) client.send(data);
+      }
+    });
   };
+  // Full project serialization is deliberately reserved for legacy clients.
+  state.broadcast = (msg) => {
+    if (disposed) return;
+    const notification = ['shutdown', 'error'].includes(msg.type);
+    if (!notification) invalidateProject(state, msg);
+    const recipients = notification ? [...clients(false), ...clients(true)] : clients(false);
+    if (recipients.length) {
+      const message = msg.type === 'project' && !msg.data ? { ...msg, data: state.project.toJSON() } : msg;
+      const data = JSON.stringify({ ...message, sessionId: state.sessionId });
+      for (const client of recipients) client.send(data);
+    }
+    if (!notification) publishSummary();
+  };
+  state.broadcastProject = change => state.broadcast({ type: 'project', ...change });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const progressive = new URL(req.url, 'http://localhost').searchParams.get('project') === 'progressive-v1';
+    ws.progressiveProject = progressive;
     // Send current project state on connect
     if (state.project) {
-      ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON(), sessionId: state.sessionId }));
+      try { ws.send(JSON.stringify(progressive ? { type: 'project_summary', data: projectSummary(state) } : { type: 'project', data: state.project.toJSON(), sessionId: state.sessionId })); }
+      catch (error) { ws.send(JSON.stringify({ type: 'error', message: error.message })); }
     }
 
     ws.on('message', (raw) => {
@@ -117,11 +154,12 @@ export async function startWebServer(state, port, options = {}) {
         // Handle project state request (for resync after MCP mutations)
         if (msg.action === 'get_project') {
           if (state.project) {
-            ws.send(JSON.stringify({ type: 'project', data: state.project.toJSON(), sessionId: state.sessionId }));
+            ws.send(JSON.stringify(progressive ? { type: 'project_summary', data: projectSummary(state) } : { type: 'project', data: state.project.toJSON(), sessionId: state.sessionId }));
           }
           return;
         }
-        if (msg.sessionId && msg.sessionId !== state.sessionId) throw new Error('The active session changed. Refresh the design before editing.');
+        if (progressive) assertProjectPins(state, msg);
+        else if (msg.sessionId && msg.sessionId !== state.sessionId) throw new Error('The active session changed. Refresh the design before editing.');
         const result = dispatchWebMessage(state, msg);
         saveDraft(state);
         ws.send(JSON.stringify({ type: 'result', action: msg.action, data: result }));
@@ -131,7 +169,7 @@ export async function startWebServer(state, port, options = {}) {
     });
   });
 
-  const dispose = () => imports.close();
+  const dispose = () => { disposed = true; return imports.close(); };
   state.disposeImports = dispose;
   httpServer.once('close', () => { void dispose(); });
   return { port: actualPort, httpServer, wss, imports, dispose };

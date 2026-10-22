@@ -13,6 +13,8 @@ import { verifyAtlasFile } from '../../engine/atlas-verifier.js';
 import { renderAtlasProof } from '../../engine/atlas-proof.js';
 import { applySkinTone, skinToneState } from '../../engine/skin-tones.js';
 import { COMMANDS } from '../../commands/catalog.js';
+import { projectSummary, projectFrames, FRAME_LIMITS } from '../../project-view.js';
+import { publishProject } from '../../project-publication.js';
 
 export function localFileRequestAllowed(req) {
   const remote = req.socket.remoteAddress;
@@ -42,7 +44,7 @@ function validateImport(data) {
 }
 
 /** Browser collaboration uses the same project format and editing routes as CLI. */
-export function workbenchRoutes(state) {
+export function workbenchRoutes(state, { frames = FRAME_LIMITS } = {}) {
   const router = Router();
   const route = (fn) => async (req, res) => {
     try { await fn(req, res); }
@@ -72,6 +74,14 @@ export function workbenchRoutes(state) {
   router.get('/workbench/project', route((_req, res) => {
     res.json({ ok: true, data: requireProject().toJSON(), session_id: state.sessionId });
   }));
+  router.get('/workbench/project-summary', (_req, res) => {
+    try { res.json({ ok: true, data: projectSummary(state) }); }
+    catch (error) { res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
+  });
+  router.get('/workbench/frames', (req, res) => {
+    try { res.type('json').send(projectFrames(state, req.query, req.originalUrl.split('?')[1] ?? '', frames)); }
+    catch (error) { res.status(error.status ?? 400).json({ ok: false, error: error.message }); }
+  });
   router.get('/workbench/sheet.png', route((_req, res) => {
     const project = requireProject();
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
@@ -88,7 +98,7 @@ export function workbenchRoutes(state) {
     project.cells.getCell(cell);
     project.review = { note, cell, author, updatedAt: new Date().toISOString() };
     saveDraft(state);
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: state.sessionId });
+    publishProject(state, { metadataOnly: true });
     res.json({ ok: true, data: project.review });
   }));
   router.get('/workbench/palettes', route((_req, res) => {
@@ -102,7 +112,7 @@ export function workbenchRoutes(state) {
     const project = requireProject();
     const result = applySkinTone(project, req.body.tone);
     saveDraft(state);
-    state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: state.sessionId });
+    publishProject(state);
     res.json({ ok: true, data: result });
   }));
   router.post('/workbench/map-operations', route((req, res) => {

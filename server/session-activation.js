@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { restoreProjectMetadata } from './project-state.js';
+import { publishProject } from './project-publication.js';
 
 export function projectName(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 120 || /[<>:"/\\|?*\x00-\x1f]/.test(value) || /[. ]$/.test(value) || ['.', '..'].includes(value)) {
@@ -21,7 +22,7 @@ export function activateProjectCopy(state, project, { origin } = {}) {
   })();
   state.project = project; state.sessionId = session.id;
   // Publication follows the committed transaction and cannot roll it back.
-  try { state.broadcast?.({ type: 'project', data: project.toJSON(), sessionId: session.id }); }
+  try { publishProject(state); }
   catch (error) { console.error('Project activated; notification failed:', String(error.message).slice(0, 300)); }
   return { session_id: session.id, project_name: project.name, copied_from: origin ?? null };
 }

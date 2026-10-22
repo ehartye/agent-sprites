@@ -88,6 +88,38 @@ test('pins project identity across A to B to A, while stale clients can inspect 
   expect((await api(`/workbench/imports/${job.id}`, undefined, 'DELETE', { 'X-Sprite-Session': id })).ok).toBe(true);
   expect(await readdir(temp)).toEqual([]);
 });
+
+test('optional project pins reject stale import activation without consuming the ready job', async () => {
+  await start(); const job = await create(); await upload(job, JSON.stringify(project())); await settled(job);
+  const original = state.project, summary = (await api('/workbench/project-summary')).data;
+  const headers = { 'X-Sprite-Session': summary.sessionId, 'X-Sprite-Project': summary.projectId, 'X-Sprite-Revision': String(summary.revision) };
+  expect((await api(`/workbench/imports/${job.id}/activate`, {}, 'POST', { 'X-Sprite-Project': summary.projectId })).status).toBe(400);
+  await api('/cell/name', { cell: '0,0', name: 'edited' });
+  expect((await api(`/workbench/imports/${job.id}/activate`, {}, 'POST', headers)).status).toBe(409);
+  expect(state.project).toBe(original); expect((await settled(job)).state).toBe('ready');
+  expect((await api(`/workbench/imports/${job.id}`, undefined, 'GET', headers)).ok).toBe(true);
+  const current = (await api('/workbench/project-summary')).data;
+  const fresh = { ...headers, 'X-Sprite-Revision': String(current.revision) };
+  const activated = await api(`/workbench/imports/${job.id}/activate`, {}, 'POST', fresh);
+  expect(activated.ok).toBe(true);
+  const replayed = await api(`/workbench/imports/${job.id}/activate`, {}, 'POST', fresh);
+  expect(replayed.ok).toBe(true); expect(replayed.data).toEqual(activated.data);
+});
+
+test('optional import pins are rechecked after asynchronous activation I/O', async () => {
+  await start(); const job = await create(); await upload(job, JSON.stringify(project())); await settled(job);
+  const original = state.project, summary = (await api('/workbench/project-summary')).data;
+  const headers = { 'X-Sprite-Session': summary.sessionId, 'X-Sprite-Project': summary.projectId, 'X-Sprite-Revision': String(summary.revision) };
+  const pins = server.imports.pins.bind(server.imports); let calls = 0;
+  const check = vi.spyOn(server.imports, 'pins').mockImplementation(candidate => {
+    pins(candidate); if (++calls === 2) state.broadcast({ type: 'animation_timing' });
+  });
+  try {
+    expect((await api(`/workbench/imports/${job.id}/activate`, {}, 'POST', headers)).status).toBe(409);
+    expect(state.project).toBe(original); expect((await settled(job)).state).toBe('ready');
+    expect((await api(`/workbench/imports/${job.id}`, undefined, 'DELETE', headers)).ok).toBe(true);
+  } finally { check.mockRestore(); }
+});
 test('rejects receipt tampering and rolls back metadata transaction failures', async () => {
   await start(); const original = state.project, count = state.db.listSessions().length;
   const job = await create(); await upload(job, JSON.stringify(project())); await settled(job);

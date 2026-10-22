@@ -124,10 +124,16 @@ export class ProjectImportJobs {
       return result;
     } finally { clearTimeout(timeout); await worker.terminate(); job.worker = null; }
   }
-  async activate(job) {
+  async activate(job, { checkPins } = {}) {
     if (job.state === 'complete') return job.receipt;
     this.pins(job);
     if (job.state !== 'ready' || this.closed) throw fail('Import is not ready to activate');
+    let requestPinsChanged = false;
+    const checkRequest = () => {
+      try { checkPins?.(); }
+      catch (error) { requestPinsChanged = true; throw error; }
+    };
+    checkRequest();
     job.state = 'activating'; job.phase = 'activating';
     job.operation = (async () => {
       try {
@@ -135,6 +141,7 @@ export class ProjectImportJobs {
         if (bytes.length !== job.output.bytes || createHash('sha256').update(bytes).digest('hex') !== job.output.sha256) throw new Error('Validated import receipt mismatch');
         if (job.abort.signal.aborted) throw new Error('Import canceled');
         this.pins(job);
+        checkRequest();
         job.receipt = Shape.withIdAllocationTransaction(() => {
           const project = Project.fromJSON(JSON.parse(bytes.toString('utf8')));
           Shape.assertIdAllocationAvailable();
@@ -144,7 +151,10 @@ export class ProjectImportJobs {
         });
         job.state = 'complete'; job.phase = 'complete'; job.touched = Date.now(); job.project = null;
         await this.releaseFiles(job); return job.receipt;
-      } catch (error) { await this.failed(job, error); throw new Error(this.diagnostic(error)); }
+      } catch (error) {
+        if (requestPinsChanged) { job.state = 'ready'; job.phase = 'ready'; throw error; }
+        await this.failed(job, error); throw new Error(this.diagnostic(error));
+      }
     })();
     try { return await job.operation; } finally { job.operation = null; }
   }
