@@ -120,7 +120,36 @@ export function workbenchRoutes(state) {
     if (!localFileRequestAllowed(req)) return res.status(403).json({ ok: false, error: 'Local file tools require this server’s localhost page and a matching origin.' });
     next();
   };
-  for (const command of ['build', 'trace', 'verify', 'atlas-proof']) {
+  router.post('/workbench/build', localFilesOnly, async (req, res) => {
+    const abort = new AbortController();
+    const abandon = () => { if (!res.writableEnded) abort.abort(); };
+    const streaming = (req.get('accept') ?? '').split(',').some(value => value.split(';')[0].trim() === 'application/x-ndjson');
+    let blocked = false, pending;
+    const write = event => {
+      if (res.destroyed || res.writableEnded) return;
+      if (blocked) { pending = event; return; }
+      blocked = !res.write(JSON.stringify({ type: 'progress', ...event }) + '\n');
+    };
+    const drain = () => { blocked = false; if (pending) { const event = pending; pending = undefined; write(event); } };
+    req.once('aborted', abandon); res.once('close', abandon); res.on('drain', drain);
+    try {
+      if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
+      if (streaming) { res.type('application/x-ndjson'); res.set('Cache-Control', 'no-store'); res.flushHeaders(); }
+      const report = await buildProject(req.body.path, { signal: abort.signal, ...(streaming ? { onProgress: write } : {}) });
+      if (res.destroyed) return;
+      if (streaming) {
+        if (pending) res.write(JSON.stringify({ type: 'progress', ...pending }) + '\n');
+        res.end(JSON.stringify({ type: 'result', ok: true, data: report }) + '\n');
+      } else res.json({ ok: true, data: report });
+    } catch (error) {
+      if (res.destroyed) return;
+      if (streaming && res.headersSent) res.end(JSON.stringify({ type: 'error', ok: false, error: error.message }) + '\n');
+      else res.json({ ok: false, error: error.message });
+    } finally {
+      req.off('aborted', abandon); res.off('close', abandon); res.off('drain', drain);
+    }
+  });
+  for (const command of ['trace', 'verify', 'atlas-proof']) {
     router.post(`/workbench/${command}`, localFilesOnly, route(async (req, res) => {
       if (typeof req.body.path !== 'string' || !req.body.path.trim()) throw new Error('A local input file path is required');
       let report;
@@ -131,7 +160,6 @@ export function workbenchRoutes(state) {
           previewPoster: `data:image/png;base64,${readFileSync(report.artifacts.frames[0]).toString('base64')}`,
         });
       }
-      if (command === 'build') report = await buildProject(req.body.path);
       if (command === 'trace') report = await traceImageFile(req.body.path, { output: req.body.out, name: req.body.name || 'image-trace' });
       if (command === 'verify') {
         const options = { ...req.body }; delete options.path;

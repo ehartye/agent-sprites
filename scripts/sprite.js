@@ -542,16 +542,27 @@ async function run() {
   }
   if (cmd === 'build') {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
-    await import('../server/build/producer-identity.js');
-    const { buildProject } = await import('../server/build/project-build.js');
-    const report = await buildProject(positional[0]);
+    const abort = new AbortController(), interrupted = () => abort.abort();
+    process.on('SIGINT', interrupted);
+    let report, lastPhase = '', lastProgress = 0;
+    try {
+      await import('../server/build/producer-identity.js');
+      const { buildProject } = await import('../server/build/project-build.js');
+      report = await buildProject(positional[0], { signal: abort.signal, onProgress: progress => {
+        const now = Date.now();
+        const complete = progress.completed !== undefined && progress.completed === progress.total;
+        if (progress.phase === lastPhase && now - lastProgress < 250 && !complete) return;
+        console.error(`${progress.phase}${progress.bytes !== undefined ? ` · ${progress.bytes.toLocaleString()} bytes` : ''}${progress.completed !== undefined ? ` · ${progress.completed} / ${progress.total} operations` : ''}`);
+        lastPhase = progress.phase; lastProgress = now;
+      } });
+    } finally { process.off('SIGINT', interrupted); }
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
       console.log(report.ok ? 'Build published' : 'Build failed; previous output preserved');
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
     }
-    if (!report.ok) process.exitCode = 1;
+    if (!report.ok) { process.exitCode = abort.signal.aborted ? 130 : 1; if (abort.signal.aborted) console.error('Build canceled; previous output preserved.'); }
     return;
   }
   if (cmd === 'verify') {

@@ -2,9 +2,7 @@
 import { acquireBuildTool, assertLoadedProducer, assertToolStable } from './producer-identity.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, openSync, closeSync, realpathSync, lstatSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join, basename, relative, isAbsolute, sep } from 'node:path';
-import { execFile } from 'node:child_process';
 import { Agent, request } from 'node:http';
-import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import express from 'express';
 import { SessionDB } from '../db/session.js';
@@ -34,8 +32,8 @@ import { generateAnimationComposition } from '../authoring/animation-composition
 import { resolveBuildSource, snapshotBuildInputs } from './build-provenance.js';
 import { buildMarker as marker, buildManifest, snapshotArtifactIntegrity } from './artifact-integrity.js';
 import { createConstructionRecorder } from '../engine/construction-replay.js';
+import { readGeneratorInput } from './generator-input.js';
 
-const exec = promisify(execFile);
 const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
@@ -99,10 +97,14 @@ function assertOwnedOutput(output, configPath) {
 }
 
 /** A build uses a fresh in-memory database and loopback-only temporary API. */
-export async function buildProject(configPath) {
+export async function buildProject(configPath, { signal, onProgress, generatorPolicy } = {}) {
   let stage, server, db, lock, lockPath, agent;
   const result = { ok: false, artifacts: {}, errors: [], warnings: [] };
+  const checkCanceled = () => { if (signal?.aborted) throw new Error('Build canceled.'); };
+  const progress = event => { try { onProgress?.(event); } catch { /* Observation cannot fail a build. */ } };
+  const phase = name => { progress({ phase: name }); checkCanceled(); };
   try {
+    phase('prepare');
     const tool = assertLoadedProducer();
     configPath = realpathSync(resolve(configPath));
     const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath);
@@ -135,8 +137,10 @@ export async function buildProject(configPath) {
       ({ operations, report: recipeReport } = generate(config[sourceKind], base));
     } else if (config.generator) {
       if (config.args !== undefined && (!Array.isArray(config.args) || config.args.some(a => typeof a !== 'string'))) throw new Error('Generator args must be a string array.');
-      const generated = await exec(process.execPath, [source, ...(config.args ?? [])], { cwd: base, timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true });
-      const generatedOut = JSON.parse(generated.stdout);
+      const generated = await readGeneratorInput({ source, args: config.args ?? [], cwd: base, signal, onProgress: progress, policy: generatorPolicy });
+      checkCanceled();
+      result.generatorInput = { ...generated.receipt, stderr: generated.stderr };
+      const generatedOut = generated.data;
       if (Array.isArray(generatedOut)) operations = generatedOut;
       else {
         // Generators may publish the same UI or character report as a recipe.
@@ -146,6 +150,7 @@ export async function buildProject(configPath) {
         recipeReport = generatedOut.report;
       }
     } else operations = JSON.parse(readFileSync(source, 'utf8'));
+    checkCanceled();
     if (!Array.isArray(operations) || !operations.length || operations[0]?.command !== 'new') throw new Error('Build operations must start with exactly one new project.');
     const name = operations[0].name;
     if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error('Build project names must use letters, digits, hyphens or underscores.');
@@ -169,20 +174,27 @@ export async function buildProject(configPath) {
     app.use('/api/session', sessionRoutes(state));
     for (const routes of [drawRoutes, shapeRoutes, cellRoutes, groupRoutes]) app.use('/api', routes(state));
     server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', () => accept(s)); s.once('error', reject); });
+    checkCanceled();
     const url = `http://127.0.0.1:${server.address().port}`;
     agent = new Agent({ keepAlive: true, maxSockets: 1 });
     for (const [i, op] of mapped.entries()) {
+      progress({ phase: 'operations', completed: i, total: mapped.length }); checkCanceled();
       const response = await requestOperation(url, op, agent);
+      checkCanceled();
       const { value } = response;
       if (!response.ok || !value.ok) throw new Error(`Operation ${i + 1} (${operations[i].command}): ${value.error ?? response.statusText}`);
       replay?.capture(state.project, i);
     }
+    progress({ phase: 'operations', completed: mapped.length, total: mapped.length }); checkCanceled();
     captureProjectMetadata(state);
     const project = state.project;
     replay?.finish(project);
     const renderer = new CanvasRenderer(project.palette, { background: project.background });
+    phase('render');
     const { png, atlas, normalPng, normalAtlas } = await exportSpriteAtlases(project, renderer, { imageName: `${name}.png`, trim:config.trim, normal:config.normal });
+    checkCanceled();
     if (isUiReport(recipeReport)) await validateUiReport(recipeReport, atlas, png);
+    checkCanceled();
     // An environment drawn on a coarser source grid tells the game how far to scale the atlas.
     if (recipeReport?.pixelScale !== undefined) {
       atlas.meta.pixelScale = recipeReport.pixelScale;
@@ -190,7 +202,9 @@ export async function buildProject(configPath) {
     }
     writeFileSync(join(stage, `${name}.png`), png);
     writeFileSync(join(stage, `${name}.atlas.json`), json(atlas));
+    phase('verify');
     const verified = await verifyAtlasFile(join(stage, `${name}.atlas.json`), { expectedTags: config.expectedTags ?? [], expectedFrames: config.expectedFrames ?? [], outlineColors: config.outlineColors, maxAspect: config.maxAspect ?? (sourceKind === 'ui' ? 3 : undefined), contactPath: join(stage, 'contact.png'), scale: config.scale ?? 4 });
+    checkCanceled();
     result.warnings = verified.warnings;
     // Cells that only pad the last grid row are not art: do not ask the author to confirm they are empty.
     if (recipeReport?.kind === 'tileset') result.warnings = verified.warnings = verified.warnings.filter(w => !(w.code === 'empty-frame' && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) >= recipeReport.count && Number(/^frames\[(\d+)\]$/.exec(w.path ?? '')?.[1]) < recipeReport.columns * recipeReport.rows));
@@ -200,6 +214,7 @@ export async function buildProject(configPath) {
     // A native overlay (native.only) is sparse by design: a back view has no facial hair, so empty frames are expected.
     if (sourceKind === 'native' && config.native?.only) result.warnings = verified.warnings = verified.warnings.filter(w => w.code !== 'empty-frame');
     if (!verified.ok) { result.errors = verified.errors; return result; }
+    phase('artifacts');
     const artifacts = { sheet: `${name}.png`, atlas: `${name}.atlas.json`, project: `${name}.project.json`, contactSheet: 'contact.png', preview: 'preview.html', verification: 'verification.json', operations: 'operations.json' };
     if(normalPng){
       artifacts.normalSheet=`${name}.normal.png`;artifacts.normalAtlas=`${name}.normal.atlas.json`;
@@ -232,6 +247,7 @@ export async function buildProject(configPath) {
       writeFileSync(join(stage, artifacts.uiPhaser), json(phaserUi));
       if (recipeReport.kind === 'font') {
         const proof = await renderFontProof(png, atlas, recipeReport);
+        checkCanceled();
         artifacts.fontProof = 'font-proof.png';
         artifacts.fontProofReport = 'font-proof.json';
         writeFileSync(join(stage, artifacts.fontProof), proof.png);
@@ -243,6 +259,7 @@ export async function buildProject(configPath) {
     // Consumers read one portable file instead of guessing names per recipe kind.
     // Names are relative so the manifest survives copying the output directory.
     const manifest = { format: 'agent-sprites-build-manifest', version: 1, name, source: sourceKind, build: provenance };
+    if (result.generatorInput) manifest.generatorInput = result.generatorInput;
     if (recipeReport?.kind) manifest.kind = recipeReport.kind;
     if (recipeReport?.pixelScale !== undefined) manifest.pixelScale = recipeReport.pixelScale;
     if (reportKey) manifest.report = artifacts[reportKey];
@@ -262,8 +279,12 @@ export async function buildProject(configPath) {
     assertToolStable(tool, finalTool, 'generation');
     if (JSON.stringify(snapshotBuildInputs(configPath, config, source, finalTool)) !== JSON.stringify(provenance)) throw new Error('Build inputs changed during generation; retry with stable inputs.');
     assertOwnedOutput(output, configPath);
+    phase('prepublication');
     const backup = stage + '.previous';
     const replacing = existsSync(output);
+    // Cancellation is cooperative up to this point. Complete the atomic swap or
+    // restore its backup once committing starts; never report a committed build as canceled.
+    progress({ phase: 'committing' });
     if (replacing) await renameForPublication(output, backup);
     try { await renameForPublication(stage, output); }
     catch (error) {
@@ -276,6 +297,7 @@ export async function buildProject(configPath) {
       throw error;
     }
     stage = undefined;
+    progress({ phase: 'committed' });
     if (replacing) {
       try { rmSync(backup, { recursive: true }); }
       catch (error) { result.warnings.push({ code: 'backup-cleanup', message: `Build published; previous output retained at ${backup}: ${error.message}` }); }
@@ -283,12 +305,16 @@ export async function buildProject(configPath) {
     result.ok = true;
     result.artifacts = Object.fromEntries(Object.entries(artifacts).map(([key, file]) => [key, join(output, file)]));
     return result;
-  } catch (error) { result.errors.push({ code: 'build', message: error.message }); return result; }
+  } catch (error) { result.errors.push({ code: 'build', message: error.message }); if (error.generatorStderr) result.generatorStderr = error.generatorStderr; return result; }
   finally {
-    agent?.destroy();
-    if (server) await new Promise(accept => { server.close(accept); server.closeAllConnections(); });
-    db?.close();
-    if (stage) rmSync(stage, { recursive: true, force: true });
-    if (lock !== undefined) { closeSync(lock); rmSync(lockPath); }
+    const cleanup = async action => {
+      try { await action(); }
+      catch (error) { (result.ok ? result.warnings : result.errors).push({ code: 'build-cleanup', message: error.message }); }
+    };
+    await cleanup(() => agent?.destroy());
+    if (server) await cleanup(() => new Promise((accept, reject) => { server.close(error => error ? reject(error) : accept()); server.closeAllConnections(); }));
+    await cleanup(() => db?.close());
+    if (stage) await cleanup(() => rmSync(stage, { recursive: true, force: true }));
+    if (lock !== undefined) { await cleanup(() => closeSync(lock)); await cleanup(() => rmSync(lockPath)); }
   }
 }
