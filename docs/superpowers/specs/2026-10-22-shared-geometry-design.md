@@ -39,7 +39,9 @@ Project.toJSON() still returns independent expanded V1 data. Add toSharedJSON() 
 
 Missing version or version 1 files retain their existing loader/output behavior. Version 2 loads directly without first expanding/cloning each reference. New file imports validate off-thread and write shared snapshots, so activation and draft persistence retain compact models. New imports choose shared storage internally; existing V1 sessions stay V1 unless explicitly converted. Restart/open/save/copy must preserve metadata and chosen storage format without schema migration.
 
-Expose explicit shared project download/save and optional build artifact format, preserving expanded defaults for existing external consumers. Save a loaded V2 project in V2 by default. Keep raster/atlas/normal output unchanged; ordinary frame retrieval returns a complete bounded editable cell regardless of internal storage format. Never overwrite an imported source as a side effect of activation.
+The new import path must also intern incoming V1 parameters during hydration, before constructing a second complete expanded parameter graph. An explicit shared-geometry loading option can reuse unique raw parameter trees and choose shared storage while ordinary V1 loading remains unchanged. Compacting only after an expanded model has been fully cloned would retain the peak-memory bottleneck this stage is intended to address. JSON parsing still retains a complete incoming document; measure that cost honestly.
+
+Expose explicit shared/expanded project download/save and optional build artifact format, preserving expanded defaults for existing external consumers. Browser editable download and save honor the current selected storage format: newly imported shared projects remain compact, and existing V1 sessions remain expanded. Keep an explicit expanded option for older consumers. Save a loaded V2 project in V2 by default. Keep raster/atlas/normal output unchanged; ordinary frame retrieval returns a complete bounded editable cell regardless of internal storage format. Never overwrite an imported source as a side effect of activation.
 
 ## Acceptance
 
@@ -49,3 +51,4 @@ Expose explicit shared project download/save and optional build artifact format,
 - Pixel-identical native rendering and atlas metadata before and after compact round trip, including partial alpha and erasure.
 - New import, compact draft restart, copy, explicit download/save/build and legacy tests pass.
 - Real detailed animation measurements disclose expanded versus compact bytes, parameter instances versus unique trees, peak memory, first usable frame, later frame/edit latency and browser transfer/cache/render counts. No constant-memory or all-platform claim without evidence.
+- Compare minified V1 and V2 as well as gzip sizes; whitespace removal is a separate saving and must not be attributed to geometry sharing.
