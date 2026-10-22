@@ -148,7 +148,9 @@ export class AnimationPreview {
       if (!incoming) this._cells = Object.fromEntries(Object.entries(this._cells).filter(([ref]) => !changed.includes(ref)));
     }
     this._rasterContext = { ...context, cellVersions: context.cellVersions ? { ...context.cellVersions } : undefined }; this._missingNative.clear();
-    return changed === null || changed.length > 0;
+    // Sparse arrivals outside this sequence must retain its queued work and
+    // authored clock. A project/view switch affects every prepared frame.
+    return changed === null || changed.some(ref => this._frames.includes(ref));
   }
   _nativeTask(ref) {
     const { projectId, cellVersions, viewKey } = this._rasterContext;

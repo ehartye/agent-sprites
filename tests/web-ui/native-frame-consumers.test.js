@@ -164,6 +164,51 @@ describe('asynchronous shared native consumers', () => {
     nav.setCells({ '0,0': { shapes: [...cell.shapes] }, '0,1': { shapes: [] } }, { projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1 } });
     complete('#000'); vi.runAllTimers(); expect(workers[0].postMessage.mock.calls.at(-1)[0].task.ref).toBe('0,0'); nav.destroy(); other.dispose();
   });
+
+  it.each(['atomic cells/context', 'standalone context'])('retains preparation FIFO and the queued native job through unrelated %s updates', update => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 }), other = service.createConsumer();
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } };
+    configure(ap, cells); ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    const firstId = workers[0].postMessage.mock.calls.at(-1)[0].id;
+    complete('#f00'); // B is queued while A's completion is still being handled.
+    other.request({ projectId: 'p', ref: 'later', cellVersion: 1, width: 4, height: 4, cell: { shapes: [] } }, { priority: 0 });
+    const context = { projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1, '0,2': 1 } };
+    if (update === 'atomic cells/context') ap.setCells({ '0,0': { shapes: [...cells['0,0'].shapes] }, '0,1': { shapes: [...cells['0,1'].shapes] }, '0,2': { shapes: [] } }, context);
+    else ap.setRasterContext(context);
+    vi.runOnlyPendingTimers();
+    const next = workers[0].postMessage.mock.calls.at(-1)[0];
+    expect(next.task.ref).toBe('0,1'); expect(next.id).toBe(firstId + 1);
+    expect(ap._playbackStart).toBeNull(); expect(ap._frameInfo.textContent).toMatch(/Preparing 1 \/ 2/);
+    ap.destroy(); other.dispose();
+  });
+
+  it.each(['atomic cells/context', 'standalone context'])('preserves authored elapsed time through unrelated %s updates', update => {
+    const { service, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } };
+    configure(ap, cells); ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); vi.runAllTimers();
+    complete('#f00'); vi.runAllTimers(); complete('#00f'); vi.advanceTimersByTime(25);
+    const start = ap._playbackStart, context = { projectId: 'p', cellVersions: { '0,0': 1, '0,1': 1, '0,2': 1 } };
+    if (update === 'atomic cells/context') ap.setCells({ ...cells, '0,2': { shapes: [] } }, context);
+    else ap.setRasterContext(context);
+    expect(ap._playbackStart).toBe(start); expect(ap._preparing).toBeNull();
+    vi.advanceTimersByTime(25); expect(ap._currentFrame).toBe(1);
+    vi.advanceTimersByTime(50); expect(ap._playing).toBe(false); ap.destroy();
+  });
+
+  it.each(['atomic cells/context', 'standalone context'])('restarts preparation for a selected frame version changed by %s', update => {
+    const { service, workers, complete } = setup(), ap = new AnimationPreview({ rasterService: service, size: 4 });
+    const cells = { '0,0': { shapes: [shape('#f00')] }, '0,1': { shapes: [shape('#00f')] } };
+    configure(ap, cells); ap.setFrames(['0,0', '0,1'], { durations: [50, 50], loop: false }); ap.play(); vi.runAllTimers(); complete('#f00');
+    const changedCells = { ...cells, '0,0': { shapes: [shape('#0f0')], lighting: { palettePolicy: 'rgb', ambient: 0.5 } } };
+    const context = { projectId: 'p', cellVersions: { '0,0': 2, '0,1': 1 } };
+    if (update === 'atomic cells/context') ap.setCells(changedCells, context);
+    else { ap.setRasterContext(context); ap.setCells(changedCells); }
+    vi.runAllTimers();
+    const next = workers[0].postMessage.mock.calls.at(-1)[0].task;
+    expect(next.ref).toBe('0,0'); expect(next.cellVersion).toBe(2); expect(next.cell).toEqual(changedCells['0,0']); expect(ap._playbackStart).toBeNull();
+    complete('#0f0'); vi.runAllTimers(); complete('#00f'); expect(ap._preparing).toBeNull(); expect(pixel(ap)).toEqual([0, 255, 0, 255]);
+    vi.advanceTimersByTime(50); expect(ap._currentFrame).toBe(1); vi.advanceTimersByTime(50); expect(ap._playing).toBe(false); ap.destroy();
+  });
 });
 
 describe('selected editor one-frame native reuse', () => {
