@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -13,7 +13,7 @@ const operations = [
   { command: 'draw', type: 'rect', cell: '0,0', name: 'body', x: 1, y: 1, w: 5, h: 5, color: '#29adff', filled: true },
 ];
 const generated = JSON.stringify(operations);
-const hashes = () => Object.fromEntries(readdirSync(join(dir, 'dist')).sort().map(name => [name, createHash('sha256').update(readFileSync(join(dir, 'dist', name))).digest('hex')]));
+const hashes = (output = join(dir, 'dist')) => Object.fromEntries(readdirSync(output).sort().map(name => [name, createHash('sha256').update(readFileSync(join(output, name))).digest('hex')]));
 const write = code => writeFileSync(generator, code);
 const clean = () => expect(readdirSync(dir).filter(name => /staging|previous|build-lock/.test(name))).toEqual([]);
 beforeEach(() => {
@@ -126,12 +126,84 @@ test('actual CLI SIGINT handler cancels its build with JSON failure and status 1
 });
 
 async function cliBuild(...args) {
-  const child = spawn(process.execPath, [join(process.cwd(), 'scripts/sprite.js'), 'build', config, ...args], { cwd: dir, windowsHide: true });
+  return cliBuildWithPreload(null, ...args);
+}
+
+async function cliBuildWithPreload(preload, ...args) {
+  const nodeArgs = preload ? ['--import', pathToFileURL(preload).href] : [];
+  const child = spawn(process.execPath, [...nodeArgs, join(process.cwd(), 'scripts/sprite.js'), 'build', config, ...args], { cwd: dir, windowsHide: true });
   let stdout = '', stderr = '';
   child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
   const code = await new Promise(resolve => child.once('close', resolve));
   return { code, stdout, stderr };
 }
+
+test.each([['JSON', ['--json']], ['human', []]])('actual %s CLI reports publication failure despite SIGINT after backing up output', async (format, args) => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const before = hashes(), output = realpathSync(join(dir, 'dist')), preload = join(dir, 'publication-failure.mjs');
+  // Patch the builtin before the real CLI imports its builder. Emit Node's
+  // portable signal event only after the previous output has actually moved.
+  writeFileSync(preload, `
+    import fs from 'node:fs';
+    import { syncBuiltinESMExports } from 'node:module';
+    const rename = fs.renameSync, output = ${JSON.stringify(output)};
+    let backedUp = false;
+    fs.renameSync = (from, to) => {
+      if (from === output) {
+        const result = rename(from, to);
+        backedUp = true;
+        if (!process.emit('SIGINT')) throw new Error('Build SIGINT handler missing');
+        return result;
+      }
+      if (backedUp && to === output) throw Object.assign(new Error('Injected publication or restoration failure'), { code: 'EIO' });
+      return rename(from, to);
+    };
+    syncBuiltinESMExports();
+  `);
+  const result = await cliBuildWithPreload(preload, ...args);
+  const backupName = readdirSync(dir).find(name => name.endsWith('.previous'));
+  expect(backupName).toBeDefined();
+  const backup = join(realpathSync(dir), backupName);
+  expect(existsSync(output)).toBe(false); expect(hashes(backup)).toEqual(before);
+  if (format === 'JSON') {
+    const report = JSON.parse(result.stdout);
+    expect(report).toMatchObject({ ok: false, artifacts: {}, errors: [expect.objectContaining({ message: expect.stringContaining(backup) })] });
+    expect(report.errors[0].message).toContain('restoring it failed');
+  } else {
+    expect(result.stdout.split('\n')[0]).toBe('Build failed');
+    expect(result.stdout).toContain(backup);
+  }
+  expect(result.code).toBe(1);
+  expect(result.stderr).not.toMatch(/Build canceled|previous output preserved/i);
+  expect(result.stdout).not.toMatch(/previous output preserved/i);
+  expect(readdirSync(dir).filter(name => /staging|previous|build-lock/.test(name))).toEqual([backupName]);
+});
+
+test('actual CLI keeps successful publication and its receipt after SIGINT at the swap', async () => {
+  expect((await buildProject(config)).ok).toBe(true);
+  const output = realpathSync(join(dir, 'dist')), preload = join(dir, 'publication-interrupt.mjs');
+  writeFileSync(preload, `
+    import fs from 'node:fs';
+    import { syncBuiltinESMExports } from 'node:module';
+    const rename = fs.renameSync, output = ${JSON.stringify(output)};
+    fs.renameSync = (from, to) => {
+      const result = rename(from, to);
+      if (to === output && !from.endsWith('.previous')) {
+        if (!process.emit('SIGINT')) throw new Error('Build SIGINT handler missing');
+        process.stderr.write('Injected SIGINT after publication\\n');
+      }
+      return result;
+    };
+    syncBuiltinESMExports();
+  `);
+  const result = await cliBuildWithPreload(preload, '--json'), report = JSON.parse(result.stdout);
+  expect(result.code).toBe(0); expect(report.ok).toBe(true); expect(report.errors).toEqual([]);
+  const manifest = JSON.parse(readFileSync(report.artifacts.manifest, 'utf8'));
+  expect(manifest.generatorInput).toEqual(report.generatorInput);
+  expect(existsSync(report.artifacts.sheet)).toBe(true);
+  expect(result.stderr).toContain('Injected SIGINT after publication');
+  expect(result.stderr).toContain('committed'); expect(result.stderr).not.toContain('Build canceled'); clean();
+});
 
 test('human CLI exposes a failed generator diagnostic with honest bounded truncation', async () => {
   const diagnostic = 'Required generator input is missing.\n';

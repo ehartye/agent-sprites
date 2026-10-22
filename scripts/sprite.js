@@ -544,11 +544,12 @@ async function run() {
     if (!positional[0]) throw new Error('Usage: agent-sprites build <sprite-project.json> [--json]');
     const abort = new AbortController(), interrupted = () => abort.abort();
     process.on('SIGINT', interrupted);
-    let report, lastPhase = '', lastProgress = 0;
+    let report, publicationStarted = false, lastPhase = '', lastProgress = 0;
     try {
       await import('../server/build/producer-identity.js');
       const { buildProject } = await import('../server/build/project-build.js');
       report = await buildProject(positional[0], { signal: abort.signal, onProgress: progress => {
+        if (progress.phase === 'committing' || progress.phase === 'committed') publicationStarted = true;
         const now = Date.now();
         const complete = progress.completed !== undefined && progress.completed === progress.total;
         if (progress.phase === lastPhase && now - lastProgress < 250 && !complete) return;
@@ -558,7 +559,7 @@ async function run() {
     } finally { process.off('SIGINT', interrupted); }
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(report.ok ? 'Build published' : 'Build failed; previous output preserved');
+      console.log(report.ok ? 'Build published' : 'Build failed');
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
       const diagnostic = report.generatorStderr ?? report.generatorInput?.stderr;
@@ -567,7 +568,11 @@ async function run() {
         process.stderr.write(diagnostic.text + (diagnostic.text.endsWith('\n') ? '' : '\n'));
       }
     }
-    if (!report.ok) { process.exitCode = abort.signal.aborted ? 130 : 1; if (abort.signal.aborted) console.error('Build canceled; previous output preserved.'); }
+    if (!report.ok) {
+      const canceled = abort.signal.aborted && !publicationStarted;
+      process.exitCode = canceled ? 130 : 1;
+      if (canceled) console.error('Build canceled; previous output preserved.');
+    }
     return;
   }
   if (cmd === 'verify') {
