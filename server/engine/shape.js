@@ -5,7 +5,7 @@ export class Shape {
   constructor(type, params, color, opts = {}) {
     const savedParams = structuredClone(params);
     if (savedParams && Object.hasOwn(savedParams, 'surface')) savedParams.surface = validateSurface(savedParams.surface);
-    if (!Number.isSafeInteger(nextId) || nextId >= Number.MAX_SAFE_INTEGER) throw new Error('Shape ID space exhausted');
+    Shape.assertIdAllocationAvailable();
     this.id = `s${nextId++}`;
     this.type = type;
     // Deep copy: params may hold nested structures (polygon points)
@@ -34,6 +34,23 @@ export class Shape {
       zIndex: this.zIndex,
       visible: this.visible,
     };
+  }
+
+  /** Reserve prospective import IDs only if its synchronous activation commits. */
+  static withIdAllocationTransaction(action) {
+    const checkpoint = nextId;
+    try {
+      const result = action();
+      if (result && typeof result.then === 'function') throw new Error('Shape ID allocation transactions must be synchronous');
+      return result;
+    } catch (error) {
+      nextId = checkpoint;
+      throw error;
+    }
+  }
+
+  static assertIdAllocationAvailable() {
+    if (!Number.isSafeInteger(nextId) || nextId >= Number.MAX_SAFE_INTEGER) throw new Error('Shape ID space exhausted');
   }
 
   static fromJSON(json) {

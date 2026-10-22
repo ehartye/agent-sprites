@@ -99,6 +99,42 @@ test('rejects receipt tampering and rolls back metadata transaction failures', a
   expect((await api(`/workbench/imports/${second.id}/activate`, {})).error).toMatch(/database unavailable/);
   restore.mockRestore(); expect(state.project).toBe(original); expect(state.db.listSessions()).toHaveLength(count);
 });
+test('failed activation restores ID allocation as well as the active project and database', async () => {
+  await start();
+  const baseline = await api('/draw', { type: 'point', cell: '0,0', x: 0, y: 0, color: 'red' });
+  const lastId = BigInt(baseline.data.shapeId.slice(1));
+  const original = state.project, originalJSON = JSON.stringify(original.toJSON());
+  const originalSession = state.db.getSession(state.sessionId), sessionCount = state.db.listSessions().length;
+  const packet = project();
+  packet.cells['0,0'] = { name: null, shapes: [{ id: 's1000000000000', name: null, type: 'point', params: { x: 1, y: 1 }, color: 'red', zIndex: 0, visible: true }] };
+  const job = await create(); await upload(job, JSON.stringify(packet)); await settled(job);
+  const update = vi.spyOn(state.db, 'updateSession').mockImplementation(() => { throw new Error('forced destination update failure'); });
+  try { expect((await api(`/workbench/imports/${job.id}/activate`, {})).error).toMatch(/forced destination/); }
+  finally { update.mockRestore(); }
+  expect(state.project).toBe(original); expect(JSON.stringify(state.project.toJSON())).toBe(originalJSON);
+  expect(state.db.getSession(state.sessionId)).toEqual(originalSession); expect(state.db.listSessions()).toHaveLength(sessionCount);
+  const drawn = [];
+  for (let i = 1; i <= 6; i++) {
+    const result = await api('/draw', { type: 'point', cell: '0,0', x: i, y: 0, color: 'red' });
+    expect(result.ok, result.error).toBe(true); drawn.push(result.data.shapeId);
+  }
+  expect(drawn).toEqual(Array.from({ length: 6 }, (_, index) => `s${lastId + BigInt(index + 1)}`));
+});
+test.each([
+  ['single near-limit ID', ['s9007199254740990']],
+  ['allocation while hydrating later shapes', ['s9007199254740989', 's1']],
+])('rejects imported IDs that exhaust drawing before readiness: %s', async (_label, ids) => {
+  await start(); const original = state.project, originalJSON = JSON.stringify(original.toJSON());
+  const originalSession = state.db.getSession(state.sessionId), packet = project();
+  packet.cells['0,0'] = { name: null, shapes: ids.map((id, index) => ({ id, name: null, type: 'point', params: { x: index, y: 1 }, color: 'red', zIndex: index, visible: true })) };
+  const job = await create(); await upload(job, JSON.stringify(packet));
+  let result;
+  await vi.waitFor(async () => { result = (await api(`/workbench/imports/${job.id}`)).data; expect(['uploading', 'validating']).not.toContain(result.state); });
+  expect(result.state).toBe('failed'); expect(result.error).toMatch(/ID.*exhaust|ID.*space/i);
+  expect(state.project).toBe(original); expect(JSON.stringify(original.toJSON())).toBe(originalJSON);
+  expect(state.db.getSession(state.sessionId)).toEqual(originalSession);
+  for (let i = 1; i <= 6; i++) expect((await api('/draw', { type: 'point', cell: '0,0', x: i, y: 0, color: 'red' })).ok).toBe(true);
+});
 test('cancels a slow upload and shutdown removes only owned files', async () => {
   await start(); await writeFile(join(temp, 'foreign-sentinel'), 'keep'); const job = await create();
   let closed = false;
@@ -192,6 +228,7 @@ test.each([
   ['unsafe z', shape => { shape.zIndex = 1e30; }],
   ['retained layer without lighting', shape => { shape.params.layers = [{ id: 'bad-layer' }]; }],
   ['runaway primitive work', shape => { shape.type = 'line'; shape.params = { x1: 0, y1: 0, x2: 1e12, y2: 1e12 }; }],
+  ['unsafe patterned rectangle endpoint', shape => { shape.type = 'rect'; shape.params = { x: Number.MAX_SAFE_INTEGER, y: 0, w: 3, h: 1, filled: true, pattern: 'checker', color2: 'blue' }; }],
 ])('rejects %s during worker validation before readiness', async (_label, mutate) => {
   await start(); const original = state.project, packet = project();
   const shape = { id: 's1', name: null, type: 'point', params: { x: 1, y: 2 }, color: 'red', zIndex: 0, visible: true }; mutate(shape);
@@ -212,4 +249,14 @@ test('preserves fractional V1 geometry and z, exhausted z, and native snapping t
   expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
   expect(state.project.toJSON()).toEqual(canonical.toJSON());
   expect(renderer.renderCellRaw(state.project.cells.getCell('0,0'))).toEqual(expected);
+});
+test('accepts a patterned rectangle whose snapped endpoint stays within the safe numeric range', async () => {
+  await start(); const packet = project();
+  const params = { x: Number.MAX_SAFE_INTEGER - 3, y: 0.4, w: 3, h: 1.2, filled: true, pattern: 'checker', color2: 'blue' };
+  packet.cells['0,0'] = { name: null, shapes: [{ id: 's1', name: null, type: 'rect', params, color: 'red', zIndex: 500.25, visible: true }] };
+  const job = await create(); await upload(job, JSON.stringify(packet)); await settled(job);
+  expect((await api(`/workbench/imports/${job.id}/activate`, {})).ok).toBe(true);
+  expect(state.project.cells.getCell('0,0').shapes.get('s1').params).toEqual(params);
+  const pixels = new CanvasRenderer(state.project.palette).renderCellRaw(state.project.cells.getCell('0,0'));
+  expect(pixels).toEqual(new Uint8ClampedArray(8 * 8 * 4));
 });

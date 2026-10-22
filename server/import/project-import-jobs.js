@@ -5,6 +5,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { Worker } from 'node:worker_threads';
 import { spoolBoundedInput } from '../io/bounded-input.js';
 import { Project } from '../engine/project.js';
+import { Shape } from '../engine/shape.js';
 import { activateProjectCopy, projectName } from '../session-activation.js';
 
 export const IMPORT_LIMITS = Object.freeze({ maxSourceBytes: 512 * 1024 * 1024, maxExpandedBytes: 512 * 1024 * 1024,
@@ -134,10 +135,14 @@ export class ProjectImportJobs {
         if (bytes.length !== job.output.bytes || createHash('sha256').update(bytes).digest('hex') !== job.output.sha256) throw new Error('Validated import receipt mismatch');
         if (job.abort.signal.aborted) throw new Error('Import canceled');
         this.pins(job);
-        const project = Project.fromJSON(JSON.parse(bytes.toString('utf8')));
-        if (job.abort.signal.aborted) throw new Error('Import canceled');
-        this.pins(job);
-        job.receipt = activateProjectCopy(this.state, project); job.state = 'complete'; job.phase = 'complete'; job.touched = Date.now(); job.project = null;
+        job.receipt = Shape.withIdAllocationTransaction(() => {
+          const project = Project.fromJSON(JSON.parse(bytes.toString('utf8')));
+          Shape.assertIdAllocationAvailable();
+          if (job.abort.signal.aborted) throw new Error('Import canceled');
+          this.pins(job);
+          return activateProjectCopy(this.state, project);
+        });
+        job.state = 'complete'; job.phase = 'complete'; job.touched = Date.now(); job.project = null;
         await this.releaseFiles(job); return job.receipt;
       } catch (error) { await this.failed(job, error); throw new Error(this.diagnostic(error)); }
     })();

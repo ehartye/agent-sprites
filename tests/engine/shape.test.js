@@ -52,4 +52,25 @@ describe('Shape', () => {
     expect(restored.name).toBe('head');
     expect(restored.zIndex).toBe(2);
   });
+
+  it('commits imported ID reservations and preserves later successful allocations after another transaction fails', () => {
+    const before = new Shape('point', { x: 0, y: 0 }, 'red');
+    const importedId = BigInt(before.id.slice(1)) + 1000n;
+    const imported = Shape.withIdAllocationTransaction(() => Shape.fromJSON({ ...before.toJSON(), id: `s${importedId}` }));
+    expect(imported.id).toBe(`s${importedId}`);
+    const committed = new Shape('point', { x: 1, y: 1 }, 'blue');
+    expect(committed.id).toBe(`s${importedId + 1n}`);
+    expect(() => Shape.withIdAllocationTransaction(() => {
+      Shape.fromJSON({ ...before.toJSON(), id: `s${importedId + 2000n}` });
+      throw new Error('prospective activation failed');
+    })).toThrow('prospective activation failed');
+    expect(new Shape('point', { x: 2, y: 2 }, 'red').id).toBe(`s${importedId + 2n}`);
+    expect(committed.clone().id).toBe(`s${importedId + 3n}`);
+  });
+
+  it('requires the allocation transaction to finish synchronously', () => {
+    const before = new Shape('point', { x: 0, y: 0 }, 'red');
+    expect(() => Shape.withIdAllocationTransaction(() => Promise.resolve())).toThrow(/synchronous/);
+    expect(new Shape('point', { x: 1, y: 1 }, 'red').id).toBe(`s${BigInt(before.id.slice(1)) + 1n}`);
+  });
 });

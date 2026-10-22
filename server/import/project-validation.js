@@ -1,9 +1,11 @@
 import { Project } from '../engine/project.js';
+import { Shape } from '../engine/shape.js';
 import { projectName } from '../session-activation.js';
 import { buildLayerTree } from '../web/public/js/shared/shape-layers.js';
 import { patternTest } from '../engine/patterns.js';
 import { surfacePrimitiveWork } from '../web/public/js/shared/surface-raster.js';
 import { SURFACE_LIMITS } from '../web/public/js/shared/surface-model.js';
+import { snapParams } from '../web/public/js/shared/raster.js';
 
 function map(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 const geometry = { point: ['x', 'y'], fill: ['x', 'y'], line: ['x1', 'y1', 'x2', 'y2'], rect: ['x', 'y', 'w', 'h'], circle: ['cx', 'cy', 'r'], ellipse: ['cx', 'cy', 'rx', 'ry'], polygon: ['points'], polyline: ['points'] };
@@ -14,6 +16,11 @@ function validateShapes(shapes, width, height) {
   for (const shape of shapes) {
     if (!map(shape) || !Object.hasOwn(geometry, shape.type) || !map(shape.params)) throw new Error('Invalid shape type or geometry');
     if (typeof shape.id !== 'string' || !shape.id.length || shape.id.length > 1024 || /[\p{Cc}\p{Cs}]/u.test(shape.id) || ids.has(shape.id)) throw new Error('Shape IDs must be unique nonempty strings');
+    const numericId = /^s(\d+)$/.exec(shape.id);
+    if (numericId) {
+      const reserved = Number(numericId[1]) + 1;
+      if (!Number.isSafeInteger(reserved) || reserved >= Number.MAX_SAFE_INTEGER) throw new Error('Imported shape ID exhausts the supported ID space');
+    }
     ids.add(shape.id);
     if (!finiteGeometry(shape.zIndex ?? 0)) throw new Error('Shape z must be finite and within the safe numeric range');
     if (typeof shape.color !== 'string' || !shape.color.length || (shape.visible !== undefined && typeof shape.visible !== 'boolean') || (shape.name != null && typeof shape.name !== 'string')) throw new Error('Invalid shape color, visibility or name');
@@ -25,6 +32,12 @@ function validateShapes(shapes, width, height) {
       } else if (!finiteGeometry(params[key])) throw new Error(`Invalid shape geometry: ${key} must be finite and within the safe numeric range`);
     }
     for (const key of ['w', 'h', 'r', 'rx', 'ry']) if (key in params && params[key] < 0) throw new Error('Invalid negative shape geometry');
+    if (shape.type === 'rect') {
+      const snapped = snapParams(params);
+      // The canonical patterned fill increments global x/y until these exclusive
+      // endpoints. Crossing 2^53 can make ++ stop advancing even for a tiny rect.
+      if (![snapped.x + snapped.w, snapped.y + snapped.h].every(Number.isSafeInteger)) throw new Error('Invalid shape rectangle stepping bounds');
+    }
     for (const key of ['erase', 'filled']) if (key in params && typeof params[key] !== 'boolean') throw new Error(`Invalid shape ${key}`);
     if (params.pattern !== undefined) patternTest(params.pattern);
     if (params.color2 !== undefined && (typeof params.color2 !== 'string' || !params.color2.length)) throw new Error('Invalid shape secondary color');
@@ -59,6 +72,7 @@ export function validateImportedProject(data, { maxCells, maxShapes }, name) {
     }
   }
   const project = Project.fromJSON(data);
+  Shape.assertIdAllocationAvailable();
   project.name = projectName(name ?? project.name);
   return { project, summary: { name: project.name, rows, cols, cells: rows * cols, shapes } };
 }
