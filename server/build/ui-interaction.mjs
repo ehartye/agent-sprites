@@ -38,6 +38,7 @@ function prepare(scope) {
     for (const [id, revision] of Object.entries(record.contextRevisions)) if (!contexts.has(id) || contexts.get(id).revision !== revision) throw new TypeError(`Stale or unknown control context ${id}`);
     records.set(record.id, record);
   }
+  for (const record of records.values()) if (record.parentId !== undefined && record.parentId !== null && !records.has(record.parentId)) throw new TypeError(`Unknown parent ID ${record.parentId} for ${record.id}`);
   for(const record of records.values())if(record.metadata?.['ui:stateOwner']!==undefined) {
     const id=record.metadata['ui:stateOwner'],owner=records.get(id);
     if(typeof id!=='string'||!owner||!['button','itemSlot'].includes(owner.kind)||owner.metadata?.['ui:stateOwner']!==undefined||!['text','icon','panel'].includes(record.kind)||record.focusable||record.actionId!==undefined||record.focus!==undefined)throw new TypeError('Invalid same-mount state-owner link or authority');
@@ -76,9 +77,9 @@ function prepare(scope) {
 
 /** One instance per mounted scope. Hosts feed normalized events; this engine never dispatches. */
 export function createUiInteraction(scope, policy = {}) {
-  uiKeys(policy, ['navigation', 'wrap', 'restoreId'], 'interaction policy');
-  policy = freezeUiData(copyUiData({navigation: 'ordered', wrap: false, ...policy}));
-  if (!['ordered', 'spatial', 'pane'].includes(policy.navigation) || typeof policy.wrap !== 'boolean') throw new TypeError('Invalid navigation policy');
+  uiKeys(policy, ['navigation', 'wrap', 'restoreId', 'retainUnchangedPresses'], 'interaction policy');
+  policy = freezeUiData(copyUiData({navigation: 'ordered', wrap: false, retainUnchangedPresses: false, ...policy}));
+  if (!['ordered', 'spatial', 'pane'].includes(policy.navigation) || typeof policy.wrap !== 'boolean' || typeof policy.retainUnchangedPresses !== 'boolean') throw new TypeError('Invalid interaction policy');
   let current = prepare(scope), disposed = false, generation = 0, sequence = 0, focusId = null, hoverId = null;
   const held = new Map(), consumed = new Set(), paneFocus = new Map();
   function candidates(pane) { return (current.plan.focus.order?.map(id => current.records.get(id)) ?? current.plan.records).filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
@@ -301,9 +302,22 @@ export function createUiInteraction(scope, policy = {}) {
       }
     }
     const modelChanged = next.plan.revision !== current.plan.revision;
+    // Opt-in hosts retain the original game binding captured at press time.
+    // A model revision elsewhere may then refresh that token only when this
+    // control's complete semantic/geometry/context record remains identical.
+    const retained = new Set();
+    if (modelChanged && policy.retainUnchangedPresses && next.plan.themeId === current.plan.themeId) {
+      for (const [id, token] of held) {
+        const prior = current.records.get(token.controlId), replacement = next.records.get(token.controlId);
+        if (liveToken(token) && replacement && next.logicalVisibility.get(token.controlId) !== false && stable(prior) === stable(replacement)) retained.add(id);
+      }
+    }
     if (modelChanged) generation++;
     current = next;
-    for (const [id, token] of held) if (!liveToken(token)) held.delete(id);
+    for (const [id, previous] of held) {
+      const token = retained.has(id) ? {...previous, generation, modelRevision: current.plan.revision} : previous;
+      if (!liveToken(token)) held.delete(id); else if (token !== previous) held.set(id, token);
+    }
     restore(focusId);
     if (!current.records.has(hoverId)) hoverId = null;
   }

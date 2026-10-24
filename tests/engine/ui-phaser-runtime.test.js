@@ -42,6 +42,20 @@ async function api() {
   return import(url.href);
 }
 
+test('original-binding policy reaches the keyed native mount and retains a hold through unrelated content updates',async()=>{
+  const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f);
+  const snapshot=(revision,label)=>({revision,context:f.context,tree:u.absolute({id:'root',layout:{width:100,height:60},children:[
+    button({id:'ok',label:'?',actionId:'original:ok',layout:{width:20,height:10}}),
+    u.text({id:'unrelated',label,layout:{x:40,y:20,width:40,height:10}})
+  ]})});
+  const mount=ui.mount(snapshot(1,'?'),{parent:f.parent,scope:'test:retained-binding',policy:{retainUnchangedPresses:true}});
+  mount.handle({type:'press',inputId:'held',point:{x:4,y:4},pointSpace:'physical'});
+  mount.update(snapshot(2,'??'));expect(mount.inspect({limit:3})).toMatchObject({heldCount:1,modelRevision:2,native:{lifecycle:'mounted'}});
+  expect(mount.handle({type:'release',inputId:'held',point:{x:4,y:4},pointSpace:'physical'})).toMatchObject([{actionId:'original:ok',modelRevision:2}]);
+  expect(mount.handle({type:'release',inputId:'held',point:{x:4,y:4},pointSpace:'physical'})).toEqual([]);
+  ui.dispose();expect(mount.inspect({limit:1}).native.objects).toBe(0);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
 test('clipped document glyphs retain logical records while only visible rows consume native objects',async()=>{
   const {createPhaserUi}=await api(),f=fixture();
   const snapshot=(revision,scroll)=>({revision,context:f.context,tree:u.absolute({id:'document',layout:{width:80,height:24,overflow:'clip'},children:Array.from({length:2000},(_,i)=>u.text({id:'row:'+i,label:'??????????',layout:{x:0,y:i*8-scroll,width:60,height:8,wrap:false}}))})});

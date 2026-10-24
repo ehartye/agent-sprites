@@ -3,6 +3,12 @@ import type {Selection} from './ui-components.mjs';
 import type {UiLayoutPlan, LayoutRecord} from './ui-layout.mjs';
 export interface InteractionScope {readonly id: string; readonly plan: UiLayoutPlan}
 export interface InteractionPolicy {
+  /** Opt-in only when the host retains the original action binding captured at
+   * press time. An unrelated model revision preserves a held control only if
+   * its entire record and dependent context revisions remain identical, the
+   * theme is unchanged and its ancestry remains visible. Activation reports
+   * the current model revision; queued stale events still fail. Default false. */
+  readonly retainUnchangedPresses?: boolean;
   /** Spatial navigation with explicit plan.focus.order ranks declared measured
    * raw focus rectangles in physical space, including clipped controls, and
    * emits focus intents for host reveal/republish. Missing, hidden, nonfocusable

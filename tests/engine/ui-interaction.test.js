@@ -23,6 +23,79 @@ const context = id => ({...pixelResolution({id,revision:1,localToPhysical:{scale
 function control(id,x,extra={}){return {id,semanticContextId:'app:main',kind:'button',role:'button',enabled:true,focusable:true,actionId:`action:${id}`,paneId:'main',bounds:{x,y:0,width:10,height:10},hitBounds:{x,y:0,width:10,height:10},focusBounds:{x,y:0,width:10,height:10},effectiveHitBounds:{x,y:0,width:10,height:10},effectiveFocusBounds:{x,y:0,width:10,height:10},clipBounds:null,state:'visible',contextRevisions:{'app:main':1},...extra};}
 function scope(records=[control('a',0),control('b',20,{enabled:false}),control('c',40)]){const ids=records.map(r=>r.id);return {id:'app:dialog',plan:{format:'agent-sprites/ui-layout@1',revision:1,contexts:[context('app:main')],records,focus:{initialId:ids.includes('b')?'b':ids[0],defaultId:ids.includes('a')?'a':undefined,cancelId:ids.includes('c')?'c':undefined}}};}
 
+test('original-binding policy preserves an identical held control across unrelated model revisions exactly once',async()=>{
+  const {createUiInteraction}=await api();
+  const ui=createUiInteraction(scope(),{retainUnchangedPresses:true});
+  ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});
+  const next=scope();next.plan.revision=2;next.plan.records[2].label='unrelated appearance update';
+  ui.update(next);expect(ui.inspect({limit:3}).heldCount).toBe(1);
+  const third=structuredClone(next);third.plan.revision=3;third.plan.records[2].label='another update';ui.update(third);
+  expect(ui.handle({type:'activate',inputId:'queued-old',modelRevision:1,controlId:'a'})).toEqual([]);
+  const result=ui.handle({type:'release',inputId:'held',point:{x:2,y:2}});
+  expect(result).toMatchObject([{kind:'activate',controlId:'a',actionId:'action:a',modelRevision:3}]);
+  expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toEqual([]);ui.dispose();
+});
+
+test.each(['action','label','disabled','hidden','clipped','geometry','context','theme','removed','kind','metadata'])('original-binding policy cancels held control on %s changes',async change=>{
+  const {createUiInteraction}=await api(),ui=createUiInteraction(scope(),{retainUnchangedPresses:true});
+  ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});
+  const next=scope();next.plan.revision=2;const record=next.plan.records[0];
+  if(change==='action')record.actionId='replacement';
+  if(change==='label')record.label='replacement label';
+  if(change==='disabled')record.enabled=false;
+  if(change==='hidden'){record.state='hidden';record.effectiveHitBounds=null;record.effectiveFocusBounds=null;}
+  if(change==='clipped'){record.state='clipped';record.effectiveHitBounds=null;}
+  if(change==='geometry')record.hitBounds.width=record.effectiveHitBounds.width=11;
+  if(change==='context'){next.plan.contexts[0].revision=2;for(const r of next.plan.records)r.contextRevisions['app:main']=2;}
+  if(change==='theme')next.plan.themeId='replaced-theme';
+  if(change==='removed'){next.plan.records.shift();next.plan.focus.defaultId=undefined;}
+  if(change==='kind')record.kind='itemSlot';
+  if(change==='metadata')record.metadata={'game:binding':'replacement'};
+  ui.update(next);expect(ui.inspect({limit:3}).heldCount).toBe(0);
+  expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toEqual([]);ui.dispose();
+});
+
+test('original-binding policy defaults to cancellation and rejects nonboolean admission',async()=>{
+  const {createUiInteraction}=await api(),ui=createUiInteraction(scope());
+  ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});const next=scope();next.plan.revision=2;ui.update(next);
+  expect(ui.inspect({limit:1}).heldCount).toBe(0);expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toEqual([]);ui.dispose();
+  expect(()=>createUiInteraction(scope(),{retainUnchangedPresses:'yes'})).toThrow(/policy/i);
+});
+
+test('original-binding policy refreshes only the unchanged hold when another held action changes',async()=>{
+  const {createUiInteraction}=await api(),ui=createUiInteraction(scope(),{retainUnchangedPresses:true});
+  ui.handle({type:'press',inputId:'a',point:{x:2,y:2}});ui.handle({type:'press',inputId:'c',point:{x:42,y:2}});
+  const next=scope();next.plan.revision=2;next.plan.records[2].actionId='replacement';ui.update(next);
+  expect(ui.inspect({limit:3}).heldCount).toBe(1);
+  expect(ui.handle({type:'release',inputId:'c',point:{x:42,y:2}})).toEqual([]);
+  expect(ui.handle({type:'release',inputId:'a',point:{x:2,y:2}})).toMatchObject([{actionId:'action:a',modelRevision:2}]);ui.dispose();
+});
+
+test('original-binding policy cancels inherited hidden ancestry despite an unchanged child record',async()=>{
+  const {createUiInteraction}=await api(),s=scope();s.plan.records.unshift(control('parent',70,{kind:'absolute',focusable:false,actionId:undefined}));s.plan.records[1].parentId='parent';
+  const ui=createUiInteraction(s,{retainUnchangedPresses:true});ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});
+  const next=structuredClone(s);next.plan.revision=2;next.plan.records[0].hidden=true;ui.update(next);
+  expect(ui.inspect({limit:4}).heldCount).toBe(0);expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toEqual([]);ui.dispose();
+});
+
+test('original-binding policy rejects a publication whose unchanged held control loses a declared ancestor',async()=>{
+  const {createUiInteraction}=await api(),s=scope();s.plan.records.unshift(control('parent',70,{kind:'absolute',focusable:false,actionId:undefined}));s.plan.records[1].parentId='parent';
+  const ui=createUiInteraction(s,{retainUnchangedPresses:true});ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});
+  const next=structuredClone(s);next.plan.revision=2;next.plan.records.shift();
+  expect(()=>ui.update(next)).toThrow(/parent/i);
+  expect(ui.inspect({limit:4})).toMatchObject({heldCount:1,modelRevision:1});
+  expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toMatchObject([{actionId:'action:a',modelRevision:1}]);ui.dispose();
+});
+
+test('original-binding policy cannot retarget a hold through focus roles or stale scope and context envelopes',async()=>{
+  const {createUiInteraction}=await api(),ui=createUiInteraction(scope(),{retainUnchangedPresses:true});
+  ui.handle({type:'press',inputId:'held',point:{x:2,y:2}});
+  const next=scope();next.plan.revision=2;next.plan.focus={initialId:'c',defaultId:'c',cancelId:'a',order:['c','a']};ui.update(next);ui.handle({type:'focus',controlId:'c'});
+  for(const extra of [{scopeId:'wrong:scope'},{contextRevisions:{'app:main':0}},{modelRevision:1}])expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2},...extra})).toEqual([]);
+  expect(ui.inspect({limit:3}).heldCount).toBe(1);
+  expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toMatchObject([{actionId:'action:a',modelRevision:2}]);ui.dispose();
+});
+
 test('logical spatial: Travel 284x160 requests area-4 reveal then activates only after republish',async()=>{
   const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
   const theme=defineTheme({version:1,id:'test:travel',roles:{absolute:{},button:{}},geometry:{minTarget:0}});
