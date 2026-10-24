@@ -42,18 +42,28 @@ function constantAxis(plane,s,axis) {
   }
   return true;
 }
-function* skinTiles(plan,plane) {
-  if(!plane){yield* iterateNineSliceTiles(plan);return;}
+function tileWindow(d,p,clip) {
+  const visible=intersect(d,clip);if(!visible)return null;
+  return {x:Math.max(0,Math.floor((visible.x-d.x)/p.width)*p.width),y:Math.max(0,Math.floor((visible.y-d.y)/p.height)*p.height),right:Math.min(d.width,Math.ceil((visible.x+visible.width-d.x)/p.width)*p.width),bottom:Math.min(d.height,Math.ceil((visible.y+visible.height-d.y)/p.height)*p.height)};
+}
+function* skinTiles(plan,plane,clip) {
   const physical=plan.physicalPlan??plan, scale=physical.scale;
+  const physicalClip=plan.resolution&&clip?projectPixelRect(plan.resolution,clip):clip;
   for(const region of physical.regions) {
     const {source:s,destination:d,period,tile,phase}=region;
-    if(!tile || period.width!==s.width*scale || period.height!==s.height*scale || phase?.x || phase?.y) {
-      const partial={...physical,regions:[region]};
+    if(!intersect(d,physicalClip))continue;
+    if(!plane || !tile || period.width!==s.width*scale || period.height!==s.height*scale || phase?.x || phase?.y) {
+      // Iterate only original tile periods touching the clip. Aligned starts
+      // preserve source phase without walking arbitrarily large hidden areas.
+      const window=tile?tileWindow(d,period,physicalClip):null;
+      const destination=window?{x:d.x+window.x,y:d.y+window.y,width:window.right-window.x,height:window.bottom-window.y}:d;
+      const partial={...physical,regions:[{...region,destination}]};
       for(const q of iterateNineSliceTiles(partial))yield {...q,destination:plan.resolution?projectPixelRect(plan.resolution,q.destination,'to-local'):q.destination};
       continue;
     }
     const x=d.width>period.width && constantAxis(plane,s,'x'), y=d.height>period.height && constantAxis(plane,s,'y');
-    for(let oy=0;oy<d.height;oy+=y?d.height:period.height)for(let ox=0;ox<d.width;ox+=x?d.width:period.width) {
+    const step={width:x?d.width:period.width,height:y?d.height:period.height},window=tileWindow(d,step,physicalClip);
+    for(let oy=window.y;oy<window.bottom;oy+=step.height)for(let ox=window.x;ox<window.right;ox+=step.width) {
       const width=x?d.width:Math.min(period.width,d.width-ox),height=y?d.height:Math.min(period.height,d.height-oy);
       const destination={x:d.x+ox,y:d.y+oy,width,height};
       yield {source:{x:s.x,y:s.y,width:x?1:width/scale,height:y?1:height/scale},destination:plan.resolution?projectPixelRect(plan.resolution,destination,'to-local'):destination};
@@ -161,7 +171,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
           // ink that can reach this context's clip. Include state offsets before
           // culling so a pressed glyph can enter the viewport at its boundary.
           const painted=variant.paintOffset?{...destination,x:destination.x+variant.paintOffset.x,y:destination.y+variant.paintOffset.y}:destination;
-          if(paint.clipBounds&&!intersect(painted,paint.clipBounds))return;
+          if(!intersect(painted,paint.clipBounds))return;
           commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id,tint,opacity:role.opacity??1});
         }
         function glyphs(key,part) {
@@ -202,9 +212,10 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
             }
             const borrowed = asset({kind:'skin',id:variant.skin??part.appearance.id});let i = 0;
             if(borrowed.plane){const s=skin.frame;if(s.x<0||s.y<0||s.x+s.width>borrowed.plane.width||s.y+s.height>borrowed.plane.height)throw new RangeError('Skin frame exceeds RGBA source');}
-            for (const quad of skinTiles(skinPlan,borrowed.plane)) {
-              if (commands.length >= budget.objects) throw new RangeError('Native object budget exceeded by skin tiles');
+            const clip=variant.paintOffset&&part.clipBounds?{...part.clipBounds,x:part.clipBounds.x-variant.paintOffset.x,y:part.clipBounds.y-variant.paintOffset.y}:part.clipBounds;
+            for (const quad of skinTiles(skinPlan,borrowed.plane,clip)) {
               image(`${key}:tile:${i++}`,quad.source,quad.destination,part,borrowed);
+              if (commands.length > budget.objects) throw new RangeError('Native object budget exceeded by skin tiles');
             }
           } else if (part.kind === 'text' || part.kind === 'composition') glyphs(key,part);
           else if (part.kind === 'tab') {

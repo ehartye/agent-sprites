@@ -56,6 +56,25 @@ test('clipped document glyphs retain logical records while only visible rows con
   ui.dispose();expect(mount.inspect({limit:1}).native.objects).toBe(0);
 });
 
+test('fully clipped nested documents reserve no glyphs and reveal within the same native budget',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const snapshot=(revision,y)=>({revision,context:f.context,tree:u.absolute({id:'root',layout:{width:80,height:24,overflow:'clip'},children:[u.absolute({id:'nested',layout:{y,width:80,height:24,overflow:'clip'},children:Array.from({length:2000},(_,i)=>u.text({id:'nested:'+i,label:'??????????',layout:{y:i*8,width:60,height:8,wrap:false}}))})]})});
+  const ui=createPhaserUi({...f,limits:{objects:32}}),mount=ui.mount(snapshot(1,100),{parent:f.parent,scope:'test:null-clip'});
+  expect(mount.inspect({limit:1}).native.objects).toBe(0);
+  mount.update(snapshot(2,0));expect(mount.inspect({limit:1}).native.objects).toBe(30);
+  mount.update(snapshot(3,100));expect(mount.inspect({limit:1}).native.objects).toBe(0);
+  ui.dispose();
+});
+
+test('skin clip admission admits the exact visible budget before later invisible tiles',async()=>{
+  const {createPhaserUi}=await api(),f=uniformFixture();delete f.ports.readSourceRGBA;
+  const snapshot=f.snapshot();snapshot.context={...snapshot.context,viewport:{x:0,y:0,width:1,height:1}};
+  snapshot.tree=button({id:'face',focusable:false,layout:{width:20,height:20}});
+  const ui=createPhaserUi({...f,limits:{objects:1}}),mount=ui.mount(snapshot,{parent:f.parent,scope:'test:skin-clip-budget'});
+  expect(mount.inspect({limit:1}).native.objects).toBe(1);
+  expect(f.objects.filter(o=>o.visible&&!o.destroyed)).toHaveLength(1);ui.dispose();
+});
+
 test('clip admission includes a state offset that brings a glyph into the viewport',async()=>{
   const {createPhaserUi}=await api(),f=fixture();
   f.theme=defineTheme({version:1,id:'test:clip-state',fonts:{body:{font:f.theme.fonts.body.font}},roles:{absolute:{},button:{},text:{font:'body',tone:'cream',placement:{nativeStates:{pressed:{paintOffset:{x:0,y:1}}}}}}});
