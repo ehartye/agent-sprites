@@ -157,6 +157,11 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
           uiRect(source,'native source');uiRect(destination,'native destination');
           if (!source.width || !source.height || ![source.x,source.y,source.width,source.height].every(Number.isInteger)) throw new TypeError('Atlas fragments require positive whole source pixels');
           if(borrowed.plane && (source.x<0||source.y<0||source.x+source.width>borrowed.plane.width||source.y+source.height>borrowed.plane.height))throw new RangeError('Source fragment exceeds RGBA plane');
+          // Keep the complete logical plan, but reserve native images only for
+          // ink that can reach this context's clip. Include state offsets before
+          // culling so a pressed glyph can enter the viewport at its boundary.
+          const painted=variant.paintOffset?{...destination,x:destination.x+variant.paintOffset.x,y:destination.y+variant.paintOffset.y}:destination;
+          if(paint.clipBounds&&!intersect(painted,paint.clipBounds))return;
           commands.push({key:`${record.id}:${key}`,kind:'image',source,bounds:destination,contextId:paint.contextId,clip:paint.clipBounds,asset:borrowed,recordId:record.id,tint,opacity:role.opacity??1});
         }
         function glyphs(key,part) {

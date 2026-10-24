@@ -42,6 +42,33 @@ async function api() {
   return import(url.href);
 }
 
+test('clipped document glyphs retain logical records while only visible rows consume native objects',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  const snapshot=(revision,scroll)=>({revision,context:f.context,tree:u.absolute({id:'document',layout:{width:80,height:24,overflow:'clip'},children:Array.from({length:2000},(_,i)=>u.text({id:'row:'+i,label:'??????????',layout:{x:0,y:i*8-scroll,width:60,height:8,wrap:false}}))})});
+  const ui=createPhaserUi({...f,limits:{objects:32}}),mount=ui.mount(snapshot(1,0),{parent:f.parent,scope:'test:clipped-document'});
+  expect(mount.inspect({limit:1}).native.objects).toBe(30);
+  mount.update(snapshot(2,1997*8));
+  expect(mount.inspect({limit:1}).native.objects).toBe(30);
+  const page=mount.inspect({afterId:'row:1996',limit:4});
+  expect(page.controls.map(r=>r.id)).toEqual(['row:1997','row:1998','row:1999']);
+  expect(page.controls.every(r=>r.state==='visible')).toBe(true);
+  expect(f.objects.filter(o=>o.visible&&!o.destroyed&&o.kind==='image')).toHaveLength(30);
+  ui.dispose();expect(mount.inspect({limit:1}).native.objects).toBe(0);
+});
+
+test('clip admission includes a state offset that brings a glyph into the viewport',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:clip-state',fonts:{body:{font:f.theme.fonts.body.font}},roles:{absolute:{},button:{},text:{font:'body',tone:'cream',placement:{nativeStates:{pressed:{paintOffset:{x:0,y:1}}}}}}});
+  const tree=u.absolute({id:'root',layout:{width:20,height:10,overflow:'clip'},children:[button({id:'owner',actionId:'act',layout:{x:10,y:0,width:10,height:10}}),u.text({id:'caption',label:'?',metadata:{'ui:stateOwner':'owner'},layout:{x:0,y:-6,width:8,height:8,wrap:false}})]});
+  const ui=createPhaserUi(f),mount=ui.mount({revision:1,context:f.context,tree},{parent:f.parent,scope:'test:clip-state'});
+  expect(f.objects.filter(o=>o.kind==='image'&&o.visible&&!o.destroyed)).toHaveLength(0);
+  mount.handle({type:'press',inputId:'pointer',point:{x:24,y:4},pointSpace:'physical'});
+  const glyphs=f.objects.filter(o=>o.kind==='image'&&o.visible&&!o.destroyed);
+  expect(glyphs).toHaveLength(1);expect(glyphs[0].y).toBe(-5);
+  mount.handle({type:'blur'});expect(f.objects.filter(o=>o.kind==='image'&&o.visible&&!o.destroyed)).toHaveLength(0);
+  ui.dispose();
+});
+
 test('independent regions: native disabled focus frames the full card without changing the small painted button or hit target',async()=>{
   const {createPhaserUi}=await api(),f=fixture();
   f.theme=defineTheme({version:1,id:'test:regions',roles:{absolute:{},button:{alternatives:[{kind:'flat',color:'#123456'}],colors:{focus:'#ff2bd6'},edge:{width:2,focusWhenDisabled:true}}},geometry:{minTarget:0}});
@@ -386,6 +413,9 @@ test('source RGBA is copied once and large unavailable tiling retains the defaul
   ui.dispose();
   const g=uniformFixture();delete g.ports.readSourceRGBA;
   const legacy=createPhaserUi(g),s=g.snapshot();s.tree=button({id:'ok',layout:{width:1000,height:1000}});
+  // The budget protects simultaneous visible work. Clipped tiles no longer
+  // reserve native images, so expose the entire oversized face in this control.
+  s.context={...s.context,viewport:{x:0,y:0,width:1000,height:1000}};
   expect(()=>legacy.mount(s,{parent:g.parent,scope:'test:budget'})).toThrow(/object budget/);expect(g.objects).toHaveLength(0);legacy.dispose();
 });
 
