@@ -61,7 +61,11 @@ function prepare(scope) {
     while (ancestor && !logicalVisibility.has(ancestor.id) && !seen.has(ancestor.id)) {
       seen.add(ancestor.id); chain.push(ancestor);
       if (ancestor.hidden || ancestor.state === 'hidden') { logicalVisibility.set(ancestor.id, false); break; }
-      ancestor = records.get(ancestor.parentId);
+      const parent = records.get(ancestor.parentId);
+      // A collapsed fold remains a visible control while suppressing only its
+      // descendants. Do not reuse the fold's own visible memo for its children.
+      if (parent?.kind === 'fold' && !parent.value) { logicalVisibility.set(ancestor.id, false); break; }
+      ancestor = parent;
     }
     const visible = ancestor ? logicalVisibility.get(ancestor.id) ?? false : true;
     for (const entry of chain) logicalVisibility.set(entry.id, visible);
@@ -80,7 +84,7 @@ export function createUiInteraction(scope, policy = {}) {
   function candidates(pane) { return (current.plan.focus.order?.map(id => current.records.get(id)) ?? current.plan.records).filter(record => eligible(record) && (pane === undefined || record.paneId === pane)); }
   function setFocus(id) {
     const record = current.records.get(id);
-    if (current.plan.focus.order?.includes(id) && !eligible(record)) {focusId = id; return true;}
+    if (current.plan.focus.order?.includes(id) && !eligible(record) && current.logicalVisibility.get(id) !== false) {focusId = id; return true;}
     if (!eligible(record) || current.plan.focus.order && !current.plan.focus.order.includes(id)) return false;
     focusId = id; paneFocus.set(record.paneId, id); return true;
   }

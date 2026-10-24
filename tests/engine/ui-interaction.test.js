@@ -77,6 +77,32 @@ test.each(['visible','paginate'])('review correction: spatial navigation exclude
   unordered.dispose();
 });
 
+test.each(['visible','paginate'])('collapsed folds suppress logical descendants under %s overflow',async overflow=>{
+  const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
+  const theme=defineTheme({version:1,id:'test:collapsed-fold',roles:{absolute:{},button:{},fold:{}},geometry:{minTarget:0}});
+  const viewport={id:'test:collapsed-fold',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:100,height:140}};
+  const make=(expanded,revision)=>layoutUi(u.absolute({id:'root',layout:{width:100,height:140},focus:{initialId:'origin',order:['origin','child','far']},children:[
+    u.button({id:'origin',layout:{width:10,height:10}}),
+    u.fold({id:'group',value:expanded,layout:{y:20,width:30,height:50,overflow},children:[u.absolute({id:'nested',layout:{width:30,height:40},children:[u.button({id:'child',actionId:'choose',layout:{width:10,height:10}})]})]}),
+    u.button({id:'far',layout:{y:100,width:10,height:10}})
+  ]}),{theme,context:viewport,revision});
+  const collapsed=make(false,1),child=collapsed.records.find(r=>r.id==='child');
+  expect(collapsed.records.find(r=>r.id==='group').state).toBe('visible');
+  expect(child.state).toBe('clipped');expect(child.focusBounds.width).toBeGreaterThan(0);
+  const ui=createUiInteraction({id:'test:collapsed-fold',plan:collapsed},{navigation:'spatial'});
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'far',modelRevision:1}]);
+  expect(ui.handle({type:'activate',controlId:'child',inputId:'collapsed'})).toEqual([]);
+  ui.update({id:'test:collapsed-fold',plan:make(true,2)});
+  expect(ui.handle({type:'navigate',direction:'up'})).toEqual([{kind:'focus',controlId:'child',modelRevision:2}]);
+  expect(ui.handle({type:'activate',inputId:'expanded'})).toMatchObject([{controlId:'child',actionId:'choose'}]);
+  ui.update({id:'test:collapsed-fold',plan:make(false,3)});
+  expect(ui.inspect({limit:10}).focusId).toBe('origin');
+  expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'far',modelRevision:3}]);
+  ui.dispose();
+  const reversed=createUiInteraction({id:'test:collapsed-fold',plan:{...collapsed,records:[...collapsed.records].reverse()}},{navigation:'spatial'});
+  expect(reversed.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'far',modelRevision:1}]);reversed.dispose();
+});
+
 test('logical spatial: raw context geometry preserves readable disabled focus and directional order',async()=>{
   const {createUiInteraction}=await api(),other=context('app:other');other.localToPhysical={scale:2,origin:{x:20,y:40}};
   const box={x:0,y:0,width:10,height:10},s=scope([
