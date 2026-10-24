@@ -1,0 +1,3 @@
+# Published UI software hashes must survive a fresh checkout on any platform.
+server/build/ui-*.mjs text eol=lf
+server/build/ui-*.d.mts text eol=lf

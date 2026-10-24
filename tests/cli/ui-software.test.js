@@ -24,7 +24,8 @@ test('software publication is a complete independently loadable ESM/declaration 
   const {publishUiSoftware}=await api();mkdirSync('.tmp',{recursive:true});const dir=mkdtempSync(resolve('.tmp/ui-software-'));
   try {
     const receipt=publishUiSoftware({output:dir}), manifest=JSON.parse(readFileSync(receipt.manifest,'utf8'));
-    expect(manifest).toMatchObject({format:'agent-sprites/ui-software@1',version:1,producer:{name:'agent-sprites',version:'0.93.0',identity:{algorithm:'sha256-ui-software-v1'}}});
+    const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version;
+    expect(manifest).toMatchObject({format:'agent-sprites/ui-software@1',version:1,producer:{name:'agent-sprites',version:packageVersion,identity:{algorithm:'sha256-ui-software-v1'}}});
     expect(Object.keys(manifest.files).sort()).toEqual(names.flatMap(n=>[n+'.mjs',n+'.d.mts']).sort());
     for(const [file,integrity] of Object.entries(manifest.files)) {
       const bytes=readFileSync(join(dir,file));expect(integrity).toEqual({bytes:bytes.length,sha256:hash(bytes)});
