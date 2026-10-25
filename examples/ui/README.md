@@ -65,11 +65,38 @@ fallback. Keep the original text for storage and game semantics. The portable
 compositor already draws unsupported characters with that fallback; use
 `missingGlyphs` to inspect which literal characters are unsupported.
 
-Both builds own `ui-report.json`, `ui-runtime.mjs` and the independent
+Both builds preserve `ui-report.json`, `ui-runtime.mjs` and the independent
 [`ui-action-group.mjs`](action-group.md) alongside the usual PNG,
 Aseprite atlas, editable project, operations, contact sheet and verification.
 Font builds also own `ui-boot.mjs`, exporting `imageDataUrl`, `atlas`, and `report`;
 this embeds the verified font for loading/failure screens without a font fetch.
+
+## Shared native components (unreleased candidate)
+
+Use the [current native component contract](native-components.md) for common dialogs,
+menus, forms, lists, reading views, notices, HUDs, themes and bounded extensions.
+The candidate exports stock constructors/families, `defineTheme`, `layoutUi`,
+`createUiInteraction` and `createPhaserUi` through browser-safe `ui-index.mjs`.
+Games keep authored models/content, action authority, immutable assets, resolution
+mappings and application-specific extension renderers. The shared owner supplies
+stock layout, controller behavior, native painting and owned resource lifetimes;
+extensions use the game's narrow native facade and the host's ownership scope.
+Release and adoption remain gated on native acceptance in all three games.
+
+Current UI builds additionally publish the complete software closure, preserving
+historical art/metadata aliases including `uiRuntime` and `uiActionGroup`.
+Node-only `server/build/ui-software.mjs` also exports `publishUiSoftware({output})`
+for publication without an art build. Pin all **16 payloads plus one manifest**:
+`ui-runtime`, `ui-action-group`, `ui-theme`, `ui-components`, `ui-layout`,
+`ui-interaction`, `ui-phaser-runtime` and `ui-index`, each as `.mjs` and `.d.mts`,
+plus `ui-software-manifest.json`. Browsers import `ui-index.mjs`, not the publisher.
+Keep the complete bundle outside `public/` for bundled imports; preserve its bytes
+with path-specific Git attributes. Record the accepted producer source/commit and
+version, verify the exact inventory, byte counts, SHA-256 hashes and producer
+identity, and reverify delivered bytes. Manifest consistency alone cannot
+authenticate origin. Default builds verify the committed pin without a producer
+installation; explicit upgrades replace the complete bundle and provenance
+together. Software upgrades neither regenerate art nor relabel historical receipts.
 
 ## Bundlers and public assets
 
@@ -80,7 +107,7 @@ are copied unchanged and should not be imported as bundled source modules.
 Such imports can produce notices or fail. Load public JSON through Phaser's
 loader/cache (or `fetch`), and include the deployment base in asset URLs, as below.
 
-If bundled game code uses runtime helpers, commit one complete, unchanged copy of
+For independent historical core helpers, commit one complete, unchanged copy of
 the producer's canonical `server/build/ui-runtime.mjs` Git blob outside `public/`,
 for example at `src/vendor/agent-sprites/ui-runtime.mjs`. Record producer commit,
 version, source path and SHA-256 beside it. Preserve the blob bytes with a
@@ -103,7 +130,8 @@ is `uiActionGroup`; it is not imported or re-exported by `ui-runtime.mjs`.
 Pure text metrics, placement, resolution projection, `resolveFontText`, `pixelFit`
 and `getOpaqueBounds` need no Canvas context. Games bind compatible results to
 native Phaser display objects; using these helpers does not require the portable
-compositor or a shared widget runtime.
+compositor or the shared framework. These individual helper pins do not replace
+the complete shared software pin described above.
 
 ## Phaser
 

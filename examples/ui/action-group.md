@@ -1,16 +1,29 @@
 # Measured action-group allocation
 
+This reference covers the historical independent low-level planner. For common
+dialogs, themes and extensions, use the
+[shared native component contract](native-components.md). Its **unreleased
+candidate** includes this planner in a complete 16-file software closure plus
+manifest, alongside stock components/families, layout, interaction and native
+Phaser painting and owned resource lifetimes. Games retain authored models, action authority, assets,
+resolution mappings and application-specific extension renderers. Native acceptance
+in all three games remains a release/adoption gate.
+
 `planActionGroup` is a pure browser-safe export from the independent
 `server/build/ui-action-group.mjs`. UI builds copy that file unchanged and name it
 in `sprite-manifest.json` as `files.uiActionGroup: "ui-action-group.mjs"`; the owned
 build marker lists it too. It has no imports and is not part of `ui-runtime.mjs`.
 
-The planner shares allocation calculations in caller units. Games keep semantic
-models, labels and payload references, widgets, text wrapping, appearance, focus,
+Used independently, the planner shares allocation calculations in caller units.
+Games keep semantic models, labels and payload references, widgets, text wrapping, appearance, focus,
 input routing, save authorization and resource lifecycle. It supplies no body
 grammar, theme engine, paint, camera mapping or minimum touch-target default.
 
 ## Independent software pin
+
+This single-file pin applies to independent planner use. Shared framework consumers
+pin the complete bundle and verify its software manifest as described in the
+[UI software pin guidance](README.md#shared-native-components-unreleased-candidate).
 
 For bundled code, copy the complete canonical Git blob from a clean producer
 revision to `src/vendor/agent-sprites/ui-action-group.mjs`, outside `public/`.
@@ -170,4 +183,5 @@ appearance roles intact. Theme changes cannot sort actions or alter authorizatio
 Producer tests live in the existing `tests/engine/ui.test.js` and
 `tests/cli/ui-build.test.js`. Consumers need their own native measurement, ordinary
 input, clipping, focus/cancel and current-save transaction witnesses. This module
-does not itself prove a shared dialog framework, extension lifecycle or faster CI.
+does not itself prove the shared candidate's native adoption, extension lifecycle
+or faster CI.
