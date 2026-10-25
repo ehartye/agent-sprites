@@ -19,7 +19,9 @@ function noLinks(path){let cursor=resolve(path);while(true){if(entryExists(curso
 export function publishUiSoftware({output}) {
   if(typeof output!=='string'||!output.trim())throw new TypeError('Software output path is required');
   const directory=resolve(output);noLinks(directory);
-  const payload=Object.fromEntries(UI_SOFTWARE_FILES.map(name=>{const path=join(source,name);regular(path);return [name,readFileSync(path)];}));
+  // Existing working files can retain CRLF after an attributes-only upgrade.
+  // Export canonical LF source bytes before hashing, without rewriting inputs.
+  const payload=Object.fromEntries(UI_SOFTWARE_FILES.map(name=>{const path=join(source,name);regular(path);return [name,Buffer.from(readFileSync(path,'utf8').replace(/\r\n/g,'\n'))];}));
   const files=Object.fromEntries(Object.entries(payload).map(([name,bytes])=>[name,integrity(bytes)]));
   const version=JSON.parse(readFileSync(new URL('../../package.json',import.meta.url))).version;
   const receipt={format:'agent-sprites/ui-software@1',version:1,producer:{name:'agent-sprites',version,identity:{algorithm:'sha256-ui-software-v1',sha256:hash(JSON.stringify({version,files}))}},files};
