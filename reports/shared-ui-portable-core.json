@@ -1,0 +1,396 @@
+{
+  "taskId": "shared-ui-portable-core-r2",
+  "status": "portable-corrections-ready-for-root-capture-and-fresh-review",
+  "scope": "Six reviewed portable corrections only. Full approved design and fourteen objectives unchanged. No native/export/game/release acceptance claimed.",
+  "originalProducer": {
+    "run": "3a83d2e4-2d2f-4b65-bde7-25a26eb2858d",
+    "status": "unknown",
+    "action": "Untouched; consumed coordinator-reconciled fresh snapshot. No regeneration, retry, recapture, or repair of original producer.",
+    "priorReportSha256": "adaff09408f304c9165549ff6da3114e82a3f19554afd871aa92ac4deed000c6"
+  },
+  "activation": {
+    "discovery": "Genuine skills.list authority executor, native cursor pagination; skills.read exact catalog package and main_resource.",
+    "selected": [
+      {
+        "id": "sprites-integration",
+        "enabledName": "agent-sprites:game-integration",
+        "package": "skill://parent-7071de54be32fc1d6b0df371849e4082/C:/Users/ehart/AppData/Local/agent-workflow/runs-v2/749e460a-2be6-4d25-bb19-a09cda93c622/source-packages-v1/packages/7071de54be32fc1d6b0df371849e4082dcc0b91e8b1713e1d03e47f75e40a61a/skills/game-integration",
+        "mainResourceSuffix": "/SKILL.md",
+        "returnedRootMatched": true
+      },
+      {
+        "id": "tdd",
+        "enabledName": "h-superpowers:test-driven-development",
+        "package": "skill://parent-c1aa80898169b589a8c1c575c308bf41/C:/Users/ehart/AppData/Local/agent-workflow/runs-v2/749e460a-2be6-4d25-bb19-a09cda93c622/source-packages-v1/packages/c1aa80898169b589a8c1c575c308bf417e1d5e488567771540d03c2cbfd086f7/skills/test-driven-development",
+        "mainResourceSuffix": "/SKILL.md",
+        "returnedRootMatched": true
+      }
+    ],
+    "externalReferences": "All three admitted UI reference hashes matched; bounded read-only inspection after native activation. No shell SKILL.md activation, out-of-package native URI, missing native stage, tool fallback, delegation, or sprite operation."
+  },
+  "documents": [
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/approved-contract.md",
+      "bytes": 22988,
+      "sha256": "664d8260fb451e5a9145007c307c9a2285dda4dcaf9b8441925148b43a0637aa"
+    },
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/approved-delivery-plan.md",
+      "bytes": 14830,
+      "sha256": "00c6da0b40d2e1538fe0efc66a9404c483404873e5a100be6b14890eae5c049b"
+    },
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-review-findings.json",
+      "bytes": 8530,
+      "sha256": "eb3c0e01ddb1b6d0787860844ca90de5fc6c55da7faa2317cf31e352bb028ffe"
+    },
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-review-root-reproductions.json",
+      "bytes": 3887,
+      "sha256": "ac74cb8f138ba578f696f5801ab36ab8b92e6a7f2f9f4dad2fc5b9b517c4a801"
+    },
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-source-reconciliation.json",
+      "bytes": 10078,
+      "sha256": "59b904dfc6cef7beb5df60806b140b5153481c8c4185e2bf2697ddfbed271f77"
+    },
+    {
+      "relativePath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-integration-candidate.json",
+      "bytes": 2557,
+      "sha256": "8e8eeff2b16420fdee473acb55b448f958900918fd630caa115bfdcaeb7d0022"
+    }
+  ],
+  "toolchain": {
+    "node": "v26.7.0",
+    "nodeDescriptor": {
+      "relativePath": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "bytes": 103173960,
+      "sha256": "e921fe5307e29bf6fd00000dd594356affd3a7b044e52720c7f10decbdc305b9"
+    },
+    "npmCli": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node_modules/npm/bin/npm-cli.js",
+    "install": {
+      "reason": "Own dependencies absent",
+      "args": [
+        "ci",
+        "--cache",
+        ".tmp/npm-cache",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "exitCode": 0,
+      "packagesAdded": 213,
+      "notice": "prebuild-install deprecation and npm update notice; no global install/rebuild/config changes or lock edits"
+    }
+  },
+  "checks": [
+    {
+      "phase": "RED",
+      "executable": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "args": [
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/engine/ui-layout.test.js",
+        "tests/engine/ui.test.js",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=.tmp/red.json"
+      ],
+      "login": false,
+      "processLocalPathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+      "temporaryEnvironment": "TEMP and TMP point to assigned .tmp/",
+      "exitCode": 1,
+      "passed": 112,
+      "failed": 10,
+      "failures": [
+        {
+          "test": "review pointer routing resolves decorations to controls and blocks disabled overlays",
+          "reason": "AssertionError: expected [] to match object [ { kind: 'activate', …(2) } ]"
+        },
+        {
+          "test": "review pointer parts retain selected tabs and decrement direction across release",
+          "reason": "AssertionError: expected [ { kind: 'change', …(3) } ] to match object [ { value: 4 } ]"
+        },
+        {
+          "test": "review hollow and tile=true reach physical plans and the public iterator",
+          "reason": "AssertionError: expected [ { row: +0, column: +0, …(5) }, …(8) ] to have a length of 8 but got 9"
+        },
+        {
+          "test": "review hollow and tile=false reach physical plans and the public iterator",
+          "reason": "AssertionError: expected [ { row: +0, column: +0, …(5) }, …(8) ] to have a length of 8 but got 9"
+        },
+        {
+          "test": "review capped scroll viewport separates content minima from extent",
+          "reason": "RangeError: Node s measured minimum exceeds maximum height"
+        },
+        {
+          "test": "review capped clip viewport separates content minima from extent",
+          "reason": "RangeError: Node s measured minimum exceeds maximum height"
+        },
+        {
+          "test": "review capped paginate viewport separates content minima from extent",
+          "reason": "RangeError: Node s measured minimum exceeds maximum height"
+        },
+        {
+          "test": "review field UTF-16 offsets survive repeated spaces, normalization, wrapping and composition",
+          "reason": "AssertionError: expected 16.5 to be 19.5 // Object.is equality"
+        },
+        {
+          "test": "review nested rows have a generous public metric-read budget and preserve width wrapping",
+          "reason": "AssertionError: expected 1048504 to be less than 10000"
+        },
+        {
+          "test": "review placement exposes UTF-16 source caret advances without changing whitespace policy",
+          "reason": "Error: Unsupported text placement options."
+        }
+      ],
+      "effects": "Executed normally; expected regression failures. Scratch test outputs confined to own .tmp/ and node_modules/."
+    },
+    {
+      "phase": "GREEN-initial",
+      "executable": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "args": [
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/engine/ui-components.test.js",
+        "tests/engine/ui-layout.test.js",
+        "tests/engine/ui-interaction.test.js",
+        "tests/engine/ui-theme.test.js",
+        "tests/engine/ui.test.js",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=.tmp/green-1.json"
+      ],
+      "login": false,
+      "processLocalPathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+      "temporaryEnvironment": "TEMP and TMP point to assigned .tmp/",
+      "exitCode": 0,
+      "passed": 138,
+      "failed": 0
+    },
+    {
+      "phase": "GREEN-edges",
+      "executable": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "args": [
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/engine/ui.test.js",
+        "tests/engine/ui-layout.test.js",
+        "--testNamePattern=review",
+        "--maxWorkers=1",
+        "--reporter=default"
+      ],
+      "exitCode": 0,
+      "passed": 10,
+      "skipped": 112,
+      "log": ".tmp/edge-green.log"
+    },
+    {
+      "phase": "RED-context-projection",
+      "executable": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "args": [
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/engine/ui.test.js",
+        "--testNamePattern=review placement",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=.tmp/projection-red.json"
+      ],
+      "login": false,
+      "processLocalPathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+      "temporaryEnvironment": "TEMP and TMP point to assigned .tmp/",
+      "exitCode": 1,
+      "failed": 1,
+      "reason": "Contextual top-level sourceMap retained physical advances [0,18,18,27,39] rather than local [0,9,9,13.5,19.5]. Fixed alongside line-level projection."
+    },
+    {
+      "phase": "GREEN-final",
+      "executable": "C:\\Users\\ehart\\AppData\\Roaming\\fnm\\node-versions\\v26.7.0\\installation\\node.exe",
+      "args": [
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/engine/ui-components.test.js",
+        "tests/engine/ui-layout.test.js",
+        "tests/engine/ui-interaction.test.js",
+        "tests/engine/ui-theme.test.js",
+        "tests/engine/ui.test.js",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=.tmp/final-green.json"
+      ],
+      "login": false,
+      "processLocalPathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+      "temporaryEnvironment": "TEMP and TMP point to assigned .tmp/",
+      "exitCode": 0,
+      "passed": 138,
+      "failed": 0,
+      "owners": [
+        {
+          "file": "tests/engine/ui-components.test.js",
+          "passed": 4
+        },
+        {
+          "file": "tests/engine/ui-interaction.test.js",
+          "passed": 10
+        },
+        {
+          "file": "tests/engine/ui-layout.test.js",
+          "passed": 19
+        },
+        {
+          "file": "tests/engine/ui-theme.test.js",
+          "passed": 2
+        },
+        {
+          "file": "tests/engine/ui.test.js",
+          "passed": 103
+        }
+      ],
+      "log": ".tmp/final-green.log",
+      "historicalCoverage": "Earlier nonfocusable pointer and exact stale geometry regressions retained; all seven family owners retained; existing runtime metrics/policy/art oracles pass."
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "status": "fixed",
+      "owner": "server/build/ui-interaction.mjs",
+      "disposition": "Reverse hit routing considers stock interactive or explicit action owners, skipping decorations. Disabled visible owners stop lower targets, while activation eligibility remains separate from keyboard focus.",
+      "regression": "review pointer routing resolves decorations to controls and blocks disabled overlays"
+    },
+    {
+      "id": "F2",
+      "status": "fixed",
+      "owner": "server/build/ui-interaction.mjs",
+      "disposition": "Held tokens retain the exact enabled tab/adjust part. Release checks part bounds, owner, dependencies, generation and part identity; direct tab value/decrement direction retained. At-limit/disabled/clipped/cross-part/stale releases refuse and second release emits nothing.",
+      "regression": "review pointer parts retain selected tabs and decrement direction across release"
+    },
+    {
+      "id": "F3",
+      "status": "fixed",
+      "owner": "server/build/ui-layout.mjs + ui-runtime.mjs",
+      "disposition": "Filter center/tile policy in both physical and local plans, recompute paint bounds/overflow. Public iterator emits one stretched source quad for non-tiled regions and tiles only tiled regions.",
+      "regression": "review hollow and tile=%s reach physical plans and the public iterator"
+    },
+    {
+      "id": "F4",
+      "status": "fixed",
+      "owner": "server/build/ui-runtime.mjs + ui-layout.mjs",
+      "disposition": "Existing metric/wrap kernel captures line ranges and glyph spans; opt-in sourceOffsets exposes UTF-16 sourceStart/sourceEnd/caretAdvances. Normalization boundary maps handle CRLF/tabs, repeated-space collapse, surrogate code points, wrapping and terminal-space policy without changing default outputs. Fields use local advances for selection/caret/composition; no substring search or duplicate wrapping kernel.",
+      "regression": "review field UTF-16 offsets; review placement UTF-16 source caret advances",
+      "limits": "No new IME/input owner; native field painting and bridge acceptance remain pending."
+    },
+    {
+      "id": "F5",
+      "status": "fixed",
+      "owner": "server/build/ui-layout.mjs",
+      "disposition": "clip/scroll/paginate viewport minima exclude content-derived text/child minima, retaining authored skin/padding/target/role/extension and explicit min constraints. Content allocations and overflow extent remain independently reported.",
+      "regression": "review capped %s viewport separates content minima from extent"
+    },
+    {
+      "id": "F6",
+      "status": "fixed",
+      "owner": "server/build/ui-layout.mjs",
+      "disposition": "Per-layout node/effective-width measurement cache reuses unchanged widths in recursive measurement and allocation; different widths still wrap independently.",
+      "regression": "review nested rows have a generous public metric-read budget and preserve width wrapping"
+    }
+  ],
+  "performance": {
+    "publicWorkload": "13-node tree: twelve nested rows and AA AA text leaf, wide and narrow layout; read-only glyph advance getter counts actual metric consumption through public layoutUi.",
+    "beforeTotalMetricReads": 1048504,
+    "after": {
+      "wide": 89,
+      "narrow": 62,
+      "total": 151
+    },
+    "generousBudget": 10000,
+    "comparison": "Identical regression before/after; wrapping must increase for narrow viewport. No machine-specific duration expectation or entire-layout linear complexity claim."
+  },
+  "artifacts": [
+    {
+      "relativePath": "server/build/ui-theme.mjs",
+      "bytes": 9011,
+      "sha256": "88598bf77a5b6990141383ab8edc4ab807bf5e14f7c1b117df50d0fe2dfedd87"
+    },
+    {
+      "relativePath": "server/build/ui-theme.d.mts",
+      "bytes": 5221,
+      "sha256": "593eee4679d795fd6d9e24f507613c8c4b03b1cd3afdb0fbab8611c8967d99ab"
+    },
+    {
+      "relativePath": "server/build/ui-components.mjs",
+      "bytes": 13401,
+      "sha256": "4f089bb625d7654e8bdc4d77e5837ddfd6e4838617b2f1b81458c17823b74c26"
+    },
+    {
+      "relativePath": "server/build/ui-components.d.mts",
+      "bytes": 7548,
+      "sha256": "0cb204fd7a58ef002df904705707b6770f504de5089ba5618e65d14cddfbee39"
+    },
+    {
+      "relativePath": "server/build/ui-layout.mjs",
+      "bytes": 30788,
+      "sha256": "238abe04a32f190aa23822cde304a4c79ed9d397d134706536f93f823c2a1dd8"
+    },
+    {
+      "relativePath": "server/build/ui-layout.d.mts",
+      "bytes": 7287,
+      "sha256": "c44e019e8dcd56b0d24d74b6a6d9a962f87d91f97d2797f56e1172111e062f5c"
+    },
+    {
+      "relativePath": "server/build/ui-interaction.mjs",
+      "bytes": 19691,
+      "sha256": "306debf7a74f543aed710f2dc366ea506d10fe9a74d09421e21981bfeee836e9"
+    },
+    {
+      "relativePath": "server/build/ui-interaction.d.mts",
+      "bytes": 3615,
+      "sha256": "edaff1b1a168f1c2acc689d15ee8137bf2fe617d1e2bb0085c462dfa1733e81c"
+    },
+    {
+      "relativePath": "tests/engine/ui-components.test.js",
+      "bytes": 5453,
+      "sha256": "ef3b0975fdef1d5b6856955c933afbc179b6e90268a75fd59bfa494200da4f70"
+    },
+    {
+      "relativePath": "tests/engine/ui-layout.test.js",
+      "bytes": 17358,
+      "sha256": "1e187835c965da85ef02257490baa169738b1b2fba8d73011959a0a58dcfc9f6"
+    },
+    {
+      "relativePath": "tests/engine/ui-interaction.test.js",
+      "bytes": 11533,
+      "sha256": "bff5e848bb92a94b5f8c4e55f2c2ea9c81bb0da8977682985736dd9c22de0d18"
+    },
+    {
+      "relativePath": "tests/engine/ui-theme.test.js",
+      "bytes": 2780,
+      "sha256": "f96459280bc3a0b4ff5d3c73349a8725fdd289735cb64b1e5137eae5d9c2277f"
+    },
+    {
+      "relativePath": "server/build/ui-runtime.mjs",
+      "bytes": 35591,
+      "sha256": "7170578e270071cf26328fe33e45ee8a99eb23bae1aa8071b91379b46c1d4ed7"
+    },
+    {
+      "relativePath": "tests/engine/ui.test.js",
+      "bytes": 60280,
+      "sha256": "e28a513d81090d62430ffb381578f285eeb332a20c48cd9322a009919544441f"
+    }
+  ],
+  "reportSelf": "reports/shared-ui-portable-core.json self hash/bytes supplied in final typed answer to avoid circular hash.",
+  "retainedSourceCheck": "Nine unchanged retained source hashes matched root reproduction descriptors, including action-group. Writes limited to six correction source/declaration/test files plus this report and own dependency/scratch roots.",
+  "remaining": [
+    "Coordinator authenticates actual retained capture/ownership/cleanup, performs independent fresh review and integrates literal owned files; this delivered answer alone is not root acceptance.",
+    "Native shared Phaser renderer/host, index/export/manifest bundle and producer native/export tests remain unimplemented in this checkpoint.",
+    "Space/Cyber native mixed-density input/clip/resize/focus/lifecycle plus WebGL/Canvas witness and Space chart remain unimplemented.",
+    "All-three-game ordinary-surface migrations, retired duplicate/exception ledgers, consumer pixels/input/backend/lifecycle/extension tests and broad final local gates remain unimplemented.",
+    "Producer version/publication/marketplace pins, current-base reviewed squash integration, local updates, three deployments and canonical production/live-byte proof remain unimplemented.",
+    "Engine/game agent documentation, canonical wiki design/roadmap/acceptance closeout and final fourteen-objective audit remain pending coordinator stages."
+  ],
+  "cleanup": {
+    "launched": "One authorized npm ci and serial finite Vitest commands, all exited. No servers/browser/art/audio/export/game/native-render workflow, delegated agent, background helper, or workflow runtime launched.",
+    "scratch": "Own node_modules/ and .tmp/ retained for coordinator ownership/capture cleanup. This report is not a native job-drain receipt.",
+    "git": "No commit, merge, branch/index edit, link creation, version, push or release operation."
+  }
+}

@@ -197,10 +197,17 @@ works on the physical plan, retaining exact source-pixel crops even with fractio
 context origins, and projects each emitted quad lazily.
 
 Requested layout allocations and painted boxes do not define interaction regions.
-Consumers own independent hit/focus/clip bounds, full targets, continuous input
-mapping, stale-context rejection and native resources. Plans carry revisions;
+Independent low-level consumers own hit/focus/clip bounds, full targets, continuous
+input mapping, stale-context rejection and native resources. Plans carry revisions;
 they do not enforce a host's current revision. CSS sizing, DPR, camera rounding,
 compositors and density selection remain distinct consumer concerns. Adapters must
 feed the planned physical-grid geometry without assuming camera rounding corrects
-it. Themes do not choose actions, focus or density. No shared widget runtime,
-native rendering adoption, fitting or ellipsis policy is provided here.
+it. These low-level plans alone supply no widget host, fitting or ellipsis policy.
+For common dialogs, themes and extensions, use the
+[shared native component contract](native-components.md): its unreleased candidate
+adds stock components, layout, interaction, native Phaser painting and owned
+resource lifetimes using these calculations. Pin its complete 16-file closure
+plus software manifest rather than only the historical core helper. Games retain
+authored models, action authority, immutable assets, resolution mappings and
+application-specific extension renderers. Native consumer acceptance in all three
+games remains a release/adoption gate; these placement plans do not establish it.

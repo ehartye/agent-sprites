@@ -1,0 +1,35 @@
+{
+  "format": "agent-sprites/ui-native-assets@1",
+  "inputs": {
+    "recipe.json": "9414bfd359d6ec90652f8ef22fed68fbf4ee3eb976320e2e14a7379e130ab262",
+    "generate.mjs": "08a482170d336940323d2e308177cd2d5a42bed1fd5488799f01122627839d87",
+    "font.build.json": "27ab9d8d0aa742ebaacbe2420821019bc879f82ee3de5f8d592f8ef455a3d554",
+    "skin.build.json": "a989c1c5269e18d259897ad60256f6b9d96e279b2099bd5dde3f96e6d09de45d"
+  },
+  "files": {
+    "font.png": {
+      "bytes": 114,
+      "sha256": "3b220dd6a8cb0633c1f0b16a40ce514d2a7640c4a0fffc4b65bfdd9ec7875df1"
+    },
+    "font.atlas.json": {
+      "bytes": 1731,
+      "sha256": "0912728ee33cf1474f908837e497279e0648b367b55efcd9107a078cee55042d"
+    },
+    "font.report.json": {
+      "bytes": 958,
+      "sha256": "f56aa56f6dac976827129e747003f1dd91222d0171cb14f4ab8617759678cb87"
+    },
+    "skin.png": {
+      "bytes": 137,
+      "sha256": "215d17666e43413c0303eacfb4026150e4e69a0efe5a998786b621522d7e73db"
+    },
+    "skin.atlas.json": {
+      "bytes": 1713,
+      "sha256": "1f5694e8bc02a5719fcdaa5aedbe7825ff9bdca9b9145b5ff5ff8ad27086edc8"
+    },
+    "skin.report.json": {
+      "bytes": 989,
+      "sha256": "09b307bd6f25df3c2bb28290835239b97230fd1329b370415ad08cb1ad7a88d5"
+    }
+  }
+}

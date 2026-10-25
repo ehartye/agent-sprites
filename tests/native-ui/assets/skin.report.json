@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "kind": "skin",
+  "cellSize": {
+    "width": 4,
+    "height": 4
+  },
+  "frames": [
+    {
+      "alias": "night",
+      "cell": "0,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "alias": "day",
+      "cell": "0,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 3,
+        "bottom": 3
+      }
+    }
+  ],
+  "skins": {
+    "night": {
+      "insets": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "padding": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "minWidth": 4,
+      "minHeight": 4
+    },
+    "day": {
+      "insets": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "padding": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "minWidth": 4,
+      "minHeight": 4
+    }
+  }
+}

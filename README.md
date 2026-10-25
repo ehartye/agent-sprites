@@ -564,14 +564,29 @@ without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destinatio
 {padding})` draws with the same fit. Empty art and boxes too small for 1× return
 `null`; no fractional shrinking or overflow is introduced.
 
-UI output may live in a game's `public/` directory as URL-served assets. Bundled
-source should load its JSON/reports through Phaser's loader/cache and import one
+For common dialogs, menus, forms, lists, reading views, notices and HUDs, use the
+[shared native component contract](examples/ui/native-components.md). This is an
+producer-owned contract, verified by `npm run test:ui` and `npm run test:ui:native`.
+Producer releases depend on these checks and the established plugin release checks;
+each host independently pins and verifies its adoption. It supplies stock components/families, themes, layout, interaction
+and a native Phaser host through `ui-index.mjs`. Games provide authored models,
+content, action authorization, immutable assets, resolution mappings and application
+extension renderers; the shared host owns stock painting and its resource lifetimes.
+Pin the complete closure published by Node-only `server/build/ui-software.mjs`:
+eight `.mjs` files, their eight `.d.mts` files and `ui-software-manifest.json`.
+Verify its inventory, byte counts, hashes and producer identity against the accepted
+source; a consistent manifest alone does not authenticate that source.
+
+UI output may live in a game's `public/` directory as URL-served assets. For the
+historical independent low-level helpers, bundled source loads its JSON/reports
+through Phaser's loader/cache and imports one
 unchanged canonical `server/build/ui-runtime.mjs` Git blob pinned outside `public/`
 with commit/version/path/SHA-256 attribution and byte-preserving Git attributes.
 Default builds verify that committed software pin without a producer installation;
 explicit upgrades replace it independently of historical font/skin exports.
-`resolveFontText`, `pixelFit` and `getOpaqueBounds` are pure helpers; games retain
-native Phaser rendering, controls and lifecycle ownership.
+`resolveFontText`, `pixelFit` and `getOpaqueBounds` remain independently usable pure
+helpers; that low-level path leaves native rendering, controls and lifecycle with
+the game. Its single-file pin is not the shared framework's complete software pin.
 See the [bundler layout and Phaser cache examples](examples/ui/README.md#bundlers-and-public-assets).
 
 UI builds also publish the independent `ui-action-group.mjs` module as
@@ -579,8 +594,10 @@ UI builds also publish the independent `ui-action-group.mjs` module as
 selects equal-width native row/grid/stack topology or places fixed authored-width
 actions at the group's end. Pass explicit measurements and semantic, visual and
 fallback orders; games retain widgets, final native measurement, appearance,
-focus, input and save authorization. Pin this module separately from the unchanged
-core `ui-runtime.mjs` and historical art; no art rebuild is needed to adopt it.
+focus, input and save authorization when using this low-level planner independently.
+That path pins this module separately from the unchanged core `ui-runtime.mjs` and
+historical art. The shared closure includes it too; no art rebuild or relabeling of
+historical receipts is needed for either software path.
 
 Custom Node generators can return `{operations, report}` with a UI `kind` of
 `font`, `skin`, or `logo`, using the same report shape as the inline recipe. They

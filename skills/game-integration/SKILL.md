@@ -44,6 +44,15 @@ For bitmap lettering, inventory panels, dialogue and pixel controls, read the
 Use the exported glyph metrics, tone frames, panel insets and `ui-runtime.mjs`;
 keep font masks and skin drawing in the tool rather than copying them into a game.
 
+For common dialogs, menus, forms, lists, reading views, notices and HUDs, read the
+[shared native component contract](../../examples/ui/native-components.md) directly.
+It is an **unreleased candidate**; release/adoption requires native acceptance in
+all three games. Use its `ui-index.mjs` components/families, `defineTheme`, layout,
+interaction and `createPhaserUi` host for stock UI. Pin the complete software
+closure from Node-only `publishUiSoftware`: eight `.mjs` plus eight `.d.mts` files
+and `ui-software-manifest.json`. Verify all files and producer identity against the
+accepted source, preserving independent historical font/skin receipts.
+
 Require a positive integer physical-pixel footprint per authored source pixel.
 For an aligned whole-camera path, integer local scales remain valid. For native
 UI in another resolution context, declare its exact uniform local-to-physical
@@ -67,15 +76,23 @@ at the selected physical footprint; never enlarge the regular face to imitate it
 For a strictly pixel interface, replace visible browser lettering, native form
 art, tooltips, list markers, focus rings and world labels as well as main menus.
 Retain semantic controls for keyboard and screen readers beneath the visual layer.
-Games own action families, controls, layout, native rendering and resource
-lifecycle; these portable calculations do not supply a shared widget runtime.
-When extracting confirmation action allocation, read the
+Games retain authored models/content, game action authority, immutable assets and
+resolution mappings. The shared owner supplies stock components/families, themes,
+layout, controller behavior, native paint and owned resource lifetimes. Implement
+application-specific renderers through namespaced `registerExtension` definitions
+and the game's narrow native facade; register owned resources with the supplied
+scope and preserve borrowed assets. Route shared intents through the existing game
+action/reveal owner. Verify native pixels, input and disposal in each consumer.
+
+For independent low-level confirmation action allocation, read the
 [measured action-group API](../../examples/ui/action-group.md). Consume its explicit
 topology or authored slots in the native binding; do not repeat that calculation
 in an unchanged local allocator. Equal-policy final height remains unknown until
 native measurement. Pin the independent `ui-action-group.mjs` capability separately,
 preserving existing core module/receipt and historical art. Keep focus, cancel,
-payloads, appearance and input authorization in the game.
+payloads, appearance and input authorization in the game on that low-level path.
+Historical core/action-group helpers remain independently usable; their individual
+pins do not provide the full shared framework closure.
 Drive dirty UI painting from the game's existing frame loop; use one-shot
 invalidation during bootstrap rather than a second perpetual animation loop.
 

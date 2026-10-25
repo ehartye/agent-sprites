@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "kind": "font",
+  "cellSize": {
+    "width": 3,
+    "height": 5
+  },
+  "lineHeight": 6,
+  "baseline": 4,
+  "fallback": "?",
+  "tones": {
+    "cream": "#f8e8b0",
+    "ink": "#202838"
+  },
+  "colors": {
+    "cream": "#f8e8b0",
+    "ink": "#202838"
+  },
+  "frames": [
+    {
+      "alias": "question_cream",
+      "cell": "0,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "question_ink",
+      "cell": "0,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    }
+  ],
+  "glyphs": {
+    "?": {
+      "advance": 4,
+      "frames": {
+        "cream": "question_cream",
+        "ink": "question_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    " ": {
+      "advance": 2,
+      "frames": {},
+      "bounds": null
+    }
+  }
+}

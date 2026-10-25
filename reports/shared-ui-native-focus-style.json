@@ -1,0 +1,580 @@
+{
+  "contract": "agent-workflow.task.v1",
+  "taskId": "shared-ui-native-focus-style",
+  "outcome": "delivered",
+  "scope": "Bounded producer source candidate only; acceptance of migration, native compositor, publication and deployment is excluded.",
+  "at": "2026-10-16T03:06:44.652Z",
+  "workspace": "C:\\Users\\ehart\\repos\\agent-sprites-worktrees\\workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8",
+  "inputSource": {
+    "path": "C:/Users/ehart/repos/agent-sprites-worktrees/shared-ui-components",
+    "head": "43379860a30bb28e8f96368b549d1034da820d13",
+    "trackedFilesCompared": 629,
+    "allTrackedInputBytesMatched": true
+  },
+  "ownership": {
+    "revision11": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-focus-style-plan-r11.json",
+      "bytes": 17561,
+      "sha256": "1d9529329402d727773ca52804a8c361ce96c29885105a04e88b325586f258d5"
+    },
+    "revision12": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-focus-style-plan-r12.json",
+      "bytes": 17554,
+      "sha256": "7f9a910e1fa2f55f8371dd709507a57662bd62e1d3e5696becfe38d04ebf911c"
+    },
+    "allowed": [
+      "server/build/ui-theme.mjs",
+      "server/build/ui-theme.d.mts",
+      "server/build/ui-phaser-runtime.mjs",
+      "server/build/ui-phaser-runtime.d.mts",
+      "tests/engine/ui-theme.test.js",
+      "tests/engine/ui-phaser-runtime.test.js",
+      "tests/types/ui-software.ts",
+      "examples/ui/native-components.md",
+      "reports/shared-ui-native-focus-style.json",
+      "server/build/ui-layout.mjs",
+      "server/build/ui-interaction.mjs",
+      "server/build/ui-components.d.mts",
+      "tests/engine/ui-layout.test.js",
+      "tests/engine/ui-interaction.test.js",
+      "server/build/ui-layout.d.mts",
+      "tests/fixtures/ui-software-consumer.mts"
+    ],
+    "changedSourceFiles": 14,
+    "sourceFiles": [
+      {
+        "relativePath": "examples/ui/native-components.md",
+        "bytes": 19244,
+        "sha256": "b715a7320a61106434abce987ac39eddb56c129f73d65d5de5bc044e7ad2caf7",
+        "inputSha256": "4123e634c52da6dfe9daa961f20ad1a73bb20f3032660b9a9bae67f686462408"
+      },
+      {
+        "relativePath": "server/build/ui-components.d.mts",
+        "bytes": 8415,
+        "sha256": "746b27123c6f7f11329c8dca0d226d27d34a299e9e865e90762a02f87f0ee299",
+        "inputSha256": "5a619b8fc2c908e38cb1776d6410333e921acf902dac62ff6c27757c33a238aa"
+      },
+      {
+        "relativePath": "server/build/ui-interaction.mjs",
+        "bytes": 23933,
+        "sha256": "97e3b145bdd6a388962a886fee90cc29deb0cefb7a448133d0d896540fec8b1f",
+        "inputSha256": "432ab09ec9d4f4606acae97e35850cf48d88661ff3103497061abe0c5246a514"
+      },
+      {
+        "relativePath": "server/build/ui-layout.d.mts",
+        "bytes": 7475,
+        "sha256": "9b6672c3a0a103bab5e8d103849f36b185e7d44f9c6bfc9ad59b3f7a6484aa65",
+        "inputSha256": "387a8606cf7b26576200b18ec559f0db5242bff21720ba485fa409ad15adab29"
+      },
+      {
+        "relativePath": "server/build/ui-layout.mjs",
+        "bytes": 35735,
+        "sha256": "7a1f3f2e3c541995f783cc5d61ef594677f6c4a3b7274153d51aac9d68cbc214",
+        "inputSha256": "4c01dda33fc76a666eb86adb40924d777748537f0b5e73eb91754ddca2403513"
+      },
+      {
+        "relativePath": "server/build/ui-phaser-runtime.d.mts",
+        "bytes": 7093,
+        "sha256": "176ee2bfef68c979e376e37d69d8e8aaedf6915edfaaaeb387925f86dc48949e",
+        "inputSha256": "4095cb579a8707aa933ad5ce6a3f83b1eb72b676f0c76e17de415894d7644724"
+      },
+      {
+        "relativePath": "server/build/ui-phaser-runtime.mjs",
+        "bytes": 38136,
+        "sha256": "82d5871d8b6b65b3f5f45864e6b73b8031ca2300850c9871c386df939bf1c5ca",
+        "inputSha256": "cf9de2f5bb7f556a9e052895d9bb71c23cf23af5299c4566064050b3b05381d2"
+      },
+      {
+        "relativePath": "server/build/ui-theme.d.mts",
+        "bytes": 7175,
+        "sha256": "7a7d5df98e914347d092ff25625581559431e0246c35d315b276006a214ba451",
+        "inputSha256": "7cb7f829083c9a11f987197c9a55dded7ebe1e2feb1cf9b10c6baea36000319a"
+      },
+      {
+        "relativePath": "server/build/ui-theme.mjs",
+        "bytes": 9891,
+        "sha256": "55fc33835c5891c19f568a0b63429ef4292e004c2147511b95d9faf010ad2f7d",
+        "inputSha256": "03cce15d4c1f01ef9aa8321d61d38f272629d482197368f403e8b1b69acbb3fc"
+      },
+      {
+        "relativePath": "tests/engine/ui-interaction.test.js",
+        "bytes": 19321,
+        "sha256": "963959f6af9859a0cf84ccc4f5323e01c7a07925b4867f3c7255a65476b32698",
+        "inputSha256": "c8b6fddc26a352db5f97f0645b63fd7c51f32b6789a3395a32782d41508ac7ec"
+      },
+      {
+        "relativePath": "tests/engine/ui-layout.test.js",
+        "bytes": 27326,
+        "sha256": "017573103d57638eae1a25a21bd711617f58ea3aa035f99eb0b42656264e4973",
+        "inputSha256": "133d26178275e47799d0e1ba027782894985abe938dd00aa851353b6d8c3edd7"
+      },
+      {
+        "relativePath": "tests/engine/ui-phaser-runtime.test.js",
+        "bytes": 60846,
+        "sha256": "710fbfb932b7da792ddd6d0384cecc0f5af55b9017a994dabc12aaa55de1553c",
+        "inputSha256": "fc69126b7030742100b44b007a05063c99aadeedcaadca7fe265e23daaca3ccc"
+      },
+      {
+        "relativePath": "tests/engine/ui-theme.test.js",
+        "bytes": 5146,
+        "sha256": "df9cdd472d9d086954096ebb8c5df7b457520975728763032c66a232420e47ee",
+        "inputSha256": "d6e1aa0d23ac56018d4f404f66a670ae4838cb319d9252d5dd16125d5212d936"
+      },
+      {
+        "relativePath": "tests/fixtures/ui-software-consumer.mts",
+        "bytes": 6752,
+        "sha256": "55139fa523823a4c3c63c253cb4a1704201f2e59060f0bdec70e7bf873804d19",
+        "inputSha256": "56b63f153cc77f5a291eb86ad1fadffc00f5f329e5ebd993c1625688b54da90c"
+      }
+    ],
+    "unexpectedAuthoredPaths": [],
+    "reportPath": "reports/shared-ui-native-focus-style.json",
+    "optionalUnusedPath": "tests/types/ui-software.ts",
+    "gitMetadataWrites": false,
+    "gameWrites": false,
+    "wikiWrites": false,
+    "releaseWrites": false
+  },
+  "skills": {
+    "discovery": "Native skills.list authority executor, ten paginated pages; selected by exact identity, not same-name parent package.",
+    "activation": [
+      {
+        "id": "sprites-integration",
+        "name": "game-integration",
+        "skillRoot": "C:/Users/ehart/AppData/Local/agent-workflow/runs-v2/687649ea-212c-4515-849b-20e04eb446ee/source-packages-v1/packages/7071de54be32fc1d6b0df371849e4082dcc0b91e8b1713e1d03e47f75e40a61a/skills/game-integration"
+      },
+      {
+        "id": "engine-phaser",
+        "name": "engine-phaser",
+        "skillRoot": "C:/Users/ehart/AppData/Local/agent-workflow/runs-v2/687649ea-212c-4515-849b-20e04eb446ee/source-packages-v1/packages/ce8ced368330e6dba6fba3423ae6519f4a6e7f0e5e5a5a01132d6b2d394ee528/skills/engine-phaser"
+      },
+      {
+        "id": "tdd",
+        "name": "test-driven-development",
+        "skillRoot": "C:/Users/ehart/AppData/Local/agent-workflow/runs-v2/687649ea-212c-4515-849b-20e04eb446ee/source-packages-v1/packages/c1aa80898169b589a8c1c575c308bf417e1d5e488567771540d03c2cbfd086f7/skills/test-driven-development"
+      }
+    ],
+    "activationVerified": "All three native skills.read main_resource calls returned expected enabled names and exact skill_root.",
+    "references": [
+      "engine-phaser/references/pixel-perfect-and-ui.md via native skills.read",
+      "tdd/testing-anti-patterns.md via native skills.read",
+      "Admitted outside-package examples/ui/README.md, text-metrics.md and action-group.md: hashes checked and bounded sections inspected with read-only Node. No SKILL body read with shell."
+    ],
+    "failure": "Initial skills.read package e24 returned skill package is not available. Exact package/main_resource from native catalog then succeeded. Alias failure preserved; no imitated activation.",
+    "precedence": "Task-specific authored opacity, stock Image/Rectangle and no-install/no-game/no-wiki limits override broader skill guidance."
+  },
+  "frozenInputs": {
+    "descriptors": [
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/dependency-seed/manifest.json",
+        657865,
+        "77796dc29372924b1a897a291a6e11f0831abe924db0cd146393e6657112acb6"
+      ],
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/approved-contract.md",
+        22988,
+        "664d8260fb451e5a9145007c307c9a2285dda4dcaf9b8441925148b43a0637aa"
+      ],
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/approved-delivery-plan.md",
+        14830,
+        "00c6da0b40d2e1538fe0efc66a9404c483404873e5a100be6b14890eae5c049b"
+      ],
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-r3-acceptance.json",
+        8136,
+        "6a4c87c929ad173423a7fe410c2c923025ae2fa546910583970ca686c6378eea"
+      ],
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/portable-r3-coordinator-correction.json",
+        2038,
+        "4ad7d7390ea452bccef99c548117525b0dd49620a9d58ed0f82387cf92185cca"
+      ],
+      [
+        "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-producer-reconciliation.json",
+        8598,
+        "b9ff744ca30cb3802ffb83dda20e116c7a95f63c6afa4c362a40d8cc8d39a20d"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/reports/shared-ui-complete-adoption.json",
+        51311,
+        "e6303bd6b1a0e3b26f3ef636f7e3be40e9f7924601a06439a41a2775cdd34660"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/reports/shared-ui-complete-adoption/reproduce-focus-gap.mjs",
+        7120,
+        "ecb9dd70e730fc4a4a9dd09ad9aa46aba8a45c22019eea43f6f47380c3d16942"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/reports/shared-ui-complete-adoption/focus-gap-native-v3/report.json",
+        10180,
+        "527dfea0f4e094a7aa963a381e412e31415d8aec12ed9b8c4d57b637d6ecadd3"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/src/phaser/PixelUI.js",
+        26286,
+        "d811450e81bfc602bc59ae865c456b8c5622cfe4b23b55a69dc719e7381f48f5"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/src/phaser/shared-ui/theme.js",
+        2058,
+        "2c9644637ad8d8ede103299d2910d6c6fac102353397d8b527b3ae274b58ab4c"
+      ],
+      [
+        "C:/Users/ehart/repos/cyberpunkt-worktrees/workflow-3b31bf6f-fc7f-4670-b66d-aa01e7f6627d/src/phaser/shared-ui/projection.js",
+        4678,
+        "c1a1d51c4f134ec5f9a26223719221a770aaa9549bf21e2cead2e17cebc452b5"
+      ]
+    ],
+    "seed": {
+      "fileCount": 3928,
+      "bytes": 138700581,
+      "packageSha256": "f8766eaa64e401b960be1f8962ccb3a8b36b3de21bdd65618c4b8382d95aac3b",
+      "lockSha256": "fef5d6ed6edeba2085100d4e7bb0a0e9cb9251f90c53e5a9b9a8d7aad0506c39"
+    },
+    "node": {
+      "version": "v26.7.0",
+      "modules": "147",
+      "platform": "win32",
+      "arch": "x64"
+    }
+  },
+  "dependencyPreparation": {
+    "shell": "PowerShell",
+    "login": false,
+    "nodeExecutable": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+    "nodePathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+    "temp": "<assigned worktree>/.tmp",
+    "npmInstall": false,
+    "rebuild": false,
+    "download": false,
+    "delegation": false,
+    "descriptorPath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/dependency-seed-descriptor.json",
+    "manifestPath": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/dependency-seed/manifest.json",
+    "manifestBytes": 657865,
+    "manifestSha256": "77796dc29372924b1a897a291a6e11f0831abe924db0cd146393e6657112acb6",
+    "initialVerification": {
+      "exit": 0,
+      "fileCount": 3928,
+      "payloadBytes": 138700581,
+      "allManifestFilesHashed": true,
+      "treeEnumerated": true,
+      "noLinksOrNonregularFiles": true,
+      "packageAndLockMatched": true,
+      "ownNodeModulesAbsent": true,
+      "exactNode": {
+        "version": "v26.7.0",
+        "modules": "147",
+        "platform": "win32",
+        "arch": "x64",
+        "pathMatchesExecutable": true
+      }
+    },
+    "copy": {
+      "exit": 0,
+      "regularVerifiedFilesOnly": true,
+      "force": false,
+      "errorOnExist": true,
+      "perFileDestinationSizeAndHashChecked": true,
+      "files": 3928,
+      "bytes": 138700581,
+      "originalSeedWritten": false
+    },
+    "probes": {
+      "exit": 0,
+      "canvas": "3.2.3",
+      "sqlite": "12.11.1",
+      "vitest": "4.1.3",
+      "canvasPng": true,
+      "sqliteMemorySelect42": true,
+      "vitestVersionOutput": "vitest/4.1.3 win32-x64 node-v26.7.0"
+    },
+    "capture": "Seed verification/copy/probe stdout is in original tool transcript; not a separately captured stream file. Initial frozen descriptors and package/lock/ABI evidence also in .tmp/frozen-verification.json, embedded above.",
+    "postRunAudit": {
+      "status": "failed-at-local-cache",
+      "exit": 1,
+      "command": [
+        "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+        "-"
+      ],
+      "blockedPath": "node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json",
+      "observed": "Error: Post-run dependency integrity node_modules\\.vite\\vitest\\da39a3ee5e6b4b0d3255bfef95601890afd80709\\results.json",
+      "effect": "Read-only combined source/dependency audit launched and exited 1; final .tmp/final-integrity.json was not written because execution stopped before writeFileSync.",
+      "interpretation": "Vitest writes its result cache in the owned copied node_modules; this file was in the seed manifest and no longer matches there after tests. Initial copy hash validation succeeded. Full post-run seed/copied-tree equality is not established.",
+      "retry": false,
+      "reconciliationOwner": "coordinator",
+      "dependentWorkPaused": "No further dependency execution/testing; independent source/report packaging continues."
+    }
+  },
+  "consumerInspection": {
+    "verifiedDescriptors": 6,
+    "originalPixelUI": "PixelUI.js lines 239-245: itemControl fillStyle(0xff2bd6,0.3).fillRect then opaque magenta four 2-local strips; ordinary focusable skill cards use same 2-local edge without wash.",
+    "reproduction": "Frozen reproduce-focus-gap.mjs and focus-gap-native-v3/report.json inspected; both webgl2 and canvas captured original [255,43,214,255] at scale4 versus common [32,32,48,255] with one-physical-pixel edge. This is historical evidence; no reproduction replay was run.",
+    "otherEvidence": "Frozen complete-adoption report, Cyber theme.js and projection.js inspected; all descriptor sizes/hashes matched before source edits.",
+    "missingScoutMatrixUsed": false
+  },
+  "design": {
+    "edge": "Optional role edge.width is positive finite semantic-local width; native preflight requires positive integer physical thickness before any allocation. Default is exactly one physical pixel, independent of source/skin/label context. Other edge metadata remains copied/frozen. Partition top/bottom and remaining left/right in physical coordinates, clamp to allocation, then project back. No overlapping corners or tiny-bound double coverage.",
+    "opacity": "Optional immutable role and transient native-state opacity in finite 0..1. Rect/Image commands carry selected role opacity with default1; every keyed reconciliation calls public setAlpha, including reset. Covers flat/skin/glyph/icon/feedback and other stock parts without tint/color changes. Existing disabled>pressed>hover>focus>base selection remains.",
+    "stateLink": "button or itemSlot owners; text/icon and leaf flat-panel consumers only. Panels cannot have labels, descendants, own actions/focus, or focus-order/default/cancel authority. Same-parent/no-chain/no-cycle/dangling guards stay. Layout retains parentId after flattening; interaction independently checks topology, includes it in semantic revision identity, and requires it for panel links. Legacy text/icon plans may omit it.",
+    "construction": "ItemSlot owns item art, action and opaque magenta feedback role; same-size flat panel sibling consumes state with base opacity0, focus/hover/pressed .3, disabled0. It follows the item without new input owner. The same-magenta wash above art/edge leaves the opaque edge unchanged.",
+    "lifetime": "Pure preflight failure leaves published allocation and held state intact. Native alpha setter failures retire/drain owned objects/frames/listeners. Existing source-plane byte budget, pixel compression, object/fragment limits, clipping and extension lifecycle remain.",
+    "declarations": "NativeObject.setAlpha, ThemeEdge.width and preserved metadata, role/state opacity, bounded UiMetadata link docs, typed optional parentId, actual Phaser Image/Rectangle assignment and negative opacity/edge fixture cases."
+  },
+  "verification": {
+    "common": {
+      "shell": "PowerShell",
+      "login": false,
+      "nodeExecutable": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+      "nodePathPrefix": "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation",
+      "temp": "<assigned worktree>/.tmp",
+      "npmInstall": false,
+      "rebuild": false,
+      "download": false,
+      "delegation": false
+    },
+    "tests": [
+      {
+        "log": ".tmp/focus-style-red.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 1,
+        "failed": 4,
+        "skipped": 75,
+        "note": "Three missing-feature failures plus one fixture error (label without font). Fixture error is not meaningful RED."
+      },
+      {
+        "log": ".tmp/focus-style-red-corrected.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 1,
+        "failed": 6,
+        "skipped": 122,
+        "note": "Meaningful RED before production edits: expected 2 got .25; theme/variant opacity and panel/itemSlot links rejected."
+      },
+      {
+        "log": ".tmp/focus-style-green.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 0,
+        "passed": 6,
+        "skipped": 122
+      },
+      {
+        "log": ".tmp/focus-topology-red.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 1,
+        "failed": 2,
+        "skipped": 47,
+        "note": "Meaningful topology RED: flattened layout omitted parentId and interaction accepted forged cross-parent panel."
+      },
+      {
+        "log": ".tmp/focus-style-regressions.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 1,
+        "passed": 29,
+        "failed": 1,
+        "skipped": 122,
+        "note": "Incorrect new assertion expected .3 after re-enable while hover remained active. Corrected to .6 to preserve hover>focus precedence; no implementation change for this failure."
+      },
+      {
+        "log": ".tmp/focus-style-regressions-final.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "--maxWorkers=1",
+          "-t",
+          "focus style"
+        ],
+        "exit": 0,
+        "passed": 32,
+        "skipped": 122
+      },
+      {
+        "log": ".tmp/focus-style-nine-owners.log",
+        "argv": [
+          "C:/Users/ehart/AppData/Roaming/fnm/node-versions/v26.7.0/installation/node.exe",
+          "node_modules/vitest/vitest.mjs",
+          "run",
+          "tests/engine/ui-theme.test.js",
+          "tests/engine/ui-layout.test.js",
+          "tests/engine/ui-components.test.js",
+          "tests/engine/ui-interaction.test.js",
+          "tests/engine/ui-phaser-runtime.test.js",
+          "tests/engine/ui.test.js",
+          "tests/cli/ui-software.test.js",
+          "tests/cli/ui-build.test.js",
+          "tests/cli/generated-ui-build.test.js",
+          "--maxWorkers=1",
+          "--testNamePattern",
+          "^(?!.*first publication rejects dangling ownership link)"
+        ],
+        "exit": 0,
+        "filesPassed": 9,
+        "passed": 293,
+        "skipped": 17,
+        "total": 310,
+        "durationSeconds": 12.71,
+        "note": "Exactly one nine-owner final run. No UI_SOFTWARE_NO_LINKS flag was set or present. Link creation excluded by name because developer forbids filesystem links."
+      }
+    ],
+    "finalNineOwnerRun": "293 passed, 17 skipped across nine owners; exit0. Only the 17 forbidden link fixtures are excluded, never called passed.",
+    "sourceCheck": {
+      "command": "git diff --check",
+      "exit": 0,
+      "note": "No whitespace errors; Git emitted existing LF-to-CRLF working-copy warnings, no Git metadata/config changes."
+    },
+    "targetedNewRegressionCount": 32,
+    "coverage": [
+      "Alias/inheritance and immutable copying; malformed opacity/edge numbers including NaN/Infinity/null/string/out-of-range/zero width; opacity0 accepted.",
+      "Scale4 authored2-local edge vs omitted1-physical; independent semantic1.5/skin4 contexts, source footprint2.",
+      "Tiny bounds and clipped disjoint rectangle coverage; continuous semantic hit/focus bounds. These are seam geometry assertions, not native rendered pixels.",
+      "Flat/glyph state transitions, keyed reset to1, skin/icon/track/fill opacity, independent opaque edge/.3 wash, held activation continuity and stale revision/context failure behavior.",
+      "Authority, missing/chained/cross-parent/descendant/order link rejection in existing layout and interaction owners; existing text/icon-button tests retained.",
+      "Dormant-state preflight before attachments, initial/update alpha setter failure drain, source/fragment ownership and bounded baseline regression owners."
+    ],
+    "strictTypes": {
+      "status": "notRun",
+      "fixture": "tests/fixtures/ui-software-consumer.mts",
+      "compilerPath": "C:\\Users\\ehart\\repos\\agent-sprites-worktrees\\workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8/node_modules/typescript/bin/tsc",
+      "exists": false,
+      "reason": "TypeScript absent from admitted dependency seed; no admitted local compiler executed and none installed. Coordinator has actual Phaser4.2.1 plus TypeScript5.9.3 checker.",
+      "actualPhaserDeclarationRead": true,
+      "phaserRoot": "C:/Users/ehart/repos/cyberpunkt-worktrees/shared-ui-adoption/node_modules/phaser"
+    },
+    "skippedLinkCases": [
+      "first publication rejects dangling ownership link ui-runtime.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-runtime.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-action-group.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-action-group.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-theme.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-theme.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-components.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-components.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-layout.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-layout.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-interaction.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-interaction.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-phaser-runtime.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-phaser-runtime.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-index.mjs without writing its target",
+      "first publication rejects dangling ownership link ui-index.d.mts without writing its target",
+      "first publication rejects dangling ownership link ui-software-manifest.json without writing its target"
+    ],
+    "nativeCompositor": {
+      "status": "notRun",
+      "reason": "Later coordinator-owned native WebGL/Canvas consumer gate. Mock scene tests do not establish framebuffer alpha, depth, camera clipping, actual input transport or GPU behavior."
+    }
+  },
+  "logs": [
+    {
+      "path": ".tmp/focus-style-red.log",
+      "bytes": 4382,
+      "sha256": "e27526fb193563fd334a23c01c7f9808086236c5ead822b3291a6420d9fcb6df",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n ❯ tests/engine/ui-phaser-runtime.test.js (74 tests | 3 failed | 71 skipped) 55ms\r\n   × focus style uses two semantic local pixels at scale four and defaults to one physical pixel 46ms\r\n   × focus style opacity applies to stock rectangles and glyphs and resets on keyed base reuse 6ms\r\n   × focus style stock flat wash follows itemSlot without input authority and keeps its border opaque 1ms\r\n ❯ tests/engine/ui-theme.test.js (5 tests | 1 failed | 4 skipped) 6ms\r\n   × focus style inherits immutable opacity and local edge width without losing edge metadata 5ms\r\n\r\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style uses two semantic local pixels at scale four and defaults to one physical pixel\r\nTypeError: Node ok requires a font role\r\n ❯ prepare server/build/ui-layout.mjs:55:45\r\n     53|     const padding = uiInsets(node.layout.padding ?? role.padding ?? so…\r\n     54|     const label = textValue(node), face = role.font === undefined ? nu…\r\n     55|     if (label !== undefined && !face) throw new TypeError(`Node ${node…\r\n       |                                             ^\r\n     56|     let extension;\r\n     57|     if (node.kind === 'extension') {\r\n ❯ layoutUi server/build/ui-layout.mjs:71:3\r\n ❯ compile server/build/ui-phaser-runtime.mjs:286:30\r\n ❯ Object.mount server/build/ui-phaser-runtime.mjs:436:18\r\n ❯ tests/engine/ui-phaser-runtime.test.js:50:37\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style opacity applies to stock rectangles and glyphs and resets on keyed base reuse\r\nTypeError: Invalid native appearance variant keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ nativeStates server/build/ui-phaser-runtime.mjs:24:11\r\n ❯ server/build/ui-phaser-runtime.mjs:290:57\r\n ❯ compile server/build/ui-phaser-runtime.mjs:290:37\r\n ❯ Object.mount server/build/ui-phaser-runtime.mjs:436:18\r\n ❯ tests/engine/ui-phaser-runtime.test.js:61:35\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style stock flat wash follows itemSlot without input authority and keeps its border opaque\r\nTypeError: Invalid theme role wash keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ resolve server/build/ui-theme.mjs:96:7\r\n ❯ defineTheme server/build/ui-theme.mjs:135:65\r\n ❯ tests/engine/ui-phaser-runtime.test.js:72:22\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\r\n\r\n FAIL  tests/engine/ui-theme.test.js > focus style inherits immutable opacity and local edge width without losing edge metadata\r\nTypeError: Invalid theme role button keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ resolve server/build/ui-theme.mjs:96:7\r\n ❯ defineTheme server/build/ui-theme.mjs:135:65\r\n ❯ tests/engine/ui-theme.test.js:9:15\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\r\n\r\n\r\n Test Files  2 failed (2)\r\n      Tests  4 failed | 75 skipped (79)\r\n   Start at  22:54:43\r\n   Duration  377ms (transform 75ms, setup 26ms, import 121ms, tests 61ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-style-red-corrected.log",
+      "bytes": 5430,
+      "sha256": "64cb9bf092850a081ed008edafde3e1aa2e2eeeea7dbbe013fedbbb09fe06221",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n ❯ tests/engine/ui-phaser-runtime.test.js (74 tests | 3 failed | 71 skipped) 60ms\r\n   × focus style uses two semantic local pixels at scale four and defaults to one physical pixel 50ms\r\n   × focus style opacity applies to stock rectangles and glyphs and resets on keyed base reuse 7ms\r\n   × focus style stock flat wash follows itemSlot without input authority and keeps its border opaque 2ms\r\n ❯ tests/engine/ui-theme.test.js (5 tests | 1 failed | 4 skipped) 7ms\r\n   × focus style inherits immutable opacity and local edge width without losing edge metadata 5ms\r\n ❯ tests/engine/ui-layout.test.js (35 tests | 1 failed | 34 skipped) 13ms\r\n   × focus style permits only a leaf flat panel state consumer beside button or itemSlot 11ms\r\n ❯ tests/engine/ui-interaction.test.js (14 tests | 1 failed | 13 skipped) 10ms\r\n   × focus style leaf panel link retains one itemSlot input owner and rejects forged authority or parentage 8ms\r\n\r\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯\r\n\r\n FAIL  tests/engine/ui-interaction.test.js > focus style leaf panel link retains one itemSlot input owner and rejects forged authority or parentage\r\nTypeError: Invalid same-mount state-owner link or authority\r\n ❯ prepare server/build/ui-interaction.mjs:42:226\r\n\r\n ❯ createUiInteraction server/build/ui-interaction.mjs:61:17\r\n ❯ tests/engine/ui-interaction.test.js:44:34\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯\r\n\r\n FAIL  tests/engine/ui-layout.test.js > focus style permits only a leaf flat panel state consumer beside button or itemSlot\r\nTypeError: Invalid state-owner link or authority\r\n ❯ layoutUi server/build/ui-layout.mjs:78:218\r\n\r\n ❯ tests/engine/ui-layout.test.js:14:10\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style uses two semantic local pixels at scale four and defaults to one physical pixel\r\nAssertionError: expected 0.25 to be 2 // Object.is equality\r\n\r\n- Expected\r\n+ Received\r\n\r\n- 2\r\n+ 0.25\r\n\r\n ❯ tests/engine/ui-phaser-runtime.test.js:52:31\r\n     50|     const ui=createPhaserUi(f),m=ui.mount({revision:1,context:f.contex…\r\n     51|     const borders=f.objects.filter(o=>o.kind==='rectangle'&&o.visible);\r\n     52|     expect(borders[0].height).toBe(width??.25);expect(borders[2].width…\r\n       |                               ^\r\n     53|     expect(borders.every(o=>o.alpha===1)).toBe(true);m.dispose();ui.di…\r\n     54|   }\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style opacity applies to stock rectangles and glyphs and resets on keyed base reuse\r\nTypeError: Invalid native appearance variant keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ nativeStates server/build/ui-phaser-runtime.mjs:24:11\r\n ❯ server/build/ui-phaser-runtime.mjs:290:57\r\n ❯ compile server/build/ui-phaser-runtime.mjs:290:37\r\n ❯ Object.mount server/build/ui-phaser-runtime.mjs:436:18\r\n ❯ tests/engine/ui-phaser-runtime.test.js:61:35\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style stock flat wash follows itemSlot without input authority and keeps its border opaque\r\nTypeError: Invalid theme role wash keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ resolve server/build/ui-theme.mjs:96:7\r\n ❯ defineTheme server/build/ui-theme.mjs:135:65\r\n ❯ tests/engine/ui-phaser-runtime.test.js:72:22\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯\r\n\r\n FAIL  tests/engine/ui-theme.test.js > focus style inherits immutable opacity and local edge width without losing edge metadata\r\nTypeError: Invalid theme role button keys\r\n ❯ uiKeys server/build/ui-theme.mjs:34:129\r\n     32| /** @internal */\r\n     33| export function uiKeys(value, keys, name) {\r\n     34|   if (!value || typeof value !== 'object' || Array.isArray(value) || O…\r\n       |                                                                                                                                 ^\r\n     35| }\r\n     36| /** @internal */\r\n ❯ resolve server/build/ui-theme.mjs:96:7\r\n ❯ defineTheme server/build/ui-theme.mjs:135:65\r\n ❯ tests/engine/ui-theme.test.js:9:15\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯\r\n\r\n\r\n Test Files  4 failed (4)\r\n      Tests  6 failed | 122 skipped (128)\r\n   Start at  22:55:36\r\n   Duration  663ms (transform 111ms, setup 34ms, import 199ms, tests 89ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-style-green.log",
+      "bytes": 299,
+      "sha256": "c1dae917cdd017f539587028ee8df3f5eadfff63cbd446c4569da4b7b0c8559e",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n\r\n Test Files  4 passed (4)\r\n      Tests  6 passed | 122 skipped (128)\r\n   Start at  22:56:33\r\n   Duration  626ms (transform 103ms, setup 35ms, import 181ms, tests 83ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-topology-red.log",
+      "bytes": 1899,
+      "sha256": "ba2773b07c5083b7d29a0c3e986841dbcabf2263c6c08a123658311955d7ec29",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n ❯ tests/engine/ui-layout.test.js (35 tests | 1 failed | 34 skipped) 43ms\r\n   × focus style permits only a leaf flat panel state consumer beside button or itemSlot 41ms\r\n ❯ tests/engine/ui-interaction.test.js (14 tests | 1 failed | 13 skipped) 27ms\r\n   × focus style leaf panel link retains one itemSlot input owner and rejects forged authority or parentage 26ms\r\n\r\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\r\n\r\n FAIL  tests/engine/ui-interaction.test.js > focus style leaf panel link retains one itemSlot input owner and rejects forged authority or parentage\r\nAssertionError: expected [Function] to throw an error\r\n\r\n- Expected:\r\nnull\r\n\r\n+ Received:\r\nundefined\r\n\r\n ❯ tests/engine/ui-interaction.test.js:52:43\r\n     50|   }\r\n     51|   const nested=structuredClone(s);nested.plan.records.push(control('pa…\r\n     52|   expect(()=>createUiInteraction(nested)).toThrow(/state.owner|sibling…\r\n       |                                           ^\r\n     53|   const chain=structuredClone(s);chain.plan.records[0].metadata={'ui:s…\r\n     54|   const ordered=structuredClone(s);ordered.plan.focus.order=['a','wash…\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\r\n\r\n FAIL  tests/engine/ui-layout.test.js > focus style permits only a leaf flat panel state consumer beside button or itemSlot\r\nAssertionError: expected undefined to be 'root' // Object.is equality\r\n\r\n- Expected:\r\n\"root\"\r\n\r\n+ Received:\r\nundefined\r\n\r\n ❯ tests/engine/ui-layout.test.js:16:56\r\n\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\r\n\r\n\r\n Test Files  2 failed (2)\r\n      Tests  2 failed | 47 skipped (49)\r\n   Start at  22:57:21\r\n   Duration  342ms (transform 101ms, setup 23ms, import 79ms, tests 70ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-style-regressions.log",
+      "bytes": 1424,
+      "sha256": "e0175048eec0dd913479d594260e410aa59f25d0dbadb2492cce388fddd78059",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n ❯ tests/engine/ui-phaser-runtime.test.js (98 tests | 1 failed | 71 skipped) 93ms\r\n   × focus style state precedence falls directly to base and alpha failures drain without cache mutation 7ms\r\n\r\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\r\n\r\n FAIL  tests/engine/ui-phaser-runtime.test.js > focus style state precedence falls directly to base and alpha failures drain without cache mutation\r\nAssertionError: expected 0.6 to be 0.3 // Object.is equality\r\n\r\n- Expected\r\n+ Received\r\n\r\n- 0.3\r\n+ 0.6\r\n\r\n ❯ tests/engine/ui-phaser-runtime.test.js:162:41\r\n    160|   m.handle({type:'press',inputId:'p',point:{x:4,y:4},pointSpace:'physi…\r\n    161|   m.update(snapshot(2,false));expect(o.alpha).toBe(.1);expect(m.handle…\r\n    162|   m.update(snapshot(3));expect(o.alpha).toBe(.3);\r\n       |                                         ^\r\n    163|   o.setAlpha=()=>{throw Error('alpha failed');};expect(()=>m.handle({t…\r\n    164|   expect(m.inspect({limit:1}).native.lifecycle).toBe('retired');expect…\r\n\r\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\r\n\r\n\r\n Test Files  1 failed | 3 passed (4)\r\n      Tests  1 failed | 29 passed | 122 skipped (152)\r\n   Start at  22:59:15\r\n   Duration  667ms (transform 136ms, setup 33ms, import 137ms, tests 166ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-style-regressions-final.log",
+      "bytes": 301,
+      "sha256": "99b5fc988dc7ce4672b9c8d751ebd41a74b352442d737c04277666e4d3bc604e",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n\r\n Test Files  4 passed (4)\r\n      Tests  32 passed | 122 skipped (154)\r\n   Start at  23:02:30\r\n   Duration  674ms (transform 113ms, setup 32ms, import 184ms, tests 133ms, environment 0ms)\r\n\r\n"
+    },
+    {
+      "path": ".tmp/focus-style-nine-owners.log",
+      "bytes": 303,
+      "sha256": "b75ac1bac134185a7e360ece7d0ba0e8b944ce17e7cfee43c36d429cab9a0776",
+      "text": "\r\n RUN  v4.1.3 C:/Users/ehart/repos/agent-sprites-worktrees/workflow-9229f80c-7739-409f-bc3f-c8dee6a47ab8\r\n\r\n\r\n Test Files  9 passed (9)\r\n      Tests  293 passed | 17 skipped (310)\r\n   Start at  23:02:56\r\n   Duration  12.71s (transform 622ms, setup 61ms, import 1.66s, tests 10.25s, environment 0ms)\r\n\r\n"
+    }
+  ],
+  "captureLimits": [
+    "Detailed test logs are embedded verbatim in this owned report and separately located in own .tmp; .tmp retention by the workflow is not assumed.",
+    "The report authenticates observed worker source hashes, not the coordinator retained-capture manifest. Root must authenticate every final report/source blob, including supplemental r11/r12 paths; capture policy was not retroactively changed.",
+    "No browser/server launched; process completion of all shell/test sessions was observed unforced. Full descendant/native job drain belongs to workflow coordinator; worker cannot certify it.",
+    "Initial skill alias read failure, incorrect early font fixture, later hover assertion correction and optional post-run local-cache audit failure are retained above. No failed execution is called notStarted.",
+    "Native proof, all-game migrations/duplicate retirement, broad local game gates, release/version/catalog, deployment/live bytes and canonical wiki closeout remain incomplete."
+  ],
+  "remainingCoordinatorGates": [
+    "Authenticate full retained source/report capture and r11/r12 literal ownership.",
+    "Reconcile changed owned local Vitest results cache after optional post-run audit; no automatic retry executed.",
+    "Execute 17 link fixtures under coordinator policy and strict actual Phaser4.2.1/TypeScript5.9.3 check.",
+    "Fresh native source/export review and serial WebGL/Canvas consumer compositor/input/lifecycle checkpoint.",
+    "All subsequent full-migration/release/deployment/wiki/14-objective acceptance stages remain outside this task."
+  ]
+}

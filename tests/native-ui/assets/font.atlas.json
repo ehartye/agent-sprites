@@ -1,0 +1,105 @@
+{
+  "frames": [
+    {
+      "filename": "0",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "sourceSize": {
+        "w": 3,
+        "h": 5
+      },
+      "duration": 125
+    },
+    {
+      "filename": "1",
+      "frame": {
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "sourceSize": {
+        "w": 3,
+        "h": 5
+      },
+      "duration": 125
+    },
+    {
+      "filename": "question_cream",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "sourceSize": {
+        "w": 3,
+        "h": 5
+      },
+      "duration": 125
+    },
+    {
+      "filename": "question_ink",
+      "frame": {
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 5
+      },
+      "sourceSize": {
+        "w": 3,
+        "h": 5
+      },
+      "duration": 125
+    }
+  ],
+  "meta": {
+    "app": "https://github.com/ehartye/agent-sprites",
+    "version": "1.0",
+    "image": "contract-font.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 6,
+      "h": 5
+    },
+    "scale": "1",
+    "frameTags": [],
+    "slices": []
+  }
+}

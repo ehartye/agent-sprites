@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "at": "2026-10-16T05:25:24.679Z",
+  "base": "519abdfcf49e9afbc31bb67c3b2cd12f402aad05",
+  "candidate": "C:/Users/ehart/repos/agent-sprites-worktrees/shared-ui-hit-focus",
+  "design": {
+    "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-plan.json",
+    "bytes": 3262,
+    "sha256": "0751ff8118fa682399b5d145f0ef0764390332ea8700fc9a04f187d390966d52"
+  },
+  "red": {
+    "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-red.log",
+    "bytes": 7583,
+    "sha256": "a4140d6c092d4a31aa48d89c2441ce8f9c029710c0b58b342c2c391c75eb5a35"
+  },
+  "green": {
+    "owners": 9,
+    "cases": 330,
+    "skipped": 0,
+    "log": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-nine-owners.log",
+      "bytes": 264,
+      "sha256": "a79484cec0c28343015273cae317ee20a34432fc552bfdce612aa94376571523"
+    }
+  },
+  "strictTypes": {
+    "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-strict-types-verification.json",
+    "bytes": 3416,
+    "sha256": "063662d0b7904e539d5f180eeba65e8d1a650140535c8e66e7068ebc36e51afa"
+  },
+  "status": "Unreviewed source candidate; no actual consumer pixels, publication or deployment accepted",
+  "correction": {
+    "priorReview": {
+      "run": "83adf9c7-b487-4e3a-8f9d-e442afb45ed8",
+      "verdict": "changes-required",
+      "findings": 2
+    },
+    "red": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-review-red.log",
+      "bytes": 2456,
+      "sha256": "11ca495b82e9487f5e3a1f94ed09d92346242d631b12e19f50f5cd86148c895e"
+    },
+    "green": {
+      "cases": 332,
+      "owners": 9,
+      "skipped": 0,
+      "log": {
+        "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-review-nine-owners.log",
+        "bytes": 264,
+        "sha256": "f758ec386a303fe5679b792d75b23dbdb07f00ae69d3e26708da7299d09a1a2a"
+      }
+    },
+    "changes": "Own content overflow no longer suppresses semantic regions within inherited clip; authored regions participate in semantic model identity. Existing hidden/ancestor suppression and all answer/action authority preserved.",
+    "strictTypes": "Reuse unchanged public declarations and strict consumer fixture proof; only layout/interaction implementation and existing test owners changed since fresh actual Phaser check."
+  },
+  "ancestorCorrection": {
+    "priorReview": "89ebc334-b7e7-4a56-8371-acd939107a08",
+    "finding": "Empty inherited clip must remain null; intersection helper treats null as unrestricted, so original own-clip correction omitted a required ancestor guard.",
+    "red": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-ancestor-red.log",
+      "bytes": 952,
+      "sha256": "892b11c50e7fe7ee34817761a5273f1de632c4bca0706c279f85463419e4865f"
+    },
+    "green": {
+      "owners": 9,
+      "cases": 333,
+      "skipped": 0,
+      "log": {
+        "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-ancestor-nine-owners.log",
+        "bytes": 264,
+        "sha256": "40720fbd139fa567ae4dd82f5603d4b20d4f989068a269f4c9f8bac8794fd226"
+      }
+    },
+    "scope": "Two effective-region guards now explicitly retain inheritedClip===null. Nested default/custom-region regression verifies no focus or action beneath empty ancestor clip. Public declarations/types unchanged."
+  },
+  "compoundCorrection": {
+    "priorReview": "ea236011-33cb-48c5-9bd0-6906c82ae001",
+    "finding": "Stepper/pager declared touch padding had no compound choice hit areas; root also reproduced tabs in existing owner.",
+    "red": {
+      "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-compound-red.log",
+      "bytes": 1910,
+      "sha256": "0d83ee54043cf1aa5926a43702cca9441a3584cefa8aece540225169cc563a6d"
+    },
+    "green": {
+      "owners": 9,
+      "cases": 336,
+      "skipped": 0,
+      "log": {
+        "path": "C:/Users/ehart/agent-workflow-control/shared-ui-adoption-20261015/implementation/native-hit-focus-compound-nine-owners.log",
+        "bytes": 264,
+        "sha256": "949f21a26c9f95dfc89aa8c02390aa833555e6e314de43464ff0ce94cb4da9d5"
+      }
+    },
+    "scope": "Only explicit regions.hit allocates equal horizontal choice hit cells, clipped to effective semantic target. Native part bounds/paint unchanged; omitted regions preserve existing behavior. Disabled/value-limit/held-release assertions covered; policy documented. No public declaration/fixture changes since strict actual Phaser check."
+  }
+}

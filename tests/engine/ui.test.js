@@ -215,7 +215,62 @@ function portableFontFixture(){
   return {image:{},report,atlas};
 }
 
+test('flow contract: explicit no-wrap preserves prelaid whitespace and fit diagnostics',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  const placed=uiRuntime.placeBitmapText(font,' A    I ',0,0,{maxWidth:10,wrap:false,sourceOffsets:true});
+  expect(placed.lines.map(line=>line.source)).toEqual([' A    I ']);
+  expect(placed.width).toBe(28);
+  expect(placed.draws.map(draw=>draw.destination.x)).toEqual([3,22]);
+  expect(placed.lines[0].caretAdvances).toEqual([0,3,9,12,15,18,21,25,28]);
+  expect(placed.overflow.horizontal).toBe(true);
+  expect(placed.overflow.painted.horizontal).toBe(true);
+});
+
+test('flow contract: no-wrap preserves policy normalization, UTF16 mapping, alignment and missing ink',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  for(const align of ['left','center','right']) {
+    const p=uiRuntime.placeBitmapText(font,' A\r\n\t😀 I \n',10,20,{maxWidth:40,wrap:false,sourceOffsets:true,align,policy:{lineSpacing:2,trailingAdvance:1}});
+    expect(p.lines.map(l=>l.source)).toEqual([' A','    😀 I ','']);
+    expect(p.lines.map(l=>[l.sourceStart,l.sourceEnd])).toEqual([[0,2],[4,10],[11,11]]);
+    expect(p.lines[1].caretAdvances.at(-1)).toBe(26);
+    expect(p.lines[1].y).toBe(33);
+    expect(p.draws.find(d=>d.char==='😀').resolvedChar).toBe('?');
+  }
+  expect(uiRuntime.placeBitmapText(font,null,0,0,{wrap:false,policy:{nullish:'empty',empty:'none'}}).lines).toEqual([]);
+  expect(uiRuntime.placeBitmapText(font,'',0,0,{wrap:false}).lines.map(l=>l.source)).toEqual(['']);
+  for(const wrap of [null,0,'false',{}])expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{wrap})).toThrow(/wrap.*boolean/i);
+  for(const maxWidth of [-1,1.5,Infinity])expect(()=>uiRuntime.placeBitmapText(font,'A',0,0,{wrap:false,maxWidth})).toThrow();
+  const input=portableFontFixture();delete input.report.glyphs.A.bounds;
+  expect(uiRuntime.placeBitmapText(uiRuntime.normalizeBitmapFont(input),' A ',0,0,{wrap:false,maxWidth:1}).overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
+});
+
+test('flow contract: fractional inward-fit label stays one line with physical overflow',()=>{
+  const glyphs=Object.fromEntries([...'Card7B?'].map((char,i)=>[char,{advance:5,frames:{cream:char}}]));
+  glyphs[' ']={advance:3};
+  const font=uiRuntime.normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:10,tones:{cream:{}},glyphs},atlas:{frames:Object.fromEntries([...'Card7B?'].map((char,i)=>[char,{frame:{x:i*6,y:0,w:6,h:10}}]))}});
+  const resolution=uiRuntime.pixelResolution({id:'test:world-label',revision:1,localToPhysical:{scale:1.5,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:1});
+  const options={resolution,maxWidth:22,maxHeight:6+2/3};
+  expect(uiRuntime.placeBitmapText(font,'Card 7B',69,81+1/3,options).lines.map(l=>l.source)).toEqual(['Card','7B']);
+  const p=uiRuntime.placeBitmapText(font,'Card 7B',69,81+1/3,{...options,wrap:false});
+  expect(p.lines.map(l=>l.source)).toEqual(['Card 7B']);expect(p.physicalBounds.width).toBe(32);
+  expect(p.physicalAnchor).toEqual({x:104,y:122});expect(p.overflow.horizontal).toBe(true);
+  expect(p.draws).toHaveLength(6);expect(p.draws.every(d=>Object.values(d.physicalDestination).every(Number.isInteger))).toBe(true);
+});
+
 function abstractMetrics(){return {lineHeight:10.5,advanceOf:char=>({' ':1.25,A:3.5,I:1.5,'😀':4.25,'猫':2.75,'\r':0.25,'\t':0.5}[char]??2)};}
+
+test('review placement exposes UTF-16 source caret advances without changing whitespace policy',()=>{
+  const font=uiRuntime.normalizeBitmapFont(portableFontFixture());
+  for(const [text,width,policy,lines] of [['A  I',100,{},['A I']],['A\r\n\tI',100,{},['A','I']],['😀  I',5,{},['😀','I']],['A ',8,{spaces:'terminal',trailingAdvance:1},['A ']],['A ',6,{spaces:'terminal',trailingAdvance:1},['A','']]]){
+    const plan=uiRuntime.placeBitmapText(font,text,0,0,{maxWidth:width,policy,sourceOffsets:true});expect(plan.sourceLines).toEqual(lines);
+    const last=plan.lines.at(-1);expect(last.sourceEnd).toBe(text.length);expect(last.caretAdvances.at(-1)).toBe(uiRuntime.measureBitmapText(font,last.source,{policy}).advanceWidth);
+    for(const line of plan.lines){expect(line.caretAdvances).toHaveLength(line.sourceEnd-line.sourceStart+1);expect(line.caretAdvances.every((v,i,a)=>i===0||v>=a[i-1])).toBe(true);}
+  }
+  const repeated=uiRuntime.placeBitmapText(font,'A  I',0,0,{maxWidth:100,sourceOffsets:true}).lines[0];expect(repeated).toMatchObject({sourceStart:0,sourceEnd:4,caretAdvances:[0,6,6,9,13]});
+  const normalized=uiRuntime.placeBitmapText(font,'A\r\n\tI',0,0,{maxWidth:100,sourceOffsets:true}).lines;expect(normalized.map(l=>[l.sourceStart,l.sourceEnd,l.caretAdvances])).toEqual([[0,1,[0,6]],[3,5,[0,0,4]]]);
+  const literal=uiRuntime.placeBitmapText(font,'A\r\tI',0,0,{maxWidth:100,policy:{newline:'lf-only',tab:'literal'},sourceOffsets:true}).lines[0];expect(literal.caretAdvances).toEqual([0,6,10,14,18]);
+  const mixed=uiRuntime.placeBitmapText(font,'A  I',0,0,{resolution:uiRuntime.pixelResolution({id:'test:offset',revision:1,localToPhysical:{scale:2,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:3}),maxWidth:100,sourceOffsets:true});expect(mixed.lines[0].caretAdvances).toEqual([0,9,9,13.5,19.5]);expect(mixed.sourceMap[0].caretAdvances).toEqual(mixed.lines[0].caretAdvances);
+});
 test('abstract text metrics consume raw Unicode code points and keep fractional caller units',()=>{
   const metrics=abstractMetrics(),seen=[];
   expect(uiRuntime.textMetricsLineWidth({...metrics,advanceOf:char=>{seen.push(char);return metrics.advanceOf(char);}},'A😀猫\r\t')).toBe(11.25);

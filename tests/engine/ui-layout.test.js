@@ -1,0 +1,631 @@
+import {test,expect} from 'vitest';
+import {existsSync} from 'node:fs';
+import {normalizeBitmapFont,iterateNineSliceTiles} from '../../server/build/ui-runtime.mjs';
+async function api(){for(const file of ['ui-layout','ui-components','ui-theme'])expect(existsSync(new URL(`../../server/build/${file}.mjs`,import.meta.url)),`${file} owner exists`).toBe(true);return Promise.all(['ui-layout','ui-components','ui-theme'].map(file=>import(`../../server/build/${file}.mjs`)));}
+function font(){return normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3},A:{advance:7,frames:{cream:'a'},bounds:{left:0,top:0,right:5,bottom:5}},i:{advance:2,frames:{cream:'i'},bounds:{left:0,top:0,right:0,bottom:5}}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}},a:{frame:{x:4,y:0,w:6,h:6}},i:{frame:{x:10,y:0,w:1,h:6}}}}});}
+function environment(defineTheme,extra={}){return {theme:defineTheme({version:1,id:'test:theme',fonts:{body:{font:font()}},skins:{},roles:Object.fromEntries(['body','text','button','stack','row','grid','absolute','actionBar','panel','field','toggle','stepper','tabs','fold','pager','progress','meter','extension','header','card','listRow','itemSlot','separator','icon','notice','tooltip'].map(k=>[k,{font:'body',tone:'cream'}])),geometry:{gap:0,padding:0,minTarget:0}}),revision:1,context:{id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:3,viewport:{x:0,y:0,width:100,height:60}},...extra};}
+
+test('flow contract: wardrobe wraps variable widths with independent rowGap and whole-row pages',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[60,48,36].map((width,i)=>u.button({id:`a${i}`,layout:{width,height:22}}));
+  const tree=layout=>u.row({id:'wardrobe',layout:{width:100,height:60,gap:8,rowGap:4,wrap:true,...layout},children});
+  const plan=layoutUi(tree({}),env);
+  expect(plan.records.slice(1).map(r=>[r.bounds.x,r.bounds.y,r.bounds.width])).toEqual([[0,0,60],[0,26,48],[56,26,36]]);
+  expect(plan.records[0].measure.preferred.height).toBe(48);
+  expect(layoutUi(tree({rowGap:0}),env).records[2].bounds.y).toBe(22);
+  const paged=layoutUi(tree({height:30,overflow:'paginate',page:1}),env);
+  expect(paged.records[0].overflow.pageCount).toBe(2);
+  expect(paged.records.slice(1).map(r=>r.state)).toEqual(['clipped','visible','visible']);
+  expect(paged.records[2].bounds.y).toBe(0);expect(paged.records[3].bounds.y).toBe(0);
+  const defaults=layoutUi(u.row({id:'default',layout:{width:100,height:60,gap:8},children}),env);
+  expect(defaults.records.slice(1).map(r=>r.bounds.y)).toEqual([0,0,0]);
+});
+
+test('flow contract: smaller final page repacks only the ordinary tail in order',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=Array.from({length:5},(_,i)=>u.panel({id:`b${i}`,layout:{height:20}}));
+  const make=layout=>u.stack({id:'pages',layout:{width:100,height:60,overflow:'paginate',...layout},children});
+  expect(layoutUi(make({}),env).records[0].overflow.pageCount).toBe(2);
+  const page=layoutUi(make({lastPageHeight:30,page:2}),env);
+  expect(page.records[0].overflow.pageCount).toBe(3);
+  expect(page.records.filter(r=>r.state==='visible').map(r=>r.id)).toEqual(['pages','b4']);
+  expect(page.records.at(-1).bounds.y).toBe(0);
+  expect(page.records[0].contentClipBounds.height).toBe(30);
+});
+
+test('flow contract: component no-wrap keeps semantic whitespace across label density and honest physical overflow',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1.5,x:0,y:0},sourcePixelPhysicalSize:1};
+  const tree=u.text({id:'prelaid',label:' A    i ',layout:{x:69,y:81+1/3,width:20,height:20,wrap:false}});
+  const record=layoutUi(tree,{...env,context:{...env.context,viewport:{x:0,y:0,width:200,height:200}}}).records[0];
+  expect(record.text.lines.map(l=>l.source)).toEqual([' A    i ']);
+  expect(record.text.width).toBe(27/1.5);
+  expect(record.measure.preferred.width).toBe(27/1.5);
+  const narrow=layoutUi({...tree,layout:{...tree.layout,width:27/1.5}}, {...env,context:{...env.context,viewport:{x:0,y:0,width:200,height:200}}}).records[0];
+  expect(narrow.text.lines).toHaveLength(1);expect(narrow.text.overflow.horizontal).toBe(true);
+});
+
+test('flow contract: measured pagination preserves split runs, whole-first cards, headings and explicit breaks',async()=>{
+  const {paginateUiBlocks}=await import('../../server/build/ui-layout.mjs');
+  expect(typeof paginateUiBlocks).toBe('function');
+  expect(paginateUiBlocks(Array.from({length:5},()=>({height:20})),{pageHeight:60,lastPageHeight:30})).toEqual([[{block:0},{block:1},{block:2}],[{block:3}],[{block:4}]]);
+  const flow={count:5,heightOf:(a,b)=>(b-a)*10,keep:i=>i===1};
+  expect(paginateUiBlocks([{height:10},{height:50,flow}],{pageHeight:30})).toEqual([[{block:0},{block:1,from:0,to:1}],[{block:1,from:1,to:4}],[{block:1,from:4,to:5}]]);
+  expect(paginateUiBlocks([{height:10},{height:20,wholeFirst:true,flow:{count:2,heightOf:(a,b)=>(b-a)*10}}],{pageHeight:25})).toEqual([[{block:0}],[{block:1}]]);
+  expect(paginateUiBlocks([{height:10},{height:10,breakBefore:true},{height:40},{height:5}],{pageHeight:30})).toEqual([[{block:0}],[{block:1}],[{block:2}],[{block:3}]]);
+});
+
+test('flow contract: aligned unequal-height actions keep one visual row on the final page',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[22,10].map((height,i)=>u.button({id:`a${i}`,layout:{width:40,height}}));
+  const result=layoutUi(u.row({id:'row',layout:{width:100,height:30,wrap:true,align:'center',overflow:'paginate',lastPageHeight:15},children}),env);
+  expect(result.records[0].overflow.pageCount).toBe(1);
+  expect(result.records[2].bounds.y).toBe(6);
+});
+
+test('flow contract: oversize final page can scroll its full actionable row into view',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const plan=layoutUi(u.stack({id:'pages',layout:{width:100,height:60,lastPageHeight:30,overflow:'paginate',scrollY:20},children:[
+    u.absolute({id:'big',layout:{height:50},children:[u.button({id:'bottom',actionId:'game:bottom',layout:{y:35,width:20,height:15}})]})
+  ]}),env);
+  expect(plan.records[0].overflow).toMatchObject({pageCount:1,maxScrollY:20,scrollY:20});
+  expect(plan.records[1].bounds.y).toBe(-20);
+  expect(plan.records[2].bounds.y).toBe(15);expect(plan.records[2].effectiveHitBounds.height).toBe(15);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  const input=createUiInteraction({id:'test:oversize',plan});
+  expect(input.handle({type:'activate',controlId:'bottom',inputId:'keyboard'})[0]?.actionId).toBe('game:bottom');input.dispose();
+});
+
+test.each([0,1,2])('review correction: nonmultiple text capacity paints only page %s source lines',async page=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const record=layoutUi(u.text({id:'whole-lines',label:'A\ni\nA',layout:{width:30,height:12,lastPageHeight:8,overflow:'paginate',page,wrap:false}}),env).records[0];
+  expect(record.overflow).toMatchObject({page,pageCount:3,vertical:false,maxScrollY:0});
+  expect(record.text.draws.map(d=>d.row)).toEqual([page]);
+  expect(record.text.lines.map(l=>l.source)).toEqual([['A','i','A'][page]]);
+  expect(record.text.lines[0].y).toBe(0);
+  expect(record.text.sourceLines).toEqual(['A','i','A']);
+  expect(record.text.height).toBe(24);
+  expect(record.text.paintedBounds).toEqual({known:true,rect:{x:0,y:0,width:page===1?1:6,height:6}});
+  expect(record.text.overflow).toMatchObject({horizontal:false,vertical:false,painted:{known:true,horizontal:false,vertical:false}});
+});
+
+test('flow contract: final text page retains whole source lines and smaller clip',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const plan=layoutUi(u.text({id:'text-pages',label:'A\ni\nA\ni\nA',layout:{width:100,height:24,lastPageHeight:8,overflow:'paginate',page:2,wrap:false}}),env);
+  const record=plan.records[0];
+  expect(record.overflow).toMatchObject({page:2,pageCount:3});
+  expect(record.contentClipBounds.height).toBe(8);
+  expect(record.text.lines.at(-1).y).toBe(0);
+});
+
+test.each([0,1,2])('review correction: page %s preserves blank lines whitespace and full UTF16 mapping',async page=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const value=' A  i \n\n😀i\nA\n i ',sources=[' A  i ','','😀i','A',' i '];
+  const record=layoutUi(u.field({id:'mapped-pages',value,selection:{start:8,end:10,direction:'forward'},composition:null,layout:{width:50,height:20,lastPageHeight:10,overflow:'paginate',page,wrap:false}}),env).records[0];
+  const ranges=[[0,2],[2,4],[4,5]],[from,to]=ranges[page];
+  expect(record.text.lines.map(l=>l.source)).toEqual(sources.slice(from,to));
+  expect(record.text.sourceLines).toEqual(sources);expect(record.text.height).toBe(40);
+  expect(record.text.width).toBe(21);expect(record.text.advanceWidth).toBe(21);
+  expect(record.text.sourceMap.map(l=>[l.sourceStart,l.sourceEnd])).toEqual([[0,6],[7,7],[8,11],[12,13],[14,17]]);
+  expect(record.text.draws.every(d=>d.row>=from&&d.row<to)).toBe(true);
+  expect(record.text.lines[0].sourceStart).toBe([0,8,14][page]);
+  expect(record.text.lines[0].y).toBe(0);
+  expect(record.parts.filter(p=>p.kind==='selection')).toHaveLength(page===1?1:0);
+  expect(record.parts.filter(p=>p.kind==='caret')).toHaveLength(page===1?1:0);
+  if(page===1)expect(record.text.lines[0].caretAdvances).toEqual([0,0,5,7]);
+  expect(record.text.overflow.vertical).toBe(false);
+});
+
+test('review correction: paginated soft-wrap caret belongs to one source line including EOF',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  for(const offset of [2,3])for(const page of [0,1]){
+    const record=layoutUi(u.field({id:'soft-caret',value:'A A',selection:{start:offset,end:offset,direction:'forward'},composition:'i',layout:{width:14,height:8,lastPageHeight:8,overflow:'paginate',page}}),env).records[0];
+    expect(record.text.sourceMap.map(line=>[line.sourceStart,line.sourceEnd])).toEqual([[0,2],[2,3]]);
+    const caret=record.parts.filter(part=>part.kind==='caret'),composition=record.parts.filter(part=>part.kind==='composition');
+    expect(caret,`offset ${offset}, page ${page}`).toHaveLength(page===1?1:0);
+    expect(composition,`offset ${offset}, page ${page}`).toHaveLength(page===1?1:0);
+    if(page===1){expect(caret[0].bounds).toMatchObject({x:offset===2?0:7,y:0});expect(composition[0].placement.lines[0]).toMatchObject({x:offset===2?0:7,y:0});}
+  }
+});
+
+test('review correction: no-wrap page-local width and oversize scrolling remain honest',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const make=(page,extra={})=>layoutUi(u.text({id:'oversize-text',label:'AAAA\ni\nA',layout:{width:14,height:12,lastPageHeight:5,overflow:'paginate',page,wrap:false,...extra}}),env).records[0];
+  const first=make(0,{scrollX:100});
+  expect(first.text.sourceLines).toEqual(['AAAA','i','A']);expect(first.text.width).toBe(28);
+  expect(first.overflow).toMatchObject({horizontal:true,maxScrollX:14,scrollX:14,vertical:false});
+  expect(first.text.draws.map(d=>d.row)).toEqual([0,0,0,0]);
+  expect(first.text.overflow).toMatchObject({horizontal:true,vertical:false});
+  const middle=make(1,{scrollX:100});
+  expect(middle.overflow).toMatchObject({horizontal:false,maxScrollX:0,scrollX:0});
+  expect(middle.text.overflow).toMatchObject({horizontal:false,vertical:false});
+  const last=make(2,{scrollY:100});
+  expect(last.overflow).toMatchObject({pageCount:3,vertical:true,maxScrollY:3,scrollY:3});
+  expect(last.contentClipBounds.height).toBe(5);expect(last.text.lines[0].y).toBe(-3);
+  expect(last.text.draws.map(d=>d.row)).toEqual([2]);
+  expect(last.text.overflow).toMatchObject({vertical:true,painted:{known:true,vertical:true}});
+});
+
+test('review correction: default wrapping assigns its already-wrapped rows to pages once',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  for(let page=0;page<3;page++){
+    const record=layoutUi(u.text({id:'wrapped-pages',label:'AA AA AA',layout:{width:14,height:12,lastPageHeight:8,overflow:'paginate',page}}),env).records[0];
+    expect(record.text.sourceLines).toEqual(['AA','AA','AA']);
+    expect(record.text.lines.map(l=>l.source)).toEqual(['AA']);
+    expect(record.text.draws.map(d=>d.row)).toEqual([page,page]);
+    expect(record.text.overflow).toMatchObject({horizontal:false,vertical:false});
+  }
+});
+
+test('review correction: page paint retains physical overflow in a separate fractional label context',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:1.5,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.additionalContexts=[{...env.context,id:'test:label-page',localToPhysical:{scale:3,x:0.25,y:0.5},sourcePixelPhysicalSize:2}];
+  for(let page=0;page<3;page++){
+    const record=layoutUi(u.text({id:'mixed-text',label:'A\ni\nA',labelContextId:'test:label-page',layout:{x:0.2,y:0.2,width:30,height:15,lastPageHeight:11,overflow:'paginate',page,wrap:false}}),env).records[0];
+    expect(record.text.draws.map(d=>d.row)).toEqual([page]);
+    expect(record.text.height).toBe(16);expect(record.text.lines[0].y).toBeCloseTo(-1/6);
+    expect(record.text.draws[0].physicalDestination.y).toBe(0);
+    expect(record.text.overflow).toMatchObject({vertical:true,painted:{known:true,vertical:true}});
+    expect(record.overflow).toMatchObject({pageCount:3,vertical:false});
+  }
+});
+
+test('review correction: page-local ink diagnostics preserve unknown metadata and final cell spacing policy',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),face=structuredClone(font());
+  face.cell={width:8,height:6};face.glyphs.A.inkBounds={known:false,rect:null};
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.theme=defineTheme({version:1,id:'test:page-policy',fonts:{body:{font:face,policy:{lastLine:'cell',lineSpacing:2}}},roles:{text:{font:'body',tone:'cream'}},geometry:{padding:0,gap:0,minTarget:0}});
+  const make=page=>layoutUi(u.text({id:'policy-text',label:'A\ni\ni',layout:{width:30,height:18,lastPageHeight:6,overflow:'paginate',page,wrap:false}}),env).records[0];
+  expect(make(0).text.draws.map(d=>d.row)).toEqual([0,1]);
+  expect(make(0).text.paintedBounds).toEqual({known:false,rect:null});
+  expect(make(0).text.overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
+  const last=make(1);expect(last.text.height).toBe(26);
+  expect(last.text.draws.map(d=>d.row)).toEqual([2]);expect(last.text.lines[0].y).toBe(0);
+  expect(last.text.paintedBounds).toEqual({known:true,rect:{x:0,y:0,width:1,height:6}});
+  expect(last.text.overflow).toMatchObject({vertical:false,painted:{known:true,vertical:false}});
+});
+
+test('flow contract: row measurement placement scrolling and semantic context conversion agree',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:10,y:-6},sourcePixelPhysicalSize:1,viewport:{x:-100,y:-100,width:400,height:400}}];
+  const children=[u.button({id:'one',layout:{width:60,height:22}}),u.button({id:'two',contextId:'test:child',layout:{width:96,height:44}}),u.button({id:'three',layout:{width:36,height:22}})];
+  const make=layout=>u.row({id:'mixed-flow',layout:{width:100,height:30,wrap:true,gap:8,rowGap:4,...layout},children});
+  const plan=layoutUi(make({}),env);expect(plan.records[0].measure.preferred.height).toBe(48);
+  expect(plan.records[2].bounds).toEqual({x:-10,y:58,width:96,height:44});
+  const scrolled=layoutUi(make({overflow:'scroll',scrollY:18}),env);
+  expect(scrolled.records[0].overflow.maxScrollY).toBe(18);
+  expect(scrolled.records[2].bounds.y).toBe(22);
+  expect(scrolled.records[3].bounds.y).toBe(8);
+  const clipped=layoutUi(make({overflow:'clip'}),env);expect(clipped.records[3].effectiveHitBounds.height).toBe(4);
+});
+
+test('flow contract: grow reservations respect minima maxima and fixed widths before wrapping',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[u.panel({id:'grow',layout:{grow:1,minWidth:20,maxWidth:40,preferredWidth:20,height:10}}),u.panel({id:'fixed',layout:{width:60,height:22}}),u.panel({id:'natural',layout:{preferredWidth:36,height:12}})];
+  const plan=layoutUi(u.row({id:'grow-row',layout:{width:100,height:60,gap:8,rowGap:4,wrap:true,align:'end'},children}),env);
+  expect(plan.records.slice(1).map(r=>[r.bounds.width,r.bounds.y])).toEqual([[32,12],[60,0],[36,26]]);
+  const empty=layoutUi(u.row({id:'empty',layout:{wrap:true,rowGap:4,padding:2}}),env).records[0];
+  expect(empty.measure.preferred.height).toBe(4);
+});
+
+test('flow contract: smaller final capacity honors parent padding and child context units',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:10,y:-6},sourcePixelPhysicalSize:1,viewport:{x:-100,y:-100,width:400,height:400}}];
+  const children=Array.from({length:5},(_,i)=>u.panel({id:`c${i}`,contextId:'test:child',layout:{height:40}}));
+  const p=layoutUi(u.stack({id:'p',layout:{height:68,width:100,padding:4,overflow:'paginate',lastPageHeight:38,page:1},children}),env);
+  expect(p.records[0].overflow.pageCount).toBe(3);expect(p.records[0].contentClipBounds.height).toBe(30);
+  expect(p.records[4].bounds.y).toBe(14);
+});
+
+test('flow contract: pagination validates policies and preserves final split offsets and minSplit',async()=>{
+  const {paginateUiBlocks}=await import('../../server/build/ui-layout.mjs');
+  expect(paginateUiBlocks([],{pageHeight:0,lastPageHeight:0})).toEqual([]);
+  expect(paginateUiBlocks([{height:0},{height:1}],{pageHeight:0,lastPageHeight:0})).toEqual([[{block:0}],[{block:1}]]);
+  const f={count:8,heightOf:(a,b)=>(b-a)*10};
+  const p=paginateUiBlocks([{height:80,flow:f}],{pageHeight:60,lastPageHeight:10});
+  expect(p).toEqual([[{block:0,from:0,to:6}],[{block:0,from:6,to:7}],[{block:0,from:7,to:8}]]);
+  expect(Object.isFrozen(p[0][0])).toBe(true);
+  expect(paginateUiBlocks([{height:20},{height:40,flow:{count:4,heightOf:(a,b)=>(b-a)*10}}],{pageHeight:30,minSplit:15})).toEqual([[{block:0}],[{block:1,from:0,to:3}],[{block:1,from:3,to:4}]]);
+  for(const options of [{pageHeight:-1},{pageHeight:NaN},{pageHeight:30,lastPageHeight:null},{pageHeight:30,gap:Infinity},{pageHeight:30,other:1}])expect(()=>paginateUiBlocks([] ,options)).toThrow();
+  for(const block of [{height:-1},{height:1,breakBefore:1},{height:1,wholeFirst:'yes'},{height:20,flow:{count:2,heightOf:()=>-1}},{height:20,flow:{count:2,heightOf:()=>6,keep:()=>1}}])expect(()=>paginateUiBlocks([block],{pageHeight:5})).toThrow();
+});
+
+test('flow contract: a final page smaller than its label never enlarges the clip budget',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const result=layoutUi(u.panel({id:'small-final',label:'A',layout:{width:100,height:40,overflow:'paginate',lastPageHeight:5},children:[u.button({id:'below',layout:{height:5,width:10}})]}),env);
+  expect(result.records[0].contentClipBounds.height).toBe(5);
+  expect(result.records[1].effectiveHitBounds).toBeNull();
+});
+
+test('flow contract: legacy horizontal pagination keeps its topology and honors final vertical capacity',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const p=layoutUi(u.row({id:'horizontal-pages',layout:{width:60,height:30,overflow:'paginate',lastPageHeight:10,page:1},children:[u.button({id:'a',layout:{width:60,height:22}}),u.button({id:'b',layout:{width:60,height:22}})]}),env);
+  expect(p.records[0].overflow.pageCount).toBe(2);expect(p.records[0].contentClipBounds.height).toBe(10);
+});
+
+test('flow contract: no-wrap measurement and placement use an independent label context once',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:label',localToPhysical:{scale:1.5,x:.25,y:-.5},sourcePixelPhysicalSize:2,viewport:{x:-100,y:-100,width:500,height:500}}];
+  const r=layoutUi(u.field({id:'prelaid-field',labelContextId:'test:label',value:' A    i ',selection:{start:1,end:6,direction:'forward'},layout:{width:50,height:20,wrap:false}}),env).records[0];
+  expect(r.measure.preferred.width).toBe(27);
+  expect(r.text.lines.map(l=>l.source)).toEqual([' A    i ']);expect(r.text.width).toBe(36);
+  expect(r.text.lines[0].caretAdvances.at(-1)).toBe(36);
+  expect(r.parts.some(p=>p.kind==='selection'&&p.contextId==='test:label')).toBe(true);
+});
+
+test('independent regions: hit and focus remain continuous while the original visual allocation is unchanged',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:regions',roles:{button:{alternatives:[{kind:'flat',color:'#123456'}]}},geometry:{minTarget:0}});
+  const record=layoutUi(u.button({id:'small',layout:{x:30.25,y:20.25,width:20,height:10},regions:{hit:{x:-5,y:-5,width:30,height:20},focus:{x:-20,y:-10,width:60,height:30}}}),env).records[0];
+  expect(record.bounds).toEqual({x:30.25,y:20.25,width:20,height:10});
+  expect(record.hitBounds).toEqual({x:25.25,y:15.25,width:30,height:20});
+  expect(record.focusBounds).toEqual({x:10.25,y:10.25,width:60,height:30});
+  expect(record.effectiveHitBounds).toEqual(record.hitBounds);expect(record.effectiveFocusBounds).toEqual(record.focusBounds);
+  expect(record.paintBounds.width).toBeLessThanOrEqual(20);expect(record.paintBounds.height).toBeLessThanOrEqual(10);
+});
+
+test('independent regions: focus can remain visible while the activation target is clipped',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  const record=layoutUi(u.button({id:'card',actionId:'game:card',layout:{x:60,y:0,width:10,height:10},regions:{focus:{x:-50,y:0,width:50,height:10}}}),env).records[0];
+  expect(record.effectiveHitBounds).toBeNull();expect(record.effectiveFocusBounds).toEqual({x:10,y:0,width:30,height:10});expect(record.state).toBe('visible');
+});
+
+test('independent regions review: own content clipping does not suppress visible semantic regions',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  const target={x:10,y:0,width:30,height:10};
+  for(const overflow of ['visible','clip','scroll','paginate']){
+    const regions={hit:{x:-50,y:0,width:50,height:10},focus:{x:-50,y:0,width:50,height:10}};
+    const tree=u.button({id:'outside',layout:{x:60,y:0,width:10,height:10,overflow},regions});
+    const record=layoutUi(tree,env).records[0];
+    expect(record.effectiveHitBounds).toEqual(target);expect(record.effectiveFocusBounds).toEqual(target);expect(record.state).toBe('visible');
+    const hidden=layoutUi({...tree,hidden:true},env).records[0];
+    expect(hidden.effectiveHitBounds).toBeNull();expect(hidden.effectiveFocusBounds).toBeNull();
+  }
+});
+
+test('independent regions review: empty ancestor clips suppress descendant focus and activation',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  env.context={...env.context,viewport:{x:0,y:0,width:40,height:30}};
+  for(const regions of [undefined,{hit:{x:-60,y:0,width:70,height:10},focus:{x:-60,y:0,width:70,height:10}}]){
+    const tree=u.absolute({id:'root',layout:{width:40,height:30,overflow:'clip'},children:[
+      u.panel({id:'outside',layout:{x:60,y:0,width:10,height:10,overflow:'clip'},children:[
+        u.button({id:'leaf',actionId:'game:leaf',layout:{width:10,height:10},...(regions?{regions}:{})})
+      ]})
+    ]});
+    const plan=layoutUi(tree,env),record=plan.records.find(r=>r.id==='leaf');
+    expect(record.clipBounds).toBeNull();expect(record.effectiveHitBounds).toBeNull();expect(record.effectiveFocusBounds).toBeNull();expect(record.state).toBe('clipped');
+    const input=createUiInteraction({id:'test:ancestor',plan});expect(input.inspect({limit:10}).focusId).toBeNull();expect(input.handle({type:'activate',controlId:'leaf',inputId:'blocked'})).toEqual([]);input.dispose();
+  }
+});
+
+test.each(['stepper','pager','tabs'])('independent regions review: %s routes semantic padding without enlarging its visual parts',async kind=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');
+  env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.theme=defineTheme({version:1,id:'test:compound',fonts:{body:{font:font()}},roles:{[kind]:{font:'body',tone:'cream'}},geometry:{minTarget:44,padding:0,gap:0}});
+  const values=kind==='stepper'?{value:1,min:0,max:3,step:1}:kind==='pager'?{value:1,pageCount:4}:{value:'a',options:[{id:'a',label:'A'},{id:'b',label:'i'}]};
+  const model=(revision,enabled=true,overrides={})=>layoutUi(u[kind]({id:'compound',...values,...overrides,enabled,layout:{x:20,y:20,width:10,height:10},regions:{hit:{x:-17,y:-17,width:44,height:44}}}),{...env,revision});
+  const plan=model(1),record=plan.records[0],parts=record.parts.filter(p=>['adjust','tab'].includes(p.kind));
+  expect(record.bounds).toEqual({x:20,y:20,width:10,height:10});expect(record.hitBounds).toEqual({x:3,y:3,width:44,height:44});
+  const before=parts.map(p=>({...p.bounds})),input=createUiInteraction({id:'test:compound',plan});
+  const point={x:35,y:25};input.handle({type:'press',inputId:'padding',point});expect(input.inspect({limit:1}).heldCount).toBe(1);
+  expect(input.handle({type:'release',inputId:'padding',point})[0]?.value).toBe(kind==='tabs'?'b':2);expect(parts.map(p=>p.bounds)).toEqual(before);
+  input.handle({type:'press',inputId:'stale',point});input.update({id:'test:compound',plan:model(2,false)});expect(input.handle({type:'release',inputId:'stale',point})).toEqual([]);input.dispose();
+  const limit=kind==='tabs'?{options:[{id:'a',label:'A'},{id:'b',label:'i',enabled:false}]}:{value:3};
+  const limited=createUiInteraction({id:'test:compound',plan:model(3,true,limit)});limited.handle({type:'press',inputId:'limit',point});expect(limited.inspect({limit:1}).heldCount).toBe(0);expect(limited.handle({type:'release',inputId:'limit',point})).toEqual([]);limited.dispose();
+});
+
+test('independent regions: declared hit geometry satisfies minTarget without inflating the painted face',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:target',roles:{button:{}},geometry:{minTarget:44}});
+  const node=hit=>u.button({id:'small',layout:{width:10,height:10},regions:{hit}});
+  const record=layoutUi(node({x:-17,y:-17,width:44,height:44}),env).records[0];
+  expect(record.bounds.width).toBe(10);expect(record.measure.min.width).toBe(0);expect(record.hitBounds.width).toBe(44);
+  expect(()=>layoutUi(node({x:0,y:0,width:43,height:44}),env)).toThrow(/target|minimum/i);
+});
+
+test('independent regions: child context origins and clipping do not rescale relative rectangles twice',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:2,x:10,y:0},sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:200,height:120}}];
+  const plan=layoutUi(u.absolute({id:'root',layout:{width:20,height:10,overflow:'clip'},children:[u.button({id:'child',contextId:'test:child',layout:{width:20,height:10},regions:{hit:{x:-2,y:-1,width:24,height:12},focus:{x:-4,y:-2,width:28,height:14}}})]}),env);
+  const record=plan.records.find(r=>r.id==='child');expect(record.bounds).toEqual({x:-90,y:0,width:20,height:10});
+  expect(record.hitBounds).toEqual({x:-92,y:-1,width:24,height:12});expect(record.focusBounds).toEqual({x:-94,y:-2,width:28,height:14});
+  expect(record.effectiveHitBounds).toEqual({x:-90,y:0,width:22,height:11});expect(record.effectiveFocusBounds).toEqual({x:-90,y:0,width:24,height:12});
+});
+
+test('focus style permits only a leaf flat panel state consumer beside button or itemSlot',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.theme=defineTheme({version:1,id:'test:wash',roles:{absolute:{},button:{},itemSlot:{},panel:{alternatives:[{kind:'flat',color:'#ff2bd6'}]}}});
+  const wash=extra=>u.panel({id:'wash',metadata:{'ui:stateOwner':'owner'},layout:{width:10,height:10},...extra});
+  const owner=u.itemSlot({id:'owner',actionId:'game:item',layout:{width:10,height:10}});
+  const tree=(decoration=wash(),control=owner,extra={})=>u.absolute({id:'root',children:[control,decoration],...extra});
+  const plan=layoutUi(tree(),env);
+  expect(plan.records.find(r=>r.id==='wash').parts.map(p=>p.kind)).toEqual(['flat']);
+  expect(plan.records.find(r=>r.id==='wash').parentId).toBe('root');
+  for(const decoration of [wash({focusable:true}),wash({actionId:'game:bad'}),wash({focus:{order:['owner']}}),wash({children:[u.button({id:'nested'})]}),u.absolute({id:'wash',metadata:{'ui:stateOwner':'owner'}}),u.absolute({id:'nest',children:[wash()]})])expect(()=>layoutUi(tree(decoration),env)).toThrow(/state.owner|sibling|authority/i);
+  for(const key of ['initialId','defaultId','cancelId','order'])expect(()=>layoutUi(tree(wash(),owner,{focus:key==='order'?{order:['owner','wash']}:{[key]:'wash'}}),env)).toThrow();
+  expect(()=>layoutUi(tree(wash(),u.panel({id:'owner'})),env)).toThrow(/state.owner/i);
+  expect(()=>layoutUi(tree(wash(),u.itemSlot({id:'owner',metadata:{'ui:stateOwner':'wash'}})),env)).toThrow(/state.owner/i);
+  const noFlat={...env,theme:defineTheme({version:1,id:'test:noFlat',roles:{absolute:{},itemSlot:{},panel:{}}})};
+  expect(()=>layoutUi(tree(),noFlat)).toThrow(/state.owner|flat/i);
+});
+
+test.each(['order','defaultId','cancelId'])('a linked label cannot gain %s focus authority',async role=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const focus=role==='order'?{order:['button','label']}:{[role]:'label'};
+  const tree=u.absolute({id:'screen',focus,children:[u.button({id:'button',actionId:'game:ok'}),u.text({id:'label',label:'A',metadata:{'ui:stateOwner':'button'}})]});
+  expect(()=>layoutUi(tree,env)).toThrow(/state.owner|authority/i);
+});
+
+test('field caret defaults to one physical pixel and authored width follows its label context',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const width=options=>layoutUi(u.field({id:'f',value:'A',selection:{start:1,end:1,direction:'forward'},...options}),env).records[0].parts.find(p=>p.kind==='caret').bounds.width;
+  expect(width({})).toBe(.5);
+  env.theme=defineTheme({version:1,id:'test:caret',fonts:{body:{font:font()}},roles:{field:{font:'body',tone:'cream',caretWidth:1}}});
+  expect(width({})).toBe(1);
+  env.theme=defineTheme({version:1,id:'test:empty-caret',fonts:{body:{font:font(),policy:{empty:'none'}}},roles:{field:{font:'body',tone:'cream',caretWidth:1}}});
+  expect(width({value:'',selection:{start:0,end:0,direction:'forward'}})).toBe(1);
+  env.additionalContexts=[{...env.context,id:'test:label',localToPhysical:{scale:4,x:0,y:0},sourcePixelPhysicalSize:4}];
+  expect(width({labelContextId:'test:label'})).toBe(1);
+  env.context={...env.context,revision:2,localToPhysical:{scale:3,x:0,y:0}};
+  expect(width({})).toBe(1);
+});
+
+test('child semantic context projects allocation and inherited clipping through physical coordinates',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  env.context={...env.context,localToPhysical:{scale:2,x:10,y:0},sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:200,height:120}}];
+  const plan=layoutUi(u.absolute({id:'root',layout:{width:20,height:10,overflow:'clip'},children:[u.button({id:'child',contextId:'test:child',label:'?',actionId:'game:child',layout:{width:20,height:10}})]}),env);
+  const record=plan.records.find(r=>r.id==='child');
+  expect(record.semanticContextId).toBe('test:child');
+  expect(record.bounds).toEqual({x:-90,y:0,width:20,height:10});
+  expect(record.clipBounds).toEqual({x:-90,y:0,width:40,height:20});
+  expect(record.effectiveHitBounds).toEqual(record.bounds);
+  expect(record.contextRevisions).toMatchObject({'test:child':1,'test:main':1});
+});
+
+test('mixed semantic contexts convert child intrinsic and explicit sizes before parent row allocation',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context={...env.context,sourcePixelPhysicalSize:2};
+  env.additionalContexts=[{...env.context,id:'test:child',sourcePixelPhysicalSize:1,localToPhysical:{scale:1,x:100,y:0},viewport:{x:-100,y:0,width:300,height:120}}];
+  const tree=u.row({id:'row',layout:{width:50,height:20,align:'start'},children:[u.button({id:'intrinsic',contextId:'test:child',label:'?'}),u.button({id:'fixed',contextId:'test:child',label:'?',layout:{width:10,height:10}}),u.button({id:'main',label:'?'})]});
+  const records=layoutUi(tree,env).records;
+  expect(records[1].bounds).toEqual({x:-100,y:0,width:5,height:8});
+  expect(records[2].bounds).toEqual({x:-95,y:0,width:10,height:10});
+  expect(records[3].bounds.x).toBe(7.5);
+});
+
+test.each(['scroll','paginate','clip'])('review own text contributes to %s extent and field decoration movement',async overflow=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  for(const kind of ['text','field']){
+    const content='AA\nAA\nAA',node=kind==='text'?u.text({id:'f',label:content,layout:{width:14,maxHeight:8,overflow,scrollY:16,page:2}}):u.field({id:'f',value:content,selection:{start:6,end:8,direction:'forward'},composition:'i',layout:{width:14,maxHeight:8,overflow,scrollY:16,page:2}});
+    const r=layoutUi(node,env).records[0],offset=overflow==='clip'?0:16;
+    expect(r.overflow.maxScrollY).toBe(16);expect(r.overflow.vertical).toBe(true);
+    expect(r.text.lines.map(line=>line.y)).toEqual([0-offset,8-offset,16-offset]);
+    if(overflow==='paginate'){expect(r.overflow.pageCount).toBe(3);expect(r.overflow.page).toBe(2);}
+    if(kind==='field')for(const part of r.parts.filter(p=>['selection','caret','composition'].includes(p.kind)))expect(part.bounds?.y??part.placement.lines[0].y).toBe(16-offset);
+    expect(r.contentClipBounds).toEqual({x:0,y:0,width:14,height:8});
+  }
+});
+
+test('review text scrolling maps into a separate label context and paginated children follow text',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  env.additionalContexts=[{...env.context,id:'test:labels',localToPhysical:{scale:2,x:0,y:0}}];
+  const mixed=layoutUi(u.field({id:'mixed',labelContextId:'test:labels',value:'AA\nAA\nAA',selection:{start:6,end:8,direction:'forward'},composition:'i',layout:{width:14,maxHeight:8,overflow:'scroll',scrollY:16}}),env).records[0];
+  expect(mixed.text.lines.map(line=>line.y)).toEqual([-8,-4,0]);expect(mixed.parts.find(p=>p.kind==='caret').bounds.y).toBe(0);expect(mixed.overflow.maxScrollY).toBe(16);
+  const tree=page=>u.panel({id:'pages',label:'AA\nAA\nAA',layout:{width:14,maxHeight:8,overflow:'paginate',page},children:[u.button({id:'next',label:'?',actionId:'go'})]});
+  const textPage=layoutUi(tree(2),env),childPage=layoutUi(tree(3),env);
+  expect(textPage.records[0].overflow.pageCount).toBe(4);expect(textPage.records[0].text.lines[2].y).toBe(0);expect(textPage.records[1].state).toBe('clipped');
+  expect(childPage.records[0].text).toBeUndefined();expect(childPage.records[1].state).toBe('visible');expect(childPage.records[1].bounds.y).toBe(0);
+});
+
+test('review child maxWidth is resolved before wrapping and reserving sibling height',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const p=layoutUi(u.stack({id:'s',children:[u.text({id:'txt',label:'AA AA',layout:{maxWidth:14}}),u.button({id:'b',label:'?',actionId:'go'})]}),env);
+  expect(p.records[1].bounds).toMatchObject({width:14,height:16});expect(p.records[1].text.lines).toHaveLength(2);expect(p.records[2].bounds.y).toBe(16);
+});
+
+test.each([8,12,20])('review paginated label occupancy at height %s cannot strand child controls',async height=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const children=(height===20?['a','b']:['a']).map(id=>u.button({id,label:'?',actionId:id,layout:{height:8}}));
+  const p=layoutUi(u.panel({id:'root',label:'AA',layout:{width:14,height,overflow:'paginate',page:1},children}),env);
+  expect(p.records[0].overflow).toMatchObject({page:1,pageCount:2});expect(p.records[0].text).toBeUndefined();
+  expect(p.records[1].bounds.y).toBe(0);for(const r of p.records.slice(1)){expect(r.state).toBe('visible');expect(r.effectiveHitBounds.height).toBe(8);}
+});
+
+test('review tab strip overflow follows unwrapped paint and horizontal hit regions',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);env.context={...env.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+  const r=layoutUi(u.tabs({id:'tabs',value:'a',options:[{id:'a',label:'AA'},{id:'b',label:'AA'}],layout:{width:14,height:8,overflow:'scroll',scrollX:20,scrollY:8}}),env).records[0];
+  expect(r.overflow).toMatchObject({maxScrollX:20,maxScrollY:0,scrollX:20,scrollY:0});
+  const second=r.parts.find(p=>p.kind==='tab'&&p.value==='b');expect(second.bounds.x).toBe(0);expect(second.hitBounds).toEqual({x:0,y:0,width:14,height:8});
+});
+
+test('review pointer routing resolves decorations to controls and blocks disabled overlays',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');const env=environment(defineTheme);
+  const tap=(tree,p={x:2,y:2})=>{const ui=createUiInteraction({id:'test:tap',plan:layoutUi(tree,env)});ui.handle({type:'press',inputId:'p',point:p});return ui.handle({type:'release',inputId:'p',point:p});};
+  const button=enabled=>u.button({id:'b',enabled,actionId:'go',layout:{width:40,height:20},children:[u.text({id:'caption',label:'?'})]});
+  expect(tap(button(true))).toMatchObject([{kind:'activate',controlId:'b',actionId:'go'}]);
+  expect(tap(u.absolute({id:'root',children:[u.button({id:'under',actionId:'under',layout:{width:40,height:20}}),button(false)]}))).toEqual([]);
+  expect(tap(u.absolute({id:'root',children:[u.button({id:'under',actionId:'under',layout:{width:40,height:20}}),u.text({id:'decor',label:'?'})]}))[0].controlId).toBe('under');
+});
+
+test('review pointer parts retain selected tabs and decrement direction across release',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');const env=environment(defineTheme);
+  const exercise=(tree,p,release=p)=>{const plan=layoutUi(tree,env),ui=createUiInteraction({id:'test:parts',plan});ui.handle({type:'press',inputId:'p',point:p});const result=ui.handle({type:'release',inputId:'p',point:release});expect(ui.handle({type:'release',inputId:'p',point:release})).toEqual([]);return {result,plan,ui};};
+  const step=value=>u.stepper({id:'s',value,min:0,max:10,layout:{width:40,height:20}});
+  expect(exercise(step(5),{x:2,y:2}).result).toMatchObject([{value:4}]);
+  expect(exercise(step(5),{x:30,y:2}).result).toMatchObject([{value:6}]);
+  expect(exercise(step(5),{x:2,y:2},{x:30,y:2}).result).toEqual([]);
+  expect(exercise(step(0),{x:2,y:2}).result).toEqual([]);
+  const tabs=u.tabs({id:'t',value:'b',options:[{id:'a',label:'?'},{id:'b',label:'?'},{id:'c',label:'?',enabled:false}],layout:{width:60,height:20}});
+  const first=exercise(tabs,{x:2,y:2});expect(first.result).toMatchObject([{value:'a'}]);
+  const disabled=first.plan.records[0].parts.find(p=>p.kind==='tab'&&p.value==='c');expect(exercise(tabs,{x:disabled.bounds.x+1,y:2}).result).toEqual([]);
+  const clipped=u.stack({id:'clip',layout:{width:10,height:20,overflow:'clip'},children:[step(5)]});expect(exercise(clipped,{x:30,y:2}).result).toEqual([]);
+  const plan=layoutUi(step(5),env),ui=createUiInteraction({id:'test:parts',plan});ui.handle({type:'press',inputId:'stale',point:{x:2,y:2}});ui.update({id:'test:parts',plan:layoutUi(step(5),{...env,revision:2})});expect(ui.handle({type:'release',inputId:'stale',point:{x:2,y:2}})).toEqual([]);
+});
+
+test.each([true,false])('review hollow and tile=%s reach physical plans and the public iterator',async tile=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);const theme=defineTheme({version:1,id:'test:hollow',skins:{s:{frame:{x:0,y:0,width:12,height:12},insets:2,center:'omit',tile}},roles:{panel:{alternatives:[{kind:'skin',id:'s'}]}}});
+  const plan=layoutUi(u.panel({id:'p',layout:{width:40,height:30}}),{...env,theme}).records[0].parts[0].plan;
+  for(const p of [plan,plan.physicalPlan]){expect(p.regions).toHaveLength(8);expect(p.regions.some(r=>r.tile)).toBe(tile);}
+  const tiles=[...iterateNineSliceTiles(plan)];expect(tiles.some(q=>q.source.x===2&&q.source.y===2)).toBe(false);if(!tile)expect(tiles).toHaveLength(8);
+});
+
+test.each(['scroll','clip','paginate'])('review capped %s viewport separates content minima from extent',async overflow=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);const tree=u.stack({id:'s',layout:{maxHeight:10,overflow},children:[u.button({id:'a',label:'?'}),u.button({id:'b',label:'?'})]});
+  const plan=layoutUi(tree,env),r=plan.records[0];expect(r.bounds.height).toBe(10);expect(r.measure.min.height).toBeLessThanOrEqual(10);expect(plan.records[1].bounds.height).toBe(12);expect(r.overflow.vertical||r.overflow.pageCount>1).toBe(true);
+  expect(()=>u.stack({id:'bad',layout:{minHeight:11,maxHeight:10,overflow}})).toThrow(/min/i);
+});
+
+test('review field UTF-16 offsets survive repeated spaces, normalization, wrapping and composition',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  for(const [value,start,end,width] of [['?  ?',3,4,40],['?\r\n\t?',4,5,40],['😀  ?',4,5,9]]){
+    const r=layoutUi(u.field({id:'f',value,selection:{start,end,direction:'forward'},composition:'i',layout:{width,height:50}}),env).records[0],last=r.text.lines.at(-1),caret=r.parts.find(p=>p.kind==='caret'),selection=r.parts.filter(p=>p.kind==='selection').at(-1);
+    expect(caret.bounds.x).toBe(last.x+last.width);expect(caret.bounds.y).toBe(last.y);expect(selection.bounds.x).toBe(last.x+last.width-7.5);expect(selection.bounds.width).toBe(7.5);expect(r.parts.find(p=>p.kind==='composition').placement.lines[0].x).toBe(caret.bounds.x);
+  }
+});
+
+test('review nested rows have a generous public metric-read budget and preserve width wrapping',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);let reads=0;
+  const original=env.theme.fonts.body.font,glyph={...original.glyphs.A};Object.defineProperty(glyph,'advance',{get(){reads++;return 7;},enumerable:true});
+  const instrumented={...original,glyphs:{...original.glyphs,A:glyph}};env.theme={...env.theme,fonts:{...env.theme.fonts,body:{...env.theme.fonts.body,font:instrumented}}};
+  let tree=u.text({id:'leaf',label:'AA AA'});for(let i=0;i<12;i++)tree=u.row({id:`r${i}`,children:[tree]});
+  const wide=layoutUi(tree,env),wideReads=reads;reads=0;const narrow=layoutUi(tree,{...env,context:{...env.context,viewport:{...env.context.viewport,width:12}}});
+  console.log(JSON.stringify({cost:'nested-row-metric-reads',nodes:13,wide:wideReads,narrow:reads}));expect(wideReads+reads).toBeLessThan(10000);expect(narrow.records.at(-1).text.lines.length).toBeGreaterThan(wide.records.at(-1).text.lines.length);
+});
+
+test('text uses actual advances and physical pixel footprint while semantic bounds remain continuous',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const result=layoutUi(u.text({id:'label',label:'Ai',layout:{x:.25,y:.25,width:20,height:12}}),env);const r=result.records[0];
+  expect(r.measure.preferred.width).toBe(13.5);expect(r.hitBounds.x).toBe(.25);expect(r.paintBounds.x*2).toBe(Math.round(r.paintBounds.x*2));expect(r.text.draws[0].destination.width).toBe(9);expect(r.text.context).toEqual({id:'test:main',revision:1});
+  expect(result.contexts[0].sourceToLocalScale).toBe(1.5);expect(Object.isFrozen(r)).toBe(true);
+});
+
+test('row, stack, grid and absolute allocate real children and honor minimums and grow',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const b=id=>u.button({id,label:'i',layout:{minWidth:10,height:12,grow:1}});
+  const r=layoutUi(u.row({id:'row',layout:{gap:4,width:100,height:20},children:[b('a'),b('b')]}),env);expect(r.records[1].bounds.width).toBe(48);expect(r.records[2].bounds.x).toBe(52);
+  const s=layoutUi(u.stack({id:'s',layout:{gap:3},children:[b('a'),b('b')]}),env);expect(s.records[2].bounds.y).toBe(15);
+  const g=layoutUi(u.grid({id:'g',layout:{columns:2,gap:4},children:[b('a'),b('b'),b('c')]}),env);expect(g.records[3].bounds.y).toBe(16);expect(g.records[2].bounds.x).toBe(52);
+  const a=layoutUi(u.absolute({id:'abs',children:[u.panel({id:'p',layout:{x:17,y:9,width:22,height:13}})]}),env);expect(a.records[1].bounds).toEqual({x:17,y:9,width:22,height:13});
+  expect(()=>layoutUi(u.panel({id:'p',appearanceRole:'missing'}),env)).toThrow(/role/i);
+});
+
+test('overflow explicitly clips hits/focus, scrolls content and paginates without changing order',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);const children=['a','b','c'].map(id=>u.button({id,label:'A',layout:{height:20}}));
+  const make=(overflow,more={})=>u.stack({id:'root',layout:{height:30,width:40,overflow,...more},children});
+  const clipped=layoutUi(make('clip'),env);expect(clipped.records[2].effectiveHitBounds.height).toBe(10);expect(clipped.records[3].effectiveHitBounds).toBe(null);expect(clipped.records[3].state).toBe('clipped');
+  const scroll=layoutUi(make('scroll',{scrollY:25}),env);expect(scroll.records[1].bounds.y).toBe(-25);expect(scroll.records[2].effectiveHitBounds.height).toBe(15);expect(scroll.records[0].overflow.maxScrollY).toBe(30);
+  const paged=layoutUi(make('paginate',{page:1}),env);expect(paged.records[0].overflow.pageCount).toBe(3);expect(paged.records.filter(n=>n.state!=='clipped').map(n=>n.id)).toEqual(['root','b']);expect(paged.records[2].bounds.y).toBe(0);
+  expect(()=>layoutUi(make('scroll',{scrollY:NaN}),env)).toThrow();
+});
+
+test('action bars delegate topology and resolve measured height with explicit visual order',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const result=layoutUi(u.actionBar({id:'bar',visualOrder:['b','a'],fallbackOrder:['a','b'],layout:{width:40,gap:4},children:[u.button({id:'a',label:'AA'}),u.button({id:'b',label:'AA'})]}),env);
+  const bar=result.records[0];expect(bar.actionPlan.format).toBe('agent-sprites/action-group@1');expect(bar.actionPlan.semanticIds).toEqual(['a','b']);expect(bar.actionPlan.allocation.arrangement).toBe('stack');expect(result.records[1].id).toBe('a');expect(result.records[2].bounds.y).toBeGreaterThan(result.records[1].bounds.y);expect(bar.measure.preferred.height).toBeGreaterThan(20);
+});
+
+test('mixed contexts validate references, duplicates and all dependent revisions atomically',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);const other={...env.context,id:'test:label',sourcePixelPhysicalSize:2};
+  const tree=u.button({id:'b',label:'Ai',skinContextId:'test:main',labelContextId:'test:label'});const result=layoutUi(tree,{...env,additionalContexts:[other]});expect(result.records[0].contextRevisions).toEqual({'test:main':1,'test:label':1});expect(result.records[0].text.resolution.sourceToLocalScale).toBe(1);
+  expect(()=>layoutUi(tree,env)).toThrow(/context/i);expect(()=>layoutUi(tree,{...env,additionalContexts:[env.context]})).toThrow(/duplicate/i);
+  const mapped=layoutUi(tree,{...env,additionalContexts:[{...other,localToPhysical:{scale:4,x:10,y:0}}]});expect(mapped.records[0].measure.preferred.width).toBe(9);expect(mapped.records[0].text.draws[0].physicalDestination.x).toBe(0);expect(mapped.records[0].text.draws[0].destination.x).toBe(-2.5);expect(mapped.records[0].paintBounds.x).toBe(0);
+});
+
+test('allocated extensions require deterministic measurements and use stock clipping and semantic controls',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);const tree=u.extension({id:'chart',extensionId:'app:chart',model:{points:[1,2]},layout:{width:30,height:10,overflow:'clip'},children:[u.button({id:'zoom',label:'i',layout:{height:20}})]});
+  const extensions={'app:chart':{version:1,measure:model=>({min:{width:10,height:5},preferred:{width:model.points.length*20,height:20},overflow:'clip'})}};
+  const plan=layoutUi(tree,{...env,extensions});expect(plan.records[0].measure.preferred.width).toBe(40);expect(plan.records[1].effectiveHitBounds.height).toBe(10);expect(()=>layoutUi(tree,env)).toThrow(/extension/i);
+});
+
+test('grid measures wrapped text at the allocated cell width and paginates whole rows',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const tree=u.grid({id:'grid',layout:{width:24,height:30,columns:2,overflow:'paginate',page:1},children:['a','b','c','d'].map(id=>u.button({id,label:'AA'}))});
+  const result=layoutUi(tree,env);expect(result.records[0].measure.preferred.height).toBe(48);expect(result.records[0].overflow.pageCount).toBe(2);expect(result.records.filter(r=>r.id!=='grid'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);expect(result.records[3].bounds.y).toBe(0);expect(result.records[3].bounds.height).toBe(24);
+});
+
+test.each([0,7])('grid honors explicit rowGap %i independently of column spacing',async rowGap=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=['a','b','c','d'].map(id=>u.panel({id,layout:{height:10,minHeight:10}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2,rowGap},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(20+rowGap);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(10+rowGap);
+  expect(result.records.find(r=>r.id==='b').bounds.x).toBe(51);
+});
+
+test('grid advances by the tallest explicit child height without overlapping rows',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=[10,18,6,4].map((height,i)=>u.panel({id:['a','b','c','d'][i],layout:{height}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(26);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(20);
+  expect(result.records.find(r=>r.id==='d').bounds.height).toBe(4);
+});
+
+test('grid pagination uses the authored row gap and keeps each full row together',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=['a','b','c','d','e','f'].map(id=>u.panel({id,layout:{height:10,minHeight:10}}));
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,height:24,columns:2,gap:2,rowGap:7,overflow:'paginate',page:1},children}),env);
+  expect(result.records[0].measure.preferred.height).toBe(44);
+  expect(result.records[0].overflow.pageCount).toBe(3);
+  expect(result.records.filter(r=>r.id!=='g'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(0);
+});
+
+test('grid row heights convert explicit child context units before adding the parent row gap',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.additionalContexts=[{...env.context,id:'test:child',localToPhysical:{scale:1,x:100,y:0},sourcePixelPhysicalSize:1,viewport:{x:-100,y:0,width:300,height:120}}];
+  const result=layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2,rowGap:5},children:[
+    u.panel({id:'a',contextId:'test:child',layout:{height:20}}),u.panel({id:'b',layout:{height:12}}),
+    u.panel({id:'c',layout:{height:4}}),u.panel({id:'d',contextId:'test:child',layout:{height:6}}),
+  ]}),env);
+  expect(result.records[0].measure.preferred.height).toBe(21);
+  expect(result.records.find(r=>r.id==='c').bounds.y).toBe(17);
+  expect(result.records.find(r=>r.id==='a').bounds.height).toBe(20);
+});
+
+test('action-bar pagination retains its measured row gap rather than column spacing',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const result=layoutUi(u.actionBar({id:'bar',allocationPolicy:'equal-max-fit',layout:{width:100,height:24,gap:2,rowGap:7,overflow:'paginate',page:1},
+    children:['a','b','c','d'].map(id=>u.button({id,layout:{width:49,height:10,minHeight:10}})),
+  }),env);
+  expect(result.records[0].measure.preferred.height).toBe(27);
+  expect(result.records[0].overflow.pageCount).toBe(2);
+  expect(result.records.filter(r=>r.id!=='bar'&&r.state==='visible').map(r=>r.id)).toEqual(['c','d']);
+});
+
+test('stock controlled parts expose deterministic value geometry and caret; skin plans preserve hollow tiled edges',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);
+  const f=layoutUi(u.field({id:'f',value:'Ai',selection:{start:1,end:2,direction:'backward'}}),env).records[0];expect(f.parts.find(p=>p.kind==='caret').bounds.x).toBe(10.5);expect(f.parts.find(p=>p.kind==='selection').bounds.width).toBe(3);
+  const tabs=layoutUi(u.tabs({id:'t',value:'b',options:[{id:'a',label:'A'},{id:'b',label:'i'}]}),env).records[0];expect(tabs.parts.filter(p=>p.kind==='tab').map(p=>[p.value,p.selected])).toEqual([['a',false],['b',true]]);
+  const step=layoutUi(u.stepper({id:'s',value:1,min:0,max:2}),env).records[0];expect(step.parts.filter(p=>p.kind==='adjust').map(p=>p.delta)).toEqual([-1,1]);
+  const meter=layoutUi(u.meter({id:'m',value:1,min:0,max:4,layout:{width:40,height:8}}),env).records[0];expect(meter.parts.find(p=>p.kind==='meter').fill.width).toBe(10);
+  const input={version:1,id:'test:skin',fonts:env.theme.fonts,skins:{hollow:{frame:{x:0,y:0,width:12,height:12},insets:{left:2,right:2,top:2,bottom:2},center:'omit',tile:true}},roles:{panel:{alternatives:[{kind:'skin',id:'hollow'}]}}};
+  const skin=layoutUi(u.panel({id:'p',layout:{width:40,height:30}}),{...env,theme:defineTheme(input)}).records[0].parts[0];expect(skin.plan.regions.some(r=>r.row===1&&r.column===1)).toBe(false);expect(skin.plan.regions.some(r=>r.tile)).toBe(true);
+});
+
+test('extension preparation refuses nondeterminism and context mappings fail closed',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const env=environment(defineTheme);let count=0;
+  expect(()=>layoutUi(u.extension({id:'e',extensionId:'app:bad'}),{...env,extensions:{'app:bad':{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:++count,height:1},overflow:'clip'})}}})).toThrow(/deterministic/i);
+  expect(()=>layoutUi(u.panel({id:'p'}),{...env,context:{...env.context,localToPhysical:{scale:2,x:0,y:0,rotation:1}}})).toThrow(/mapping/i);
+});
+
+test('reading, notice and HUD families deliver scroll, controlled paging, visibility and authored meter geometry',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api();const {createUiInteraction}=await import('../../server/build/ui-interaction.mjs');const env=environment(defineTheme);
+  const reading=u.readingFamily({id:'read',paragraphs:['A','A','A'],bodyLayout:{height:12,overflow:'scroll'},page:{value:0,pageCount:3},initialId:'read:page',layout:{width:80,height:60}});
+  const plan=layoutUi(reading,env);expect(plan.records.find(r=>r.id==='read:body').overflow.maxScrollY).toBe(24);expect(createUiInteraction({id:'test:reading',plan}).handle({type:'adjust',controlId:'read:page',delta:1,inputId:'next'})[0]).toMatchObject({kind:'change',controlId:'read:page',value:1});
+  const notice=layoutUi(u.noticeFamily({id:'toast',message:'A',visible:false}),env);expect(notice.records[0].state).toBe('hidden');expect(notice.records.every(r=>r.effectiveHitBounds===null&&r.paintBounds===null)).toBe(true);
+  const hud=layoutUi(u.hudFamily({id:'hud',arrangement:'absolute',items:[u.meter({id:'energy',value:1,min:0,max:4,layout:{x:20,y:4,width:40,height:8}})]}),env);expect(hud.records[1].bounds).toEqual({x:20,y:4,width:40,height:8});expect(hud.records[1].parts.find(p=>p.kind==='meter').fill.width).toBe(10);expect(createUiInteraction({id:'test:hud',plan:hud}).inspect({limit:5}).focusId).toBe(null);
+});

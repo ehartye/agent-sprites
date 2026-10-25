@@ -1,6 +1,6 @@
 {
   "name": "agent-sprites",
-  "version": "0.95.0",
+  "version": "0.96.0",
   "description": "Editable pixel-art authoring for agents: reusable parts, independent child animation, exact frame timing, construction replay, offline normal-map lighting, paired atlases, GIF proofs and a shared live workbench",
   "author": {
     "name": "ehartye"
