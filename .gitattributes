@@ -1,3 +1,8 @@
 # Published UI software hashes must survive a fresh checkout on any platform.
 server/build/ui-*.mjs text eol=lf
 server/build/ui-*.d.mts text eol=lf
+# Native fixture recipes and checked byte receipts use canonical source bytes.
+tests/native-ui/*.mjs text eol=lf
+tests/native-ui/*.json text eol=lf
+tests/native-ui/*.html text eol=lf
+tests/native-ui/assets/*.json text eol=lf

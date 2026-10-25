@@ -1,6 +1,6 @@
-# Shared native components: producer candidate
+# Shared native components
 
-This unreleased producer candidate implements the approved shared component contract.
+The producer independently owns and verifies this reusable component contract.
 Import `ui-index.mjs` in the game; import `ui-software.mjs` only in Node build/sync code.
 The browser closure consists of eight `.mjs` files and eight matching `.d.mts` files.
 It imports neither Node nor a Phaser package. The game continues to provide its installed
@@ -45,7 +45,7 @@ child when their policies differ. Skin, semantic, and label contexts stay
 independent; widths/heights cross contexts through physical space exactly once.
 
 ```js
-row({id: 'wardrobe', layout: {width: 100, gap: 8, rowGap: 4, wrap: true},
+row({id: 'choices', layout: {width: 100, gap: 8, rowGap: 4, wrap: true},
   children: [60, 48, 36].map((width, index) => button({id: `choice:${index}`,
     layout: {width, height: 22}}))});
 text({id: 'prelaid', label: ' A    B ', layout: {wrap: false, width: 32}});
@@ -65,7 +65,7 @@ lines and full advances remain intact. Text normalization, fallback glyphs,
 trailing-advance/line-spacing policies and optional UTF-16 caret mapping still
 apply. A fractional anchor can lose a physical fit pixel through inward bounds
 quantization and honestly report overflow; it never reflows an explicitly
-unwrapped line. The Space `Plot 7B` reproduction at zoom 1.5 retains its 33-pixel
+unwrapped line. A seven-character label at zoom 1.5 can retain its 33-pixel
 advance against the 32-pixel physical fit box. Native clipping remains separate.
 
 For `overflow: 'paginate'`, `Layout.lastPageHeight` declares the final outer
@@ -112,8 +112,8 @@ This replaces generic local packing/splitting decisions. Adapter-authored models
 speaker breaks, atom/wrapper composition, measured footer reservations and native
 resource lifetimes stay with their existing owners. The producer checks establish
 source calculations and actual Phaser declaration compatibility. Independent
-review/export, all three game migrations, backend pixels, device behavior and
-the final fourteen-objective audit remain coordinator acceptance gates.
+review/export and generic native backend pixels are producer release gates.
+Host device behavior, assets and adoption remain independent consumer checks.
 
 ## Declared logical spatial focus and reveal
 
@@ -133,8 +133,8 @@ remain readable without becoming activatable. Equal spatial scores and edge-wrap
 ties follow declared order. Directional wrap retains the existing physical-edge
 and nearest-cross-axis rule. Omitted `focus.order` retains visible effective-bound
 spatial navigation; next/previous and ordered logical reveal retain their existing
-contract. Cyber's 284-by-160 Travel reproduction now requests `area-4` from
-`area-3` before the host scrolls, with activation blocked until republished.
+contract. A clipped list can request its next logical item before the host scrolls,
+with activation blocked until the host republishes the revealed item.
 
 ## Assets, contexts and the single game router
 
@@ -181,7 +181,7 @@ original repeat period and partial-tail crops. Shorter patterns such as ABAB
 never authorize a one-pixel stretch. Unavailable data keeps exact existing tiling
 and its existing budgets. Source offsets, alpha, paint/clip geometry and physical
 origin remain unchanged. These calculations and seam sampling are source proof;
-actual native WebGL/Canvas pixels remain consumer acceptance gates.
+the native fixture separately proves representative WebGL2/Canvas pixels.
 
 Cache identity includes the borrowed texture, source index and source object;
 source replacement invalidates compiled appearance rather than reusing a stale
@@ -284,15 +284,11 @@ The example is a stock construction, not native pixel acceptance. The coordinato
 must still verify actual WebGL/Canvas compositing and input with the installed
 Phaser 4.2.1 and the consumer's camera/depth/clip owners.
 
-Cyber's original `PixelUI.paintControl` can be represented by normal primary
-`panel_neon`, secondary `panel_dark`, other `btn_normal`, then the control overrides
-above. Its authored hover/focus tone is `#e6fbff`, down tone `#ffd0f4`, and disabled
-tone faint. Canvas requires corresponding source-art tone frames because its Image
-renderer ignores tint. Give label and shadow siblings the same owner link and
-pressed offset `{x:0,y:1}`; the shadow's disabled override is `{visible:false}`.
-Keep all geometry and original game action routing in the consumer. No Cyber
-projection/theme or art was changed by this producer candidate. Native backend
-state/pixel/input proof, timing, consumer adoption and release remain separate gates.
+An authored theme can select primary, secondary and ordinary control skins, then
+apply the state overrides above. Canvas requires corresponding source-art tone
+frames because its Image renderer ignores tint. Give label and shadow siblings
+the same owner link and pressed offset `{x:0,y:1}`; the shadow's disabled override
+can be `{visible:false}`. Geometry and action routing remain host-owned.
 
 ```js
 import {createPhaserUi, defineTheme, button} from './vendor/agent-sprites-ui/ui-index.mjs';
@@ -439,10 +435,36 @@ changed allocation, enabled authority, context or model disposes the previous ex
 scope before mounting its replacement. Removing a registration disposes dependent mounts.
 Instance disposal clears registrations. This is an ownership convention for trusted
 game code, with no scene/dispatcher/raw stock-painter authority granted by the host.
-Space's later chart adoption must keep its existing seven-operation game facade unchanged.
+An existing extension facade retains its declared bounded operations during adoption.
 
-Actual native backend/pixel/input proof in Space and Cyber, the Space chart witness,
-all-three-game surface migrations, independent integrated review, broad release gates,
-version/catalog publication, deployments/live-byte proof and canonical wiki closeout
-remain coordinator-owned mandatory later stages. Nothing in this producer checkpoint
-accepts those stages or the full adoption objective.
+## Verification and host obligations
+
+`npm run test:ui` runs the existing CPU owners, software export and real Phaser
+declaration checks with one worker. `npm run test:ui:native` starts one owned
+ephemeral server and Chromium instance, then four fresh contexts covering two
+authored themes on WebGL2 and Canvas. It evaluates exact font and skin pixels,
+clipping, nonzero viewport origins, mixed resolution contexts, normalized input,
+stale-event cancellation, scrolling, bounded extensions and owned-resource cleanup.
+Software WebGL proves behavior, not hardware performance. Failure screenshots,
+timings and results remain in a new attempt directory under `.tmp/ui-native/`;
+failures are preserved and retries are zero.
+
+Tiny checked assets live in `tests/native-ui/assets/`. Their manifest authenticates
+the source recipe, generator, build configurations and output bytes. Ordinary tests
+only read them. Run `npm run build:ui-fixture` when their recipe changes; it uses
+the normal manifest build pipeline. Browser installation is explicit with
+`npx playwright install chromium`; no test downloads or replaces tools.
+
+The host must keep borrowed assets immutable and replace source identity when
+their bytes change; realize every declared mapping through its actual parent and
+camera; increment context revisions for mapping, viewport or source-footprint
+changes; normalize input through one input/action authority; and register owned
+resources before native work that can fail. Borrowed textures, caches, cameras
+and parents must never be registered as owned. A consumer verifies its chosen
+released export, real assets, adapters, actions, transactions and extensions
+independently. Producer release does not wait for consumer inventories or campaigns.
+
+For a shared implementation edit, run the affected CPU owner and the native fixture
+when rendering, interaction or lifecycle changes. Producer release runs both UI
+commands and established package/plugin release checks. Stop on passing unchanged
+inputs; widen only for a named changed dependency, observed failure or unresolved risk.

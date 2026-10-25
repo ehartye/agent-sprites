@@ -566,8 +566,9 @@ without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destinatio
 
 For common dialogs, menus, forms, lists, reading views, notices and HUDs, use the
 [shared native component contract](examples/ui/native-components.md). This is an
-**unreleased candidate**, with release and adoption still gated on native acceptance
-in all three games. It supplies stock components/families, themes, layout, interaction
+producer-owned contract, verified by `npm run test:ui` and `npm run test:ui:native`.
+Producer releases depend on these checks and the established plugin release checks;
+each host independently pins and verifies its adoption. It supplies stock components/families, themes, layout, interaction
 and a native Phaser host through `ui-index.mjs`. Games provide authored models,
 content, action authorization, immutable assets, resolution mappings and application
 extension renderers; the shared host owns stock painting and its resource lifetimes.

@@ -244,15 +244,15 @@ test('flow contract: no-wrap preserves policy normalization, UTF16 mapping, alig
   expect(uiRuntime.placeBitmapText(uiRuntime.normalizeBitmapFont(input),' A ',0,0,{wrap:false,maxWidth:1}).overflow.painted).toEqual({known:false,horizontal:null,vertical:null});
 });
 
-test('flow contract: Space Plot 7B fractional inward-fit reproduction stays one line with physical overflow',()=>{
-  const glyphs=Object.fromEntries([...'Plot7B?'].map((char,i)=>[char,{advance:5,frames:{cream:char}}]));
+test('flow contract: fractional inward-fit label stays one line with physical overflow',()=>{
+  const glyphs=Object.fromEntries([...'Card7B?'].map((char,i)=>[char,{advance:5,frames:{cream:char}}]));
   glyphs[' ']={advance:3};
-  const font=uiRuntime.normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:10,tones:{cream:{}},glyphs},atlas:{frames:Object.fromEntries([...'Plot7B?'].map((char,i)=>[char,{frame:{x:i*6,y:0,w:6,h:10}}]))}});
-  const resolution=uiRuntime.pixelResolution({id:'space:world-label',revision:1,localToPhysical:{scale:1.5,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:1});
+  const font=uiRuntime.normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:10,tones:{cream:{}},glyphs},atlas:{frames:Object.fromEntries([...'Card7B?'].map((char,i)=>[char,{frame:{x:i*6,y:0,w:6,h:10}}]))}});
+  const resolution=uiRuntime.pixelResolution({id:'test:world-label',revision:1,localToPhysical:{scale:1.5,origin:{x:0,y:0}},physicalPixelsPerSourcePixel:1});
   const options={resolution,maxWidth:22,maxHeight:6+2/3};
-  expect(uiRuntime.placeBitmapText(font,'Plot 7B',69,81+1/3,options).lines.map(l=>l.source)).toEqual(['Plot','7B']);
-  const p=uiRuntime.placeBitmapText(font,'Plot 7B',69,81+1/3,{...options,wrap:false});
-  expect(p.lines.map(l=>l.source)).toEqual(['Plot 7B']);expect(p.physicalBounds.width).toBe(32);
+  expect(uiRuntime.placeBitmapText(font,'Card 7B',69,81+1/3,options).lines.map(l=>l.source)).toEqual(['Card','7B']);
+  const p=uiRuntime.placeBitmapText(font,'Card 7B',69,81+1/3,{...options,wrap:false});
+  expect(p.lines.map(l=>l.source)).toEqual(['Card 7B']);expect(p.physicalBounds.width).toBe(32);
   expect(p.physicalAnchor).toEqual({x:104,y:122});expect(p.overflow.horizontal).toBe(true);
   expect(p.draws).toHaveLength(6);expect(p.draws.every(d=>Object.values(d.physicalDestination).every(Number.isInteger))).toBe(true);
 });

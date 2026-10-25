@@ -75,7 +75,7 @@ export interface NativePorts<F=unknown> {
   readSourceRGBA?(request:SourceRGBARequest):SourceRGBA|null|undefined;
   /** One attachment per declared context, reused while its descriptor is compatible. Parent/camera transforms must realize that context exactly. */
   attachContext(request:{readonly context:ResolvedContext;readonly parent:NativeParent;readonly scope:string},owner:OwnershipScope):ContextAttachment;
-  /** Game-declared narrow extension API. In particular this must not expand Space's seven-operation chart authority. */
+  /** Host-declared bounded extension API. Preserve its declared operation and ownership limits. */
   extensionFacade?(request:{readonly extensionId:string;readonly allocation:ExtensionAllocation},owner:OwnershipScope):F;
 }
 export interface UiSnapshot {readonly revision:number;readonly tree:UiNode;readonly context:Context;readonly additionalContexts?:readonly Context[];}

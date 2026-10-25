@@ -1,7 +1,6 @@
 import {defineTheme,normalizeBitmapFont,button,itemSlot,panel,text,field,absolute,extension,layoutUi,createPhaserUi,createUiInteraction,pixelResolution,projectPixelPoint,placeBitmapText,planActionGroup} from '../../server/build/ui-index.mjs';
 import type {NativeScene,NativeParent,NativePorts,NativeImage,NativeRectangle,UiSnapshot,NativeExtension,UiIntent,NativeAppearancePlacement,ThemeEdge,SourceRGBA} from '../../server/build/ui-index.mjs';
-// The coordinator resolves this to the actual installed Phaser 4.2.1 declaration
-// package. This fixture requires a separately verified TypeScript compiler.
+// Verified against the producer-pinned Phaser 4.2.1 declaration package and compiler.
 import type Phaser from 'phaser';
 import {publishUiSoftware} from '../../server/build/ui-software.mjs';
 import {row,stack} from '../../server/build/ui-components.mjs';

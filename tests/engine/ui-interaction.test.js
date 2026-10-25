@@ -96,14 +96,14 @@ test('original-binding policy cannot retarget a hold through focus roles or stal
   expect(ui.handle({type:'release',inputId:'held',point:{x:2,y:2}})).toMatchObject([{actionId:'action:a',modelRevision:2}]);ui.dispose();
 });
 
-test('logical spatial: Travel 284x160 requests area-4 reveal then activates only after republish',async()=>{
+test('logical spatial: clipped list requests the next item then activates only after republish',async()=>{
   const {createUiInteraction}=await api(),u=await import('../../server/build/ui-components.mjs'),{layoutUi}=await import('../../server/build/ui-layout.mjs'),{defineTheme}=await import('../../server/build/ui-theme.mjs');
-  const theme=defineTheme({version:1,id:'test:travel',roles:{absolute:{},button:{}},geometry:{minTarget:0}});
-  const context={id:'test:travel',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:284,height:160}};
-  // Actual Travel/screen/scrollBody reservations: box (4,8,276,144),
+  const theme=defineTheme({version:1,id:'test:clipped-list',roles:{absolute:{},button:{}},geometry:{minTarget:0}});
+  const context={id:'test:clipped-list',revision:1,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1,viewport:{x:0,y:0,width:284,height:160}};
+  // Generic panel/header/scroll-body reservations: box (4,8,276,144),
   // body (10,32,264,92), eight 24-unit rows with 138x22 action faces.
   // Projection withholds partly clipped actions in zero-clip wrappers.
-  const plan=(scroll,revision)=>layoutUi(u.absolute({id:'travel',layout:{width:284,height:160,overflow:'clip'},focus:{initialId:'area-3',defaultId:'area-4',cancelId:'back',order:[...Array.from({length:8},(_,i)=>`area-${i+1}`),'deploy','back']},children:[
+  const plan=(scroll,revision)=>layoutUi(u.absolute({id:'list',layout:{width:284,height:160,overflow:'clip'},focus:{initialId:'area-3',defaultId:'area-4',cancelId:'back',order:[...Array.from({length:8},(_,i)=>`area-${i+1}`),'deploy','back']},children:[
     u.absolute({id:'body',layout:{x:10,y:32,width:264,height:92,overflow:'clip'},children:Array.from({length:8},(_,i)=>{
       const y=i*24-scroll,child=u.button({id:`area-${i+1}`,actionId:`district:${i+1}`,layout:{x:2,y,width:138,height:22}});
       return y<0||y+22>92?u.absolute({id:`withheld:${i}`,layout:{width:0,height:0,overflow:'clip'},children:[child]}):child;
@@ -111,12 +111,12 @@ test('logical spatial: Travel 284x160 requests area-4 reveal then activates only
   ]}),{theme,context,revision});
   const first=plan(0,1),target=first.records.find(r=>r.id==='area-4');
   expect(target.focusBounds).toEqual({x:12,y:104,width:138,height:22});expect(target.effectiveFocusBounds).toBeNull();
-  const ui=createUiInteraction({id:'test:travel',plan:first},{navigation:'spatial',wrap:true});
+  const ui=createUiInteraction({id:'test:clipped-list',plan:first},{navigation:'spatial',wrap:true});
   expect(ui.handle({type:'navigate',direction:'down'})).toEqual([{kind:'focus',controlId:'area-4',modelRevision:1}]);
   expect(ui.inspect({limit:30}).focusId).toBe('area-4');
   for(const type of ['activate','default'])expect(ui.handle({type,inputId:`before:${type}`})).toEqual([]);
   ui.handle({type:'press',controlId:'area-4',inputId:'before:held'});expect(ui.inspect({limit:30}).heldCount).toBe(0);
-  ui.update({id:'test:travel',plan:plan(24,2)});
+  ui.update({id:'test:clipped-list',plan:plan(24,2)});
   expect(ui.handle({type:'release',controlId:'area-4',inputId:'before:held'})).toEqual([]);
   expect(ui.handle({type:'activate',inputId:'queued-old',modelRevision:1})).toEqual([]);
   expect(ui.handle({type:'activate',inputId:'after',modelRevision:2})).toMatchObject([{kind:'activate',controlId:'area-4',actionId:'district:4',modelRevision:2}]);
