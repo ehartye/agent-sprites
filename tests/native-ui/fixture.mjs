@@ -103,7 +103,7 @@ window.nativeUi={
       const listenerProbeBefore=inputDeliveries;
       canvas.dispatchEvent(new PointerEvent('pointerdown',{clientX:1,clientY:1}));canvas.dispatchEvent(new PointerEvent('pointerup',{clientX:1,clientY:1}));window.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));
       const listenerProbeAfter=inputDeliveries,game=window.nativeGame,manager=game.scene;
-      await new Promise(resolve=>{game.events.once(Phaser.Core.Events.DESTROY,()=>setTimeout(resolve,0));game.destroy(true,true);});
+      await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Phaser teardown did not complete within 5000ms')),5000);game.events.once(Phaser.Core.Events.DESTROY,()=>{clearTimeout(timer);setTimeout(resolve,0);});try{game.destroy(true,true);}catch(error){clearTimeout(timer);reject(error);}});
       return {errors,sceneObjects,listenerProbeBefore,listenerProbeAfter,canvasConnected:canvas.isConnected,remainingScenes:manager.scenes.length,pendingDestroy:game.pendingDestroy,loopRunning:game.loop.running};
     })();
     return shutdownPromise;
