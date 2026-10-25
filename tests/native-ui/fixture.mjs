@@ -11,6 +11,10 @@ const theme=u.defineTheme({version:1,id:`native:${themeId}`,fonts:{body:{font}},
     button:{font:'body',tone,padding:1,alternatives:[{kind:'skin',id:themeId}]},extension:{}},geometry:{gap:0,padding:0,minTarget:0}});
 let scene,host,mount,revision=1,contextRevision=1,scroll=0,extensionDisposed=0,failExtension=false;
 let attachmentsCreated=0,attachmentsDisposed=0,originOffset=0;
+const fixtureRoots=[];
+let disposedResult,shutdownPromise,inputDeliveries=0;
+const createFixtureRoot=()=>{const root=scene.add.container();fixtureRoots.push(root);return root;};
+const inspectFixtureRoots=()=>fixtureRoots.map(root=>({children:root.list.length,borrowedAlive:root.scene===scene}));
 const intents=[];
 const main=()=>({id:'native:main',revision:contextRevision,localToPhysical:{scale:2,x:12+originOffset,y:8+originOffset},sourcePixelPhysicalSize:2,viewport:{x:3,y:2,width:64,height:48}});
 const detail=()=>({id:'native:detail',revision:contextRevision,localToPhysical:{scale:1,x:12+originOffset,y:8+originOffset},sourcePixelPhysicalSize:1,viewport:{x:6,y:4,width:128,height:96}});
@@ -26,7 +30,7 @@ const tree=()=>u.absolute({id:'root',layout:{width:64,height:48},focus:{initialI
   ]}),
 ]});
 const snapshot=()=>({revision,tree:tree(),context:main(),additionalContexts:[detail()]});
-function route(input){const emitted=mount.handle(input);intents.push(...emitted);return emitted;}
+function route(input){inputDeliveries++;const emitted=mount.handle(input);intents.push(...emitted);return emitted;}
 const ready=new Promise((resolve,reject)=>{
   class ContractScene extends Phaser.Scene {
     preload(){this.load.image('native-font','./assets/font.png');this.load.image('native-skin','./assets/skin.png');this.load.on('loaderror',file=>reject(Error(`Load failed: ${file.url}`)));}
@@ -52,7 +56,7 @@ const ready=new Promise((resolve,reject)=>{
         host.registerExtension('native:region',{version:1,measure:()=>({min:{width:8,height:8},preferred:{width:8,height:8},overflow:'clip'}),
           regions:(_model,a)=>[{id:'region',bounds:{x:a.bounds.x-4,y:a.bounds.y-4,width:a.bounds.width+8,height:a.bounds.height+8},actionId:'native:custom'}],
           mount(model,_allocation,scope){scope.onDispose(()=>extensionDisposed++);scope.native.paint();if(model.fail)throw Error('Deliberate extension failure');}});
-        mount=host.mount(snapshot(),{parent:scene.add.container(),scope:'native:screen'});
+        mount=host.mount(snapshot(),{parent:createFixtureRoot(),scope:'native:screen'});
         resolve();
       }catch(error){reject(error);}
     }
@@ -65,16 +69,43 @@ const ready=new Promise((resolve,reject)=>{
 });
 await ready;
 const canvas=window.nativeGame.canvas;
-canvas.addEventListener('pointerdown',event=>{const b=canvas.getBoundingClientRect();route({type:'press',inputId:'pointer:primary',point:{x:(event.clientX-b.left)*canvas.width/b.width,y:(event.clientY-b.top)*canvas.height/b.height},pointSpace:'physical'});});
-canvas.addEventListener('pointerup',event=>{const b=canvas.getBoundingClientRect();route({type:'release',inputId:'pointer:primary',point:{x:(event.clientX-b.left)*canvas.width/b.width,y:(event.clientY-b.top)*canvas.height/b.height},pointSpace:'physical'});});
+const pointerDown=event=>{const b=canvas.getBoundingClientRect();route({type:'press',inputId:'pointer:primary',point:{x:(event.clientX-b.left)*canvas.width/b.width,y:(event.clientY-b.top)*canvas.height/b.height},pointSpace:'physical'});};
+const pointerUp=event=>{const b=canvas.getBoundingClientRect();route({type:'release',inputId:'pointer:primary',point:{x:(event.clientX-b.left)*canvas.width/b.width,y:(event.clientY-b.top)*canvas.height/b.height},pointSpace:'physical'});};
+canvas.addEventListener('pointerdown',pointerDown);
+canvas.addEventListener('pointerup',pointerUp);
 let keyboardId=0;
-window.addEventListener('keydown',event=>{if(event.key==='Enter')route({type:'default',inputId:`keyboard:${++keyboardId}`});if(event.key==='Escape')route({type:'cancel',inputId:`keyboard:${++keyboardId}`});});
+const keyDown=event=>{if(event.key==='Enter')route({type:'default',inputId:`keyboard:${++keyboardId}`});if(event.key==='Escape')route({type:'cancel',inputId:`keyboard:${++keyboardId}`});};
+window.addEventListener('keydown',keyDown);
 window.nativeUi={
   renderer:window.nativeGame.renderer.type,webgl2:!!window.nativeGame.renderer.gl&&window.nativeGame.renderer.gl instanceof WebGL2RenderingContext,
   inspect:()=>mount.inspect({limit:32}),handle:route,intents,
   update(options={}){revision++;if(options.context)contextRevision++;if(options.origin!==undefined)originOffset=options.origin;if(options.scroll!==undefined)scroll=options.scroll;failExtension=!!options.fail;mount.update(snapshot());return mount.inspect({limit:32});},
   plan:()=>u.layoutUi(tree(),{...snapshot(),theme,extensions:{'native:region':{version:1,measure:()=>({min:{width:8,height:8},preferred:{width:8,height:8},overflow:'clip'})}}}),
   lifecycle(){return {attachmentsCreated,attachmentsDisposed,extensionDisposed,borrowedFonts:scene.textures.exists('native-font'),borrowedSkins:scene.textures.exists('native-skin'),fontFrames:Object.keys(scene.textures.get('native-font').frames),skinFrames:Object.keys(scene.textures.get('native-skin').frames),sceneObjects:scene.children.list.length};},
-  remount(){mount.dispose();mount=host.mount(snapshot(),{parent:scene.add.container(),scope:'native:screen'});return mount.inspect({limit:32});},
-  dispose(){mount.dispose();host.dispose();return {observation:mount.inspect({limit:32}),lifecycle:this.lifecycle()};},
+  remount(){mount.dispose();const borrowedRoots=inspectFixtureRoots();mount=host.mount(snapshot(),{parent:createFixtureRoot(),scope:'native:screen'});return {...mount.inspect({limit:32}),borrowedRoots};},
+  dispose(){
+    if(disposedResult)return disposedResult;
+    mount.dispose();host.dispose();
+    const observation=mount.inspect({limit:32}),lifecycle=this.lifecycle(),borrowedRoots=inspectFixtureRoots();
+    for(const root of fixtureRoots)root.destroy();
+    disposedResult={observation,lifecycle,borrowedRoots,sceneObjectsAfterRootCleanup:scene.children.list.length};
+    return disposedResult;
+  },
+  shutdown(){
+    if(shutdownPromise)return shutdownPromise;
+    shutdownPromise=(async()=>{
+      const errors=[];
+      try{this.dispose();}catch(error){errors.push(error.message);}
+      // Host teardown remains responsible for borrowed roots after library failure.
+      for(const root of fixtureRoots)if(root.scene)try{root.destroy();}catch(error){errors.push(error.message);}
+      const sceneObjects=scene.children.list.length;
+      canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);window.removeEventListener('keydown',keyDown);
+      const listenerProbeBefore=inputDeliveries;
+      canvas.dispatchEvent(new PointerEvent('pointerdown',{clientX:1,clientY:1}));canvas.dispatchEvent(new PointerEvent('pointerup',{clientX:1,clientY:1}));window.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));
+      const listenerProbeAfter=inputDeliveries,game=window.nativeGame,manager=game.scene;
+      await new Promise(resolve=>{game.events.once(Phaser.Core.Events.DESTROY,()=>setTimeout(resolve,0));game.destroy(true,true);});
+      return {errors,sceneObjects,listenerProbeBefore,listenerProbeAfter,canvasConnected:canvas.isConnected,remainingScenes:manager.scenes.length,pendingDestroy:game.pendingDestroy,loopRunning:game.loop.running};
+    })();
+    return shutdownPromise;
+  },
 };

@@ -31,7 +31,7 @@ try {
     const specimen={renderer,theme};report.cases.push(specimen);
     try {
       await page.goto(`http://127.0.0.1:${server.address().port}/tests/native-ui/?renderer=${renderer}&theme=${theme}`);
-      await page.waitForFunction(()=>!!window.nativeUi,{timeout:15000});
+      await page.waitForFunction(()=>!!window.nativeUi,undefined,{timeout:15000});
       await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
       const initial=await page.evaluate(()=>({renderer:window.nativeUi.renderer,webgl2:window.nativeUi.webgl2,observation:window.nativeUi.inspect(),plan:window.nativeUi.plan()}));
       assert.equal(initial.renderer,renderer==='canvas'?1:2,'Requested native backend');if(renderer==='webgl')assert.equal(initial.webgl2,true,'Real WebGL2 context');
@@ -61,13 +61,29 @@ try {
       assert.equal(resized.width,176);assert.equal(resized.height,128);assert.deepEqual(resized.glyph,{x:30,y:52,width:3,height:5},'Resized host realizes revised context mapping');
       await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
       const resizedImage=await sharp(await page.locator('canvas').screenshot()).ensureAlpha().raw().toBuffer({resolveWithObject:true});assert.deepEqual(pixel(resizedImage.data,resizedImage.info.width,30,52),ink,'Revised context paints at the new physical origin');
-      const remounted=await page.evaluate(()=>window.nativeUi.remount());assert.equal(remounted.native.lifecycle,'mounted');
+      const remounted=await page.evaluate(()=>window.nativeUi.remount());assert.equal(remounted.native.lifecycle,'mounted');assert.ok(remounted.borrowedRoots.every(root=>root.children===0&&root.borrowedAlive),'Library unmount empties and preserves borrowed fixture roots');
       const failed=await page.evaluate(()=>{let error;try{window.nativeUi.update({fail:true});}catch(e){error=e.message;}return {error,observation:window.nativeUi.inspect(),lifecycle:window.nativeUi.lifecycle()};});
       assert.match(failed.error,/Deliberate extension failure/);assert.equal(failed.observation.native.lifecycle,'retired');assert.equal(failed.observation.native.objects,0);assert.equal(failed.observation.native.extensions,0);
       const cleaned=await page.evaluate(()=>window.nativeUi.dispose());assert.equal(cleaned.observation.native.objects,0);assert.equal(cleaned.observation.native.fragments,0);assert.equal(cleaned.observation.native.created,cleaned.observation.native.destroyed);assert.equal(cleaned.lifecycle.attachmentsCreated,cleaned.lifecycle.attachmentsDisposed);assert.equal(cleaned.lifecycle.borrowedFonts,true);assert.equal(cleaned.lifecycle.borrowedSkins,true);assert.deepEqual(cleaned.lifecycle.fontFrames,['__BASE']);assert.deepEqual(cleaned.lifecycle.skinFrames,['__BASE']);assert.ok(cleaned.lifecycle.extensionDisposed>=3);
+      assert.ok(cleaned.borrowedRoots.every(root=>root.children===0&&root.borrowedAlive),'Library disposal preserves empty borrowed roots');assert.equal(cleaned.lifecycle.sceneObjects,cleaned.borrowedRoots.length,'Only fixture roots remain after library cleanup');assert.equal(cleaned.sceneObjectsAfterRootCleanup,0,'Host root cleanup empties the actual scene display list');
       assert.deepEqual(errors,[]);specimen.passed=true;
     } catch(error) {specimen.passed=false;specimen.error=error.stack;report.failures.push(`${renderer}/${theme}: ${error.message}`);try{await page.screenshot({path:fileURLToPath(new URL(`${renderer}-${theme}-failure.png`,output))});}catch(captureError){specimen.captureError=captureError.message;}}
-    finally {const cleanup=performance.now();await context.close();specimen.cleanupMs=Math.round(performance.now()-cleanup);specimen.totalMs=Math.round(performance.now()-caseStart);}
+    finally {
+      const cleanup=performance.now();
+      try {
+        const teardown=await page.evaluate(async()=>{
+          if(window.nativeUi)return window.nativeUi.shutdown();
+          if(!window.nativeGame)return {notStarted:true};
+          const game=window.nativeGame,canvas=game.canvas,manager=game.scene;
+          await new Promise(resolve=>{game.events.once(Phaser.Core.Events.DESTROY,()=>setTimeout(resolve,0));game.destroy(true,true);});
+          return {startupFailed:true,canvasConnected:canvas.isConnected,remainingScenes:manager.scenes.length,pendingDestroy:game.pendingDestroy,loopRunning:game.loop.running};
+        });
+        specimen.teardown=teardown;
+        if(!teardown.notStarted){assert.equal(teardown.canvasConnected,false,'Game destroy removes the real canvas');assert.equal(teardown.remainingScenes,0,'Game destroy removes all actual scenes');assert.equal(teardown.pendingDestroy,false);assert.equal(teardown.loopRunning,false);}
+        if(!teardown.startupFailed&&!teardown.notStarted){assert.deepEqual(teardown.errors,[]);assert.equal(teardown.sceneObjects,0);assert.equal(teardown.listenerProbeAfter,teardown.listenerProbeBefore,'Removed fixture listeners receive no further events');}
+      }catch(error){specimen.passed=false;report.failures.push(`${renderer}/${theme} teardown: ${error.message}`);}
+      finally {try{await context.close();}catch(error){specimen.passed=false;report.failures.push(`${renderer}/${theme} context close: ${error.message}`);}specimen.cleanupMs=Math.round(performance.now()-cleanup);specimen.totalMs=Math.round(performance.now()-caseStart);}
+    }
   }
 } finally {
   const cleanup=performance.now();const results=await Promise.allSettled([browser?.close(),new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()))]);
