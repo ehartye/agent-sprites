@@ -17,9 +17,10 @@ art, image-generated concept reference and exported-atlas proofs. The earlier
 The editor ZIP contains independently editable sections sized for the current
 workbench import path. The complete native timelines are also available as
 lossless `JSON.GZ` archives. The rebuild source includes a portable unpacker.
-An actual forty-frame section imported successfully, but the current workbench
-renders all section thumbnails eagerly: initial browser startup can take several
-minutes. The static scene player uses the exported atlases.
+An actual forty-frame section imported successfully. Since 0.95.0 the workbench
+loads selected and visible thumbnails on demand and caches them, so opening a
+section no longer waits on every thumbnail, though cold frames still take time to
+render. The static scene player uses the exported atlases.
 
 Tessel the Foldback has eight actions in both directions, a pose scrubber,
 color/normal channel inspection and downloadable editable source. Its player

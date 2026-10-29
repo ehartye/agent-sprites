@@ -46,8 +46,8 @@ keep font masks and skin drawing in the tool rather than copying them into a gam
 
 For common dialogs, menus, forms, lists, reading views, notices and HUDs, read the
 [shared native component contract](../../examples/ui/native-components.md) directly.
-It is an **unreleased candidate**; release/adoption requires native acceptance in
-all three games. Use its `ui-index.mjs` components/families, `defineTheme`, layout,
+It shipped in 0.96.0; each game accepts its own pin through its own native checks.
+Use its `ui-index.mjs` components/families, `defineTheme`, layout,
 interaction and `createPhaserUi` host for stock UI. Pin the complete software
 closure from Node-only `publishUiSoftware`: eight `.mjs` plus eight `.d.mts` files
 and `ui-software-manifest.json`. Verify all files and producer identity against the

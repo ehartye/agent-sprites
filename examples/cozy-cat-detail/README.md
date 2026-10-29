@@ -77,10 +77,11 @@ loops. Each is validated with the native project model and against the editor's
 are available too. Whole-short replay/review metadata is not attached to remapped
 segments; its original custody remains in the full archive and `replay.json`.
 
-Initial workbench loading of a forty-frame part can take several minutes while
-the current editor eagerly renders its surface-lit thumbnails. A representative
-part imported successfully, but model/import validation does not imply fast
-interactive startup. Let the initial render finish before judging responsiveness.
+Since 0.95.0 the workbench loads a part's selected and visible frames on demand
+and caches thumbnails (see [large projects](../../skills/sprite-editing/references/large-projects.md)),
+so opening a forty-frame part no longer waits on every thumbnail. Cold frames still
+take time to render, and import validation does not imply fast interactive startup;
+let the visible frames finish before judging responsiveness.
 
 Each clip also contains `project.json.gz`, a lossless gzip of the **exact native
 exported full-project JSON bytes**. No shape, material, normal, layer or ownership

@@ -2,12 +2,12 @@
 
 This reference covers the historical independent low-level planner. For common
 dialogs, themes and extensions, use the
-[shared native component contract](native-components.md). Its **unreleased
-candidate** includes this planner in a complete 16-file software closure plus
+[shared native component contract](native-components.md). Its
+release (0.96.0) includes this planner in a complete 16-file software closure plus
 manifest, alongside stock components/families, layout, interaction and native
 Phaser painting and owned resource lifetimes. Games retain authored models, action authority, assets,
-resolution mappings and application-specific extension renderers. Native acceptance
-in all three games remains a release/adoption gate.
+resolution mappings and application-specific extension renderers. Each game accepts
+its own pin through its own native checks.
 
 `planActionGroup` is a pure browser-safe export from the independent
 `server/build/ui-action-group.mjs`. UI builds copy that file unchanged and name it
@@ -23,7 +23,7 @@ grammar, theme engine, paint, camera mapping or minimum touch-target default.
 
 This single-file pin applies to independent planner use. Shared framework consumers
 pin the complete bundle and verify its software manifest as described in the
-[UI software pin guidance](README.md#shared-native-components-unreleased-candidate).
+[UI software pin guidance](README.md#shared-native-components).
 
 For bundled code, copy the complete canonical Git blob from a clean producer
 revision to `src/vendor/agent-sprites/ui-action-group.mjs`, outside `public/`.
@@ -183,5 +183,5 @@ appearance roles intact. Theme changes cannot sort actions or alter authorizatio
 Producer tests live in the existing `tests/engine/ui.test.js` and
 `tests/cli/ui-build.test.js`. Consumers need their own native measurement, ordinary
 input, clipping, focus/cancel and current-save transaction witnesses. This module
-does not itself prove the shared candidate's native adoption, extension lifecycle
-or faster CI.
+does not itself prove a game's native adoption of the shared components, extension
+lifecycle or faster CI.

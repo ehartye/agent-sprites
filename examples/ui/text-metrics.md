@@ -204,10 +204,9 @@ compositors and density selection remain distinct consumer concerns. Adapters mu
 feed the planned physical-grid geometry without assuming camera rounding corrects
 it. These low-level plans alone supply no widget host, fitting or ellipsis policy.
 For common dialogs, themes and extensions, use the
-[shared native component contract](native-components.md): its unreleased candidate
-adds stock components, layout, interaction, native Phaser painting and owned
+[shared native component contract](native-components.md): it adds stock components, layout, interaction, native Phaser painting and owned
 resource lifetimes using these calculations. Pin its complete 16-file closure
 plus software manifest rather than only the historical core helper. Games retain
 authored models, action authority, immutable assets, resolution mappings and
-application-specific extension renderers. Native consumer acceptance in all three
-games remains a release/adoption gate; these placement plans do not establish it.
+application-specific extension renderers. Each game's native acceptance of a pin
+is separate; these placement plans do not establish it.
