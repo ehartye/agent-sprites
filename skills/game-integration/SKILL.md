@@ -220,10 +220,10 @@ img.setFrame('tomb');                          // named cell = named frame
 
 Two gotchas:
 
-- **Phaser ignores the pivot slice** — call `sprite.setOrigin(0.5, 1)` in code for bottom-center characters. Unity/Godot importers do read the exported pivot.
+- **Phaser ignores the pivot slice** — call `sprite.setOrigin(0.5, 1)` in code for bottom-center characters. For Unity and Godot, check where the pivot lands after loading.
 - Frames carry both numeric indices and name aliases, so named-cell lookups (`setFrame('tomb')`) and tag playback both work from the same atlas.
 
-Unity/Godot: import `<name>.atlas.json` with their Aseprite JSON importers — frameTags, durations, and pivot come through without game code.
+Unity/Godot: the vendors' Aseprite importers take `.aseprite` source files (Unity's 2D Aseprite Importer) or run the Aseprite program (the Godot Aseprite Wizard), and their documentation does not describe reading `<name>.atlas.json`. Write a small loader that builds clips from `meta.frameTags` and the per-frame durations, then check tag names, frame counts, durations and the pivot.
 
 ## App icons from sprites
 
