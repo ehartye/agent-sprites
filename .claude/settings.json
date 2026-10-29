@@ -1,0 +1,17 @@
+{
+  "enabledPlugins": {
+    "academia-fetch@hartye-plugins": false,
+    "agent-beeps@hartye-plugins": false,
+    "agent-draw@hartye-plugins": false,
+    "agent-engine@hartye-plugins": false,
+    "agent-game-studio@hartye-plugins": false,
+    "agent-marketing@hartye-plugins": false,
+    "agent-meshes@hartye-plugins": false,
+    "agent-prose@hartye-plugins": false,
+    "agent-unreal@hartye-plugins": false,
+    "agent-vids@hartye-plugins": false,
+    "design@synced": false,
+    "cowork-plugin-management@synced": false,
+    "anthropic-skills@synced": false
+  }
+}
