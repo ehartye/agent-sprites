@@ -71,17 +71,17 @@ Aseprite atlas, editable project, operations, contact sheet and verification.
 Font builds also own `ui-boot.mjs`, exporting `imageDataUrl`, `atlas`, and `report`;
 this embeds the verified font for loading/failure screens without a font fetch.
 
-## Shared native components (unreleased candidate)
+## Shared native components
 
 Use the [current native component contract](native-components.md) for common dialogs,
 menus, forms, lists, reading views, notices, HUDs, themes and bounded extensions.
-The candidate exports stock constructors/families, `defineTheme`, `layoutUi`,
+It exports stock constructors/families, `defineTheme`, `layoutUi`,
 `createUiInteraction` and `createPhaserUi` through browser-safe `ui-index.mjs`.
 Games keep authored models/content, action authority, immutable assets, resolution
 mappings and application-specific extension renderers. The shared owner supplies
 stock layout, controller behavior, native painting and owned resource lifetimes;
 extensions use the game's narrow native facade and the host's ownership scope.
-Release and adoption remain gated on native acceptance in all three games.
+The producer ships with a generic native fixture; each game accepts its own pin through its own native checks.
 
 Current UI builds additionally publish the complete software closure, preserving
 historical art/metadata aliases including `uiRuntime` and `uiActionGroup`.
