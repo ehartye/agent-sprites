@@ -4,18 +4,18 @@ Scope: all 244 vitest test files at commit f97fd8b (main), audited with the agen
 
 ## Summary
 
-- Of 244 files, 212 have a tier and 32 do not (section 2). The 212 got these verdicts: keep 186 (88 of them kept unopened), rewrite 22, demote 4, merge 0, delete 0, quarantine 0. The 32 untiered files get no verdict.
-- No file is marked delete or merge, so estimated tokens in delete/merge files is zero. Four test-level removals were applied after a coverage comparison showed no source file lost a covered line, statement, branch or function (section 7).
+- Of 244 files, 212 have a tier and 32 do not (section 2). The 212 got these verdicts: keep 186 (88 of them kept unopened), rewrite 22, demote 4, merge 0, delete 0, quarantine 0 (file-level; the two case-level `merge` rows in section 1 leave their files at keep and rewrite). The 32 untiered files get no verdict, and one of them (`tests/cli/ui-software.test.js`) was rewritten.
+- No file is marked delete or merge, so estimated tokens in delete/merge files is zero. Four test-level removals were proposed. Two were applied (one test case and one assertion line) after a coverage comparison showed no source file lost a covered line, statement, branch or function (section 7). Two were reverted: an independent proof found no direct covering assertion for their input, so one case was restored as it was and the other was restored and strengthened.
 - No file had an `edit` lane before this audit, so no file was demoted out of the edit lane. Four low-tier files now carry `@lane scheduled`; the tag only records the decision because no script or include glob reads it yet.
 - The rewrites fix real hazards: shared temp paths and `Date.now()` file names (11 files), writes into the checkout (1), the process working directory used to locate repo scripts (2), and assertions that could not fail (about 10 files).
-- Full suite on unmodified main: 1 failed file, 17 failed tests, 3207 passed, 3 skipped of 3227 tests, 173.7 s. Full suite on the final tree: 0 failed files, 244 passed, 3221 passed, 3 skipped of 3224 tests, 171.9 s. The 17 failures were the dangling-link cases in `tests/cli/ui-software.test.js`, which Windows refused (EPERM) for file symlinks. The remaining difference is the three removed test cases.
-- Both runs used `npx vitest run --maxWorkers=2` on the same machine. Nothing else was controlled (background load, cache), so the 1.8 s gap in wall time is not a speed result.
+- Full suite on unmodified main: 1 failed file, 17 failed tests, 3207 passed, 3 skipped of 3227 tests, 173.7 s. Full suite on the final tree as it stood when that run was taken: 0 failed files, 244 passed, 3221 passed, 3 skipped of 3224 tests, 171.9 s. The 17 failures were the dangling-link cases in `tests/cli/ui-software.test.js`, which Windows refused (EPERM) for file symlinks. That run still had three test cases removed; two of them were restored afterwards, so the current tree has 3226 tests (3227 minus the one remaining removed case). That figure is arithmetic, and the two restored files were run alone, not the full suite.
+- Both runs used `npx vitest run --maxWorkers=2` on the same machine. Nothing else was controlled (background load, cache), so the 1.8 s gap in wall time is not a speed result. The independent verifier later ran unmodified main and the audit branch back to back on the same machine: main 212.1 s, branch 205.7 s and 210.9 s. The wall time of the audit branch was in line with unmodified main. The earlier baseline of 173.7 s was taken at a quieter moment, so timing varies with machine load.
 
-Nothing is committed. The changes are uncommitted edits in the worktree for branch `test/audit-risk-map-and-safe-verdicts`.
+This document describes the contents of branch `test/audit-risk-map-and-safe-verdicts`: 28 edited test files, the new risk map `.testing/risk.yml` and this document, with `package.json` and `package-lock.json` unchanged (details in section 7).
 
 ## 1. Verdict table
 
-Ordered by review priority: low-tier files that still run on every local run come first (cheap to change, lowest value per run), then rewrites by agent tokens (descending), then case-level removals, then flagged files that were read and kept, by agent tokens (descending). Cost columns are separate and no combined score is shown, because the `weights` in `.testing/risk.yml` are all 1. Churn is edits that touched the test without the code it covers, over all edits that modified it.
+Ordered by review priority: low-tier files that still run on every local run come first (cheap to change, lowest value per run), then rewrites by agent tokens (descending), then case-level proposals, then flagged files that were read and kept, by agent tokens (descending). Cost columns are separate and no combined score is shown, because the `weights` in `.testing/risk.yml` are all 1. Churn is edits that touched the test without the code it covers, over all edits that modified it.
 
 Files kept unopened (tiered, no findings, no flags, no lane tag): 88 (engine, db, io, import 31; cli and handlers 37; web, web-ui and root 20). They are counted, not listed.
 
@@ -55,14 +55,20 @@ Files kept unopened (tiered, no findings, no flags, no lane tag): 88 (engine, db
 | tests/db/session.test.js | critical | rewrite | `worktree.shared-tmp`. DB path was `tmpdir()/test-${Date.now()}.db`, shared by every worktree, never removed. Now a per-test `mkdtemp` directory removed in `afterEach`. Protected (tests/db), rewrite only. The `/tmp/myproject` hits are data strings, not used paths. | 510 | 1/1 |
 | tests/handlers/reference-tools.test.js | standard | rewrite | `worktree.shared-tmp`. Fixed `missing-ref.png` and `Date.now()` image name in the shared tmpdir. `redundancy.duplicate-title` was a false positive (different handler). | 429 | 0/0 |
 
-### Case-level removals (applied after a coverage comparison, section 7)
+### Case-level proposals (two removals applied, two reverted; section 7)
 
 | File (file-level verdict) | Tier | Verdict | Why (finding rule and evidence) | Agent tokens | Churn |
 |---|---|---|---|---|---|
-| tests/cli/view-scale.test.js (keep) | critical | merge, one case removed | Case `view --sheet renders the whole sheet to a PNG path` repeated the next case `bare --sheet followed by another flag parses as boolean true` with the flag spelled differently. `scripts/sprite.js` coerces `'true'` and `true` the same way. The file stays as sole owner of CLI flag parsing and `--out`. | file 698; the two cli removals total about 250 (estimate) | 3/4 |
-| tests/handlers/view-tools.test.js (rewrite above) | standard | merge, one case removed | Case `renders png format when format=png` takes the default path: `server/handlers/view.js` branches only on `format === 'terminal'`. Covered by `renders a cell to a temp PNG`. | see the view-scale row | 0/3 |
-| tests/web/http.test.js (rewrite above) | standard | merge, one case removed | Case `starts on a given port and returns port info` (`info.port > 0`) is covered by the lifecycle test (listening address equals `info.port`) and the `/health` fetch test. | not estimated | 0/3 |
-| tests/engine/environment-wasteland.test.js (keep) | standard | merge, one assertion removed | The `sha(...)` assertion on `{kind:'terrain'}` repeats the golden `terrain` hash owned by `tests/engine/environment-pixel-scale.test.js` ("default output is byte-identical"). The 24-frame and `animations` checks stay. `no-direct-assertions` was a false positive (88 asserts). | file 4407 | 0/1 |
+| tests/cli/view-scale.test.js (keep) | critical | keep | Proposal downgraded after the independent proof found no direct covering assertion for the explicit `--sheet true` input. The proposed removal of case `view --sheet renders the whole sheet to a PNG path` rested on the bare-flag case `bare --sheet followed by another flag parses as boolean true`, which covers the bare form and not the explicit `true` argument. The case is restored exactly as it was on main, in its original position, so the file is unchanged. The file stays as sole owner of CLI flag parsing and `--out`. | file 698; the two reverted proposals were estimated at about 250 together, nothing saved | 3/4 |
+| tests/handlers/view-tools.test.js (rewrite above) | standard | rewrite | The png case `renders png format when format=png` was strengthened and kept. It was the only exercise of the `format: 'png'` path of `handleViewCell` and asserted only `existsSync`, so the removal proposal was reverted. The case is back in its original position and now asserts the PNG signature and a 16x16 image for cell 0,0 through the file's `pngDims` helper, so a missing or wrong-size image fails it. | see the view-scale row | 0/3 |
+| tests/web/http.test.js (rewrite above) | standard | merge | One test case removed (applied): `starts on a given port and returns port info` (`info.port > 0`) is covered by the lifecycle test (listening address equals `info.port`) and the `/health` fetch test. | not estimated | 0/3 |
+| tests/engine/environment-wasteland.test.js (keep) | standard | merge | One assertion removed (applied): the `sha(...)` assertion on `{kind:'terrain'}` repeats the golden `terrain` hash owned by `tests/engine/environment-pixel-scale.test.js` ("default output is byte-identical"). The 24-frame and `animations` checks stay. `no-direct-assertions` was a false positive (88 asserts). | file 4407 | 0/1 |
+
+### Untiered file rewritten (protected, rewrite only)
+
+| File | Tier | Verdict | Why (finding rule and evidence) | Agent tokens | Churn |
+|---|---|---|---|---|---|
+| tests/cli/ui-software.test.js | none | rewrite | Worktree and platform hazard. 17 dangling-link cases failed with EPERM on Windows for file symlinks. The file now probes for a junction fallback and a link capability at load, runs the cases through the probed link type, and skips them with a stated reason when no link can be created. It has no tier (no code subject), so it is not among the 212 counted; the row records the edit. Protected, rewrite only. Details in section 7. | not estimated | not scanned |
 
 ### Flagged files that were read and kept
 
@@ -138,9 +144,9 @@ Source: `.github/workflows/native-compatibility.yml` and `.github/workflows/page
 
 ## 4. Totals
 
-- Estimated tokens in files marked delete or merge: 0. No file-level delete or merge verdict was issued. Case-level removals total roughly 250 tokens for two cases (an estimate from the audit notes); the other two removals were not estimated.
+- Estimated tokens in files marked delete or merge: 0. No file-level delete or merge verdict was issued. The two applied case-level removals (one test case in tests/web/http.test.js, one assertion in tests/engine/environment-wasteland.test.js) were not estimated. The two reverted proposals had been estimated at about 250 tokens together, and nothing was saved from them.
 - Files demoted out of the edit lane: 0. No file had `Lane: edit`. Four files moved from no lane to `scheduled`.
-- Verdict counts (212 tiered files): keep 186, rewrite 22, demote 4, merge 0, delete 0, quarantine 0. No verdict (untiered): 32.
+- Verdict counts (212 tiered files): keep 186, rewrite 22, demote 4, merge 0, delete 0, quarantine 0. No verdict (untiered): 32. The two case-level `merge` rows (http, environment-wasteland) do not change the file-level counts, and the two reverted proposals (view-scale keep, view-tools rewrite) are already counted in keep and rewrite.
 
 ## 5. What this audit could not measure
 
@@ -157,7 +163,7 @@ Source: `.github/workflows/native-compatibility.yml` and `.github/workflows/page
   - Risk-map assignment is first-match on one area and does not report an unmapped second subject.
   - The report cannot show cases skipped through `ctx.skip(reason)`, and does not say which files a workflow run step names (a `paths:` list is a trigger, not ownership).
   - `wiring.drift` still lists five directories that now have areas (section 3).
-- **Evidence inconsistencies.** The cli part counts "18 opened keeps" but its rows total 19, and 9 rewrites plus 19 plus 37 unopened equals the 65 tiered cli and handler files. This document uses 19. The audit brief spoke of "four removed test cases"; the evidence shows three test cases and one assertion line.
+- **Evidence inconsistencies.** The cli part counts "18 opened keeps" but its rows total 19, and 9 rewrites plus 19 plus 37 unopened equals the 65 tiered cli and handler files. This document uses 19. The audit brief spoke of "four removed test cases"; the evidence showed three test cases and one assertion line. Two of the three cases were then restored (section 1), so one test case and one assertion line remain removed.
 
 ## 6. Architecture advisory
 
@@ -224,7 +230,7 @@ Suggested order if the owner agrees: option 1 now, option 2 next, then 3 and 4 w
 
 ## 7. What was changed
 
-Nothing is committed. All edits are in the worktree for branch `test/audit-risk-map-and-safe-verdicts`: 29 modified test files (194 insertions, 108 deletions), one new untracked file `.testing/risk.yml`, and this document. `package.json` and `package-lock.json` are unchanged (`git diff` on them is empty). The coverage comparison used `@vitest/coverage-v8@4.1.3` installed with `--no-save`, so it is in `node_modules` only.
+Branch `test/audit-risk-map-and-safe-verdicts` against main contains 28 modified test files (195 insertions, 96 deletions), one new file `.testing/risk.yml`, and this document. `package.json` and `package-lock.json` are unchanged (`git diff` on them is empty). The coverage comparison used `@vitest/coverage-v8@4.1.3` installed with `--no-save`, so it is in `node_modules` only.
 
 ### Risk map
 
@@ -247,11 +253,11 @@ Nothing is committed. All edits are in the worktree for branch `test/audit-risk-
 - tests/handlers/highlight-shadow.test.js: direction cases assert pixel positions.
 - tests/web/cell-group-routes.test.js, draw-routes.test.js, shape-group-clone.test.js: in-memory DB, private temp directory, state assertions; shape-group-clone now closes both servers.
 - tests/web/http.test.js: broadcast-over-websocket and listening-address tests replace two shape-only tests.
-- Not in the 22: tests/cli/ui-software.test.js (below), the four tag-only files, tests/cli/view-scale.test.js and tests/engine/environment-wasteland.test.js (removals only).
+- Not in the 22: tests/cli/ui-software.test.js (below), the four tag-only files, tests/engine/environment-wasteland.test.js (an assertion removal only). tests/cli/view-scale.test.js is unchanged against main after its case was restored.
 
 ### Removed test cases and the coverage comparison
 
-Four removals: three test cases and one assertion line (rows in section 1). The method ran the full suite with v8 coverage before and after, with identical flags (`--maxWorkers=2 --testTimeout=60000 --hookTimeout=60000`), and compared coverage per source file on statements, lines, branches and functions. A first baseline at the default 5 s timeout failed only on native-large (a timeout) and wrote no coverage, so it was discarded.
+Four removals were proposed: three test cases and one assertion line (rows in section 1). Two test cases were later restored (view-scale as it was, view-tools strengthened), so one test case and one assertion line remain removed. The comparison below was run with all four removals applied; restoring tests cannot lower coverage, so its result stands for the remaining two. The method ran the full suite with v8 coverage before and after, with identical flags (`--maxWorkers=2 --testTimeout=60000 --hookTimeout=60000`), and compared coverage per source file on statements, lines, branches and functions. A first baseline at the default 5 s timeout failed only on native-large (a timeout) and wrote no coverage, so it was discarded.
 
 | | Before | After |
 |---|---|---|
@@ -262,7 +268,7 @@ Four removals: three test cases and one assertion line (rows in section 1). The 
 | Branches covered | 17598 of 20115 | 17598 of 20115 |
 | Functions covered | 3640 of 3890 | 3640 of 3890 |
 
-Result: 0 of 208 source files lost any covered line, statement, branch or function. Each covering test was also run alone and passed (the view-scale replacement needs its preceding case in the file, a dependency the removed case already had). None of the five files involved is protected.
+Result: 0 of 208 source files lost any covered line, statement, branch or function. Each covering test was also run alone and passed. The independent verifier reproduced the before-and-after coverage comparison across 208 source files and found no loss. Neither of the two files with a remaining removal is protected.
 
 ### Windows symlink handling in tests/cli/ui-software.test.js
 
@@ -277,7 +283,7 @@ So on this Windows machine the 17 cases run through the junction fallback; with 
 
 ### Protected-file rule
 
-Files named in the test step of `.github/workflows/native-compatibility.yml` (the `tests/db` directory and the 26 listed files) and in the owner list of `scripts/test-ui.mjs` (11 files) received rewrites only: no demote, merge, removal or lane tag. `scripts/test-ui-native.mjs` names no test file. The `paths:` triggers in the workflow protect nothing, since they are triggers and not owner lists; an early pass wrongly treated all of tests/engine, tests/io and tests/db as protected and was corrected. Three protected files were edited, all as rewrites: `tests/db/session.test.js`, `tests/engine/atlas-verifier.test.js` and `tests/cli/ui-software.test.js`. No other edited file is on either list, and the four removals touched no protected file.
+Files named in the test step of `.github/workflows/native-compatibility.yml` (the `tests/db` directory and the 26 listed files) and in the owner list of `scripts/test-ui.mjs` (11 files) received rewrites only: no demote, merge, removal or lane tag. `scripts/test-ui-native.mjs` names no test file. The `paths:` triggers in the workflow protect nothing, since they are triggers and not owner lists; an early pass wrongly treated all of tests/engine, tests/io and tests/db as protected and was corrected. Three protected files were edited, all as rewrites: `tests/db/session.test.js`, `tests/engine/atlas-verifier.test.js` and `tests/cli/ui-software.test.js`. No other edited file is on either list, and the two applied removals touched no protected file.
 
 ### Full-suite result next to the baseline
 
@@ -292,4 +298,4 @@ Command: `npx vitest run --maxWorkers=2`, the same on both trees, one run each, 
 | Skipped | 3 | 3 |
 | Duration | 173.7 s (vitest), 174.9 s wall | 171.9 s (vitest), 172 s wall |
 
-No file failed with a timeout on the final tree, so no file needed a lone rerun. The 17 baseline failures were all `first publication rejects dangling ownership link ...` cases in `tests/cli/ui-software.test.js`. The final tree has 3 fewer tests than main because of the three removed cases; the passed count rises by 14 (17 fixed, 3 removed).
+No file failed with a timeout on the final tree, so no file needed a lone rerun. The 17 baseline failures were all `first publication rejects dangling ownership link ...` cases in `tests/cli/ui-software.test.js`. The tree of that run had 3 fewer tests than main because of the three removed cases; the passed count rises by 14 (17 fixed, 3 removed). Two of those cases were restored afterwards, so the current tree has one fewer test than main. The verifier's back-to-back timing (main 212.1 s, branch 205.7 s and 210.9 s) is in the summary: the branch is in line with main, and the 173.7 s baseline reflects a quieter moment.

@@ -91,6 +91,13 @@ describe('View tools', () => {
     expect(result.terminal).toContain('·');
   });
 
+  it('renders png format when format=png', () => {
+    handleDraw(state, 'rect', { cell: '0,0', x: 0, y: 0, w: 4, h: 4, color: '#ff0000' });
+    const result = handleViewCell(state, { cell: '0,0', format: 'png' }, tmpDir);
+    expect(result.path).toBeDefined();
+    expect(pngDims(result.path)).toEqual({ w: 16, h: 16 });
+  });
+
   it('throws without project', () => {
     state.project = null;
     expect(() => handleViewCell(state, { cell: '0,0' }, tmpDir)).toThrow('No project');
