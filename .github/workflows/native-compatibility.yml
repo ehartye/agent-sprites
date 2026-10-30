@@ -5,78 +5,8 @@ on:
   release:
     types: [published]
   pull_request:
-    paths:
-      - 'package*.json'
-      - '.claude-plugin/*.json'
-      - '.github/**'
-      - 'scripts/**'
-      - 'server/db/**'
-      - 'server/build/**'
-      - 'server/io/**'
-      - 'server/import/**'
-      - 'server/project-view.js'
-      - 'server/engine/**'
-      - 'server/index.js'
-      - 'server/web/**'
-      - 'tests/io/**'
-      - 'tests/web/project-import*.test.js'
-      - 'tests/web/progressive-project.test.js'
-      - 'tests/web-ui/native-frame*.test.js'
-      - 'tests/cli/generator*.test.js'
-      - 'tests/cli/project-import.test.js'
-      - 'tests/db/**'
-      - 'tests/engine/**'
-      - 'tests/cli/managed-*.test.js'
-      - 'tests/cli/build-manifest.test.js'
-      - 'tests/cli/project-set.test.js'
-      - 'tests/cli/build-publication.test.js'
-      - 'tests/cli/tileset-crop.test.js'
-      - 'tests/cli/ui-build.test.js'
-      - 'tests/cli/view-png-real-server.test.js'
-      - 'tests/cli/owned-child-process.test.js'
-      - 'tests/cli/owned-cli.test.js'
-      - 'tests/cli/native-compatibility-receipt.test.js'
-      - 'tests/support/**'
-      - 'tests/fixtures/**'
-      - 'tests/setup-session-db.js'
-      - 'vitest.config.js'
   push:
     branches: [main]
-    paths:
-      - 'package*.json'
-      - '.claude-plugin/*.json'
-      - '.github/**'
-      - 'scripts/**'
-      - 'server/db/**'
-      - 'server/build/**'
-      - 'server/io/**'
-      - 'server/import/**'
-      - 'server/project-view.js'
-      - 'server/engine/**'
-      - 'server/index.js'
-      - 'server/web/**'
-      - 'tests/io/**'
-      - 'tests/web/project-import*.test.js'
-      - 'tests/web/progressive-project.test.js'
-      - 'tests/web-ui/native-frame*.test.js'
-      - 'tests/cli/generator*.test.js'
-      - 'tests/cli/project-import.test.js'
-      - 'tests/db/**'
-      - 'tests/engine/**'
-      - 'tests/cli/managed-*.test.js'
-      - 'tests/cli/build-manifest.test.js'
-      - 'tests/cli/project-set.test.js'
-      - 'tests/cli/build-publication.test.js'
-      - 'tests/cli/tileset-crop.test.js'
-      - 'tests/cli/ui-build.test.js'
-      - 'tests/cli/view-png-real-server.test.js'
-      - 'tests/cli/owned-child-process.test.js'
-      - 'tests/cli/owned-cli.test.js'
-      - 'tests/cli/native-compatibility-receipt.test.js'
-      - 'tests/support/**'
-      - 'tests/fixtures/**'
-      - 'tests/setup-session-db.js'
-      - 'vitest.config.js'
 
 permissions:
   contents: read
@@ -86,8 +16,55 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Classifies the change set with scripts/native-admission.mjs. Releases and manual
+  # dispatches always admit the native matrix; so do native and unknown change sets.
+  admit:
+    name: Classify change set
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      class: ${{ steps.admit.outputs.class }}
+      native: ${{ steps.admit.outputs.native }}
+      identity: ${{ steps.admit.outputs.identity }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Classify the change set
+        id: admit
+        env:
+          ADMIT_EVENT: ${{ github.event_name }}
+          ADMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ADMIT_HEAD: ${{ github.event.pull_request.head.sha || github.event.after }}
+        run: node scripts/native-admission.mjs classify --event "$ADMIT_EVENT" --base "$ADMIT_BASE" --head "$ADMIT_HEAD"
+
+  # Version-only changes skip the matrix; the four version files must still agree.
+  identity:
+    name: Version identity
+    needs: admit
+    if: needs.admit.outputs.identity == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check the four version files carry the same version
+        run: node scripts/native-admission.mjs check-identity
+
   native:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    needs: admit
+    if: needs.admit.outputs.native == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
