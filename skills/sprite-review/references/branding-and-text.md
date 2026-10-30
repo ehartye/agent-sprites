@@ -49,6 +49,9 @@ is from sources the wiki holds (practitioner or standards guidance, not a pixel-
    rhythm.
 4. Fill the mark with one color and shrink it to 16 px.
 5. Compute the contrast ratio for every text color against its worst background pixel.
+   For exported colors, `verify <atlas> --review --pairs "#text:#background" --min-contrast 4.5`
+   (3 for large text and graphic marks) prints the ratio and marks `belowMin`; it is
+   advisory, so record the number and apply the gate yourself.
 6. Screenshot the smallest supported viewport and read it without zooming.
 
 ## Gates

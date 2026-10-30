@@ -38,6 +38,19 @@ keeps the prior successful output. This is opt-in: outline-free effects and
 selective-outline styles should omit it. It cannot judge whether a silhouette
 is appealing, correctly proportioned or disconnected into unintended pieces.
 
+Pixel hygiene is opt-in too. `verify --orphan-pixels` fails (code `orphan-pixels`)
+any fully opaque pixel with no same-colour 8-neighbour (diagonal staircases pass);
+`--max-colors N` fails with `palette-budget` and `--min-color-pixels N` with
+`rare-colors`. Each is off unless given and counts only fully opaque pixels.
+**These checks flag deliberate dithering and anti-aliasing**, because both put
+isolated or rare colours on purpose. Exempt those colours with
+`--allow-colors "#fffaf0,#39283f"` (it also covers an eye highlight), or leave the
+options off for dithered and anti-aliased art.
+
+```sh
+node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --orphan-pixels --max-colors 12 --allow-colors "#ffffff"
+```
+
 Run in order; each level catches what the previous one can't.
 
 **1. Structural.** For a regular gapless grid, PNG dimensions must divide by
@@ -59,6 +72,30 @@ Resolve `<plugin-root>` from this loaded skill's directory, two parents up.
 Use the animations actually required for this asset in `--expect-tags`.
 Exit zero certifies structural checks only. Empty-frame warnings require a
 deliberate decision; inspect the generated contact sheet and play each animation.
+
+For numbers the review skills ask for, add `--review`. It prints (and, with
+`--json`, returns as `review`) the distinct opaque colours per frame and per tag, a
+value ladder (distinct gray levels, lowest, highest, spread) and the WCAG contrast
+of declared pairs:
+
+```sh
+node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --review --pairs "#f0e0c0:#202030,#c04040:#202030" --min-contrast 4.5
+```
+
+```text
+Review (advisory, not enforced):
+  atlas: 4 colors, ladder 4 levels (33 to 255, spread 222)
+  tag idle (frames 0 to 1, 2 rects): 4 colors, ladder 4 levels (33 to 255, spread 222)
+  pair #f0e0c0:#202030: contrast 12.31:1, present true, belowMin false
+  pair #c04040:#202030: contrast 3.09:1, present true, belowMin true
+```
+
+Use `--pairs-file pairs.json` (a JSON array of `["#a","#b"]`) instead of `--pairs`
+for a long list; the two cannot be combined. Thresholds fail only when you ask for
+them (`--orphan-pixels` and the others above); review numbers never fail: no error,
+no warning, same exit code. `belowMin` is a flag to read, not a gate. The review
+has no colour-vision palette distance. To check the on-screen pixel step of a
+screenshot, see `pixel-step` in [sprite craft](../sprite-craft/references/scale-and-proportion.md).
 
 **2. Per-frame contact sheet.** Render EVERY frame individually at 2–4×
 nearest-neighbor zoom and inspect each one for:
