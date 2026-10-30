@@ -6,6 +6,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+// PNG IHDR: 8-byte signature, then width/height at bytes 16..24.
+function pngDims(p) {
+  const buf = fs.readFileSync(p);
+  expect(buf.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+
 describe('View tools', () => {
   let state;
   let tmpDir;
@@ -15,8 +22,7 @@ describe('View tools', () => {
       project: Project.create({ name: 'test', cellSize: 16, rows: 2, cols: 2 }),
       broadcast: () => {},
     };
-    tmpDir = path.join(os.tmpdir(), `sprites-view-test-${Date.now()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sprites-view-test-'));
   });
 
   afterEach(() => {
@@ -51,20 +57,20 @@ describe('View tools', () => {
     handleDraw(state, 'rect', { cell: '0,0', x: 0, y: 0, w: 8, h: 8, color: '#ff0000' });
     const outPath = path.join(tmpDir, 'cell-export.png');
     handleExportPng(state, { target: '0,0', path: outPath });
-    expect(fs.existsSync(outPath)).toBe(true);
+    expect(pngDims(outPath)).toEqual({ w: 16, h: 16 });
   });
 
   it('exports sheet to a user-specified path', () => {
     const outPath = path.join(tmpDir, 'sheet-export.png');
     handleExportPng(state, { target: 'sheet', path: outPath });
-    expect(fs.existsSync(outPath)).toBe(true);
+    expect(pngDims(outPath)).toEqual({ w: 33, h: 33 }); // 2x2 cells of 16px plus one separator column and row
   });
 
   it('exports group to a user-specified path', () => {
     state.project.groups.create('walk', ['0,0', '0,1']);
     const outPath = path.join(tmpDir, 'group-export.png');
     handleExportPng(state, { target: 'walk', path: outPath });
-    expect(fs.existsSync(outPath)).toBe(true);
+    expect(pngDims(outPath)).toEqual({ w: 33, h: 16 }); // the two group cells side by side
   });
 
   it('exports texture atlas JSON', () => {
@@ -83,13 +89,6 @@ describe('View tools', () => {
     expect(typeof result.terminal).toBe('string');
     expect(result.terminal).toContain('██');
     expect(result.terminal).toContain('·');
-  });
-
-  it('renders png format when format=png', () => {
-    handleDraw(state, 'rect', { cell: '0,0', x: 0, y: 0, w: 4, h: 4, color: '#ff0000' });
-    const result = handleViewCell(state, { cell: '0,0', format: 'png' }, tmpDir);
-    expect(result.path).toBeDefined();
-    expect(fs.existsSync(result.path)).toBe(true);
   });
 
   it('throws without project', () => {

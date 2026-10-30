@@ -19,8 +19,7 @@ describe('CLI clone-cell fan-out', () => {
   let tmpDir;
 
   beforeAll(async () => {
-    tmpDir = join(os.tmpdir(), `sprites-clonecell-test-${Date.now()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-clonecell-test-'));
     const sessionDb = new SessionDB(':memory:');
     state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);

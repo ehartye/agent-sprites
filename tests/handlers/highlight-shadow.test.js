@@ -3,6 +3,12 @@ import { Project } from '../../server/engine/project.js';
 import { handleDraw } from '../../server/handlers/draw.js';
 import { handleListShapes } from '../../server/handlers/shape.js';
 
+// Pixel positions of the emitted point shapes, in emission order.
+const positions = (state, names) => names.map(n => {
+  const { x, y } = state.project.cells.getCell('0,0').shapes.getByName(n).params;
+  return [x, y];
+});
+
 describe('Highlight/Shadow draw commands', () => {
   let state;
 
@@ -51,17 +57,25 @@ describe('Highlight/Shadow draw commands', () => {
   });
 
   it('defaults highlight direction to top-left', () => {
-    const result = handleDraw(state, 'highlight', {
+    const implicit = handleDraw(state, 'highlight', {
       cell: '0,0', shape: 'ball', shape_name: 'ball_hl',
     });
-    expect(result.shapeNames.length).toBeGreaterThanOrEqual(2);
+    const explicit = handleDraw(state, 'highlight', {
+      cell: '0,0', shape: 'ball', direction: 'top-left', shape_name: 'ball_hl_tl',
+    });
+    expect(implicit.shapeNames.length).toBeGreaterThanOrEqual(2);
+    expect(positions(state, implicit.shapeNames)).toEqual(positions(state, explicit.shapeNames));
   });
 
   it('defaults shadow direction to bottom-right', () => {
-    const result = handleDraw(state, 'shadow', {
+    const implicit = handleDraw(state, 'shadow', {
       cell: '0,0', shape: 'ball', shape_name: 'ball_sh',
     });
-    expect(result.shapeNames.length).toBeGreaterThanOrEqual(2);
+    const explicit = handleDraw(state, 'shadow', {
+      cell: '0,0', shape: 'ball', direction: 'bottom-right', shape_name: 'ball_sh_br',
+    });
+    expect(implicit.shapeNames.length).toBeGreaterThanOrEqual(2);
+    expect(positions(state, implicit.shapeNames)).toEqual(positions(state, explicit.shapeNames));
   });
 
   it('strength 2 double-steps the ramp', () => {
@@ -76,8 +90,8 @@ describe('Highlight/Shadow draw commands', () => {
     }
   });
 
-  it('pixel count scales linearly with radius', () => {
-    // count = max(2, round(r * 0.4)) — larger radii get proportionally more pixels
+  it('a larger shape gets more highlight pixels', () => {
+    // count = max(2, round(r * 0.4)) — larger radii get more pixels
     // beforeEach() drew a r=5 ball. Add a r=16 big ball.
     handleDraw(state, 'circle', {
       cell: '0,0', cx: 8, cy: 8, r: 16, color: '#ff004d', shape_name: 'big',
@@ -117,11 +131,18 @@ describe('Highlight/Shadow draw commands', () => {
       'top-left', 'top-right', 'bottom-left', 'bottom-right',
       'top', 'bottom', 'left', 'right',
     ];
+    // The ball is centred on (8,8): every highlight pixel sits on the requested side of the centre.
     for (const dir of directions) {
       const result = handleDraw(state, 'highlight', {
         cell: '0,0', shape: 'ball', direction: dir, shape_name: `hl_${dir}`,
       });
-      expect(result.shapeNames.length).toBeGreaterThanOrEqual(2);
+      expect(result.shapeNames.length, dir).toBeGreaterThanOrEqual(2);
+      for (const [x, y] of positions(state, result.shapeNames)) {
+        if (dir.includes('left')) expect(x, dir).toBeLessThan(8);
+        if (dir.includes('right')) expect(x, dir).toBeGreaterThan(8);
+        if (dir.includes('top')) expect(y, dir).toBeLessThan(8);
+        if (dir.includes('bottom')) expect(y, dir).toBeGreaterThan(8);
+      }
     }
   });
 

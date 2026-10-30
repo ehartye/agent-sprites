@@ -1,14 +1,31 @@
 import {test,expect} from 'vitest';
 import {mkdirSync,mkdtempSync,readFileSync,writeFileSync,existsSync,rmSync,symlinkSync} from 'node:fs';
 import {resolve,join,sep} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 const names=['ui-runtime','ui-action-group','ui-theme','ui-components','ui-layout','ui-interaction','ui-phaser-runtime','ui-index'];
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+// Fixtures live under this checkout's own ignored .tmp, anchored to the file, not the process cwd.
+const tempRoot=resolve(fileURLToPath(new URL('../../.tmp/',import.meta.url)));
+// Capability probe: actually try to create a dangling link. A default Windows account refuses file symlinks (EPERM)
+// but can still create a junction, which lstat reports as a link just the same, so it is the fallback.
+const linkType=(()=>{
+  mkdirSync(tempRoot,{recursive:true});const probe=mkdtempSync(join(tempRoot,'symlink-probe-'));
+  try{
+    for(const type of ['file','junction']){
+      try{symlinkSync(join(probe,'missing-target'),join(probe,'link-'+type),type);return type;}
+      catch(error){if(!['EPERM','EACCES','ENOSYS','ENOTSUP'].includes(error.code))throw error;}
+    }
+    return null;
+  }finally{rmSync(probe,{recursive:true,force:true});}
+})();
+const noLinks=linkType===null?'no kind of link (file symlink or junction) can be created in this environment (missing symlink privilege), so the dangling-link case is unverified here'
+  :process.env.UI_SOFTWARE_NO_LINKS==='1'?'UI_SOFTWARE_NO_LINKS=1 forbids creating symlinks, so the dangling-link case is unverified here':null;
+
 async function api(){const url=new URL('../../server/build/ui-software.mjs',import.meta.url);expect(existsSync(url),'standalone software publisher exists').toBe(true);return import(url.href);}
 
 test('software publication canonicalizes stale CRLF working files before hashing or exporting',async()=>{
-  const temp=resolve('.tmp');mkdirSync(temp,{recursive:true});const dir=mkdtempSync(join(temp,'ui-canonical-'));
+  const temp=tempRoot;mkdirSync(temp,{recursive:true});const dir=mkdtempSync(join(temp,'ui-canonical-'));
   try{
     const build=join(dir,'server/build');mkdirSync(build,{recursive:true});
     writeFileSync(join(dir,'package.json'),JSON.stringify({type:'module',version:'1.0.0'}));
@@ -24,21 +41,22 @@ test('software publication canonicalizes stale CRLF working files before hashing
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
-// A scoped producer may explicitly forbid creating filesystem links. Preserve
-// the default gate; report these cases as unverified when that policy is active.
-test.skipIf(process.env.UI_SOFTWARE_NO_LINKS==='1').each([...names.flatMap(n=>[n+'.mjs',n+'.d.mts']),'ui-software-manifest.json'])('first publication rejects dangling ownership link %s without writing its target',async name=>{
-  const {publishUiSoftware}=await api();const temp=resolve('.tmp');mkdirSync(temp,{recursive:true});const dir=mkdtempSync(join(temp,'ui-dangling-'));
+// Creating filesystem links needs a capability the host may not grant (or a scoped producer may forbid links).
+// The probe above decides; skipped cases name the reason in the report.
+test.for([...names.flatMap(n=>[n+'.mjs',n+'.d.mts']),'ui-software-manifest.json'])('first publication rejects dangling ownership link %s without writing its target',async(name,{skip})=>{
+  if(noLinks)return skip(noLinks);
+  const {publishUiSoftware}=await api();const temp=tempRoot;mkdirSync(temp,{recursive:true});const dir=mkdtempSync(join(temp,'ui-dangling-'));
   if(!dir.startsWith(temp+sep))throw Error('Fixture escaped its owned temporary root');
   try{
     const output=join(dir,'output'),outside=join(dir,'outside');mkdirSync(output);mkdirSync(outside);
-    const target=join(outside,'must-not-be-created');symlinkSync(target,join(output,name),'file');
+    const target=join(outside,'must-not-be-created');symlinkSync(target,join(output,name),linkType);
     expect(()=>publishUiSoftware({output})).toThrow(/ownership|unowned|link|regular/i);
     expect(existsSync(target)).toBe(false);expect(existsSync(join(output,'ui-index.mjs'))).toBe(false);
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
 test('software publication is a complete independently loadable ESM/declaration closure with exact receipts',async()=>{
-  const {publishUiSoftware}=await api();mkdirSync('.tmp',{recursive:true});const dir=mkdtempSync(resolve('.tmp/ui-software-'));
+  const {publishUiSoftware}=await api();mkdirSync(tempRoot,{recursive:true});const dir=mkdtempSync(join(tempRoot,'ui-software-'));
   try {
     const receipt=publishUiSoftware({output:dir}), manifest=JSON.parse(readFileSync(receipt.manifest,'utf8'));
     const packageVersion=JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version;
@@ -60,7 +78,7 @@ test('software publication is a complete independently loadable ESM/declaration 
 });
 
 test('software sync preserves unrelated historical artwork and rejects unowned name collisions',async()=>{
-  const {publishUiSoftware}=await api();mkdirSync('.tmp',{recursive:true});const dir=mkdtempSync(resolve('.tmp/ui-history-'));
+  const {publishUiSoftware}=await api();mkdirSync(tempRoot,{recursive:true});const dir=mkdtempSync(join(tempRoot,'ui-history-'));
   try {
     writeFileSync(join(dir,'historical.png'),'old art');publishUiSoftware({output:dir});expect(readFileSync(join(dir,'historical.png'),'utf8')).toBe('old art');
     const collision=join(dir,'collision');mkdirSync(collision);writeFileSync(join(collision,'ui-runtime.mjs'),'user data');

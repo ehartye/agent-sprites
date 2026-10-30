@@ -5,20 +5,25 @@ import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import os from 'os';
 import { SessionDB } from '../../server/db/session.js';
 
 const exec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SPRITE_JS = join(__dirname, '..', '..', 'scripts', 'sprite.js');
 const PROJECT_NAME = 'tmp-export-test';
-const DEST = join(process.cwd(), 'assets', 'claude-sprites', PROJECT_NAME);
 
 describe('CLI aseprite export (group fps, pivot, atlas)', () => {
   let serverInfo;
   let state;
   let port;
+  let tmpCwd;
+  let DEST;
 
   beforeAll(async () => {
+    // The CLI exports to <cwd>/assets/claude-sprites/<project>; give it a private cwd, never the checkout.
+    tmpCwd = fs.mkdtempSync(join(os.tmpdir(), 'sprites-export-aseprite-'));
+    DEST = join(tmpCwd, 'assets', 'claude-sprites', PROJECT_NAME);
     const sessionDb = new SessionDB(':memory:');
     state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);
@@ -28,11 +33,12 @@ describe('CLI aseprite export (group fps, pivot, atlas)', () => {
   afterAll(async () => {
     serverInfo.wss.close();
     await new Promise(r => serverInfo.httpServer.close(r));
-    fs.rmSync(DEST, { recursive: true, force: true });
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
   });
 
   async function cli(...args) {
     const { stdout, stderr } = await exec(process.execPath, [SPRITE_JS, ...args], {
+      cwd: tmpCwd,
       env: { ...process.env, SPRITE_PORT: String(port) },
       timeout: 15000,
     });

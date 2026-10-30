@@ -1,12 +1,19 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { SessionDB } from '../../server/db/session.js';
 
 let db;
+let dir;
 beforeEach(() => {
-  db = new SessionDB(join(tmpdir(), `test-${Date.now()}.db`));
+  // A private directory per test: no shared file name between tests or checkouts, and removed afterwards.
+  dir = mkdtempSync(join(tmpdir(), 'sprite-session-'));
+  db = new SessionDB(join(dir, 'sessions.db'));
 });
-afterEach(() => db.close());
+afterEach(() => {
+  db.close();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 test('creates a new session', () => {
   const session = db.createSession({

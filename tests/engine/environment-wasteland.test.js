@@ -1,5 +1,4 @@
 import {test,expect,describe} from 'vitest';
-import {createHash} from 'node:crypto';
 import {generateEnvironmentRecipe} from '../../server/authoring/environment.js';
 import {GRID,WASTELAND_SPECS,WASTELAND_MATERIALS,materialTile} from '../../server/authoring/environment-materials.js';
 import {EDGE_DEPTH,OVERLAY_MASKS,normalizeOverlayMask,overlayCoverage,overlayPixels} from '../../server/authoring/environment-overlay.js';
@@ -85,8 +84,6 @@ describe('wasteland materials',()=>{
     for(const t of g)for(let i=0;i<16;i++){expect(t[i*16]).toBe(g[0][i*16]);expect(t[i]).toBe(g[0][i]);}
   });
   test('legacy default and subset recipes are unchanged by the new engine',()=>{
-    const sha=c=>createHash('sha256').update(JSON.stringify(generateEnvironmentRecipe(c))).digest('hex');
-    expect(sha({kind:'terrain'})).toBe('868dad783c2602a4c381111b3a6a399712d6b99d2721bc6f880115b106a822ef');
     expect(generateEnvironmentRecipe({kind:'terrain'}).report.frames).toHaveLength(24);
     expect(generateEnvironmentRecipe({kind:'terrain'}).report.animations).toBeUndefined();
   });

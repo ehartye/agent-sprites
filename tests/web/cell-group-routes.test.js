@@ -2,14 +2,16 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { startWebServer } from '../../server/web/http.js';
 import { Project } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('Cell + Group Routes', () => {
-  let info, db, state, baseUrl;
+  let info, db, state, baseUrl, dir;
 
   beforeAll(async () => {
-    db = new SessionDB(join(tmpdir(), `test-cell-${Date.now()}.db`));
+    dir = mkdtempSync(join(tmpdir(), 'sprite-cell-routes-'));
+    db = new SessionDB(':memory:');
     const project = Project.create({ name: 'test', cellSize: 16, rows: 4, cols: 4, palette: 'pico8' });
     // Draw something in cell 0,0 so we have content to work with
     const cell = project.cells.getCell('0,0');
@@ -17,8 +19,8 @@ describe('Cell + Group Routes', () => {
     const draft = JSON.stringify(project.toJSON());
     const session = db.createSession({
       project_name: 'test',
-      project_path: '/tmp',
-      destination_folder: '/tmp/assets',
+      project_path: dir,
+      destination_folder: join(dir, 'assets'),
       json_file: null,
       draft_json: draft,
     });
@@ -33,6 +35,7 @@ describe('Cell + Group Routes', () => {
       await new Promise(r => info.httpServer.close(r));
     }
     db?.close();
+    if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
   // --- Cell routes ---
@@ -40,7 +43,7 @@ describe('Cell + Group Routes', () => {
     const res = await fetch(`${baseUrl}/api/cells`);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.data).toBeDefined();
+    expect(JSON.stringify(body.data)).toContain('0,0');
   });
 
   test('POST /api/cell/name names a cell', async () => {
@@ -51,6 +54,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(state.project.cells.getCell('0,0').name).toBe('idle');
   });
 
   test('POST /api/cell/copy copies a cell', async () => {
@@ -61,6 +65,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(state.project.cells.getCell('0,1').shapes.get('test-shape').color).toBe('#ff0000');
   });
 
   // --- Cell group routes ---
@@ -72,6 +77,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getCellGroups(state.sessionId).walk).toEqual(['0,0', '0,1', '0,2']);
   });
 
   test('GET /api/group/cell/list lists cell groups', async () => {
@@ -89,6 +95,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getCellGroups(state.sessionId).walk).toEqual(['0,0', '0,1', '0,2', '0,3']);
   });
 
   test('POST /api/group/cell/remove removes cells from group', async () => {
@@ -99,6 +106,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getCellGroups(state.sessionId).walk).toEqual(['0,0', '0,1', '0,2']);
   });
 
   test('POST /api/group/cell/delete deletes a cell group', async () => {
@@ -109,6 +117,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getCellGroups(state.sessionId).walk).toBeUndefined();
   });
 
   // --- Shape group routes ---
@@ -120,6 +129,7 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getShapeGroups(state.sessionId, '0,0').body).toEqual(['test-shape']);
   });
 
   test('GET /api/group/shape/list lists shape groups', async () => {
@@ -137,5 +147,6 @@ describe('Cell + Group Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(db.getShapeGroups(state.sessionId, '0,0').body).toBeUndefined();
   });
 });

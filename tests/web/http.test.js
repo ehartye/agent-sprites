@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { WebSocket } from 'ws';
 import { startWebServer } from '../../server/web/http.js';
 import { readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -14,30 +15,30 @@ describe('Web Server Bootstrap', () => {
     servers.length = 0;
   });
 
-  it('starts on a given port and returns port info', async () => {
+  it('state.broadcast delivers a notification to a connected socket', async () => {
     const state = { project: null };
     const info = await startWebServer(state, 0);
     servers.push(info);
+    expect(state.wss).toBe(info.wss);
 
-    expect(info.port).toBeGreaterThan(0);
+    const socket = new WebSocket(`ws://127.0.0.1:${info.port}/`);
+    try {
+      await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
+      const received = new Promise((resolve, reject) => { socket.once('message', raw => resolve(JSON.parse(raw))); socket.once('error', reject); });
+      state.broadcast({ type: 'shutdown' });
+      expect(await received).toMatchObject({ type: 'shutdown' });
+    } finally {
+      socket.terminate();
+    }
   });
 
-  it('attaches broadcast function and wss to state', async () => {
-    const state = { project: null };
-    const info = await startWebServer(state, 0);
+  it('returns the listening httpServer on the reported port for lifecycle management', async () => {
+    const info = await startWebServer({ project: null }, 0);
     servers.push(info);
 
-    expect(typeof state.broadcast).toBe('function');
-    expect(state.wss).toBeDefined();
-  });
-
-  it('returns httpServer and wss for lifecycle management', async () => {
-    const state = { project: null };
-    const info = await startWebServer(state, 0);
-    servers.push(info);
-
-    expect(info.httpServer).toBeDefined();
-    expect(info.wss).toBeDefined();
+    expect(info.httpServer.listening).toBe(true);
+    expect(info.httpServer.address().port).toBe(info.port);
+    expect(info.wss.options.server).toBe(info.httpServer);
   });
 
   it('identifies the sprite service and protocol in health responses', async () => {

@@ -9,6 +9,7 @@ import os from 'os';
 import { join } from 'path';
 
 let refPath;
+let dir;
 
 beforeAll(() => {
   // A solid red 4x4 PNG to use as the reference image
@@ -16,12 +17,13 @@ beforeAll(() => {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ff0000';
   ctx.fillRect(0, 0, 4, 4);
-  refPath = join(os.tmpdir(), `sprites-ref-${Date.now()}.png`);
+  dir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-ref-'));
+  refPath = join(dir, 'ref.png');
   fs.writeFileSync(refPath, c.toBuffer('image/png'));
 });
 
 afterAll(() => {
-  fs.rmSync(refPath, { force: true });
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 describe('cell reference image', () => {
@@ -59,7 +61,7 @@ describe('cell reference image', () => {
 
   it('skips a missing reference file without failing', () => {
     const cell = new Cell(16);
-    cell.reference = { path: join(os.tmpdir(), 'nope-does-not-exist.png'), opacity: 0.5 };
+    cell.reference = { path: join(dir, 'nope-does-not-exist.png'), opacity: 0.5 };
     const renderer = new CanvasRenderer(new Palette());
     const raw = renderer.renderCellRaw(cell, { withReference: true });
     expect(raw[3]).toBe(0);

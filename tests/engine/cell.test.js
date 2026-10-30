@@ -199,6 +199,6 @@ describe('Cell', () => {
     const json = cell.toJSON();
     const restored = Cell.fromJSON(json, 16);
     expect(restored.name).toBe('test');
-    expect(restored.shapes.getByName('box')).toBeDefined();
+    expect(restored.shapes.getByName('box')).toMatchObject({ type: 'rect', params: { x: 0, y: 0, w: 5, h: 5, filled: true }, color: 'red' });
   });
 });

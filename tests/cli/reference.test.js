@@ -18,11 +18,13 @@ describe('CLI reference image', () => {
   let state;
   let port;
   let refPath;
+  let tmpDir;
 
   beforeAll(async () => {
     const c = createCanvas(4, 4);
     c.getContext('2d').fillRect(0, 0, 4, 4);
-    refPath = join(os.tmpdir(), `sprites-refcli-${Date.now()}.png`);
+    tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-refcli-'));
+    refPath = join(tmpDir, 'ref.png');
     fs.writeFileSync(refPath, c.toBuffer('image/png'));
     const sessionDb = new SessionDB(':memory:');
     state = { project: null, sessionId: null, db: sessionDb };
@@ -33,7 +35,7 @@ describe('CLI reference image', () => {
   afterAll(async () => {
     serverInfo.wss.close();
     await new Promise(r => serverInfo.httpServer.close(r));
-    fs.rmSync(refPath, { force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   async function cli(...args) {
@@ -64,7 +66,7 @@ describe('CLI reference image', () => {
   test('ref set with a bad path fails', async () => {
     let err;
     try {
-      await cli('ref', 'set', join(os.tmpdir(), 'no-such-ref.png'), '--cell', '0,0');
+      await cli('ref', 'set', join(tmpDir, 'no-such-ref.png'), '--cell', '0,0');
     } catch (e) { err = e; }
     expect(err).toBeDefined();
     expect(String(err.stderr || '')).toMatch(/exist|not found/i);

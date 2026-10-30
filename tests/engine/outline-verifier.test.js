@@ -2,6 +2,7 @@ import { test, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createCanvas } from 'canvas';
@@ -73,7 +74,7 @@ test.each([[],null,'#39283f',['plum'],['#fff'],[42]].map(value=>[value]))('rejec
 
 test('CLI passes outline colors through and exits nonzero on a broken contour without a server', async () => {
   ctx.fillRect(1,3,1,1); save();
-  const cli=join(process.cwd(),'scripts/sprite.js');
+  const cli=fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
   const result=await exec(process.execPath,[cli,'verify',file,'--outline-colors',outline,'--json'],{env:{...process.env,SPRITE_PORT:'1'},timeout:10000}).then(r=>({...r,code:0}),e=>e);
   expect(result.code).toBe(1);
   expect(JSON.parse(result.stdout).errors.some(e=>e.code==='outline-gap')).toBe(true);

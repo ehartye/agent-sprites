@@ -19,8 +19,7 @@ describe('CLI batch mode', () => {
   let tmpDir;
 
   beforeAll(async () => {
-    tmpDir = join(os.tmpdir(), `sprites-batch-test-${Date.now()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-batch-test-'));
     const sessionDb = new SessionDB(':memory:');
     state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);

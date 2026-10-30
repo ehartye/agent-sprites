@@ -2,21 +2,23 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { startWebServer } from '../../server/web/http.js';
 import { Project } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('shape groups travel with cloned cells', () => {
-  let info, db, state, baseUrl;
+  let info, db, state, baseUrl, dir;
   const post = (path, body) => fetch(`${baseUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
 
   beforeAll(async () => {
-    db = new SessionDB(join(tmpdir(), `test-group-clone-${Date.now()}.db`));
+    dir = mkdtempSync(join(tmpdir(), 'sprite-group-clone-'));
+    db = new SessionDB(':memory:');
     const project = Project.create({ name: 'test', cellSize: 16, rows: 2, cols: 3, palette: 'pico8' });
     const cell = project.cells.getCell('0,0');
     cell.draw('rect', { x: 0, y: 0, w: 4, h: 4, filled: true }, '#ff0000', 'patch_a');
     cell.draw('rect', { x: 6, y: 6, w: 4, h: 4, filled: true }, '#ff0000', 'patch_b');
     cell.draw('rect', { x: 12, y: 0, w: 2, h: 2, filled: true }, '#00ff00', 'other');
-    const session = db.createSession({ project_name: 'test', project_path: '/tmp', destination_folder: '/tmp/assets', json_file: null, draft_json: JSON.stringify(project.toJSON()) });
+    const session = db.createSession({ project_name: 'test', project_path: dir, destination_folder: join(dir, 'assets'), json_file: null, draft_json: JSON.stringify(project.toJSON()) });
     state = { project, sessionId: session.id, db };
     info = await startWebServer(state, 0);
     baseUrl = `http://localhost:${info.port}`;
@@ -25,7 +27,14 @@ describe('shape groups travel with cloned cells', () => {
     expect(db.getShapeGroups(state.sessionId, '0,0').patches).toEqual(['patch_a', 'patch_b']);
   });
 
-  afterAll(async () => { await info.close?.(); db.close(); });
+  afterAll(async () => {
+    if (info) {
+      info.wss.close();
+      await new Promise(r => info.httpServer.close(r));
+    }
+    db?.close();
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
 
   test('clone-fanout copies the source cell\'s shape groups so recolor-group works on the clones', async () => {
     const cloned = await post('/api/cell/clone-fanout', { from: '0,0', to: ['0,1', '0,2'] });

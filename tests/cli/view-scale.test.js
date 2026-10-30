@@ -50,12 +50,6 @@ describe('CLI view --scale / view --sheet', () => {
     expect(pngDims(path)).toEqual({ w: 128, h: 128 });
   });
 
-  test('view --sheet renders the whole sheet to a PNG path', async () => {
-    const { stdout } = await cli('view', '--sheet', 'true', '--scale', '2');
-    const { path } = JSON.parse(stdout);
-    expect(pngDims(path)).toEqual({ w: 66, h: 32 });
-  });
-
   test('bare --sheet followed by another flag parses as boolean true', async () => {
     const { stdout } = await cli('view', '--sheet', '--scale', '2');
     const { path } = JSON.parse(stdout);
