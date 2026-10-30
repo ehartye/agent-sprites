@@ -54,7 +54,7 @@ test('requires exact static frame aliases in array and JSON-hash atlases', () =>
 });
 
 test('offline CLI checks static names and emits a failed report before review output', async () => {
-  const cli=join(process.cwd(),'scripts/sprite.js');
+  const cli=fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
   const options={env:{...process.env,SPRITE_PORT:'1'},timeout:10000};
   const good=await exec(process.execPath,[cli,'verify',file,'--expect-frames','idle,0','--json'],options);
   expect(JSON.parse(good.stdout).ok).toBe(true);
@@ -233,7 +233,7 @@ test('rejects review output paths that would overwrite source artifacts', async 
   expect(readFileSync(file).equals(before)).toBe(true);
 });
 test('CLI verification is offline, emits JSON and returns failure for invalid exports', async () => {
-  const cli=join(process.cwd(),'scripts/sprite.js');
+  const cli=fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
   const options={env:{...process.env,SPRITE_PORT:'1'},timeout:10000};
   const good=await exec(process.execPath,[cli,'verify',file,'--expect-tags','blink','--json'],options);
   expect(JSON.parse(good.stdout).ok).toBe(true);

@@ -82,7 +82,6 @@ describe('ShapeRegistry', () => {
     reg.add(new Shape('rect', { x: 0, y: 0, w: 5, h: 5, filled: true }, 'red', { name: 'box' }));
     const json = reg.toJSON();
     const restored = ShapeRegistry.fromJSON(json);
-    expect(restored.getByName('box')).toBeDefined();
-    expect(restored.getByName('box').type).toBe('rect');
+    expect(restored.getByName('box')).toMatchObject({ type: 'rect', params: { x: 0, y: 0, w: 5, h: 5, filled: true }, color: 'red' });
   });
 });

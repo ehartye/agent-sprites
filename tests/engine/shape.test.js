@@ -4,7 +4,7 @@ import { Shape } from '../../server/engine/shape.js';
 describe('Shape', () => {
   it('creates a shape with auto-generated id', () => {
     const shape = new Shape('rect', { x: 0, y: 0, w: 5, h: 5, filled: true }, 'red');
-    expect(shape.id).toBeDefined();
+    expect(shape.id).toMatch(/^s\d+$/);
     expect(shape.type).toBe('rect');
     expect(shape.params).toEqual({ x: 0, y: 0, w: 5, h: 5, filled: true });
     expect(shape.color).toBe('red');

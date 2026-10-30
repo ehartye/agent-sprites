@@ -35,6 +35,9 @@ describe('CLI Script', () => {
     return { stdout: stdout.trim(), stderr: stderr.trim() };
   }
 
+  // The server runs in this process, so a resize can be checked against the live project state.
+  const radius = name => state.project.cells.getCell('0,0').shapes.getByName(name).params.r;
+
   test('status with no project', async () => {
     const { stdout } = await cli('status');
     const data = JSON.parse(stdout);
@@ -73,17 +76,20 @@ describe('CLI Script', () => {
     // Verify the shape was updated
     const { stdout: shapesOut } = await cli('shapes', '--cell', '0,0');
     expect(shapesOut).toContain('resizeme');
+    expect(radius('resizeme')).toBe(5);
   });
 
   test('resize with --updates JSON fallback still works', async () => {
     const { stdout } = await cli('resize', 'resizeme', '--cell', '0,0', '--updates', '{"r":4}');
     expect(stdout).toBeTruthy();
+    expect(radius('resizeme')).toBe(4);
   });
 
   test('resize individual flags override --updates JSON', async () => {
     // --r 6 should override the r:4 in --updates
     const { stdout } = await cli('resize', 'resizeme', '--cell', '0,0', '--updates', '{"r":4}', '--r', '6');
     expect(stdout).toBeTruthy();
+    expect(radius('resizeme')).toBe(6);
   });
 
   test('unknown command exits with error', async () => {

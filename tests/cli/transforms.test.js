@@ -19,8 +19,7 @@ describe('CLI transforms (mirror / flip / rotate / rotate-cell)', () => {
   let tmpDir;
 
   beforeAll(async () => {
-    tmpDir = join(os.tmpdir(), `sprites-transforms-test-${Date.now()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-transforms-test-'));
     const sessionDb = new SessionDB(':memory:');
     state = { project: null, sessionId: null, db: sessionDb };
     serverInfo = await startWebServer(state, 0);

@@ -2,20 +2,22 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { startWebServer } from '../../server/web/http.js';
 import { Project } from '../../server/engine/project.js';
 import { SessionDB } from '../../server/db/session.js';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('Draw + Shape Routes', () => {
-  let info, db, state, baseUrl;
+  let info, db, state, baseUrl, dir;
 
   beforeAll(async () => {
-    db = new SessionDB(join(tmpdir(), `test-draw-${Date.now()}.db`));
+    dir = mkdtempSync(join(tmpdir(), 'sprite-draw-routes-'));
+    db = new SessionDB(':memory:');
     const project = Project.create({ name: 'test', cellSize: 16, rows: 4, cols: 4, palette: 'pico8' });
     const draft = JSON.stringify(project.toJSON());
     const session = db.createSession({
       project_name: 'test',
-      project_path: '/tmp',
-      destination_folder: '/tmp/assets',
+      project_path: dir,
+      destination_folder: join(dir, 'assets'),
       json_file: null,
       draft_json: draft,
     });
@@ -30,6 +32,7 @@ describe('Draw + Shape Routes', () => {
       await new Promise(r => info.httpServer.close(r));
     }
     db?.close();
+    if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
   test('POST /api/draw creates a shape', async () => {
@@ -40,7 +43,9 @@ describe('Draw + Shape Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.data).toBeDefined();
+    const shapes = state.project.cells.getCell('0,0').shapes.listByZ();
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0]).toMatchObject({ type: 'rect', color: '#ff0000', params: { x: 0, y: 0, w: 4, h: 4 } });
   });
 
   test('GET /api/shapes returns shapes for a cell', async () => {
@@ -63,6 +68,7 @@ describe('Draw + Shape Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(state.project.cells.getCell('0,0').shapes.listByZ()[0].params).toMatchObject({ x: 1, y: 1 });
   });
 
   test('POST /api/shape/clone clones a shape', async () => {
@@ -77,6 +83,7 @@ describe('Draw + Shape Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(state.project.cells.getCell('0,0').shapes.listByZ()).toHaveLength(2);
   });
 
   test('POST /api/shape/delete deletes a shape', async () => {
@@ -92,5 +99,6 @@ describe('Draw + Shape Routes', () => {
     });
     const body = await res.json();
     expect(body.ok).toBe(true);
+    expect(state.project.cells.getCell('0,0').shapes.listByZ()).toHaveLength(1);
   });
 });

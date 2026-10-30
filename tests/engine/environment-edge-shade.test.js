@@ -75,5 +75,5 @@ test('the shipped wasteland example publishes shade bands for water and concrete
   const {readFileSync}=await import('node:fs');
   const config=JSON.parse(readFileSync(new URL('../../examples/environment/wasteland/sprite-project.json',import.meta.url),'utf8')).environment;
   const names=generateEnvironmentRecipe(config).report.frames.map(f=>f.alias);
-  expect(names).toContain('water-shade_1_0');expect(names).toContain('concrete-shade_255_2'.replace('255','85'));expect(names).not.toContain('dust-shade_1_0');
+  expect(names).toContain('water-shade_1_0');expect(names).toContain('concrete-shade_85_2');expect(names).not.toContain('dust-shade_1_0');
 });

@@ -1,3 +1,5 @@
+// @lane scheduled
+// Low-tier example generator (examples/**): runs in the scheduled lane, not the edit or merge lane.
 import {test,expect} from 'vitest';
 import {castTemplate} from '../examples/native-character/generate-cast.mjs';
 import {nativeMannequin} from '../examples/native-character/native-mannequin.mjs';

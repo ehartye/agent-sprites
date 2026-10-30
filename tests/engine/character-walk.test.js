@@ -1,3 +1,4 @@
+// @lane scheduled
 import { test, expect } from 'vitest';
 import { generateWalk } from '../../examples/character-walk/generate.mjs';
 import { buildProject } from '../../server/build/project-build.js';

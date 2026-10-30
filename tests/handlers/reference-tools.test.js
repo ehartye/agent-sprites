@@ -7,15 +7,17 @@ import os from 'os';
 import { join } from 'path';
 
 let refPath;
+let tmpDir;
 
 beforeAll(() => {
   const c = createCanvas(4, 4);
   c.getContext('2d').fillRect(0, 0, 4, 4);
-  refPath = join(os.tmpdir(), `sprites-reftool-${Date.now()}.png`);
+  tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'sprites-reftool-'));
+  refPath = join(tmpDir, 'ref.png');
   fs.writeFileSync(refPath, c.toBuffer('image/png'));
 });
 
-afterAll(() => fs.rmSync(refPath, { force: true }));
+afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
 describe('reference tool', () => {
   let state;
@@ -38,7 +40,7 @@ describe('reference tool', () => {
   });
 
   it('rejects a nonexistent file', () => {
-    expect(() => handleSetReference(state, { cell: '0,0', path: join(os.tmpdir(), 'missing-ref.png') }))
+    expect(() => handleSetReference(state, { cell: '0,0', path: join(tmpDir, 'missing-ref.png') }))
       .toThrow(/not found|exist/i);
   });
 
