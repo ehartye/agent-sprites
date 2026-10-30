@@ -142,6 +142,19 @@ Source: `.github/workflows/native-compatibility.yml` and `.github/workflows/page
 - **Timeouts.** A static search finds 32 test files that pass an explicit per-test timeout of 10 s or more (a five or six digit argument) and 2 that use `testTimeout` or a `timeout` option (overlap not checked), so about 33 files carry raised timeouts. The evidence shows the timeouts exist, not when they were raised. The default 5 s limit is real: `tests/native-large.test.js` hit it (6.07 s) under coverage overhead in one run.
 - **Platform acceptance.** The risk map declares ubuntu, windows and macos for the scheduled and release lanes. Preserve Windows acceptance. A non-blocking Linux observer on pull requests and weekly or release full runs are options in section 6; they are subject to owner policy and to the required-check settings, which this audit could not see.
 
+### Native admission (applied after this audit)
+
+The native compatibility workflow no longer starts its six-job matrix for every change. A cheap `admit` job runs `scripts/native-admission.mjs classify` on the change set and the matrix `needs` it:
+
+| Class | Examples | Runs |
+|---|---|---|
+| `native` | anything under `.github/`, `.claude-plugin/`, `scripts/`, `server/` or `tests/`, `vitest.config.js`, `package*.json` beyond version fields | the six-job matrix |
+| `unknown` | a path no rule names (for example `site/**` and `examples/**`), a path that cannot be read, an empty change set | the six-job matrix, because unknown widens |
+| `identity-only` | only the version fields of `package.json`, `package-lock.json` (both places), `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` | the cheap `Version identity` job, which checks the four versions agree |
+| `documentation-only` | root `*.md`, `docs/**`, `skills/**` and `recipes/**` Markdown, `LICENSE` | only `admit` |
+
+Every release and every manual dispatch runs the matrix without consulting the classifier. The native job's steps are unchanged. The classifier runs from the pull request's own checkout, so a pull request that edits it decides its own admission; any change under `scripts/` is classified native by the version on `main` at review time, but the version in the pull request decides. `main` has no required status checks, so a skipped matrix cannot block a pull request.
+
 ## 4. Totals
 
 - Estimated tokens in files marked delete or merge: 0. No file-level delete or merge verdict was issued. The two applied case-level removals (one test case in tests/web/http.test.js, one assertion in tests/engine/environment-wasteland.test.js) were not estimated. The two reverted proposals had been estimated at about 250 tokens together, and nothing was saved from them.
