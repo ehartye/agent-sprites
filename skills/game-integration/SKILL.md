@@ -223,7 +223,7 @@ Two gotchas:
 - **Phaser ignores the pivot slice** — call `sprite.setOrigin(0.5, 1)` in code for bottom-center characters. For Unity and Godot, check where the pivot lands after loading.
 - Frames carry both numeric indices and name aliases, so named-cell lookups (`setFrame('tomb')`) and tag playback both work from the same atlas.
 
-Unity/Godot: the vendors' Aseprite importers take `.aseprite` source files (Unity's 2D Aseprite Importer) or run the Aseprite program (the Godot Aseprite Wizard), and their documentation does not describe reading `<name>.atlas.json`. Write a small loader that builds clips from `meta.frameTags` and the per-frame durations, then check tag names, frame counts, durations and the pivot.
+Unity/Godot: the vendors' Aseprite importers take `.aseprite` source files (Unity's 2D Aseprite Importer) or run the Aseprite program (the Godot Aseprite Wizard), and their documentation does not describe reading `<name>.atlas.json`. Copy a tested loader instead: [`examples/godot`](../../examples/godot/README.md) (Godot 4.7.2) or [`examples/unity`](../../examples/unity/README.md) (Unity 6000.6.0f1). Both honour the tag range, per-frame durations, all four directions, the loop flag, trimmed offsets and the pivot, and are checked against the shared [`examples/atlas-fixtures`](../../examples/atlas-fixtures/README.md). Still check tag names and where the pivot lands in your own scene.
 
 ## App icons from sprites
 

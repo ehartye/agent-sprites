@@ -1,0 +1,98 @@
+{
+ "note": "Generated from the atlas by tests/engine/engine-loader-fixtures.test.js. Do not edit by hand.",
+ "fixture": "trimmed",
+ "image": "trimmed.png",
+ "atlas": "trimmed.atlas.json",
+ "pivot": {
+  "x": 16,
+  "y": 22
+ },
+ "tags": [
+  {
+   "name": "sweep",
+   "direction": "pingpong_reverse",
+   "loop": false,
+   "steps": [
+    {
+     "index": 5,
+     "duration": 200
+    },
+    {
+     "index": 4,
+     "duration": 125
+    },
+    {
+     "index": 3,
+     "duration": 75
+    },
+    {
+     "index": 4,
+     "duration": 125
+    }
+   ],
+   "durationMs": 525,
+   "frames": {
+    "3": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 30,
+      "h": 22
+     },
+     "offset": {
+      "x": 1,
+      "y": 1
+     },
+     "sourceSize": {
+      "w": 32,
+      "h": 24
+     },
+     "pivot": {
+      "x": 16,
+      "y": 22
+     }
+    },
+    "4": {
+     "frame": {
+      "x": 30,
+      "y": 0,
+      "w": 30,
+      "h": 22
+     },
+     "offset": {
+      "x": 1,
+      "y": 1
+     },
+     "sourceSize": {
+      "w": 32,
+      "h": 24
+     },
+     "pivot": {
+      "x": 16,
+      "y": 22
+     }
+    },
+    "5": {
+     "frame": {
+      "x": 60,
+      "y": 0,
+      "w": 30,
+      "h": 22
+     },
+     "offset": {
+      "x": 1,
+      "y": 1
+     },
+     "sourceSize": {
+      "w": 32,
+      "h": 24
+     },
+     "pivot": {
+      "x": 16,
+      "y": 22
+     }
+    }
+   }
+  }
+ ]
+}
