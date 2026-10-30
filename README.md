@@ -330,7 +330,7 @@ highlight, from the orphan and rare-colour checks. Deliberate dithering and
 anti-aliasing also trip `--orphan-pixels` and `--min-color-pixels`, so allow their
 colours or leave those options off for such art.
 
-`Invoke-Sprite verify .publicarthero.atlas.json --orphan-pixels --max-colors 12 --allow-colors "#ffffff"`
+`Invoke-Sprite verify public/art/hero.atlas.json --orphan-pixels --max-colors 12 --allow-colors "#ffffff"`
 
 `--review` adds an advisory report: distinct opaque colours per frame and per tag,
 a value ladder (distinct gray levels, lowest, highest and spread) and the WCAG
@@ -341,7 +341,7 @@ that ratio `belowMin`; a pair naming a colour absent from the atlas shows
 `present: false`. The review never adds an error or warning and never changes the
 exit code. It does not include a colour-vision palette distance.
 
-`Invoke-Sprite verify .publicarthero.atlas.json --review --pairs "#f0e0c0:#202030" --min-contrast 4.5`
+`Invoke-Sprite verify public/art/hero.atlas.json --review --pairs "#f0e0c0:#202030" --min-contrast 4.5`
 
 ```text
 Review (advisory, not enforced):
