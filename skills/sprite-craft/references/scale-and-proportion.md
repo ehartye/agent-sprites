@@ -262,45 +262,16 @@ are multiples of k. Every layer should return the same k (anchor draw scale x ca
 and zoom 3). A different k, or a k of 1 with a scatter of runs (2, 3, 4, 5...), means a mixel or a fractional scale.
 Outline thickness is the most common run length at the edges of dark pixels, so compare that number too.
 
-```python
-# pxstep.py - python pxstep.py shot.png [x0 y0 x1 y1]
-# Measures integer pixel-step frequencies in a screenshot crop.
-import sys
-from collections import Counter
-from PIL import Image
-
-def runs(img):
-    px, (w, h), out = img.convert("RGBA").load(), img.size, Counter()
-    for horiz in (True, False):
-        for a in range(h if horiz else w):
-            n, prev = 0, None
-            for b in range(w if horiz else h):
-                p = px[b, a] if horiz else px[a, b]
-                p = p if p[3] else None
-                if p is not None and p == prev:
-                    n += 1
-                else:
-                    if prev is not None:
-                        out[n] += 1
-                    n, prev = 1, p
-            if prev is not None:
-                out[n] += 1
-    return out
-
-def step(img, coverage=0.9):
-    c = runs(img)
-    total = sum(c.values())
-    for k in range(12, 0, -1):
-        if sum(v for r, v in c.items() if r % k == 0) >= coverage * total:
-            return k, c
-    return 1, c
-
-im = Image.open(sys.argv[1])
-if len(sys.argv) == 6:
-    im = im.crop(tuple(map(int, sys.argv[2:6])))
-k, c = step(im)
-print("pixel step:", k, "| most common runs:", c.most_common(5))
+```sh
+node "<plugin-root>/scripts/run-managed.js" pixel-step shot.png --crop 4,4,20,20
+# Pixel step: 2
+# Coverage: 0.9
+# Runs (length x count): 2 x 48, 12 x 24, 16 x 8
 ```
+
+`pixel-step <png> [--crop x0,y0,x1,y1] [--coverage 0.9] [--json]` counts same-colour runs along rows
+and columns (transparent pixels break a run; crop x1 and y1 are exclusive) and returns the largest
+step k, searched down from 12, for which at least the coverage share of runs are multiples of k.
 
 Calibrate on a sheet crop: a source sheet reports 1 (no common factor above 1 is expected); the same
 crop nearest-doubled reports 2; scaled 1.5x it reports 1 with runs of 2, 3 and 1 mixed, which is the

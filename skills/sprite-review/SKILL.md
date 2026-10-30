@@ -36,6 +36,19 @@ from a description.
 | Scale contract: the anchor (character source size, draw scale), each layer's source size, draw scale and measured pixel step, and the exempt list | Mixels, wrong-size assets, undeclared exceptions |
 
 Instrument what the eye cannot judge (counts, contrast ratios); do not instrument taste.
+
+Two commands produce these numbers (`<plugin-root>` is two parents up from this skill):
+
+```sh
+node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --review --pairs "#f0e0c0:#202030" --min-contrast 4.5
+node "<plugin-root>/scripts/run-managed.js" pixel-step shot.png --crop 4,4,20,20
+```
+
+`verify --review` prints distinct colours per frame and per tag (the palette table),
+the gray-level ladder (the grayscale view, as numbers) and the WCAG contrast of the
+pairs you declare. It is advisory and never fails the run; it has no colour-vision
+palette distance, so judge colour-blind safety by eye. `pixel-step` returns the
+on-screen pixel step k of a screenshot crop for the scale contract.
 Record which view each finding came from.
 
 ## 3. Score against the rubric
@@ -72,8 +85,8 @@ Add **Motion** (timing, stable clusters between frames) only for animated art, u
 
 **Gates.** A 0 or 1 on silhouette, value or fit-to-context fails the asset regardless of
 average. **The scale contract is a hard gate:** state the anchor, then list each layer's effective
-scale (draw scale from code, confirmed by the pixel-step measurement in
-[scale and proportion](../sprite-craft/references/scale-and-proportion.md)). Any layer off the
+scale (draw scale from code, confirmed by `pixel-step` on a crop of that layer, see
+[scale and proportion](../sprite-craft/references/scale-and-proportion.md) section 8). Any layer off the
 anchor fails the review unless it is on the exempt list with a reason (UI, text, map, title art,
 small effects). An unmeasured contract is reported as not reviewed, not as passed. **Bands** for the mean of measured and viewed scores: 3.3+ ship, 2.5-3.3 polish,
 below 2.5 rework.

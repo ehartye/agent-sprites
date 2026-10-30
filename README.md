@@ -321,6 +321,48 @@ Empty frames produce warnings. Structural failures return a nonzero exit code;
 passing does not certify artwork, facing, or animation quality. Inspect the
 contact sheet and play the animations before integrating them.
 
+Pixel-hygiene thresholds are off unless given, count only fully opaque pixels and
+fail the run (exit 1) when they trip: `--orphan-pixels` (an opaque pixel with no
+same-colour 8-neighbour; diagonal staircases pass; code `orphan-pixels`),
+`--max-colors N` (`palette-budget`) and `--min-color-pixels N` (`rare-colors`).
+`--allow-colors "#fffaf0"` exempts deliberate lone colours, such as an eye
+highlight, from the orphan and rare-colour checks. Deliberate dithering and
+anti-aliasing also trip `--orphan-pixels` and `--min-color-pixels`, so allow their
+colours or leave those options off for such art.
+
+`Invoke-Sprite verify .publicarthero.atlas.json --orphan-pixels --max-colors 12 --allow-colors "#ffffff"`
+
+`--review` adds an advisory report: distinct opaque colours per frame and per tag,
+a value ladder (distinct gray levels, lowest, highest and spread) and the WCAG
+contrast ratio of pairs you declare with `--pairs "#a:#b,#c:#d"` or
+`--pairs-file pairs.json` (a JSON array of `["#a","#b"]`; the two are mutually
+exclusive and print only with `--review`). `--min-contrast 4.5` marks a pair below
+that ratio `belowMin`; a pair naming a colour absent from the atlas shows
+`present: false`. The review never adds an error or warning and never changes the
+exit code. It does not include a colour-vision palette distance.
+
+`Invoke-Sprite verify .publicarthero.atlas.json --review --pairs "#f0e0c0:#202030" --min-contrast 4.5`
+
+```text
+Review (advisory, not enforced):
+  atlas: 4 colors, ladder 4 levels (33 to 255, spread 222)
+  tag idle (frames 0 to 1, 2 rects): 4 colors, ladder 4 levels (33 to 255, spread 222)
+  pair #f0e0c0:#202030: contrast 12.31:1, present true, belowMin false
+```
+
+To check that every layer of a game screenshot renders at the same whole-pixel
+step, run `Invoke-Sprite pixel-step shot.png --crop 4,4,20,20 --coverage 0.9 --json`.
+It counts same-colour runs along rows and columns (transparent pixels break a
+run; crop `x1,y1` are exclusive) and prints the largest step k, searched down
+from 12, for which at least the coverage share of runs are multiples of k, plus
+the common run lengths and their counts.
+
+```text
+Pixel step: 2
+Coverage: 0.9
+Runs (length x count): 2 x 48, 12 x 24, 16 x 8
+```
+
 ### Scrub source-linked construction
 
 Enable `"replay": { "cells": ["0,0"], "maxSteps": 512 }` in a build config.
@@ -651,10 +693,10 @@ project. These native skills call the same managed CLI:
 | `sprite-motion` | Squash/stretch, shadow-as-elevation, timing, key poses, independent child animation composition |
 | `sprite-palette` | Palette selection, ramp-aware base colors, headroom |
 | `sprite-craft` | Expert craft rules and critique order: silhouette, value, outlines, clusters, dithering, small-sprite motion |
-| `sprite-review` | Scores art against a written rubric, with an evidence kit, and writes a prioritized remediation plan |
+| `sprite-review` | Scores art against a written rubric, with an evidence kit (`pixel-step`, `verify --review`), and writes a prioritized remediation plan |
 | `sprite-composition` | Draw order discipline, naming conventions, sheet layout |
 | `game-integration` | Wiring exports into Phaser/Unity/Godot, full-game asset builds, app icons |
-| `sprite-verification` | Source-cell and atlas checks, per-frame inspection, animation review |
+| `sprite-verification` | Source-cell and atlas checks, opt-in pixel-hygiene thresholds, advisory `verify --review`, per-frame inspection, animation review |
 
 Agents can read the relevant `skills/<name>/SKILL.md` directly. The editing skill
 explains invocation without requiring Claude-specific environment variables;

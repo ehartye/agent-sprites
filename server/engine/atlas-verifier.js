@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, realpathSync, existsSync, statSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { createCanvas, loadImage } from 'canvas';
+import { parseHex, buildReview } from './verify-review.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 export function atlasFrames(atlas) {
@@ -159,8 +160,37 @@ function outlineGaps(pixels, width, height, colors) {
   return {count,pixels:samples};
 }
 
+/** Distinct fully opaque (alpha 255) colors of an RGBA array: Map of packed 0xRRGGBB to pixel count. */
+export function countOpaqueColors(pixels) {
+  const counts = new Map();
+  for (let i=0; i<pixels.length; i+=4) {
+    if (pixels[i+3]!==255) continue;
+    const c=(pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2];
+    counts.set(c,(counts.get(c)??0)+1);
+  }
+  return counts;
+}
+
+// Pixel hygiene for small-sprite art. Colors are packed 0xRRGGBB; only fully opaque pixels count.
+// orphans: opaque pixels with no 8-neighbour of the same color (staircase diagonals still touch), minus allowed colors.
+// palette: distinct opaque colors, and colors used by fewer than minColorPixels pixels (minus allowed colors).
+function pixelHygiene(pixels, width, height, { orphans, maxColors, minColorPixels, allow }) {
+  const rgbAt = (x,y) => { if (x<0 || y<0 || x>=width || y>=height) return -1; const i=(y*width+x)*4; return pixels[i+3]===255 ? (pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2] : -1; };
+  const counts = countOpaqueColors(pixels), orphan = [];
+  if (orphans) for (let y=0; y<height; y++) for (let x=0; x<width; x++) {
+    const c = rgbAt(x,y);
+    if (c<0 || allow.has(c)) continue;
+    let touches = false;
+    for (let dy=-1; dy<=1 && !touches; dy++) for (let dx=-1; dx<=1; dx++) if ((dx||dy) && rgbAt(x+dx,y+dy)===c) { touches = true; break; }
+    if (!touches) orphan.push({x,y});
+  }
+  const hex = c => '#'+c.toString(16).padStart(6,'0');
+  const rare = minColorPixels ? [...counts].filter(([c,n]) => n<minColorPixels && !allow.has(c)).map(([c,n]) => ({color:hex(c),pixels:n})) : [];
+  return { orphan, colors: counts.size, overBudget: maxColors!==undefined && counts.size>maxColors, rare };
+}
+
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4, maxAspect } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4, maxAspect, orphanPixels = false, maxColors, minColorPixels, allowColors = [], review = false, pairs, minContrast } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -181,6 +211,19 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     if (outlineColors !== undefined && (!Array.isArray(outlineColors) || !outlineColors.length || outlineColors.some(c => typeof c!=='string' || !/^#[0-9a-f]{6}$/i.test(c)))) {
       fail('outline-colors', 'outlineColors must be a nonempty array of #RRGGBB colors.'); return report;
     }
+    const hexList = (v, what) => { if (!Array.isArray(v) || v.some(c => typeof c!=='string' || !/^#[0-9a-f]{6}$/i.test(c))) { fail(what, `${what} must be an array of #RRGGBB colors.`); return null; } return new Set(v.map(c=>parseInt(c.slice(1),16))); };
+    const allow = hexList(allowColors, 'allow-colors');
+    if (!allow) return report;
+    for (const [name, v] of [['max-colors', maxColors], ['min-color-pixels', minColorPixels]]) {
+      if (v !== undefined && (!Number.isInteger(v) || v < 1)) { fail(name, `${name} must be a positive integer.`); return report; }
+    }
+    let pairColors;
+    if (pairs !== undefined) {
+      pairColors = Array.isArray(pairs) ? pairs.map(p => Array.isArray(p) && p.length===2 ? p.map(parseHex) : [null]) : null;
+      if (!pairColors || pairColors.some(p => p.includes(null))) { fail('pairs', 'pairs must be an array of [foreground, background] #rgb or #rrggbb colors.'); return report; }
+    }
+    if (minContrast !== undefined && (typeof minContrast!=='number' || !Number.isFinite(minContrast) || minContrast <= 0)) { fail('min-contrast', 'min-contrast must be a positive number.'); return report; }
+    const hygiene = orphanPixels || maxColors !== undefined || minColorPixels !== undefined;
     const contourColors = outlineColors === undefined ? null : new Set(outlineColors.map(c=>parseInt(c.slice(1),16)));
     let image;
     try {
@@ -192,14 +235,32 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     if (!report.ok) return report;
     const frames = atlasFrames(atlas);
     const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
-    const checkedContours = new Set();
+    const checkedContours = new Set(), checkedHygiene = new Set(), reviewRects = new Map(), frameKeys = [];
     if (contourColors) report.outlineColors = outlineColors;
+    if (hygiene) report.pixelHygiene = { orphanPixels, ...(maxColors!==undefined ? {maxColors} : {}), ...(minColorPixels!==undefined ? {minColorPixels} : {}), allowColors };
     for (const [i, f] of frames.entries()) {
       const r = f.frame, pixels = ctx.getImageData(r.x, r.y, r.w, r.h).data;
       let visible = false;
       for (let j = 3; j < pixels.length; j += 4) if (pixels[j]) { visible = true; break; }
       if (!visible) report.warnings.push({ code: 'empty-frame', path: `frames[${i}]`, message: `Frame ${f.filename} is fully transparent; confirm this is intentional.` });
       const key = `${r.x},${r.y},${r.w},${r.h}`;
+      if (review) { frameKeys.push(key); if (!reviewRects.has(key)) reviewRects.set(key, { counts: countOpaqueColors(pixels), path: `frames[${i}]`, filename: f.filename }); }
+      if (visible && hygiene && !checkedHygiene.has(key)) {
+        checkedHygiene.add(key);
+        const h = pixelHygiene(pixels, r.w, r.h, { orphans: orphanPixels, maxColors, minColorPixels, allow });
+        if (h.orphan.length) {
+          report.ok = false;
+          report.errors.push({code:'orphan-pixels',path:`frames[${i}]`,message:`Frame ${f.filename} has ${h.orphan.length} orphan pixels (no same-colored 8-neighbour). Samples are packed-frame-local coordinates.`,count:h.orphan.length,pixels:h.orphan.slice(0,16)});
+        }
+        if (h.overBudget) {
+          report.ok = false;
+          report.errors.push({code:'palette-budget',path:`frames[${i}]`,message:`Frame ${f.filename} uses ${h.colors} opaque colors; the budget is ${maxColors}.`,colors:h.colors,max:maxColors});
+        }
+        if (h.rare.length) {
+          report.ok = false;
+          report.errors.push({code:'rare-colors',path:`frames[${i}]`,message:`Frame ${f.filename} has ${h.rare.length} color(s) used by fewer than ${minColorPixels} pixels (allow deliberate ones with --allow-colors).`,rare:h.rare.slice(0,16)});
+        }
+      }
       if (visible && contourColors && !checkedContours.has(key)) {
         checkedContours.add(key);
         const gaps = outlineGaps(pixels, r.w, r.h, contourColors);
@@ -209,6 +270,7 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
         }
       }
     }
+    if (review) report.review = buildReview(reviewRects, frameKeys, atlas.meta?.frameTags ?? [], { pairs: pairColors, minContrast });
     if (contactPath) {
       if (!Number.isInteger(scale) || scale < 1 || scale > 16) throw new Error('Contact scale must be an integer from 1 to 16.');
       const sheet = contactSheet(image, frames, scale, contactFrames);

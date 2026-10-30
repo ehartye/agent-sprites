@@ -136,6 +136,14 @@ function timingNumber(value, label) {
   return Number(value);
 }
 
+const ladderText = l => `ladder ${l.levels} level${l.levels === 1 ? '' : 's'}${l.levels ? ` (${l.lowest} to ${l.highest}, spread ${l.spread})` : ''}`;
+function printReview(review) {
+  console.log('Review (advisory, not enforced):');
+  console.log(`  atlas: ${review.atlas.colors} colors, ${ladderText(review.atlas.ladder)}`);
+  for (const tag of review.tags) console.log(`  tag ${tag.name} (frames ${tag.from} to ${tag.to}, ${tag.rects} rect${tag.rects === 1 ? '' : 's'}): ${tag.colors} colors, ${ladderText(tag.ladder)}`);
+  for (const pair of review.pairs ?? []) console.log(`  pair ${pair.foreground}:${pair.background}: contrast ${pair.ratio}:1, present ${pair.present}${pair.belowMin === undefined ? '' : `, belowMin ${pair.belowMin}`}`);
+}
+
 // A file transports exact IDs without the operating system's argv length cap.
 // Bound the actual read, including growth after fstat, rather than only its size.
 function expectedFramesFromFile(path, outputs) {
@@ -296,7 +304,15 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          isolated build of PNG, atlas, editable project and playable preview
   verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--contact-sheet review.png] [--contact-frames idle_front_0,walk_right_*]
                       [--outline-colors "#39283f,#573858"] [--report report.json] [--scale 4] [--json]
+                      [--orphan-pixels] [--max-colors 12] [--min-color-pixels 4] [--allow-colors "#fffaf0"]
+                      [--review [--pairs "#fff:#000,#ccc:#222" | --pairs-file pairs.json] [--min-contrast 4.5]]
                          inspect actual PNG + metadata; optional continuous-outline check
+                         --orphan-pixels, --max-colors, --min-color-pixels fail the run (exit 1) only when given;
+                         --allow-colors exempts the listed colors from those checks
+                         --review adds advisory numbers (colors, value ladder, contrast of declared pairs); it never
+                         adds an error or changes the exit code
+  pixel-step <image.png> [--crop x0,y0,x1,y1] [--coverage 0.9] [--json]
+                         measure the whole-pixel step k of an upscaled sprite from same-color runs; x1,y1 exclusive
 
 DRAWING  (draw <type> --cell R,C --color <hex|name> [--name <shape_name>])
   draw point     --x --y
@@ -575,8 +591,56 @@ async function run() {
     }
     return;
   }
+  if (cmd === 'pixel-step') {
+    const usage = 'Usage: agent-sprites pixel-step <image.png> [--crop x0,y0,x1,y1] [--coverage 0.9] [--json]';
+    if (positional.length !== 1 || Object.keys(args).some(key => !['crop', 'coverage', 'json'].includes(key))) throw new Error(usage);
+    let crop;
+    if (args.crop !== undefined) {
+      const parts = typeof args.crop === 'string' ? args.crop.split(',').map(x => x.trim()) : [];
+      if (parts.length !== 4 || parts.some(x => !/^\d+$/.test(x))) throw new Error('--crop must be four whole numbers x0,y0,x1,y1 (x1 and y1 are exclusive).');
+      crop = parts.map(Number);
+    }
+    if (args.coverage !== undefined && (typeof args.coverage !== 'string' || !args.coverage.trim() || !Number.isFinite(Number(args.coverage)))) throw new Error('--coverage must be a number above 0 and at most 1.');
+    const coverage = args.coverage === undefined ? undefined : Number(args.coverage);
+    if (!existsSync(positional[0]) || !statSync(positional[0]).isFile()) throw new Error(`pixel-step: ${positional[0]} is not a readable image file.`);
+    const { pixelStep, readImagePixels } = await import('../server/engine/pixel-step.js');
+    let image;
+    try { image = await readImagePixels(positional[0]); }
+    catch (error) { throw new Error(`pixel-step: could not decode ${positional[0]} as a PNG: ${error.message}`); }
+    const result = pixelStep(image, { crop, ...(coverage === undefined ? {} : { coverage }) });
+    if (bool(args.json)) console.log(JSON.stringify(result));
+    else {
+      console.log(`Pixel step: ${result.k}`);
+      console.log(`Coverage: ${result.coverage}`);
+      console.log(result.runs.length ? `Runs (length x count): ${result.runs.map(r => `${r.length} x ${r.count}`).join(', ')}` : 'Runs: none (no opaque pixels)');
+    }
+    return;
+  }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--outline-colors "#39283f"] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--outline-colors "#39283f"] [--orphan-pixels] [--max-colors 12] [--min-color-pixels 4] [--allow-colors "#fffaf0"] [--review] [--pairs "#fff:#000" | --pairs-file pairs.json] [--min-contrast 4.5] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (Object.hasOwn(args, 'pairs') && Object.hasOwn(args, 'pairs-file')) throw new Error('--pairs and --pairs-file are mutually exclusive.');
+    const optionNumber = name => {
+      if (args[name] === undefined) return undefined;
+      if (typeof args[name] !== 'string' || !args[name].trim() || !Number.isFinite(Number(args[name]))) throw new Error(`--${name} must be a number.`);
+      return Number(args[name]);
+    };
+    const maxColors = optionNumber('max-colors'), minColorPixels = optionNumber('min-color-pixels'), minContrast = optionNumber('min-contrast');
+    for (const name of ['allow-colors', 'pairs']) if (Object.hasOwn(args, name) && (typeof args[name] !== 'string' || !args[name].trim())) throw new Error(`--${name} needs a value.`);
+    const allowColors = args['allow-colors'] === undefined ? [] : String(args['allow-colors']).split(',').map(x => x.trim()).filter(Boolean);
+    let pairs;
+    if (args.pairs !== undefined) {
+      pairs = String(args.pairs).split(',').map(x => x.trim()).filter(Boolean).map(item => {
+        const parts = item.split(':').map(x => x.trim());
+        if (parts.length !== 2 || !parts[0] || !parts[1]) throw new Error(`--pairs entries must look like "#foreground:#background", got "${item}".`);
+        return parts;
+      });
+    } else if (Object.hasOwn(args, 'pairs-file')) {
+      if (typeof args['pairs-file'] !== 'string' || !args['pairs-file'].length) throw new Error('--pairs-file requires a nonempty file path.');
+      try { pairs = JSON.parse(readFileSync(args['pairs-file'], 'utf8')); }
+      catch (error) { throw new Error(`--pairs-file could not be read as JSON: ${error.message}`); }
+      if (!Array.isArray(pairs)) throw new Error('--pairs-file must contain a JSON array of [foreground, background] pairs.');
+    }
+    const review = bool(args.review);
     const fileFrames = Object.hasOwn(args, 'expect-frames-file');
     if (fileFrames && Object.hasOwn(args, 'expect-frames')) throw new Error('--expect-frames-file and --expect-frames are mutually exclusive.');
     const expectedFrames = fileFrames ? expectedFramesFromFile(args['expect-frames-file'], [args.report, args['contact-sheet']]) : args['expect-frames'] ? String(args['expect-frames']).split(',') : [];
@@ -586,12 +650,14 @@ async function run() {
       expectedFrames,
       outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
       contactPath: args['contact-sheet'], contactFrames: args['contact-frames'] ? String(args['contact-frames']).split(',').map(x=>x.trim()).filter(Boolean) : [], reportPath: args.report, scale: num(args.scale) ?? 4, maxAspect: num(args['max-aspect']),
+      orphanPixels: bool(args['orphan-pixels']), maxColors, minColorPixels, allowColors, review, pairs, minContrast,
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors ? 'structural and outline checks' : 'structural checks only'})`);
+      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors || report.pixelHygiene ? 'structural' + (report.outlineColors ? ', outline' : '') + (report.pixelHygiene ? ', pixel-hygiene' : '') + ' checks' : 'structural checks only'})`);
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+      if (report.review) printReview(report.review);
     }
     if (!report.ok) process.exitCode = 1;
     return;
