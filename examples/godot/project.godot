@@ -1,0 +1,11 @@
+; Engine configuration file for the agent-sprites atlas loader example.
+config_version=5
+
+[application]
+
+config/name="agent-sprites atlas loader"
+config/features=PackedStringArray("4.7")
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0

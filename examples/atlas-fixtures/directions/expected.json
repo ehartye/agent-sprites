@@ -1,0 +1,424 @@
+{
+ "note": "Generated from the atlas by tests/engine/engine-loader-fixtures.test.js. Do not edit by hand.",
+ "fixture": "directions",
+ "image": "directions.png",
+ "atlas": "directions.atlas.json",
+ "pivot": {
+  "x": 6,
+  "y": 11
+ },
+ "tags": [
+  {
+   "name": "forward-run",
+   "direction": "forward",
+   "loop": true,
+   "steps": [
+    {
+     "index": 4,
+     "duration": 80
+    },
+    {
+     "index": 5,
+     "duration": 120
+    },
+    {
+     "index": 6,
+     "duration": 160
+    },
+    {
+     "index": 7,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "4": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "5": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "6": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "7": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "pingpong-loop",
+   "direction": "pingpong",
+   "loop": true,
+   "steps": [
+    {
+     "index": 8,
+     "duration": 80
+    },
+    {
+     "index": 9,
+     "duration": 120
+    },
+    {
+     "index": 10,
+     "duration": 160
+    },
+    {
+     "index": 11,
+     "duration": 240
+    },
+    {
+     "index": 10,
+     "duration": 160
+    },
+    {
+     "index": 9,
+     "duration": 120
+    }
+   ],
+   "durationMs": 880,
+   "frames": {
+    "8": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "9": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "10": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "11": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "pingpong-reverse-once",
+   "direction": "pingpong_reverse",
+   "loop": false,
+   "steps": [
+    {
+     "index": 14,
+     "duration": 240
+    },
+    {
+     "index": 13,
+     "duration": 160
+    },
+    {
+     "index": 12,
+     "duration": 120
+    },
+    {
+     "index": 13,
+     "duration": 160
+    }
+   ],
+   "durationMs": 680,
+   "frames": {
+    "12": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "13": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "14": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "reverse-once",
+   "direction": "reverse",
+   "loop": false,
+   "steps": [
+    {
+     "index": 18,
+     "duration": 240
+    },
+    {
+     "index": 17,
+     "duration": 160
+    },
+    {
+     "index": 16,
+     "duration": 120
+    },
+    {
+     "index": 15,
+     "duration": 80
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "15": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "16": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "17": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "18": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  }
+ ]
+}
