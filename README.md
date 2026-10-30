@@ -50,7 +50,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
 - **Pattern fills** — any filled rect/circle/ellipse/polygon takes `--pattern checker|stripes|sparse|scatter --color2 <hex>` for two-color dither fills in one op (pointillism, texture, gradients by band); `recolor --color2` swaps the second color later
 - **Feedback loop** — `view` renders any cell/group/sheet to PNG (`--scale` for nearest-neighbor upscales, `--out` to a chosen path) that the agent reads back; the web UI mirrors every operation in real time over WebSocket
-- **Game-ready export** — gapless sheet PNG + Aseprite JSON atlas (`meta.frameTags` from cell groups, per-frame durations from group fps, pivot slice). Phaser, Unity, and Godot importers consume it directly
+- **Game-ready export** — gapless sheet PNG + Aseprite JSON atlas (`meta.frameTags` from cell groups, per-frame durations from group fps, pivot slice). Phaser reads it directly; Unity and Godot need a small loader (Unity's 2D Aseprite Importer reads `.aseprite` files, and the Godot Aseprite Wizard runs Aseprite itself)
 - **Batch mode + recipes** — JSON op arrays with `{{var}}` substitution and per-frame vars files; generate large builds from a small JS script (see `recipes/` and the `game-integration` skill)
 - **Animation** — cell groups with fps, server-side `tween` with easing, cell mirror/rotate for direction variants, repeated cells for 4-beat walk cycles
 - **Palettes** — pico8, gameboy, nes, cga; ramp-aware: pico8, db-16, db-32
@@ -466,7 +466,7 @@ exported durations, pause, step, and zoom. Saved projects retain cell groups,
 animation speeds, shape groups, names and pivots when reopened.
 
 Optional `trim: true` publishes a trimmed atlas (opaque bounding boxes with real
-`spriteSourceSize` offsets, the layout Phaser, Unity and Godot importers honor);
+`spriteSourceSize` offsets, the layout Phaser honors; a Unity or Godot loader must apply the offsets itself);
 it needs a transparent background and is not available for UI builds. `export
 --trim true` does the same for a live session.
 
