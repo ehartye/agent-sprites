@@ -221,7 +221,18 @@ img.setFrame('tomb');                          // named cell = named frame
 Two gotchas:
 
 - **Phaser ignores the pivot slice** — call `sprite.setOrigin(0.5, 1)` in code for bottom-center characters. For Unity and Godot, check where the pivot lands after loading.
-- Frames carry both numeric indices and name aliases, so named-cell lookups (`setFrame('tomb')`) and tag playback both work from the same atlas.
+- Frames carry both numeric indices and name aliases, so named-cell lookups (`setFrame('tomb')`) and tag playback both work from the same atlas. Aliases sit after every tag range, so they never disturb tag lookup.
+
+### Phaser 4.2.1 tag playback
+
+Checked with real Phaser 4.2.1 by `npm run test:atlas-phaser` (fixtures `examples/atlas-fixtures/directions` and `blink`). `createFromAseprite` reads `direction` and ignores `loop`; every animation is created with repeat 0, and animation frame keys are atlas array indices:
+
+- `forward` plays `4,5,6,7`, repeat 0, yoyo false.
+- `pingpong` plays `8,9,10,11`, repeat 0, yoyo true.
+- `pingpong_reverse` plays forward `12,13,14`, repeat 0, no yoyo. A game that needs a reverse ping-pong lists the frames itself.
+- `reverse` plays `18,17,16,15`, repeat 0.
+- Flipping `loop` on every tag changes nothing, so the game sets repetition itself: `sprite.play({ key: 'walkd', repeat: -1 })` to loop, the default (repeat 0) for a one-shot.
+- A tag followed by named alias frames (`blink` plays `2,3,4,5`; aliases `open` and `closed`) still plays the same, and the aliases stay addressable with `setFrame('open')`.
 
 Unity/Godot: the vendors' Aseprite importers take `.aseprite` source files (Unity's 2D Aseprite Importer) or run the Aseprite program (the Godot Aseprite Wizard), and their documentation does not describe reading `<name>.atlas.json`. Copy a tested loader instead: [`examples/godot`](../../examples/godot/README.md) (Godot 4.7.2) or [`examples/unity`](../../examples/unity/README.md) (Unity 6000.6.0f1). Both honour the tag range, per-frame durations, all four directions, the loop flag, trimmed offsets and the pivot, and are checked against the shared [`examples/atlas-fixtures`](../../examples/atlas-fixtures/README.md). Still check tag names and where the pivot lands in your own scene.
 

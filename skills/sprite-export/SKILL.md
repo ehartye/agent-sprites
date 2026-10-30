@@ -18,7 +18,17 @@ Then run:
 node "<plugin-root>/scripts/run-managed.js" export [--dest <folder>]
 ```
 
-This writes a gapless sheet PNG plus `<name>.atlas.json` (Aseprite JSON: frames, `meta.frameTags` from cell groups, durations, pivot slice) to the project's asset folder under the current directory, or exactly `--dest`. Add `--trim true` for a smaller, trimmed atlas: each cell is packed as its opaque bounding box with real `spriteSourceSize` offsets and `trimmed: true`, and empty cells share a 1×1 transparent pixel. Frame names, tags, durations and the cell-relative pivot slice are unchanged. It needs a transparent background. Draw trimmed frames at `spriteSourceSize.x/y` within the cell (the build `playback-runtime.mjs` does). UI font and skin builds do not trim. Unity, Godot, and Phaser importers consume it directly — see the `game-integration` skill for wiring exports into a game project.
+This writes a gapless sheet PNG plus `<name>.atlas.json` (Aseprite JSON: frames, `meta.frameTags` from cell groups, durations, pivot slice) to the project's asset folder under the current directory, or exactly `--dest`. Add `--trim true` for a smaller, trimmed atlas: each cell is packed as its opaque bounding box with real `spriteSourceSize` offsets and `trimmed: true`, and empty cells share a 1×1 transparent pixel. Frame names, tags, durations and the cell-relative pivot slice are unchanged. It needs a transparent background. Draw trimmed frames at `spriteSourceSize.x/y` within the cell (the build `playback-runtime.mjs` does). UI font and skin builds do not trim. Phaser reads it directly; Unity and Godot need a small loader — see the `game-integration` skill for wiring exports into a game project.
+
+### Atlas contract
+
+Pinned by `tests/engine/atlas-frame-key-contract.test.js`:
+
+- Every frame inside a tag range has a numeric `filename`, its decimal array index (`"0"`..`"n-1"` for grid cells, then group runs continue the numbering).
+- Named alias frames come after the cell and group runs and sit outside every tag range, so aliases never disturb tag lookup.
+- `direction` is one of `forward`, `reverse`, `pingpong`, `pingpong_reverse`, the same four strings Aseprite writes.
+- `loop` (boolean) is present only when set; its absence means the tag loops.
+- This exporter never writes `repeat`. Aseprite writes a `repeat` count (a string such as `"2"`) only when the count is above zero and writes no `loop`, so a consumer that expects `repeat` must read `loop` instead.
 
 Then run the managed launcher with `verify <exported-name>.atlas.json --contact-sheet review.png --report review.json --json` and any required `--expect-tags idle,walk`. A zero exit confirms structure; follow [sprite verification](../sprite-verification/SKILL.md) to inspect every frame and animation before integration.
 
