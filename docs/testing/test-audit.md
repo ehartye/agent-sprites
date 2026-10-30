@@ -4,7 +4,7 @@ Scope: all 244 vitest test files at commit f97fd8b (main), audited with the agen
 
 ## Summary
 
-- Of 244 files, 212 have a tier and 32 do not (section 2). The 212 got these verdicts: keep 186 (88 of them kept unopened), rewrite 22, demote 4, merge 0, delete 0, quarantine 0 (file-level; the two case-level `merge` rows in section 1 leave their files at keep and rewrite). The 32 untiered files get no verdict, and one of them (`tests/cli/ui-software.test.js`) was rewritten.
+- Of 244 files, 212 have a tier and 32 do not (section 2). The 212 got these verdicts: keep 186 (88 of them kept unopened), rewrite 22, demote 4, merge 0, delete 0, quarantine 0 (file-level; the two `merge` rows in section 1, one removed test case and one removed assertion, leave their files at keep and rewrite). The 32 untiered files get no verdict, and one of them (`tests/cli/ui-software.test.js`) was rewritten.
 - No file is marked delete or merge, so estimated tokens in delete/merge files is zero. Four test-level removals were proposed. Two were applied (one test case and one assertion line) after a coverage comparison showed no source file lost a covered line, statement, branch or function (section 7). Two were reverted: an independent proof found no direct covering assertion for their input, so one case was restored as it was and the other was restored and strengthened.
 - No file had an `edit` lane before this audit, so no file was demoted out of the edit lane. Four low-tier files now carry `@lane scheduled`; the tag only records the decision because no script or include glob reads it yet.
 - The rewrites fix real hazards: shared temp paths and `Date.now()` file names (11 files), writes into the checkout (1), the process working directory used to locate repo scripts (2), and assertions that could not fail (about 10 files).
@@ -146,7 +146,7 @@ Source: `.github/workflows/native-compatibility.yml` and `.github/workflows/page
 
 - Estimated tokens in files marked delete or merge: 0. No file-level delete or merge verdict was issued. The two applied case-level removals (one test case in tests/web/http.test.js, one assertion in tests/engine/environment-wasteland.test.js) were not estimated. The two reverted proposals had been estimated at about 250 tokens together, and nothing was saved from them.
 - Files demoted out of the edit lane: 0. No file had `Lane: edit`. Four files moved from no lane to `scheduled`.
-- Verdict counts (212 tiered files): keep 186, rewrite 22, demote 4, merge 0, delete 0, quarantine 0. No verdict (untiered): 32. The two case-level `merge` rows (http, environment-wasteland) do not change the file-level counts, and the two reverted proposals (view-scale keep, view-tools rewrite) are already counted in keep and rewrite.
+- Verdict counts (212 tiered files): keep 186, rewrite 22, demote 4, merge 0, delete 0, quarantine 0. No verdict (untiered): 32. The two `merge` rows (one removed test case in http, one removed assertion in environment-wasteland) do not change the file-level counts, and the two reverted proposals (view-scale keep, view-tools rewrite) are already counted in keep and rewrite.
 
 ## 5. What this audit could not measure
 
