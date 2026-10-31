@@ -661,6 +661,15 @@ uses and adds `pairings` to `font-proof.json`; omitted, the proof is unchanged. 
 font tone pixels differ: <tone>; N mismatching pixels; samples (k of m): glyph "A" cell <alias> tone <tone> at (x,y) found
 #rrggbb, allowed <ramp>; ...` with at most 8 samples. Details: [the UI README](examples/ui/README.md#colour-roles-colors).
 
+A `face: "display"` font also accepts `displayRamps`, a map of tone (`cream`, `muted`, `gold`, `ink`) to any of `highlight`,
+`shade`, `outline` and `shadow` as `#rrggbb`: `"ui": {"name": "ui-display", "kind": "font", "face": "display", "displayRamps":
+{"gold": {"shade": "#a0661a", "shadow": "#000000"}}}`. The face stays the tone's `colors` role, an omitted step keeps the
+derived colour, and `shadow` (the ring cell below or right of a lit cell) defaults to the outline. `report.displayRamps`
+appears only when the option is given. Any font recipe also accepts `frameNames`, a glyph frame name template with the
+tokens `{tone}`, `{dec}`, `{hex}` and `{hex4}` (it needs `{tone}` and a code token): `"frameNames": "glyph-{tone}-{dec}"`
+names `!` in cream `glyph-cream-33`, while the default stays `glyph_0021_cream`. Skin frames keep their names. Details:
+[display ramps](examples/ui/README.md#display-ramps-displayramps) and [frame names](examples/ui/README.md#glyph-frame-names-framenames).
+
 Export or check the complete UI software bundle without a project or a copied sync script:
 
 ```powershell

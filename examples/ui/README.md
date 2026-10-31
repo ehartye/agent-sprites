@@ -274,8 +274,8 @@ and state, while all visible control artwork and text come from these atlases.
 
 A recipe may carry `colors`, a map from role name to `#rrggbb`, merged partially over the base theme (`moss-brass` or
 `wasteland`). The 16 roles are `ink deep edge cream muted gold moss light shadow orbitalInk instrumentTeal wornCopper
-seedGold mint paper specimenWell`. Role names, the frame set (tied to the base theme), font geometry and frame names do not
-change; only colours move. Font tones, role-based skin frames and the logo follow the roles.
+seedGold mint paper specimenWell`. Role names, the frame set (tied to the base theme) and font geometry do not change, and
+glyph frame names change only with `frameNames` (below); only colours move. Font tones, role-based skin frames and the logo follow the roles.
 
 ```json
 {
@@ -299,6 +299,70 @@ contrast gate: judge legibility with the font proof below.
 **Pads, HUD and symbols keep fixed colours.** The `pad_*` controller prompts, the `hud_*` icons and the `sym_*` icons draw
 their own literal colours that are not roles, so `colors` never recolours them; they are byte-identical with and without an
 override. Plan the palette so the fixed pad, HUD and symbol colours still sit well on the surfaces you choose.
+
+## Display ramps (`displayRamps`)
+
+A `face: "display"` font paints each tone as a five-colour ramp: highlight on top edges, the face, shade on bottom edges, an
+outline, and a separate drop shadow. `displayRamps` overrides steps per tone. It is a map of tone (`cream`, `muted`, `gold`,
+`ink`) to any of `highlight`, `shade`, `outline` and `shadow`, each `#rrggbb`. The face stays the tone's `colors` role, so
+change the face with `colors`. A step you omit keeps the colour derived from the resolved `colors`, and `shadow` defaults to
+the resolved outline.
+
+```json
+{
+  "version": 1,
+  "output": "dist/display",
+  "scale": 2,
+  "ui": {
+    "name": "ui-display", "kind": "font", "face": "display", "characters": "AB!",
+    "displayRamps": {"gold": {"highlight": "#fff0b0", "shade": "#a0661a", "outline": "#2a1608", "shadow": "#000000"}}
+  }
+}
+```
+
+`agent-sprites build display.json --json` publishes it. The drop shadow is the ring cell below or to the right of a lit cell
+(its up, left or up-left neighbour is lit); the rest of the one-pixel ring is the outline. `ui-report.json` gains
+`report.displayRamps`, listing `highlight`, `face`, `shade`, `outline` and `shadow` for each of the four tones, and only when
+the option is given; without it the output is byte-identical to before.
+
+Derived defaults, from the resolved 16 roles (a mix is a percentage of the second colour blended into the face):
+
+| Tone | Highlight | Shade | Outline |
+| --- | --- | --- | --- |
+| `ink` | face toward `specimenWell` 70% | face toward `shadow` 40% | `light` |
+| `gold` | face toward white 55% | face toward `wornCopper` 60% | `shadow` |
+| `cream` | face toward white 60% | face toward `edge` 55% | `shadow` |
+| `muted` | face toward white 45% | face toward `shadow` 50% | `shadow` |
+
+Validation fails the build with a message naming the field: `displayRamps applies only to fonts with face display.` (any
+other font, skin or logo), `Unknown displayRamps tone: <tone>`, `Unknown displayRamps step: displayRamps.<tone>.<step>` and
+`displayRamps.<tone>.<step> must be a #rrggbb value.` There is no contrast gate; judge legibility with the font proof. The
+tone pixel check below accepts exactly the declared ramp, so a pixel outside it still fails with `UI font tone pixels
+differ: <tone>`.
+
+## Glyph frame names (`frameNames`)
+
+Font recipes (regular, compact and display) name each glyph frame `glyph_<hex4>_<tone>`, for example `glyph_0021_cream`.
+`frameNames` is a template string that renames them. Tokens: `{tone}`, `{dec}` (decimal code point), `{hex}` (lower-case hex,
+unpadded) and `{hex4}` (hex padded to four digits). The template must contain `{tone}` and one code token, and its literal
+text may use only letters, digits, underscore, dot and hyphen. An unknown token, an unmatched brace, an unsafe character, or
+an empty or non-string value fails the build with a message naming `frameNames`, as does a template that gives two frames
+one name. `glyph_{hex4}_{tone}` reproduces the default.
+
+```json
+{
+  "version": 1,
+  "output": "dist/names",
+  "scale": 2,
+  "ui": {"name": "ui-font", "kind": "font", "characters": "AB!", "frameNames": "glyph-{tone}-{dec}"},
+  "expectedFrames": ["glyph-cream-33", "glyph-ink-65", "glyph-gold-66"]
+}
+```
+
+`agent-sprites build names.json --json` publishes it; `!` becomes `glyph-cream-33`. The names appear in
+`report.frames[].alias`, `report.glyphs[char].frames[tone]` and the atlas frame `filename`. `ui-phaser.json` for a font is
+keyed by code point and holds no frame names. Look names up through the report and never parse them. Skin frames (`sym_*`,
+`pad_*`, `hud_*`) keep their names, and skin and logo recipes reject `frameNames`.
 
 ## Font proof surfaces (`proof.surfaces`)
 

@@ -3,6 +3,13 @@ import { displayRamp } from '../authoring/ui-display.js';
 import { fontToneNames } from './ui-runtime.mjs';
 
 export const isUiReport = report => ['font', 'skin', 'logo'].includes(report?.kind);
+// The colours a display tone may paint: the declared steps when the report carries displayRamps, else the ramp derived from report.colors.
+const displayRampColors = (report, tone) => {
+  if (report.displayRamps === undefined) return Object.values(displayRamp(tone, report.colors));
+  const steps = report.displayRamps?.[tone];
+  if (!steps || typeof steps !== 'object') throw Error(`UI displayRamps requires the ${tone} tone.`);
+  return [...new Set(['highlight', 'face', 'shade', 'outline', 'shadow'].map(step => steps[step]))];
+};
 const positive = (n, label) => { if (!Number.isInteger(n) || n < 1) throw Error(`UI ${label} must be a positive integer.`); };
 
 // Validate authored reports against the published pixels, including trimmed cells.
@@ -50,7 +57,7 @@ export async function validateUiReport(report, atlas, png) {
         if (['left', 'top', 'right', 'bottom'].some(key => record.bounds[key] !== glyph.bounds?.[key])) throw Error(`UI glyph bounds differ from frame: ${char}`);
         if (record.bounds.right >= glyph.advance) throw Error(`UI glyph advance clips ink: ${char}`);
         // Validate the existing authored display ramp rather than exempting a caller-supplied face.
-        const colors = !report.tones && report.face === 'display' ? Object.values(displayRamp(tone, report.colors)) : [palette[tone]];
+        const colors = !report.tones && report.face === 'display' ? displayRampColors(report, tone) : [palette[tone]];
         if (colors.some(color => !/^#[\da-f]{6}$/i.test(color))) throw Error('UI font tone colors must be RGB hex.');
         const allowed = colors.map(color => color.slice(1).match(/../g).map(n => parseInt(n, 16))), f = record.entry.frame;
         for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
