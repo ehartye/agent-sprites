@@ -11,7 +11,7 @@ for 32 to 128 colours may write a 256-entry palette, so count the decoded pixels
 
 ## 1. State the contract
 
-Write these down before converting; the check refuses any that are missing.
+Write these down before converting; the check refuses a run that omits the grid, the colour budget, the alpha policy or the dither (the cell size defaults to 1).
 
 | Term | Meaning |
 | --- | --- |
@@ -79,7 +79,7 @@ directory; the reference and the converted file are never modified:
 sprite.js trace converted.png --out converted-baseline --name converted --json
 ```
 
-Keep the check report next to the baseline as the record of the grid, palette,
+Keep the check report next to the baseline as the record of the grid, colour budget,
 dither and alpha contract and the hash of the file that was traced.
 
 | Fixture | Pixels | Decoded colours | Used to show |
