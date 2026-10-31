@@ -52,7 +52,8 @@ const NATIVE_EXACT = new Set(['vitest.config.js']);
 const NATIVE_PATTERNS = [/^package[^/]*\.json$/];
 
 const DOC_EXACT = new Set(['LICENSE']);
-const DOC_PATTERNS = [/^[^/]+\.md$/, /^docs\//, /^(skills|recipes)\/.+\.md$/];
+// site/ is the published documentation site. examples/ is deliberately not named, so it stays unknown.
+const DOC_PATTERNS = [/^[^/]+\.md$/, /^docs\//, /^site\//, /^(skills|recipes)\/.+\.md$/];
 
 export function normalizePath(raw) {
   if (typeof raw !== 'string') return null;
