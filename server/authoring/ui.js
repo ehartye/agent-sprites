@@ -1,6 +1,6 @@
 import {FONT_GLYPHS,FONT_CHARACTERS,FONT_SYMBOLS} from './ui-font.js';
 import {logoRaster,DEFAULT_LOGO_TEXT} from './ui-logo.js';
-import {DISPLAY_CELL,displayGlyph,displayRamp} from './ui-display.js';
+import {DISPLAY_CELL,displayGlyph,resolveDisplayRamps} from './ui-display.js';
 import {COMPACT_GLYPHS} from './ui-font-compact.js';
 import {skinDefinitions,drawSkin} from './ui-skin.js';
 import {FONT_TONES} from '../build/ui-runtime.mjs';
@@ -53,12 +53,13 @@ function generateLogoRecipe(config,{name,theme,COLORS,overrides}){
 }
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
-  for(const k of Object.keys(config))if(!['name','kind','theme','colors','characters','face','text'].includes(k))throw Error(`Unknown UI field: ${k}`);
+  for(const k of Object.keys(config))if(!['name','kind','theme','colors','characters','face','text','displayRamps'].includes(k))throw Error(`Unknown UI field: ${k}`);
   const {kind,name=kind==='font'?'ui-font':'ui-skin',theme='moss-brass'}=config;
   if(!['font','skin','logo'].includes(kind))throw Error('UI kind must be font, skin or logo.');
   if(typeof name!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid UI name.');
   if(!Object.hasOwn(UI_THEMES,theme))throw Error('Unsupported UI theme.');
   const {colors:COLORS,overrides}=resolveUIColors(UI_THEMES[theme],config.colors);
+  if(config.displayRamps!==undefined&&(kind!=='font'||config.face!=='display'))throw Error('displayRamps applies only to fonts with face display.');
   if(kind==='logo')return generateLogoRecipe(config,{name:config.name??'ui-logo',theme,COLORS,overrides});
   if(config.text!==undefined)throw Error('Text applies only to logos.');
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
@@ -70,6 +71,7 @@ export function generateUIRecipe(config){
   if(typeof characters!=='string'||!characters.length)throw Error('Font characters must be a nonempty string.');
   const chars=[...new Set([...characters,'?',' '])].sort((a,b)=>a.codePointAt(0)-b.codePointAt(0));
   if(kind==='font')for(const char of chars)if(char!==' '&&!FONT_GLYPHS[char])throw Error(`Unsupported font character: ${char}`);
+  const {steps:displaySteps,report:displayReport}=resolveDisplayRamps(COLORS,config.displayRamps);
   const tones=FONT_TONES,width=kind==='font'?(display?DISPLAY_CELL.width:compact?6:8):24,height=kind==='font'?(display?DISPLAY_CELL.height:compact?10:12):24;
   const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions(theme);
   // A near-square sheet; the cells that pad the last row stay empty and unnamed. Frame names never depend on the layout.
@@ -86,8 +88,8 @@ export function generateUIRecipe(config){
     }
     if(kind==='font'){
       if(display){
-        const ramp=displayRamp(entry.tone,COLORS);
-        displayGlyph(entry.char).forEach((row,y)=>{for(let x=0;x<width;){const key=row[x];if(key==='.'){x++;continue;}const start=x;while(x<width&&row[x]===key)x++;rect(start,y,x-start,1,ramp[key==='o'?'o':key]);}});
+        const ramp=displaySteps[entry.tone],run=k=>k==='d'&&ramp.d===ramp.o?'o':k;
+        displayGlyph(entry.char).forEach((row,y)=>{for(let x=0;x<width;){const key=run(row[x]);if(key==='.'){x++;continue;}const start=x;while(x<width&&run(row[x])===key)x++;rect(start,y,x-start,1,ramp[key]);}});
       }else{
       const glyph=masks[entry.char];
       glyph.rows.forEach((mask,row)=>{for(let x=0;x<5;){if(!(mask&(1<<(4-x)))){x++;continue;}const start=x;while(x<5&&(mask&(1<<(4-x))))x++;rect(start,row+glyph.top,x-start,1,COLORS[entry.tone]);}});
@@ -96,5 +98,5 @@ export function generateUIRecipe(config){
     }else{drawSkin(entry.alias,rect,COLORS);skins[alias]=entry.metrics;}
     operations.push({command:'shape-group',sub:'create',cell,name:kind,shapes:names});frames.push({alias,cell,bounds,...(kind==='font'?{character:entry.char,tone:entry.tone}:{})});
   }
-  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,...(overrides?{colorOverrides:overrides}:{}),frames,...(kind==='font'?{...(compact||display?{face}:{}),baseline:display?DISPLAY_CELL.baseline:compact?7:9,lineHeight:height,fallback:'?',symbols:Object.fromEntries(Object.entries(FONT_SYMBOLS).filter(([,c])=>glyphs[c])),glyphs}:{skins})}};
+  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,...(overrides?{colorOverrides:overrides}:{}),...(displayReport?{displayRamps:displayReport}:{}),frames,...(kind==='font'?{...(compact||display?{face}:{}),baseline:display?DISPLAY_CELL.baseline:compact?7:9,lineHeight:height,fallback:'?',symbols:Object.fromEntries(Object.entries(FONT_SYMBOLS).filter(([,c])=>glyphs[c])),glyphs}:{skins})}};
 }

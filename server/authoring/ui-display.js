@@ -15,6 +15,31 @@ export function displayRamp(tone,c){
   if(tone==='cream')return {h:mix(base,'#ffffff',.6),f:base,s:mix(base,c.edge,.55),o:c.shadow};
   return {h:mix(base,'#ffffff',.45),f:base,s:mix(base,c.shadow,.5),o:c.shadow};
 }
+const RAMP_TONES=['cream','muted','gold','ink'],RAMP_STEPS={highlight:'h',shade:'s',outline:'o',shadow:'d'};
+/**
+ * Validate an optional `displayRamps` map (tone -> any of highlight, shade, outline, shadow as `#rrggbb`) and resolve every tone's
+ * steps over the colours derived from `colors`. Unset steps keep the derived colour; the shadow defaults to the resolved outline.
+ * Throws an error naming `displayRamps.<tone>.<step>`. Returns `{steps, report}` where `steps[tone]` is `{h,f,s,o,d}` and `report`
+ * lists highlight, face, shade, outline and shadow per tone, or is undefined when no map was given.
+ */
+export function resolveDisplayRamps(colors,displayRamps){
+  const steps=Object.fromEntries(RAMP_TONES.map(tone=>{const r=displayRamp(tone,colors);return [tone,{...r,d:r.o}];}));
+  if(displayRamps===undefined)return {steps,report:undefined};
+  if(!displayRamps||typeof displayRamps!=='object'||Array.isArray(displayRamps))throw Error('displayRamps must be an object of tone names to step maps.');
+  for(const [tone,given] of Object.entries(displayRamps)){
+    if(!RAMP_TONES.includes(tone))throw Error(`Unknown displayRamps tone: ${tone}. Tones: ${RAMP_TONES.join(', ')}.`);
+    if(!given||typeof given!=='object'||Array.isArray(given))throw Error(`displayRamps.${tone} must be an object of steps to #rrggbb values.`);
+    const own=displayRamp(tone,colors),next={...own,d:undefined};
+    for(const [step,value] of Object.entries(given)){
+      if(!Object.hasOwn(RAMP_STEPS,step))throw Error(`Unknown displayRamps step: displayRamps.${tone}.${step}. Steps: ${Object.keys(RAMP_STEPS).join(', ')}.`);
+      if(typeof value!=='string'||!/^#[0-9a-f]{6}$/i.test(value))throw Error(`displayRamps.${tone}.${step} must be a #rrggbb value.`);
+      next[RAMP_STEPS[step]]=value.toLowerCase();
+    }
+    next.d??=next.o;steps[tone]=next;
+  }
+  const report=Object.fromEntries(RAMP_TONES.map(tone=>{const r=steps[tone];return [tone,{highlight:r.h,face:r.f,shade:r.s,outline:r.o,shadow:r.d}];}));
+  return {steps,report};
+}
 
 function sourceGrid(glyph){
   const rows=[...Array(glyph.top).fill(0),...glyph.rows];
@@ -33,7 +58,7 @@ export function epx(grid){
   return out;
 }
 const cache=new Map();
-/** A 12x24 grid of pixel keys: `.` empty, `o` outline or shadow, `h` highlight, `f` face, `s` shade. */
+/** A 12x24 grid of pixel keys: `.` empty, `o` outline, `d` drop shadow, `h` highlight, `f` face, `s` shade. */
 export function displayGlyph(char){
   if(cache.has(char))return cache.get(char);
   const glyph=FONT_GLYPHS[char];if(!glyph)throw Error(`Unsupported display character: ${char}`);
@@ -42,8 +67,11 @@ export function displayGlyph(char){
   const isOn=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&on[y][x];
   const grid=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>{
     if(isOn(x,y))return !isOn(x,y-1)?'h':!isOn(x,y+1)?'s':'f';
+    // The offset drop shadow is the part of the ring below or to the right of a lit cell; the rest of the ring is the outline.
+    // (The ring covers all eight neighbours, so the shadow cells are a subset of it and the default pixels are the same colour.)
+    if(isOn(x-1,y-1)||isOn(x,y-1)||isOn(x-1,y))return 'd';
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(isOn(x+dx,y+dy))return 'o';
-    return isOn(x-1,y-1)||isOn(x,y-1)||isOn(x-1,y)?'o':'.';
+    return '.';
   }).join(''));
   cache.set(char,grid);return grid;
 }
