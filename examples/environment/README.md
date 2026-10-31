@@ -191,8 +191,8 @@ Each option is optional; omitting it leaves earlier output byte-identical.
   `deep` pattern on a four-colour ramp, or a ramp of six colours, is rejected with a message naming `ramp`.
 - **`grain`** is `none`, `soft` or `lattice` (the default, identical to omitting it). `lattice` gives every variant the same edge-ring marks;
   `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, which removes the fixed lattice. Opposite edges
-  still match, so seams are closed between tiles of the same variant. Two different variants never share an edge mark, so
-  a seam between mixed variants shows half-width marks. Use `none`, or `lattice` (identical across variants by design), when
+  still match, so seams are closed between tiles of the same variant. Two different variants do not line up their edge marks, so
+  a seam between mixed variants always has mismatched marks (half-width where one side has none). Use `none`, or `lattice` (identical across variants by design), when
   variants must mix without a visible seam. An unknown value is rejected naming `grain`.
 - **`rimRoles`** is `{"light": "#rrggbb", "dark": "#rrggbb"}`: with `overlayEdge.rim`, rim pixels use only those two colours plus
   the material ramp. Omitted, the rim is derived from the ramp as before. A malformed value is rejected naming `rimRoles`;

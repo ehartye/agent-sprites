@@ -155,8 +155,8 @@ from the directory that holds the config; read the cells from `environment-repor
   four-colour ramp, or a ramp of six colours, fails the build with a message naming `ramp`.
 - **`grain`.** `none`, `soft` or `lattice` (the default, identical to omitting it). `lattice` shares the edge-ring marks across
   variants; `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, which removes the fixed lattice.
-  Opposite edges still match, so seams are closed between tiles of the same variant. Two different variants never share an
-  edge mark, so a seam between mixed variants shows half-width marks. Use `none`, or `lattice` (identical across variants by
+  Opposite edges still match, so seams are closed between tiles of the same variant. Two different variants do not line up
+  their edge marks, so a seam between mixed variants always has mismatched marks (half-width where one side has none). Use `none`, or `lattice` (identical across variants by
   design), when variants must mix without a visible seam. An unknown value fails naming `grain`.
 - **`rimRoles`.** `{"light": "#rrggbb", "dark": "#rrggbb"}` sets the two rim colours of an overlay (`overlayEdge.rim`): rim
   pixels then use only those two plus the material ramp. Omitted, the rim is derived from the ramp as before. A malformed value
