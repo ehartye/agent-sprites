@@ -482,7 +482,8 @@ default saves; **Pass design → Expanded (V1)** produces a separate file for ol
 consumers. See [large editable projects](skills/sprite-editing/references/large-projects.md)
 for import limits, explicit save formats and progressive loading behavior.
 
-Build uses a fresh in-memory session and a temporary loopback API, independent of
+Build uses a fresh in-memory session and a temporary loopback API (a refused loopback listen is reported with the
+operating system's error code and address), independent of
 your editing server and its database. Operations run sequentially through the
 same routes over a reusable native HTTP connection. Isolated builds skip per-operation draft
 snapshots and serialize the final editable project once; interactive sessions

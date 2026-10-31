@@ -1,6 +1,6 @@
 ---
 name: sprite-verification
-description: Verify pixel-art sprite sheets and atlases after export or conversion and before game integration. Use for sprite QA, bleed, wrong frames, misalignment, facing errors, or broken animation. Not for CSS/SVG animation or unrelated verification.
+description: Verify pixel-art sprite sheets and atlases after export or conversion and before game integration. Use for sprite QA, bleed, wrong frames, frame key mismatches, misalignment, facing errors, or broken animation. Not for CSS/SVG animation or unrelated verification.
 ---
 
 # Sprite Sheet Verification
@@ -52,6 +52,23 @@ node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --orphan-
 ```
 
 Run in order; each level catches what the previous one can't.
+
+Frame keys are part of the structural check. Engines and loaders read a tag's
+`from`..`to` as array indexes, and loaders that key frames by name read the same
+numbers, so every frame inside a tag range must have a `filename` equal to its
+decimal array index. A named alias there (frame 3 called `sway` while a tag covers
+2 to 4) fails with an error (code `tag-frame-key`) whose path names the tag and the
+frame, and `verify` exits 1. Aliases belong after the last tag range, where they pass.
+The repository ships a deliberately invalid atlas to see it:
+
+```sh
+node "<plugin-root>/scripts/run-managed.js" verify tests/fixtures/atlas-invalid/frame-key.atlas.json
+```
+
+```text
+FAIL: 4 atlas frames (structural checks only)
+tag-frame-key: Frame 2 in tag "walk" is named "step" but must be named "2"; move named aliases after the last tag range.
+```
 
 **1. Structural.** For a regular gapless grid, PNG dimensions must divide by
 the declared cell size (`width % frameWidth === 0`, same for height), and source
