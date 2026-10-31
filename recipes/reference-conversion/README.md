@@ -17,7 +17,7 @@ Write these down before converting; the check refuses any that are missing.
 | --- | --- |
 | Native grid | The artwork size in grid pixels, `WxH` (for example `32x32`). Whole numbers only. |
 | Cell | Image pixels per grid pixel in the delivered PNG. `1` for a native-size PNG; a whole number above 1 for a nearest-neighbour preview. Never fractional. |
-| Palette policy | Which colours may appear: a decoded-colour budget (`--max-colors`) counted over visible pixels, plus how the palette was chosen (for example median cut), recorded with the hash. |
+| Palette policy | Which colours may appear: a decoded-colour budget (`--max-colors`) counted over visible pixels, the palette method (for example median cut) is stated by the author in the report and is not machine-checked. |
 | Dither | `none`, `ordered` or `diffusion`. Recorded in the report, not verified. |
 | Alpha | `opaque` (every pixel alpha 255), `binary` (alpha 0 or 255 only) or `straight` (partial alpha allowed). |
 
@@ -38,6 +38,9 @@ counts, `problems`). It exits 0 when the contract holds, 1 when it is broken and
 whole number of cells for the stated grid (a fractional grid), grid cells that are
 not one flat colour, an alpha policy the pixels break, and any unstated term. RGB
 under alpha 0 is invisible and not counted, matching trace.
+Only the colour budget, grid and alpha policy are machine-checked. Known limits: with a
+cell size of 1 the check cannot tell whether the grid is genuine, and dither is
+recorded, not verified.
 
 It loads `sharp` from the managed release for this plugin version, so run it with
 the plugin root resolved as in [CLI setup](../../skills/sprite-editing/references/cli-setup.md):
