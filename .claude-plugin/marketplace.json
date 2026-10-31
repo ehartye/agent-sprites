@@ -8,7 +8,7 @@
     {
       "name": "agent-sprites",
       "description": "Editable pixel-art authoring for agents: reusable parts, independent child animation, exact frame timing, construction replay, offline normal-map lighting, paired atlases, GIF proofs and a shared live workbench",
-      "version": "0.97.0",
+      "version": "0.97.1",
       "source": "./",
       "license": "MIT"
     }
