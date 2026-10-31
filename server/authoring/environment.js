@@ -28,8 +28,8 @@ function drawPixelTile(p,pixels){
 }
 const fallback=(value,other)=>value===undefined?other:value;
 const shade=(hex,k)=>'#'+[1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*k).toString(16).padStart(2,'0')).join('');
-/** Rim colours from a material ramp [base, dark, light, bright]: the light step on top-left facing edges, the dark step a notch darker elsewhere. */
-const rimColors=ramp=>({light:ramp[2],dark:shade(ramp[1],.8)});
+/** Rim colours of a material: its declared `rimRoles` {light, dark} when present, else derived from the ramp [base, dark, light, bright]: the light step on top-left facing edges, the dark step a notch darker elsewhere. */
+const rimColors=spec=>spec.rimRoles??{light:spec.ramp[2],dark:shade(spec.ramp[1],.8)};
 /** terrain-overlay edge style: `soft` also emits a rimless twin of the overlays (`<material>-soft_<mask>_<variant>`, all materials or the named ones) for seams between two looks of one material, where an outline would be noise; `rim` draws a one pixel outline in the overlay material's own ramp (light on top-left facing edges, dark elsewhere); `round` (0 to 6) rounds the concave corners; `shade` also emits `<material>-shade_<mask>_<variant>` contact bands generated from the same coverage as the overlays, so they follow the ragged edge. */
 function validateEdgeShade(shade){
   if(shade===undefined||shade===false)return null;
@@ -82,7 +82,7 @@ function validateOverlayEdge(edge,kind){
 function worldReport(world,frames){
   const lookup={};
   for(const f of frames)if(f.corners){
-    const stem=f.alias.replace(/_\d+_\d+$/,'').replace(/-f\d$/,''),key=f.corners.map(l=>l===null?'-':l).join(',');
+    const stem=f.alias.replace(/_\d+_\d+$/,'').replace(/-f\d$/,'').replace(/_f\d+_\d+$/,''),key=f.corners.map(l=>l===null?'-':l).join(',');
     if(f.phase>0)continue;
     ((lookup[stem]??={})[f.mask]??={})[key]??=[];lookup[stem][f.mask][key].push(f.alias);
   }
@@ -132,11 +132,20 @@ export function generateEnvironmentRecipe(config){
   if(kind==='terrain-transition'&&(!Number.isSafeInteger(variants)||variants<1||!Number.isSafeInteger(variants*TERRAIN_MASKS.length)||!Number.isSafeInteger(variants*32)))throw Error('Terrain transition variants require a positive safe integer and exactly representable sheet arithmetic');
   const world=kind==='terrain-overlay'?validateWorld(edge.world,materials):null,overlays=validateOverlays(config.overlays,kind,materials);
   const isPixel=m=>!!specs[m],frameCount=m=>specs[m]?.animated?ANIMATION_FRAMES:variants;
+  // an animated material with `variants` is named per frame and look, `<material>_f<k>_<v>`; the letter f keeps it from reading as an overlay alias `<material>_<mask>_<variant>`
+  const looksOf=m=>specs[m]?.animated&&specs[m].variants!==undefined?specs[m].variants:0;
+  const lookEntries=(m,role)=>{const list=[];for(let v=0;v<looksOf(m);v++)for(let k=0;k<ANIMATION_FRAMES;k++)list.push({alias:`${m}_f${k}_${v}`,material:m,variant:v,frame:k,tag:`${m}_v${v}`,...(role?{role}:{})});return list;};
   const entries=[];
   if(kind==='terrain-transition')for(const mask of TERRAIN_MASKS)for(let v=0;v<variants;v++)entries.push({alias:`path_${mask}_${v}`,mask,variant:v});
-  else if(kind==='terrain')for(const m of materials)for(let v=0;v<(isPixel(m)?frameCount(m):variants);v++)entries.push({alias:`${m}_${v}`,material:m,variant:v});
+  else if(kind==='terrain')for(const m of materials){
+    if(looksOf(m))entries.push(...lookEntries(m));
+    else for(let v=0;v<(isPixel(m)?frameCount(m):variants);v++)entries.push({alias:`${m}_${v}`,material:m,variant:v});
+  }
   else if(kind==='terrain-overlay'){
-    if(config.base!==false)for(const m of materials)for(let v=0;v<frameCount(m);v++)entries.push({alias:`${m}_${v}`,material:m,variant:v,role:'base'});
+    if(config.base!==false)for(const m of materials){
+      if(looksOf(m))entries.push(...lookEntries(m,'base'));
+      else for(let v=0;v<frameCount(m);v++)entries.push({alias:`${m}_${v}`,material:m,variant:v,role:'base'});
+    }
     // one overlay set: `alias` is the name stem (`<material>`, `<material>-soft`, `<material>-on-<base>`); a world set has one cell per
     // (levels of the corners its mask touches, flavour), a classic set one per variant
     const addSet=(m,stem,role,extra,pair)=>{
@@ -193,13 +202,13 @@ export function generateEnvironmentRecipe(config){
     const entry=entries[index];
     if(kind==='terrain'&&isPixel(entry.material)){
       const spec=specs[entry.material];
-      drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.variant));
-      details={material:entry.material,variant:entry.variant,seamless:true,...(spec.animated?{animation:entry.material}:{})};
+      drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
+      details={material:entry.material,variant:entry.variant,...(entry.frame!==undefined?{frame:entry.frame}:{}),seamless:true,...(spec.animated?{animation:entry.tag??entry.material}:{})};
     }else if(kind==='terrain-overlay'){
       const spec=specs[entry.material];
       if(entry.role==='base'){
-        drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.variant));
-        details={material:entry.material,role:'base',variant:entry.variant,seamless:true,...(spec.animated?{animation:entry.material}:{})};
+        drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
+        details={material:entry.material,role:'base',variant:entry.variant,...(entry.frame!==undefined?{frame:entry.frame}:{}),seamless:true,...(spec.animated?{animation:entry.tag??entry.material}:{})};
       }else{
         const maskInfo={mask:entry.mask,variant:entry.variant,neighbors:Object.entries(OVERLAY_BITS).filter(([,bit])=>entry.mask&bit).map(([k])=>k)};
         // world cells shape the bands from the crossing levels of their corners; classic cells from a per-variant ragged profile
@@ -213,8 +222,10 @@ export function generateEnvironmentRecipe(config){
         }else{
           // an animated material overlays with the ripple phase of its variant (overlays are static snapshots) unless `animate` gives it every phase
           const texVariant=entry.params?entry.flavour%variants:entry.variant;
-          const tile=materialTile(entry.material,spec,texVariant,seed,(texVariant+(entry.phase??0))%ANIMATION_FRAMES);
-          drawPixelTile(pen,overlayPixels(coverage,tile,edge.rim&&!entry.soft?rimColors(spec.ramp):null));
+          // with `variants` the overlay wears look texVariant % variants at the frame of its phase: exactly the base tile `<material>_f<phase>_<look>`
+          const looks=looksOf(entry.material);
+          const tile=looks?materialTile(entry.material,spec,texVariant%looks,seed,(entry.phase??0)%ANIMATION_FRAMES):materialTile(entry.material,spec,texVariant,seed,(texVariant+(entry.phase??0))%ANIMATION_FRAMES);
+          drawPixelTile(pen,overlayPixels(coverage,tile,edge.rim&&!entry.soft?rimColors(spec):null));
           details={material:entry.material,role:'overlay',...maskInfo,...worldInfo,...(entry.phase!==undefined?{phase:entry.phase,...(entry.animation?{animation:entry.animation}:{})}:{})};
         }
       }
@@ -230,7 +241,15 @@ export function generateEnvironmentRecipe(config){
     frames.push({alias,cell,...details,bounds:screenBounds(bounds,scale),...(scale>1?{sourceBounds:sourceBounds(bounds,scale)}:{})});
   }
   const animations=[];
-  for(const m of kind.startsWith('terrain')&&kind!=='terrain-transition'?materials:[])if(specs[m]?.animated){
+  for(const m of kind.startsWith('terrain')&&kind!=='terrain-transition'?materials:[])if(looksOf(m)){
+    // one tag per look, its four frames in order
+    for(let v=0;v<looksOf(m);v++){
+      const tag=`${m}_v${v}`,own=frames.filter(f=>f.animation===tag&&f.role!=='overlay');
+      if(!own.length)continue;
+      operations.push({command:'group',sub:'create',name:tag,cells:own.map(f=>f.cell),fps:specs[m].fps});
+      animations.push({name:tag,material:m,variant:v,fps:specs[m].fps,frames:own.map(f=>f.alias),cells:own.map(f=>f.cell)});
+    }
+  }else if(specs[m]?.animated){
     const own=frames.filter(f=>f.material===m&&f.role!=='overlay'&&!f.on);
     if(!own.length)continue;
     operations.push({command:'group',sub:'create',name:m,cells:own.map(f=>f.cell),fps:specs[m].fps});
@@ -243,5 +262,5 @@ export function generateEnvironmentRecipe(config){
     animations.push({name:e.animation,fps:specs[e.material].fps,frames:e.frames,cells:own.map(f=>f.cell),overlay:true});
   }
   operations.push(kind==='furniture'?{command:'pivot',x:32/scale,y:62/scale}:{command:'pivot',x:0,y:0});
-  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'}:{}),...(world?{world:worldReport(world,frames)}:{}),...(edge.shade?{edgeShade:{width:edge.shade.width,widthUnits:'source pixels of the cell',color:edge.shade.color,dir:edge.shade.dir,materials:edge.shade.materials??materials,aliasPattern:'<material>-shade_<mask>_<variant>',semantics:'Same mask and variant as the overlay of that material: the band lies on the uncovered pixels within width of the overlay edge (dir light: below and right of it; all: every side). Draw it over the tile base and under the overlay, at one opacity.'}}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
+  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(custom.some(c=>c.rimRoles)?{rimRoles:Object.fromEntries(custom.filter(c=>c.rimRoles).map(c=>[c.name,{...c.rimRoles}]))}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'+(materials.some(looksOf)?', <material>_f<frame>_<variant> base of an animated material with variants':'')}:{}),...(world?{world:worldReport(world,frames)}:{}),...(edge.shade?{edgeShade:{width:edge.shade.width,widthUnits:'source pixels of the cell',color:edge.shade.color,dir:edge.shade.dir,materials:edge.shade.materials??materials,aliasPattern:'<material>-shade_<mask>_<variant>',semantics:'Same mask and variant as the overlay of that material: the band lies on the uncovered pixels within width of the overlay edge (dir light: below and right of it; all: every side). Draw it over the tile base and under the overlay, at one opacity.'}}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
 }

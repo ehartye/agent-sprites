@@ -1,6 +1,6 @@
 ---
 name: game-integration
-description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text, inventory panels and themed colors, export or verify the UI runtime, or export sprite-based app icons. Use for atlas loading, animation tags, and repeatable game asset builds; not for CSS/SVG animation.
+description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text, inventory panels and themed colors, export or verify the UI runtime, or export sprite-based app icons. Use for atlas loading, animation tags, terrain materials (ramps, grain, rim roles, animated variants), and repeatable game asset builds; not for CSS/SVG animation.
 ---
 
 # Game Integration
@@ -143,6 +143,60 @@ both adjacent cardinals are clear, so 8 neighbours normalise to 85). Priority is
 `water` tag for all water tiles. Read cells from `environment-report.json`, set the scale guard from `pixelScale`, and see
 `examples/environment/wasteland/compose-map.mjs` for a reference composition. Details: `examples/environment/README.md`.
 For edges that read as a border instead of a ragged strip add `overlayEdge: {rim: true, round: 4, soft: [...]}`: a 1 px rim in the overlay material's ramp (light step on top-left facing edges, a notch darker elsewhere), concave corners rounded where two bands meet, and (`soft`) a rimless `<material>-soft_<mask>_<variant>` twin for seams between two tones of one material. For a coast that does not repeat per tile add `overlayEdge.world` (crossing depth chosen per tile-corner vertex from a world function, `pairs` for per-pair depth, report `world.lookup` to pick cells), `overlayEdge.animate` (animated-material overlays in every phase) and top-level `overlays: {skip, masks}` to leave out cells never drawn; see `examples/environment/README.md`. `shade: {width: 2, materials: [...]}` adds `<material>-shade_<mask>_<variant>` contact bands cut from the same coverage as the overlays, so a shadow follows the ragged edge (shore, slab on dust) instead of a straight tile-edge line; draw them over the base, under the overlay, at one opacity. A flavour whose own colours differ from its parent can be a custom material too, so the neighbour wears the flavour's look.
+
+### Custom material options: deep ramp, grain, rim roles, patterns, animated variants
+
+These are fields of a `customMaterials` entry (details and the full pattern list: `examples/environment/README.md`). Each omitted
+option leaves the output byte-identical to earlier releases. Build any recipe below with `sprite.js build sprite-project.json --json`
+from the directory that holds the config; read the cells from `environment-report.json`.
+
+- **Five-colour ramp and `deep`.** `ramp` takes four colours (base, dark, light, bright) or five: the fifth is `deep`, the
+  darkest step. It is drawn only where a pattern asks `tone: "deep"`, so existing marks never change. A `deep` pattern on a
+  four-colour ramp, or a ramp of six colours, fails the build with a message naming `ramp`.
+- **`grain`.** `none`, `soft` or `lattice` (the default, identical to omitting it). `lattice` shares the edge-ring marks across
+  variants; `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, which removes the fixed lattice.
+  Opposite edges still match, so seams are closed between tiles of the same variant. Two different variants do not line up
+  their edge marks, so a seam between mixed variants always has mismatched marks (half-width where one side has none). Use `none`, or `lattice` (identical across variants by
+  design), when variants must mix without a visible seam. An unknown value fails naming `grain`.
+- **`rimRoles`.** `{"light": "#rrggbb", "dark": "#rrggbb"}` sets the two rim colours of an overlay (`overlayEdge.rim`): rim
+  pixels then use only those two plus the material ramp. Omitted, the rim is derived from the ramp as before. A malformed value
+  fails naming `rimRoles`; the report gains `rimRoles` per material only when one sets it.
+- **Pattern kinds `bedding`, `crystals`, `sheen`.** `bedding` draws wavering lit and shade hairlines, `crystals` small lit clusters
+  each with a shade pixel, `sheen` a thin glint line (at most two pixels thick). `bedding` and `crystals` accept only `light`,
+  `bright` or `mixed` as `tone`. Their marks use a per-variant noise seed, so a material's variants differ: at the default
+  density variants usually share well under half of their mark positions, but this is not guaranteed: in 12000 sampled pairs
+  one exceeded half (worst 0.57), and bedding at `density` 1 exceeded it in 9 of 12000 pairs (worst 0.63). The unit test
+  checks fixed seeds only. Keep density below 1 for a pool that must look varied.
+- **`variants` on an animated material (1 to 4).** Each look is its own four-frame loop. Tiles are named
+  `<material>_f<k>_<v>` (k the frame, v the variant) with one tag `<material>_v<v>` per look, listed in the report's
+  `animations`; overlays and `worldReport` handle the names. **Growth:** an animated material is at most 4 frames times
+  its variant count, so three variants is up to twelve tiles instead of four. Each tile is exported twice in the atlas (a
+  numbered frame and a named one), so atlas frame entries grow by twice the tile count: in the example below, against the same config without murk's `variants`, the report lists
+  8 more tiles (432 instead of 424) and the atlas holds 16 more frame entries (914 instead of 898). Without `variants` the names (`<material>_<k>`
+  and tag `<material>`) and bytes are unchanged. The generator only emits the tiles; the game picks a variant per tile and plays
+  that tag for the whole map so neighbours stay in step.
+
+```json
+{ "version": 1, "output": "./dist", "scale": 1,
+  "environment": { "name": "ridge", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 3,
+    "materials": ["dust", "slate", "murk"], "overlayEdge": { "rim": true, "round": 4 },
+    "customMaterials": [
+      { "name": "slate", "ramp": ["#5a6470", "#3c4650", "#8a96a2", "#c4ccd4", "#222a32"],
+        "rimRoles": { "light": "#b8c2cc", "dark": "#1a2028" }, "grain": "soft", "seed": 5,
+        "patterns": [{ "kind": "bedding", "density": 0.5, "tone": "light" },
+                     { "kind": "crystals", "density": 0.4, "tone": "bright" },
+                     { "kind": "sheen", "density": 0.4 },
+                     { "kind": "clusters", "tone": "deep", "size": "small" }] },
+      { "name": "murk", "animated": true, "fps": 4, "variants": 3,
+        "ramp": ["#2f4a55", "#1f3640", "#4f7a88", "#9ac4d0"], "patterns": [{ "kind": "ripples", "density": 0.6 }] }] } }
+```
+
+`node examples/environment/pattern-contact-sheet.mjs` regenerates `examples/environment/pattern-contact-sheet.png`, six variants
+of each new pattern kind side by side and joined as in a map (`--zoom N --out path` change the scale and destination).
+
+**Craft note.** Keep a material's ramp small (four or five tones), use a pool of three or four variants, and let marks loop
+across the tile edge so seams do not show. Keep key clusters from touching edge to edge, and avoid strong contrast inside a
+repeating texture: it reads as a grid at map scale.
 
 ## Tilesets, props, item icons and crop stages
 
