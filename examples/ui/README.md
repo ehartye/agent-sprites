@@ -5,8 +5,11 @@ For renderer-independent normalization, wrapping and measurement, see the
 
 Build `font.json` and `skin.json` through the checked managed CLI. Each selects the
 `ui` inline source, exclusively of `ops`, `generator`, `character`, and `environment`.
-Themes are `moss-brass` (default) and `wasteland`. `name`, `kind`, `theme`, and optional
-font-only `characters` and `face` (`regular`, `compact`, `display`) are the complete recipe fields; unknown fields fail.
+Themes are `moss-brass` (default) and `wasteland`. `name`, `kind`, `theme`, an optional
+[`colors` override](#colour-roles-colors), and optional font-only `characters` and `face`
+(`regular`, `compact`, `display`) are the complete recipe fields; unknown fields fail.
+`proof.surfaces` is not a recipe field: it belongs at the top level of the build config
+(see [font proof surfaces](#font-proof-surfaces-proofsurfaces)).
 
 Sheets are packed near-square (`packGrid`: the squarest sheet within 1024 px wide, then the fewest padding cells). Cells that pad
 the last row are unnamed and empty; every frame name is independent of the layout, so a rebuild never renames anything. UI builds
@@ -97,6 +100,20 @@ identity, and reverify delivered bytes. Manifest consistency alone cannot
 authenticate origin. Default builds verify the committed pin without a producer
 installation; explicit upgrades replace the complete bundle and provenance
 together. Software upgrades neither regenerate art nor relabel historical receipts.
+
+Do not keep a copied sync script for this bundle. Export and check it with the command instead:
+
+```text
+agent-sprites ui-runtime-export --out ui-software
+agent-sprites ui-runtime-export --out ui-software --verify
+```
+
+`--out DIR` writes the 16 files plus `ui-software-manifest.json` with LF line endings and needs no open project. It refuses
+(exit 1, naming the files) a directory that already holds any of those 17 names. `--verify` writes nothing: it rebuilds the
+bundle in memory, compares the SHA-256 of every file and the manifest with the files in `DIR`, and exits 1 naming each file
+that differs or is missing (exit 0 prints `UI runtime current: 17 files match the producer.`). `--json` prints the result as
+JSON; unknown options are rejected. A game pins the exported bytes, then runs `--verify` against its pinned directory after a
+producer update; replace the bundle deliberately by exporting into a fresh directory.
 
 ## Bundlers and public assets
 
@@ -252,6 +269,71 @@ integer source pixels; the compositor does not stretch art. Icons should use
 their atlas rectangle directly, not nine-slice. Keep semantic DOM controls for
 focus, keyboard, screen readers and native file selection; the game owns layout
 and state, while all visible control artwork and text come from these atlases.
+
+## Colour roles (`colors`)
+
+A recipe may carry `colors`, a map from role name to `#rrggbb`, merged partially over the base theme (`moss-brass` or
+`wasteland`). The 16 roles are `ink deep edge cream muted gold moss light shadow orbitalInk instrumentTeal wornCopper
+seedGold mint paper specimenWell`. Role names, the frame set (tied to the base theme), font geometry and frame names do not
+change; only colours move. Font tones, role-based skin frames and the logo follow the roles.
+
+```json
+{
+  "version": 1,
+  "output": "dist/font",
+  "scale": 2,
+  "ui": {"name": "ui-font", "kind": "font", "theme": "moss-brass", "colors": {"gold": "#f2c14e", "cream": "#f4efe1"}},
+  "expectedFrames": ["glyph_0041_cream", "glyph_0067_ink", "glyph_2197_gold"]
+}
+```
+
+`agent-sprites build font.json --json` publishes it. `ui-report.json` keeps `report.colors` as a flat map of all 16 resolved
+roles and adds `report.colorOverrides` (here `["cream","gold"]`) only when `colors` is given; without `colors` the output is
+byte-identical to before.
+
+Validation fails the build with a message naming the role: an unknown role (`Unknown UI colour role: glod. Roles: ink, deep,
+...`), a value that is not `#rrggbb` (`UI colour gold must be a #rrggbb value.`), and a collapsed pair, because `cream`,
+`muted`, `gold` and `ink` must be pairwise distinct (`UI colours cream and ink must differ; both are #172f35.`). There is no
+contrast gate: judge legibility with the font proof below.
+
+**Pads, HUD and symbols keep fixed colours.** The `pad_*` controller prompts, the `hud_*` icons and the `sym_*` icons draw
+their own literal colours that are not roles, so `colors` never recolours them; they are byte-identical with and without an
+override. Plan the palette so the fixed pad, HUD and symbol colours still sit well on the surfaces you choose.
+
+## Font proof surfaces (`proof.surfaces`)
+
+`font-proof.png` paints `ink` glyphs on `colors.paper` and every other tone on `colors.deep`. To prove tones on the
+backgrounds a game really draws them on, add `proof.surfaces` at the **top level of the build config** (beside `ui`, not
+inside it, because the recipe rejects unknown fields): a map of tone name to `#rrggbb`.
+
+```json
+{
+  "version": 1,
+  "output": "dist/font",
+  "scale": 2,
+  "ui": {"name": "ui-font", "kind": "font", "theme": "moss-brass"},
+  "proof": {"surfaces": {"muted": "#2a3a44", "gold": "#1b2a30"}}
+}
+```
+
+With it, `font-proof.json` gains `pairings`, one entry per tone: `{tone, surface, declared, contrast}` (`declared` is false for
+a tone that kept its default surface; `contrast` is the WCAG ratio of the tone colour on that surface, informational only).
+Omitting `proof.surfaces` leaves `font-proof.png` and `font-proof.json` unchanged and adds no `pairings`. A malformed value
+(`proof.surfaces.muted must be a #rrggbb hex color, got "blue".`), an unknown tone or an unknown `proof` field fails the build
+with a message naming it.
+
+## Font tone failures
+
+Every glyph frame must use only its tone's colours (a display ramp for `face: "display"`). A frame that does not fails the
+build before publication, and the previous output is kept. The message keeps the prefix `UI font tone pixels differ: <tone>`,
+then gives the mismatch total and at most 8 samples (one per glyph, tone and colour found; `samples (k of m)` when more were
+found):
+
+```text
+UI font tone pixels differ: cream; 448 mismatching pixels; samples (3): glyph "?" cell glyph_003f_cream tone cream at (2,4) found #ff00ff, allowed #f7f8f1 #eceddb #acbaad #10242d; glyph "A" cell glyph_0041_cream tone cream at (2,4) found #ff00ff, allowed #f7f8f1 #eceddb #acbaad #10242d; glyph "B" cell glyph_0042_cream tone cream at (1,4) found #ff00ff, allowed #f7f8f1 #eceddb #acbaad #10242d
+```
+
+The cell is the frame alias, `(x,y)` is the pixel in the frame, and `allowed` is the tone's colour ramp.
 
 ## `wasteland` theme and the HUD set
 

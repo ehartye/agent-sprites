@@ -109,3 +109,15 @@ test('generated display glyphs use their declared multicolor ramp and reject out
   const previous = ownedFiles(dir), bad = structuredClone(generated), cell = generated.report.frames.find(frame => frame.alias === generated.report.glyphs.A.frames.cream).cell, operation = bad.operations.find(op => op.command === 'draw' && op.cell === cell && op.color === '#10242d'); expect(operation).toBeDefined(); operation.color = '#ff00ff';
   write(bad); const result = await buildProject(config); expect(result.ok).toBe(false); expect(result.errors[0].message).toMatch(/tone pixels differ: cream/); expect(ownedFiles(dir)).toEqual(previous);
 }), 20000);
+test('display ramp diagnostic names the glyph, colour found, allowed ramp and total, with bounded samples', async () => fixture(async ({ config, write }) => {
+  const generated = generateUIRecipe({ name: 'display-diagnostic', kind: 'font', face: 'display', characters: 'AB?' }); write(generated); expect((await buildProject(config)).ok).toBe(true);
+  const bad = structuredClone(generated), ramp = Object.values(displayRamp('cream', generated.report.colors));
+  const cells = ['A', 'B', '?'].map(char => generated.report.frames.find(frame => frame.alias === generated.report.glyphs[char].frames.cream).cell);
+  let changed = 0; for (const op of bad.operations) if (op.command === 'draw' && cells.includes(op.cell) && ramp.includes(op.color)) { op.color = '#ff00ff'; changed++; }
+  expect(changed).toBeGreaterThan(0); write(bad); const result = await buildProject(config); expect(result.ok).toBe(false);
+  const message = result.errors[0].message, total = Number(/; (\d+) mismatching pixels?;/.exec(message)?.[1]);
+  expect(message).toMatch(/^UI font tone pixels differ: cream; /); expect(total).toBeGreaterThan(0);
+  expect(message).toMatch(/glyph "[AB?]" cell \S+ tone cream at \(\d+,\d+\) found #ff00ff, allowed #/);
+  for (const color of ramp) expect(message).toContain(color);
+  expect(message.split('; glyph ').length - 1).toBeLessThanOrEqual(8);
+}), 20000);

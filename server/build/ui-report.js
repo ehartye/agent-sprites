@@ -36,6 +36,10 @@ export async function validateUiReport(report, atlas, png) {
     if (!tones.length || tones.some(t => !/^[a-z][a-z0-9_-]*$/.test(t))) throw Error('UI font tone names must be nonempty identifiers.');
     const palette = report.tones ?? Object.fromEntries(tones.map(tone => [tone, report.colors?.[tone]]));
     if (Object.values(palette).some(color => typeof color !== 'string' || !/^#[\da-f]{6}$/i.test(color))) throw Error('UI font tone colors must be RGB hex.');
+    // Count every out-of-ramp pixel across the font, then report once: the total plus at most
+    // MAX_TONE_SAMPLES samples (one per glyph, tone and colour found) so the message stays readable.
+    const MAX_TONE_SAMPLES = 8, hex = rgb => '#' + rgb.map(n => n.toString(16).padStart(2, '0')).join('');
+    const mismatch = { total: 0, tone: null, samples: [], seen: new Set(), omitted: 0 };
     for (const [char, glyph] of Object.entries(report.glyphs)) {
       if ([...char].length !== 1 || char.codePointAt(0) > 65535) throw Error('UI native bitmap glyphs require one BMP character.');
       positive(glyph.advance, 'font glyph advance');
@@ -51,10 +55,17 @@ export async function validateUiReport(report, atlas, png) {
         const allowed = colors.map(color => color.slice(1).match(/../g).map(n => parseInt(n, 16))), f = record.entry.frame;
         for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
           const i = ((f.y + y) * image.width + f.x + x) * 4;
-          if (pixels[i + 3] && !allowed.some(rgb => rgb.every((n, channel) => pixels[i + channel] === n))) throw Error(`UI font tone pixels differ: ${tone}`);
+          if (!pixels[i + 3] || allowed.some(rgb => rgb.every((n, channel) => pixels[i + channel] === n))) continue;
+          const found = hex([...pixels.slice(i, i + 3)]), key = `${char}|${tone}|${found}`;
+          mismatch.total++; mismatch.tone ??= tone;
+          if (mismatch.seen.has(key)) continue;
+          mismatch.seen.add(key);
+          if (mismatch.samples.length >= MAX_TONE_SAMPLES) { mismatch.omitted++; continue; }
+          mismatch.samples.push(`glyph ${JSON.stringify(char)} cell ${glyph.frames[tone]} tone ${tone} at (${x + record.entry.spriteSourceSize.x},${y + record.entry.spriteSourceSize.y}) found ${found}, allowed ${colors.join(' ')}`);
         }
       }
     }
+    if (mismatch.total) throw Error(`UI font tone pixels differ: ${mismatch.tone}; ${mismatch.total} mismatching pixel${mismatch.total === 1 ? '' : 's'}; samples (${mismatch.samples.length}${mismatch.omitted ? ` of ${mismatch.samples.length + mismatch.omitted}` : ''}): ${mismatch.samples.join('; ')}`);
   } else if (report.kind === 'skin') {
     if (!report.skins || Object.keys(report.skins).length !== declared.size) throw Error('UI skin metrics require every declared frame.');
     for (const [alias, skin] of Object.entries(report.skins)) {
