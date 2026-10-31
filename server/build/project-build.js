@@ -251,7 +251,7 @@ export async function buildProject(configPath, { signal, onProgress, generatorPo
       const phaserUi = buildPhaserUi({ report: recipeReport, atlas, name });
       writeFileSync(join(stage, artifacts.uiPhaser), json(phaserUi));
       if (recipeReport.kind === 'font') {
-        const proof = await renderFontProof(png, atlas, recipeReport);
+        const proof = await renderFontProof(png, atlas, recipeReport, { proof: config.proof });
         checkCanceled();
         artifacts.fontProof = 'font-proof.png';
         artifacts.fontProofReport = 'font-proof.json';

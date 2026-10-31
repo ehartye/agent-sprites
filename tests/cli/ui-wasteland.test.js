@@ -56,3 +56,11 @@ test('the wasteland skin carries the survival glyphs: hud_torch, a torch meter, 
   expect(JSON.parse(readFileSync(plain.artifacts.uiReport)).skins.icon_split).toBeUndefined();
 },30000);
 
+
+test('the wasteland sheets are stable: skin, regular font, display font and logo (pinned before colour roles became configurable)',async()=>{
+  const sheets={};
+  for(const [key,ui] of Object.entries({skin:{name:'ui-skin',kind:'skin'},font:{name:'ui-font',kind:'font'},display:{name:'ui-font',kind:'font',face:'display'},logo:{name:'ui-logo',kind:'logo'}})){
+    const result=await build({...ui,theme:'wasteland'});expect(result.errors,key).toEqual([]);expect(result.ok,key).toBe(true);sheets[key]=sha(result.artifacts.sheet);
+  }
+  expect(sheets).toEqual({skin:'2ecda6cc42f882c738de94b32f05d9405de087c54a1eba14ee2a9fb7a7509586',font:'2212b2ae13e0e4e9df99925386260ed83e4a7d201c4dc9e763205b14c2c88f67',display:'006b4765576a8c3c895df02a25322cacb9916d58bd31c5e5014e7a787a804422',logo:'8bba8ae00d6a1b5e64b2a581dffd937fa3457de6a300f457d18f098d7f396204'});
+},60000);

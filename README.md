@@ -649,6 +649,29 @@ That path pins this module separately from the unchanged core `ui-runtime.mjs` a
 historical art. The shared closure includes it too; no art rebuild or relabeling of
 historical receipts is needed for either software path.
 
+UI recipes accept an optional `colors` map from role name to `#rrggbb`, merged over the base theme (`moss-brass` or
+`wasteland`): `"ui": {"name": "ui-font", "kind": "font", "colors": {"gold": "#f2c14e"}}`. The 16 roles are `ink deep edge
+cream muted gold moss light shadow orbitalInk instrumentTeal wornCopper seedGold mint paper specimenWell`. `report.colors`
+stays a flat map of all 16 resolved roles and `report.colorOverrides` lists the overridden ones (only when `colors` is
+given). An unknown role, a malformed value or an equal `cream`/`muted`/`gold`/`ink` pair fails naming the role; there is no
+contrast gate. Pads, HUD and symbols keep fixed colours and do not follow `colors`. A top-level `proof.surfaces` map of
+tone to `#rrggbb` in the build config (not in the recipe) draws the font proof's tones on the backgrounds a game really
+uses and adds `pairings` to `font-proof.json`; omitted, the proof is unchanged. A font tone pixel mismatch now reads `UI
+font tone pixels differ: <tone>; N mismatching pixels; samples (k of m): glyph "A" cell <alias> tone <tone> at (x,y) found
+#rrggbb, allowed <ramp>; ...` with at most 8 samples. Details: [the UI README](examples/ui/README.md#colour-roles-colors).
+
+Export or check the complete UI software bundle without a project or a copied sync script:
+
+```powershell
+agent-sprites ui-runtime-export --out ui-software
+agent-sprites ui-runtime-export --out ui-software --verify
+```
+
+`--out DIR` writes the 16 files plus `ui-software-manifest.json` with LF line endings and refuses a directory that already
+holds any of those 17 names. `--verify` writes nothing: it rebuilds in memory, compares the SHA-256 of every file with `DIR`
+and exits 1 naming each file that differs or is missing; `--json` prints JSON and unknown options are rejected. Games pin the
+exported bytes.
+
 Custom Node generators can return `{operations, report}` with a UI `kind` of
 `font`, `skin`, or `logo`, using the same report shape as the inline recipe. They
 publish `uiReport`, `uiRuntime`, `uiPhaser`, and (for fonts) proof/bootstrap artifacts.

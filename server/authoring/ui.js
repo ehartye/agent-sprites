@@ -9,6 +9,26 @@ export const UI_COLORS={ink:'#172f35',deep:'#203640',edge:'#789088',cream:'#eced
 // Wasteland theme ramps: night backing, dust brass, oxide teal, rust copper, harvest gold.
 export const WASTELAND_COLORS={ink:'#0d1126',deep:'#1b2040',edge:'#8f6f45',cream:'#f6edcf',muted:'#a8a79e',gold:'#f0d466',moss:'#8a9a4a',light:'#e3cf93',shadow:'#07091a',orbitalInk:'#0d1126',instrumentTeal:'#5f9a8d',wornCopper:'#b5532f',seedGold:'#e0b84a',mint:'#8fc4b4',paper:'#e3cf93',specimenWell:'#2c3a6b'};
 export const UI_THEMES={'moss-brass':UI_COLORS,wasteland:WASTELAND_COLORS};
+export const UI_COLOR_ROLES=Object.freeze(Object.keys(UI_COLORS));
+/** Roles whose pairwise equality would make the font tones or their lit edges indistinguishable. */
+const DISTINCT_ROLES=['cream','muted','gold','ink'];
+/**
+ * Merge an optional `colors` map over a base theme's 16 roles. Role names stay unchanged and the frame set stays tied to the theme.
+ * Throws an error that names the role for an unknown role, a value that is not `#rrggbb`, or a collapsed cream, muted, gold or ink pair.
+ * Pads, HUD and symbol icons draw fixed colours and do not follow the roles. Returns the resolved map and the overridden role names.
+ */
+export function resolveUIColors(base,colors){
+  if(colors===undefined)return {colors:base,overrides:undefined};
+  if(!colors||typeof colors!=='object'||Array.isArray(colors))throw Error('UI colors must be an object of role names to #rrggbb values.');
+  const merged={...base};
+  for(const [role,value] of Object.entries(colors)){
+    if(!UI_COLOR_ROLES.includes(role))throw Error(`Unknown UI colour role: ${role}. Roles: ${UI_COLOR_ROLES.join(', ')}.`);
+    if(typeof value!=='string'||!/^#[0-9a-f]{6}$/i.test(value))throw Error(`UI colour ${role} must be a #rrggbb value.`);
+    merged[role]=value.toLowerCase();
+  }
+  for(const [i,a] of DISTINCT_ROLES.entries())for(const b of DISTINCT_ROLES.slice(i+1))if(merged[a]===merged[b])throw Error(`UI colours ${a} and ${b} must differ; both are ${merged[a]}.`);
+  return {colors:merged,overrides:UI_COLOR_ROLES.filter(role=>Object.hasOwn(colors,role))};
+}
 /** Rows and columns for `count` equal cells: the squarest sheet (by pixels) within `maxWidth`, then the fewest empty cells. */
 export function packGrid(count,width,height,maxWidth=1024){
   let best=null;
@@ -21,7 +41,7 @@ export function packGrid(count,width,height,maxWidth=1024){
   return {cols:best.cols,rows:best.rows};
 }
 /** One-cell logotype frame `logo`: lettering, sun and wheat as a single raster (see ui-logo.js). */
-function generateLogoRecipe(config,{name,theme,COLORS}){
+function generateLogoRecipe(config,{name,theme,COLORS,overrides}){
   if(config.characters!==undefined||config.face!==undefined)throw Error('Characters and face apply only to fonts.');
   const raster=logoRaster({text:config.text},COLORS),{width,height}=raster;
   const operations=[{command:'new',name,size:`${width}x${height}`,cols:1,rows:1,palette:'pico8'},{command:'clear',cell:'0,0'},{command:'name',cell:'0,0',as:'logo'}],names=[],bounds={left:width,top:height,right:-1,bottom:-1};
@@ -29,17 +49,17 @@ function generateLogoRecipe(config,{name,theme,COLORS}){
     const shape=`pixel_run_${names.length}`;names.push(shape);operations.push({command:'draw',cell:'0,0',type:'rect',name:shape,color:raster.palette[key],filled:true,x:start,y,w:x-start,h:1});
     bounds.left=Math.min(bounds.left,start);bounds.top=Math.min(bounds.top,y);bounds.right=Math.max(bounds.right,x-1);bounds.bottom=Math.max(bounds.bottom,y);}});
   operations.push({command:'shape-group',sub:'create',cell:'0,0',name:'logo',shapes:names});
-  return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??DEFAULT_LOGO_TEXT,colors:Object.values(raster.palette)}}};
+  return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,...(overrides?{colorOverrides:overrides}:{}),frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??DEFAULT_LOGO_TEXT,colors:Object.values(raster.palette)}}};
 }
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
-  for(const k of Object.keys(config))if(!['name','kind','theme','characters','face','text'].includes(k))throw Error(`Unknown UI field: ${k}`);
+  for(const k of Object.keys(config))if(!['name','kind','theme','colors','characters','face','text'].includes(k))throw Error(`Unknown UI field: ${k}`);
   const {kind,name=kind==='font'?'ui-font':'ui-skin',theme='moss-brass'}=config;
   if(!['font','skin','logo'].includes(kind))throw Error('UI kind must be font, skin or logo.');
   if(typeof name!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid UI name.');
   if(!Object.hasOwn(UI_THEMES,theme))throw Error('Unsupported UI theme.');
-  const COLORS=UI_THEMES[theme];
-  if(kind==='logo')return generateLogoRecipe(config,{name:config.name??'ui-logo',theme,COLORS});
+  const {colors:COLORS,overrides}=resolveUIColors(UI_THEMES[theme],config.colors);
+  if(kind==='logo')return generateLogoRecipe(config,{name:config.name??'ui-logo',theme,COLORS,overrides});
   if(config.text!==undefined)throw Error('Text applies only to logos.');
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
   if(kind==='skin'&&config.face!==undefined)throw Error('Face applies only to fonts.');
@@ -76,5 +96,5 @@ export function generateUIRecipe(config){
     }else{drawSkin(entry.alias,rect,COLORS);skins[alias]=entry.metrics;}
     operations.push({command:'shape-group',sub:'create',cell,name:kind,shapes:names});frames.push({alias,cell,bounds,...(kind==='font'?{character:entry.char,tone:entry.tone}:{})});
   }
-  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,frames,...(kind==='font'?{...(compact||display?{face}:{}),baseline:display?DISPLAY_CELL.baseline:compact?7:9,lineHeight:height,fallback:'?',symbols:Object.fromEntries(Object.entries(FONT_SYMBOLS).filter(([,c])=>glyphs[c])),glyphs}:{skins})}};
+  return {operations,report:{version:1,ok:true,kind,theme,cellSize:{width,height},colors:COLORS,...(overrides?{colorOverrides:overrides}:{}),frames,...(kind==='font'?{...(compact||display?{face}:{}),baseline:display?DISPLAY_CELL.baseline:compact?7:9,lineHeight:height,fallback:'?',symbols:Object.fromEntries(Object.entries(FONT_SYMBOLS).filter(([,c])=>glyphs[c])),glyphs}:{skins})}};
 }

@@ -298,6 +298,10 @@ OFFLINE VERIFICATION (does not start or contact a server)
     Convert source pixels to editable shapes; verify exact rendering before writing.
   atlas-proof <proof.json> --out <new-directory> [--json]
     Composite exported atlas tracks into verified GIF, PNG frames and a contact sheet.
+  ui-runtime-export --out <directory> [--verify] [--json]
+    Write the 16 UI runtime files plus ui-software-manifest.json (LF line endings) into an empty directory,
+    refusing any directory that already holds one of them; --verify writes nothing and exits 1 naming each
+    file in the directory that differs from the producer's bytes or is missing. Needs no open project.
   replay <project.json> --list [--json]
   replay <project.json> --cell R,C --step N --out <new-directory> [--scale N] [--json]
     Inspect recorded construction sources or export a step and its actual pixel contribution.
@@ -522,6 +526,34 @@ async function run() {
       for (const file of report.files) console.log(`${file.status}: ${file.name} (${file.width}x${file.height})`);
     }
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+  if (cmd === 'ui-runtime-export') {
+    for (const key of Object.keys(args)) {
+      if (!['out', 'verify', 'json'].includes(key)) throw new Error(`Unknown ui-runtime-export option: --${key}`);
+    }
+    if (positional.length !== 0 || typeof args.out !== 'string' || !args.out.trim() || [args.verify, args.json].some(value => value !== undefined && ![true, 'true', 'false'].includes(value))) {
+      throw new Error('Usage: agent-sprites ui-runtime-export --out <directory> [--verify] [--json]');
+    }
+    const { exportUiSoftware, verifyUiSoftware } = await import('../server/build/ui-software.mjs');
+    if (bool(args.verify)) {
+      const report = verifyUiSoftware({ output: args.out });
+      if (bool(args.json)) console.log(JSON.stringify(report));
+      else if (report.ok) console.log(`UI runtime current: ${report.checked} files match the producer.`);
+      else {
+        console.log(`UI runtime out of date: ${report.differing.length} differ, ${report.missing.length} missing.`);
+        for (const name of report.differing) console.log(`differs: ${name}`);
+        for (const name of report.missing) console.log(`missing: ${name}`);
+      }
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
+    const receipt = exportUiSoftware({ output: args.out });
+    if (bool(args.json)) console.log(JSON.stringify({ ok: true, manifest: receipt.manifest, files: Object.keys(receipt.artifacts).length + 1, version: receipt.receipt.producer.version }));
+    else {
+      console.log(`UI runtime written: ${Object.keys(receipt.artifacts).length} files plus the manifest in ${resolve(args.out)}`);
+      console.log(`manifest: ${receipt.manifest}`);
+    }
     return;
   }
   if (cmd === 'build-set') {

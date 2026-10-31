@@ -1,6 +1,6 @@
 ---
 name: game-integration
-description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text and inventory panels, or export sprite-based app icons. Use for atlas loading, animation tags, and repeatable game asset builds; not for CSS/SVG animation.
+description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text, inventory panels and themed colors, export or verify the UI runtime, or export sprite-based app icons. Use for atlas loading, animation tags, and repeatable game asset builds; not for CSS/SVG animation.
 ---
 
 # Game Integration
@@ -99,6 +99,39 @@ invalidation during bootstrap rather than a second perpetual animation loop.
 Verify long dialogue wrapping, scrolled/clipped content, focus and disabled states,
 modal layering and phone hit targets in the running game. A loaded atlas or a
 successful build does not establish that every visible UI pixel comes from it.
+
+### UI colors, font proof surfaces and the UI runtime export
+
+Full detail is in the [UI README](../../examples/ui/README.md); apply these rules.
+
+- **Theme colors.** Give a `ui` recipe an optional `colors` map from role name to `#rrggbb`, merged over its base theme
+  (`moss-brass` or `wasteland`) in the build config:
+  `{"ui": {"name": "ui-font", "kind": "font", "theme": "moss-brass", "colors": {"gold": "#f2c14e"}}}`.
+  The 16 roles are `ink deep edge cream muted gold moss light shadow orbitalInk instrumentTeal wornCopper seedGold mint paper
+  specimenWell`. `report.colors` stays a flat map of all 16 resolved roles; `report.colorOverrides` lists the overridden
+  roles and appears only when `colors` is given. An unknown role, a value that is not `#rrggbb`, or an equal pair among
+  `cream`, `muted`, `gold` and `ink` fails the build with a message naming the role. There is no contrast gate; read the font
+  proof. **Pads, HUD and symbols keep fixed colors**: the `pad_*`, `hud_*` and `sym_*` frames draw their own literal colors, which are not roles, and
+  do not follow `colors`, so check them against the surfaces you chose.
+- **Font proof surfaces.** The font proof draws `ink` on `paper` and every other tone on `deep`. To prove tones on the
+  backgrounds the game really uses, add `proof.surfaces` at the top level of the build config, beside `ui` (the recipe
+  rejects unknown fields): `"proof": {"surfaces": {"muted": "#2a3a44", "gold": "#1b2a30"}}`. `font-proof.json` then gains
+  `pairings` (tone, surface, whether declared, contrast ratio). Without `proof.surfaces` the output is unchanged. A
+  malformed value, an unknown tone or an unknown `proof` field fails with a message naming `proof.surfaces` or `proof`.
+- **Tone failures name the pixel.** A glyph frame outside its tone's ramp fails the build before publication with
+  `UI font tone pixels differ: <tone>; N mismatching pixels; samples (k of m): glyph "A" cell <alias> tone <tone> at (x,y)
+  found #rrggbb, allowed <ramp>; ...`, at most 8 samples, one per glyph, tone and colour found. Fix the named glyph and tone.
+- **Runtime export.** Games pin the exported UI software bytes; do not keep a copied sync script. Write the 16 files plus
+  `ui-software-manifest.json` (LF line endings) into an empty directory, then verify a pinned directory read-only:
+
+  ```powershell
+  sprite.js ui-runtime-export --out ui-software
+  sprite.js ui-runtime-export --out ui-software --verify
+  ```
+
+  Export refuses a directory that already holds any of the 17 names. `--verify` rebuilds in memory, compares the SHA-256 of
+  every file and the manifest, and exits 1 naming each file that differs or is missing. `--json` prints JSON; unknown
+  options are rejected. It needs no open project.
 
 ## Open-ended terrain (wasteland materials and overlays)
 
