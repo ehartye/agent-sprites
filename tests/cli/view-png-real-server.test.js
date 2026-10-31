@@ -1,3 +1,5 @@
+// @subject server/index.js
+// @subject scripts/sprite.js
 import { describe, test, expect, afterAll } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';

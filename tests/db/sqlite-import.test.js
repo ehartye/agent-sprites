@@ -1,3 +1,4 @@
+// @risk standard
 import { createRequire } from 'node:module';
 import { describe, it, expect } from 'vitest';
 
@@ -13,7 +14,8 @@ describe('better-sqlite3 ESM import', () => {
   it('can open an in-memory database', () => {
     const Database = require('better-sqlite3');
     const db = new Database(':memory:');
-    expect(db).toBeDefined();
+    expect(db).toBeInstanceOf(Database);
+    expect(db.open).toBe(true);
     // Verify basic operation
     const row = db.prepare('SELECT 1 + 1 AS result').get();
     expect(row.result).toBe(2);

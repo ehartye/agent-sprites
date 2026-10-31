@@ -62,10 +62,11 @@ test.skipIf(process.platform === 'win32')('timeout closes inherited pipes even w
 }, 5000);
 
 test('generator phase is reported before stdout arrives so a silent generator can be canceled', async () => {
-  writeFileSync(source, `setTimeout(()=>process.stdout.write('[]'),1000);`);
+  // The generator would answer after 10 s; a cancel that returns within 3 s cannot have waited for it. The wide gap keeps a loaded machine from failing the bound.
+  writeFileSync(source, `setTimeout(()=>process.stdout.write('[]'),10000);`);
   const abort = new AbortController(), start = Date.now();
-  await expect(invoke({ signal: abort.signal, policy: { timeoutMs: 1500 }, onProgress: event => { if (event.phase === 'generator' && event.bytes === 0) abort.abort(); } })).rejects.toThrow(/canceled/);
-  expect(Date.now() - start).toBeLessThan(500); assertClean();
+  await expect(invoke({ signal: abort.signal, policy: { timeoutMs: 5000 }, onProgress: event => { if (event.phase === 'generator' && event.bytes === 0) abort.abort(); } })).rejects.toThrow(/canceled/);
+  expect(Date.now() - start).toBeLessThan(3000); assertClean();
 });
 
 test('spool read failures disclose no temporary absolute path and still remove owned files', async () => {

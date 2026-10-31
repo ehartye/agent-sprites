@@ -44,9 +44,15 @@ areas:
   - path: recipes/**
     tier: standard
     why: no risk keyword in the name; confirm
+  - path: scripts/**
+    tier: standard
+    why: owner kept this out of the critical tier in the first audit; default tier for other server paths
   - path: server/authoring/**
     tier: standard
     why: no risk keyword in the name; confirm
+  - path: server/build/**
+    tier: standard
+    why: owner kept this out of the critical tier in the first audit; default tier for other server paths
   - path: server/commands/**
     tier: standard
     why: no risk keyword in the name; confirm

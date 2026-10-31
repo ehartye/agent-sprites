@@ -1,3 +1,5 @@
+// @risk standard
+// Subject is the test-support helper tests/support/owned-cli.js, which has no risk-map area.
 import { test, expect } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';

@@ -1,16 +1,21 @@
+// @subject server/engine/atlas-proof.js
+// @subject scripts/sprite.js
 import { test, expect, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtempSync, readFileSync, rmSync, existsSync, cpSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import sharp from 'sharp';
 import { atlasProofFixture } from '../helpers/atlas-proof-fixture.js';
 const exec = promisify(execFile);
+// Anchored to this file, not the process working directory.
+const repo = fileURLToPath(new URL('../../', import.meta.url));
 let dir, config;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'sprite-proof-cli-')); config = atlasProofFixture(dir); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
-const cli = (...args) => exec(process.execPath, [resolve('scripts/sprite.js'), ...args], {
+const cli = (...args) => exec(process.execPath, [join(repo, 'scripts', 'sprite.js'), ...args], {
   env: { ...process.env, SPRITE_PORT: '1' }, windowsHide: true, timeout: 15000,
 });
 test('offline proof CLI emits a decoded animation without contacting a live session', async () => {
@@ -26,7 +31,7 @@ test('proof CLI rejects unknown and missing options before creating output', asy
   expect(existsSync(join(dir, 'bad'))).toBe(false);
 });
 test('copied example builds two trimmed sources and proves their complete joint cycle', async () => {
-  const example = join(dir, 'example'); cpSync(resolve('examples/atlas-proof'), example, { recursive: true });
+  const example = join(dir, 'example'); cpSync(join(repo, 'examples', 'atlas-proof'), example, { recursive: true });
   for (const name of ['base', 'overlay']) {
     const built = JSON.parse((await cli('build', join(example, `${name}-project.json`), '--json')).stdout);
     expect(built.ok, JSON.stringify(built.errors)).toBe(true);

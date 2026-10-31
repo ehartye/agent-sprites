@@ -1,13 +1,18 @@
+// @subject server/engine/construction-replay.js
+// @subject scripts/sprite.js
 import { test, expect, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, cpSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import sharp from 'sharp';
 import { constructionReplayFixture } from '../helpers/construction-replay-fixture.js';
 const exec = promisify(execFile);
+// Anchored to this file, not the process working directory.
+const repo = fileURLToPath(new URL('../../', import.meta.url));
 let dir, sentinel, contacts;
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'sprite-replay-cli-')); contacts = 0;
@@ -15,7 +20,7 @@ beforeEach(async () => {
   await new Promise(resolve => sentinel.listen(0, '127.0.0.1', resolve));
 });
 afterEach(async () => { await new Promise(resolve => sentinel.close(resolve)); rmSync(dir, { recursive: true, force: true }); });
-const cli = (...args) => exec(process.execPath, [resolve('scripts/sprite.js'), ...args], { env: { ...process.env, SPRITE_PORT: String(sentinel.address().port) }, windowsHide: true, timeout: 10000 });
+const cli = (...args) => exec(process.execPath, [join(repo, 'scripts', 'sprite.js'), ...args], { env: { ...process.env, SPRITE_PORT: String(sentinel.address().port) }, windowsHide: true, timeout: 10000 });
 test('offline CLI lists construction sources and exports a selected step without altering the saved project', async () => {
   const built = await constructionReplayFixture(dir), before = readFileSync(built.artifacts.project);
   const meta = JSON.parse((await cli('replay', built.artifacts.project, '--list', '--json')).stdout);
@@ -28,7 +33,7 @@ test('offline CLI lists construction sources and exports a selected step without
   await expect(cli('replay', built.artifacts.project, '--cell', '0,0', '--step', String(eye.step), '--out', join(dir, 'review'))).rejects.toMatchObject({ code: 1 });
 }, 15000);
 test('source-linked contribution identifies a misplaced eye and a rebuilt correction changes its source identity', async () => {
-  const example = join(dir, 'example'); cpSync(resolve('examples/construction-replay'), example, { recursive: true });
+  const example = join(dir, 'example'); cpSync(join(repo, 'examples', 'construction-replay'), example, { recursive: true });
   const sourcePath = join(example, 'operations.json'), operations = JSON.parse(readFileSync(sourcePath, 'utf8'));
   operations[2].x = 14; writeFileSync(sourcePath, JSON.stringify(operations));
   const config = join(example, 'sprite-project.json');

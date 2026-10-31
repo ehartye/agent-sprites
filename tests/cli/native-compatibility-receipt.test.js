@@ -1,3 +1,6 @@
+// @subject .github/scripts/native-compatibility.mjs
+// @risk standard
+// The subject is CI evidence code and no risk-map area covers .github, so the tier is set here.
 import { test, expect } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';

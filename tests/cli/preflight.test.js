@@ -1,3 +1,4 @@
+// @subject scripts/sprite.js
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { execFile } from 'child_process';
 import { promisify } from 'util';

@@ -1,3 +1,4 @@
+// @subject server/build/ui-software.mjs
 import {test,expect} from 'vitest';
 import {mkdirSync,mkdtempSync,readFileSync,writeFileSync,existsSync,rmSync,symlinkSync} from 'node:fs';
 import {resolve,join,sep} from 'node:path';
