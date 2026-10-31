@@ -7,6 +7,8 @@ Export the current sprite project. Usage: /sprite-export [dest folder]
 
 Use the sprite-setup skill for first-time setup and version sync after updates. Always use the managed launcher below.
 
+This plugin exports 2D sprites only and has no route to 3D meshes. For mesh building, use the separate agent-meshes plugin.
+
 Before exporting, make sure the atlas metadata is set:
 
 - `group fps <name> <fps>` on each animation cell group (becomes per-frame durations)

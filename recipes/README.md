@@ -10,6 +10,12 @@ JSONs replayed by a single `batch` call each, led by `clear` for idempotent
 iteration. The worked example behind
 `skills/sprite-editing/references/high-detail.md`; design notes in `DESIGN.md`.
 
+## reference-conversion
+
+A documented recipe, not a command: convert a supplied reference to a native grid,
+then refuse a result with more colours than the budget, a fractional grid or an
+unstated alpha policy before tracing it. See `reference-conversion/README.md`.
+
 ## bounce-basketball
 
 An 8-frame bouncing-ball animation, db-32 palette, 64px cells.

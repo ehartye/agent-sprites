@@ -56,6 +56,13 @@ background; it does not reconstruct the native grid or identify body parts.
 For a dim non-exporting underlay instead, use `ref set` under Cell Operations.
 See [trace limits and alpha behavior](../../README.md#trace-a-reference-into-editable-shapes).
 
+To convert a reference to a native grid first, follow the
+[reference conversion recipe](../../recipes/reference-conversion/README.md). It is a
+recipe, not a command: state the grid, palette budget, dither and alpha policy,
+convert, run its `check.mjs` against the decoded PNG (exit nonzero on too many
+colours, a fractional grid or an unstated alpha policy), then trace the converted
+file. Trace has no grid or colour option and never quantizes.
+
 ## Replaying an ops file
 
 For a repeatable asset build, use `sprite.js build sprite-project.json --json`.
