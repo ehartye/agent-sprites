@@ -51,15 +51,34 @@ function generateLogoRecipe(config,{name,theme,COLORS,overrides}){
   operations.push({command:'shape-group',sub:'create',cell:'0,0',name:'logo',shapes:names});
   return {operations,report:{version:1,ok:true,kind:'logo',theme,cellSize:{width,height},colors:COLORS,...(overrides?{colorOverrides:overrides}:{}),frames:[{alias:'logo',cell:'0,0',bounds}],logo:{text:config.text??DEFAULT_LOGO_TEXT,colors:Object.values(raster.palette)}}};
 }
+const FRAME_NAME_TOKENS={tone:(c,t)=>t,dec:c=>String(c.codePointAt(0)),hex:c=>c.codePointAt(0).toString(16),hex4:c=>c.codePointAt(0).toString(16).padStart(4,'0')};
+/**
+ * Validate a `frameNames` template and return the function that names one glyph frame. Tokens: {tone}, {dec}, {hex}, {hex4}.
+ * Throws an error naming `frameNames` for a non-string, an unknown token, a stray brace, a missing {tone} or code token, or an unsafe character.
+ */
+export function glyphFrameNamer(template){
+  if(template===undefined)return (char,tone)=>`glyph_${FRAME_NAME_TOKENS.hex4(char)}_${tone}`;
+  if(typeof template!=='string'||!template.length)throw Error('frameNames must be a nonempty template string.');
+  const tokens=[...template.matchAll(/\{([^{}]*)\}/g)].map(m=>m[1]);
+  for(const t of tokens)if(!Object.hasOwn(FRAME_NAME_TOKENS,t))throw Error(`frameNames has unknown token {${t}}. Tokens: ${Object.keys(FRAME_NAME_TOKENS).map(k=>`{${k}}`).join(', ')}.`);
+  const literal=template.replace(/\{[^{}]*\}/g,'');
+  if(/[{}]/.test(literal))throw Error('frameNames has an unmatched brace.');
+  if(!/^[A-Za-z0-9_.-]*$/.test(literal))throw Error('frameNames literal text may use only letters, digits, underscore, dot and hyphen.');
+  if(!tokens.includes('tone'))throw Error('frameNames must contain {tone}.');
+  if(!tokens.some(t=>t==='dec'||t==='hex'||t==='hex4'))throw Error('frameNames must contain a code token: {dec}, {hex} or {hex4}.');
+  return (char,tone)=>template.replace(/\{([^{}]*)\}/g,(_,t)=>FRAME_NAME_TOKENS[t](char,tone));
+}
 export function generateUIRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('UI recipe must be an object.');
-  for(const k of Object.keys(config))if(!['name','kind','theme','colors','characters','face','text','displayRamps'].includes(k))throw Error(`Unknown UI field: ${k}`);
+  for(const k of Object.keys(config))if(!['name','kind','theme','colors','characters','face','text','displayRamps','frameNames'].includes(k))throw Error(`Unknown UI field: ${k}`);
   const {kind,name=kind==='font'?'ui-font':'ui-skin',theme='moss-brass'}=config;
   if(!['font','skin','logo'].includes(kind))throw Error('UI kind must be font, skin or logo.');
   if(typeof name!=='string'||!/^[a-z][a-z0-9_-]{0,47}$/.test(name))throw Error('Invalid UI name.');
   if(!Object.hasOwn(UI_THEMES,theme))throw Error('Unsupported UI theme.');
   const {colors:COLORS,overrides}=resolveUIColors(UI_THEMES[theme],config.colors);
   if(config.displayRamps!==undefined&&(kind!=='font'||config.face!=='display'))throw Error('displayRamps applies only to fonts with face display.');
+  if(config.frameNames!==undefined&&kind!=='font')throw Error('frameNames applies only to fonts.');
+  const frameName=glyphFrameNamer(config.frameNames);
   if(kind==='logo')return generateLogoRecipe(config,{name:config.name??'ui-logo',theme,COLORS,overrides});
   if(config.text!==undefined)throw Error('Text applies only to logos.');
   if(kind==='skin'&&config.characters!==undefined)throw Error('Characters apply only to fonts.');
@@ -73,7 +92,8 @@ export function generateUIRecipe(config){
   if(kind==='font')for(const char of chars)if(char!==' '&&!FONT_GLYPHS[char])throw Error(`Unsupported font character: ${char}`);
   const {steps:displaySteps,report:displayReport}=resolveDisplayRamps(COLORS,config.displayRamps);
   const tones=FONT_TONES,width=kind==='font'?(display?DISPLAY_CELL.width:compact?6:8):24,height=kind==='font'?(display?DISPLAY_CELL.height:compact?10:12):24;
-  const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:`glyph_${char.codePointAt(0).toString(16).padStart(4,'0')}_${tone}`}))):skinDefinitions(theme);
+  const entries=kind==='font'?chars.filter(c=>c!==' ').flatMap(char=>tones.map(tone=>({char,tone,alias:frameName(char,tone)}))):skinDefinitions(theme);
+  if(new Set(entries.map(e=>e.alias)).size!==entries.length)throw Error('frameNames makes two glyph frames share one name; add {tone} and a code token that separate them.');
   // A near-square sheet; the cells that pad the last row stay empty and unnamed. Frame names never depend on the layout.
   const {cols,rows}=packGrid(entries.length,width,height);
   const operations=[{command:'new',name,size:`${width}x${height}`,cols,rows,palette:'pico8'}],frames=[],glyphs={},skins={};
