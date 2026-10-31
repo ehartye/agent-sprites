@@ -144,6 +144,8 @@ Inspect both frames in the contact sheet and play `Invoke-Sprite view-anim blink
 --loops 3`. For a supplied `ops.json`, inspect its lifecycle/destination commands,
 then use `Invoke-Sprite batch .\ops.json --json` instead of duplicating its build.
 
+Export is 2D only: this plugin has no route to 3D meshes. For mesh building, use the separate agent-meshes plugin.
+
 With dependencies installed, the sprite server starts on the first CLI call.
 The UI at `http://localhost:3377` shows every operation. If another app owns that
 port, set `$env:SPRITE_PORT = '3378'` to an unused port and use its matching URL.
@@ -435,6 +437,12 @@ can change semitransparent RGB; such inputs fail without publishing a purported
 exact baseline. Limits are 32 MiB input, 4 million pixels, 8192 pixels per side and
 100,000 shapes. Animated inputs and existing output paths are rejected. Use a new
 output directory for each variant; the source is never changed.
+
+To trace a reference at its native grid and a stated colour budget, convert it
+first with the [reference conversion recipe](recipes/reference-conversion/README.md).
+It is a documented recipe, not a command: its `check.mjs` decodes the converted PNG
+and refuses a colour count above the budget, a fractional grid or an unstated alpha
+policy before the PNG is traced. Trace itself stays lossless.
 
 ### Build a repeatable asset project
 

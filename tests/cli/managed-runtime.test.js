@@ -127,6 +127,53 @@ describe('managed CLI installation', () => {
     expect(() => resolveRuntime(source, { home })).toThrow(/modified|mismatch/i);
   });
 
+  test('check report names node, npm, prefix and the failing boundary, splitting runtimeOk from linkOk', () => {
+    installRuntime(source, { home, npm, checkDependencies: deps });
+    const healthy = inspectInstallation(source, { home, npm, checkDependencies: deps });
+    expect(healthy).toMatchObject({ ok: true, runtimeOk: true, linkOk: true, node: process.version, prefix: sandbox });
+    expect(healthy).not.toHaveProperty('boundary');
+    expect(healthy).toHaveProperty('npmExecpath');
+    expect(healthy).toHaveProperty('npm');
+    rmSync(join(globalRoot, 'agent-sprites'), { recursive: true });
+    symlinkSync(source, join(globalRoot, 'agent-sprites'), process.platform === 'win32' ? 'junction' : 'dir');
+    const stale = inspectInstallation(source, { home, npm, checkDependencies: deps });
+    expect(stale).toMatchObject({ ok: false, runtimeOk: true, linkOk: false, boundary: 'link' });
+  });
+
+  test('check report names the npm that npm_execpath selects, not a silently trusted default', () => {
+    installRuntime(source, { home, npm, checkDependencies: deps });
+    const other = join(sandbox, 'other-npm');
+    mkdirSync(join(other, 'bin'), { recursive: true });
+    put(join(other, 'package.json'), JSON.stringify({ name: 'npm', version: '99.1.2' }));
+    put(join(other, 'bin', 'npm-cli.js'), '// other npm');
+    const previous = process.env.npm_execpath;
+    process.env.npm_execpath = join(other, 'bin', 'npm-cli.js');
+    try {
+      const report = inspectInstallation(source, { home, npm, checkDependencies: deps });
+      expect(report.npmExecpath).toBe(join(other, 'bin', 'npm-cli.js'));
+      expect(report.npm).toBe('99.1.2');
+    } finally {
+      if (previous === undefined) delete process.env.npm_execpath; else process.env.npm_execpath = previous;
+    }
+  });
+
+  test.each([
+    ['dependencies', () => installRuntime(source, { home, npm, checkDependencies: deps }), { checkDependencies: () => { throw new Error('canvas is missing'); } }],
+    ['runtime', () => {}, {}],
+  ])('check report sets boundary %s and runtimeOk false when that stage fails', (boundary, prepare, overrides) => {
+    prepare();
+    const report = inspectInstallation(source, { home, npm, checkDependencies: deps, ...overrides });
+    expect(report).toMatchObject({ ok: false, runtimeOk: false, linkOk: false, boundary });
+  });
+
+  test('check report sets boundary version for a modified release and for mismatched metadata', () => {
+    const runtime = installRuntime(source, { home, npm, checkDependencies: deps });
+    put(runtime.cli, '// changed');
+    expect(inspectInstallation(source, { home, npm, checkDependencies: deps })).toMatchObject({ ok: false, runtimeOk: false, boundary: 'version' });
+    put(join(source, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'agent-sprites', version: '9.0.0' }));
+    expect(() => inspectInstallation(source, { home, npm, checkDependencies: deps })).toThrow(expect.objectContaining({ boundary: 'version' }));
+  });
+
   test('resolved CLI executes installed copy, preserving arguments and project working directory', () => {
     const runtime = installRuntime(source, { home, npm, checkDependencies: deps });
     const output = JSON.parse(execFileSync(process.execPath, [runtime.cli, 'batch', 'file with spaces.json'], { cwd: sandbox, encoding: 'utf8' }));

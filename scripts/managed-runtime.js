@@ -7,6 +7,8 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, 
 
 const RECEIPT = 'managed-install.json';
 export const managedHome = () => resolve(process.env.AGENT_SPRITES_HOME || join(homedir(), '.agent-sprites'));
+// Errors carry the stage that failed (runtime, dependencies, link or version) for the check report.
+const fail = (boundary, message) => Object.assign(new Error(message), { boundary });
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
 const samePath = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 const inside = (parent, child) => { const rel = relative(parent, child); return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel)); };
@@ -19,14 +21,14 @@ function canonical(path) {
 export function describeSource(source) {
   source = realpathSync(source);
   const pkg = readJson(join(source, 'package.json'));
-  if (pkg.name !== 'agent-sprites' || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(pkg.version)) throw new Error('Invalid agent-sprites package/version');
+  if (pkg.name !== 'agent-sprites' || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(pkg.version)) throw fail('version', 'Invalid agent-sprites package/version');
   const pluginPath = join(source, '.claude-plugin', 'plugin.json');
   if (existsSync(pluginPath)) {
     const plugin = readJson(pluginPath);
-    if (plugin.name !== pkg.name || plugin.version !== pkg.version) throw new Error('Plugin and CLI package version mismatch');
+    if (plugin.name !== pkg.name || plugin.version !== pkg.version) throw fail('version', 'Plugin and CLI package version mismatch');
   }
   const lock = readJson(join(source, 'package-lock.json'));
-  if (lock.version !== pkg.version || lock.packages?.['']?.version !== pkg.version) throw new Error('Package and lockfile version mismatch');
+  if (lock.version !== pkg.version || lock.packages?.['']?.version !== pkg.version) throw fail('version', 'Package and lockfile version mismatch');
   const { files, fingerprint } = fingerprintSource(source);
   const key = `${pkg.version}-${fingerprint.slice(0, 16)}-${process.platform}-${process.arch}-${process.versions.modules}`;
   return { source, version: pkg.version, fingerprint, key, files };
@@ -35,25 +37,26 @@ export function describeSource(source) {
 function location(source, home) {
   const expected = describeSource(source);
   home = canonical(resolve(home));
-  if (inside(expected.source, home) || inside(home, expected.source)) throw new Error('Managed installation must be outside the plugin/checkout, in a separate directory');
+  if (inside(expected.source, home) || inside(home, expected.source)) throw fail('runtime', 'Managed installation must be outside the plugin/checkout, in a separate directory');
   const root = join(home, 'releases', expected.key);
   // Do not follow a replaced releases directory or release junction into a cache/checkout.
-  if (!inside(home, canonical(root))) throw new Error('Managed release resolves outside its installation home');
+  if (!inside(home, canonical(root))) throw fail('runtime', 'Managed release resolves outside its installation home');
   return { ...expected, home, root, cli: join(root, 'scripts', 'sprite.js') };
 }
 
 export function resolveRuntime(source, { home = managedHome() } = {}) {
   const runtime = location(source, home);
   const receiptPath = join(runtime.root, RECEIPT);
-  if (!existsSync(receiptPath)) throw new Error(`Managed CLI ${runtime.version} is missing. Run the sprite-setup skill (node "${join(runtime.source, 'scripts', 'setup.js')}").`);
+  if (!existsSync(receiptPath)) throw fail('runtime', `Managed CLI ${runtime.version} is missing. Run the sprite-setup skill (node "${join(runtime.source, 'scripts', 'setup.js')}").`);
   const receipt = readJson(receiptPath);
   if (receipt.fingerprint !== runtime.fingerprint || receipt.key !== runtime.key || describeSource(runtime.root).fingerprint !== runtime.fingerprint) {
-    throw new Error(`Managed runtime modified or version mismatch at ${runtime.root}. Move this managed release aside and rerun sprite-setup.`);
+    throw fail('version', `Managed runtime modified or version mismatch at ${runtime.root}. Move this managed release aside and rerun sprite-setup.`);
   }
   return runtime;
 }
 
-function npmCli() {
+// The npm that setup runs: an inherited npm_execpath wins when it is a real npm-cli.js, so the report names it.
+export function npmCli() {
   const candidates = [process.env.npm_execpath, join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')];
   for (const entry of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
     candidates.push(join(entry, 'node_modules', 'npm', 'bin', 'npm-cli.js'));
@@ -130,21 +133,32 @@ export function installRuntime(source, { home = managedHome(), npm = runNpm, che
 
 export function inspectInstallation(source, { home = managedHome(), npm = runNpm, checkDependencies: check = checkDependencies } = {}) {
   const expected = location(source, home);
-  const report = { ok: false, pluginVersion: expected.version, cliVersion: null, runtimeRoot: expected.root, fingerprint: expected.fingerprint, linked: false, dependencies: false, errors: [] };
+  const report = { ok: false, runtimeOk: false, linkOk: false, pluginVersion: expected.version, cliVersion: null, runtimeRoot: expected.root, fingerprint: expected.fingerprint, linked: false, dependencies: false, node: process.version, npm: null, prefix: null, npmExecpath: null, errors: [] };
+  try { report.npmExecpath = npmCli(); } catch { /* reported as null; a real npm call below records the failure */ }
+  if (report.npmExecpath) {
+    try { const meta = readJson(join(dirname(report.npmExecpath), '..', 'package.json')); if (meta.name === 'npm') report.npm = meta.version; } catch { /* version stays null */ }
+  }
+  let stage = 'runtime';
   try {
     const runtime = resolveRuntime(source, { home });
     report.cliVersion = runtime.version;
+    stage = 'dependencies';
     check(runtime.root); report.dependencies = true;
+    report.runtimeOk = true;
+    stage = 'link';
     const globalRoot = npm(['root', '--global'], { cwd: runtime.root });
     const linked = join(globalRoot, 'agent-sprites');
     report.linkedRoot = existsSync(linked) ? realpathSync(linked) : null;
     report.linked = !!report.linkedRoot && samePath(report.linkedRoot, realpathSync(runtime.root));
     if (!report.linked) report.errors.push('npm link points elsewhere or is missing; rerun sprite-setup');
     const prefix = npm(['prefix', '--global'], { cwd: runtime.root });
+    report.prefix = prefix;
     report.pathDirectory = process.platform === 'win32' ? prefix : join(prefix, 'bin');
     report.pathConfigured = (process.env.PATH || '').split(delimiter).filter(Boolean).some(path => samePath(resolve(path), resolve(report.pathDirectory)));
     if (!report.pathConfigured) report.pathHint = `Add ${report.pathDirectory} to your user PATH for the optional bare agent-sprites command. Skills use the checked launcher regardless of PATH.`;
-  } catch (error) { report.errors.push(error.message); }
+  } catch (error) { report.errors.push(error.message); report.boundary = error.boundary || stage; }
+  if (!report.boundary && report.errors.length) report.boundary = 'link';
+  report.linkOk = report.linked && report.boundary !== 'link';
   report.ok = report.dependencies && report.linked && report.errors.length === 0;
   return report;
 }

@@ -13,6 +13,7 @@ try {
     report.server = await inspectServer(resolveRuntime(source));
     if (!report.server.ok) {
       report.ok = false;
+      report.boundary = 'version';
       report.errors.push('Running server does not match this managed CLI. Stop the known old sprite server when safe, or set SPRITE_PORT to an unused port, then rerun --check. Setup never stops an existing server.');
     }
   }
@@ -20,6 +21,6 @@ try {
   if (!report.ok) process.exitCode = 1;
 } catch (error) {
   console.error(error.message);
-  if (process.argv.includes('--json')) console.log(JSON.stringify({ ok: false, errors: [error.message] }));
+  if (process.argv.includes('--json')) console.log(JSON.stringify({ ok: false, ...(error.boundary && { boundary: error.boundary }), errors: [error.message] }));
   process.exitCode = 1;
 }
