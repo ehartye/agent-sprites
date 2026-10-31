@@ -190,18 +190,23 @@ Each option is optional; omitting it leaves earlier output byte-identical.
 - **`deep`.** The fifth ramp colour is drawn only where a pattern asks `tone: "deep"`, so existing marks never change. A
   `deep` pattern on a four-colour ramp, or a ramp of six colours, is rejected with a message naming `ramp`.
 - **`grain`** is `none`, `soft` or `lattice` (the default, identical to omitting it). `lattice` gives every variant the same edge-ring marks;
-  `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, so positions differ between variants while
-  opposite edges still match and seams stay closed. An unknown value is rejected naming `grain`.
+  `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, which removes the fixed lattice. Opposite edges
+  still match, so seams are closed between tiles of the same variant. Two different variants never share an edge mark, so
+  a seam between mixed variants shows half-width marks. Use `none`, or `lattice` (identical across variants by design), when
+  variants must mix without a visible seam. An unknown value is rejected naming `grain`.
 - **`rimRoles`** is `{"light": "#rrggbb", "dark": "#rrggbb"}`: with `overlayEdge.rim`, rim pixels use only those two colours plus
   the material ramp. Omitted, the rim is derived from the ramp as before. A malformed value is rejected naming `rimRoles`;
   the report gains `rimRoles` (per material) only when a material sets it.
 - **Per-variant seeds.** `bedding`, `crystals` and `sheen` draw from a noise seed that includes the variant, so a material's
-  variants differ. At the default density three variants share at most half of their mark positions pairwise; at `density` 1
-  bedding can still share up to about 60 percent, so lower the density when a pool must look varied.
+  variants differ. At the default density variants usually share well under half of their mark positions, but this is not
+  guaranteed: in 12000 sampled pairs one exceeded half (worst 0.57), and bedding at `density` 1 exceeded it in 9 of 12000
+  pairs (worst 0.63). The unit test checks fixed seeds only. Lower the density when a pool must look varied.
 - **`variants` (1 to 4) on an animated material** makes that many looks of the four-frame loop. Tiles are named
   `<material>_f<k>_<v>` (k the frame, v the variant) with one tag `<material>_v<v>` per look; overlays and `worldReport` handle
-  the names. Atlas growth: at most 4 frames times the variant count per animated material, so three variants is up to twelve
-  tiles instead of four. Omitted, the names (`<material>_<k>`, tag `<material>`) and bytes are unchanged. The generator emits the
+  the names. Growth: at most 4 frames times the variant count per animated material, so three variants is up to twelve
+  tiles instead of four. Each tile is exported twice in the atlas (a numbered frame and a named one), so atlas frame
+  entries grow by twice the tile count: in the example below, against the same config without murk's `variants`, the report lists 8 more tiles (432 instead of 424) and the
+  atlas holds 16 more frame entries (914 instead of 898). Omitted, the names (`<material>_<k>`, tag `<material>`) and bytes are unchanged. The generator emits the
   tiles; the game picks a variant per tile and plays one tag for the whole map so neighbours stay in step.
 
 ```json
