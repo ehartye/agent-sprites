@@ -1,6 +1,6 @@
 ---
 name: game-integration
-description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text, inventory panels and themed colors, export or verify the UI runtime, or export sprite-based app icons. Use for atlas loading, animation tags, terrain materials (ramps, grain, rim roles, animated variants), and repeatable game asset builds; not for CSS/SVG animation.
+description: Integrate agent-sprites exports into a 2D game, build pixel UI with bitmap text, inventory panels, themed colors, display ramps and frame names, export or verify the UI runtime, or export sprite-based app icons. Use for atlas loading, animation tags, terrain materials (ramps, grain, rim roles, animated variants), and repeatable game asset builds; not for CSS/SVG animation.
 ---
 
 # Game Integration
@@ -113,6 +113,26 @@ Full detail is in the [UI README](../../examples/ui/README.md); apply these rule
   `cream`, `muted`, `gold` and `ink` fails the build with a message naming the role. There is no contrast gate; read the font
   proof. **Pads, HUD and symbols keep fixed colors**: the `pad_*`, `hud_*` and `sym_*` frames draw their own literal colors, which are not roles, and
   do not follow `colors`, so check them against the surfaces you chose.
+- **Display ramps.** For a `face: "display"` font, `displayRamps` overrides ramp steps per tone (`cream`, `muted`, `gold`, `ink`)
+  with any of `highlight`, `shade`, `outline` and `shadow`, each `#rrggbb`:
+  `{"ui": {"name": "ui-display", "kind": "font", "face": "display", "characters": "AB!", "displayRamps": {"gold": {"highlight": "#fff0b0", "shade": "#a0661a", "outline": "#2a1608", "shadow": "#000000"}}}}`.
+  The face stays the tone's `colors` role. An omitted step keeps the colour derived from the resolved `colors`: highlight mixes
+  the face toward white (gold 55%, cream 60%, muted 45%) or, for `ink`, toward `specimenWell` 70%; shade mixes toward
+  `wornCopper` 60% (gold), `edge` 55% (cream) or `shadow` (muted 50%, ink 40%); the outline is `shadow` (`light` for `ink`).
+  `shadow` is the drop shadow, the ring cell below or to the right of a lit cell, and defaults to the resolved outline;
+  the rest of the ring is the outline. `report.displayRamps` lists highlight, face, shade, outline and shadow per tone and
+  appears only when the option is given. Errors name the field: `displayRamps applies only to fonts with face display.`,
+  `Unknown displayRamps tone: <tone>`, `Unknown displayRamps step: displayRamps.<tone>.<step>` and
+  `displayRamps.<tone>.<step> must be a #rrggbb value.` There is no contrast gate, and a pixel outside the declared ramp
+  still fails with `UI font tone pixels differ: <tone>`.
+- **Frame names.** `frameNames` is a template for the glyph frame names of the regular, compact and display fonts:
+  `{"ui": {"name": "ui-font", "kind": "font", "characters": "AB!", "frameNames": "glyph-{tone}-{dec}"}}` names `!` in cream
+  `glyph-cream-33`. Tokens: `{tone}`, `{dec}` (decimal code point), `{hex}` (lower-case, unpadded), `{hex4}` (padded to four
+  digits). It must contain `{tone}` and a code token; literal text may use letters, digits, `_`, `.` and `-`. Unset keeps
+  `glyph_<hex4>_<tone>` (`glyph_0021_cream`), and `glyph_{hex4}_{tone}` reproduces it. An unknown token, unmatched brace,
+  unsafe character or empty or non-string value fails naming `frameNames`; skin and logo recipes reject it. Names land in
+  `report.frames[].alias`, `report.glyphs[char].frames[tone]` and the atlas `filename`; `ui-phaser.json` for fonts is keyed
+  by code point and holds no names. Look names up and never parse them. Skin frames (`sym_*`, `pad_*`, `hud_*`) keep their names.
 - **Font proof surfaces.** The font proof draws `ink` on `paper` and every other tone on `deep`. To prove tones on the
   backgrounds the game really uses, add `proof.surfaces` at the top level of the build config, beside `ui` (the recipe
   rejects unknown fields): `"proof": {"surfaces": {"muted": "#2a3a44", "gold": "#1b2a30"}}`. `font-proof.json` then gains
