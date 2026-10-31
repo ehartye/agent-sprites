@@ -1,3 +1,5 @@
+// @risk standard
+// Subject is the test-support helper tests/support/owned-child-process.js, which has no risk-map area.
 import { test, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import http from 'node:http';

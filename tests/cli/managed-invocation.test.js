@@ -1,16 +1,20 @@
+// @subject scripts/sprite.js
 import { test, expect, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 const exec = promisify(execFile);
+// Anchored to this file, not the process working directory, so a run from another directory still finds the repo script.
+const repo = fileURLToPath(new URL('../../', import.meta.url));
 let root;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'sprite-invoke-'));
   mkdirSync(join(root, 'scripts'));
-  copyFileSync(resolve('scripts/sprite.js'), join(root, 'scripts', 'sprite.js'));
+  copyFileSync(join(repo, 'scripts', 'sprite.js'), join(root, 'scripts', 'sprite.js'));
   writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'agent-sprites', version: '1.2.3', type: 'module' }));
   writeFileSync(join(root, 'managed-install.json'), JSON.stringify({ version: '1.2.3' }));
 });

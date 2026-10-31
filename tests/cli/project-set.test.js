@@ -269,7 +269,7 @@ test.each(['../../out/a', '../../out/a/nested', '../a'])('overlapping outputs or
 
 test('relative provenance survives relocating the full project tree', async () => {
   expect((await buildSet(list)).ok).toBe(true);
-  const moved = join(tmpdir(), 'sprite-set-moved-' + Date.now());
+  const moved = mkdtempSync(join(tmpdir(), 'sprite-set-moved-'));
   try {
     cpSync(join(dir, '..'), moved, { recursive: true });
     expect((await buildSet(join(moved, 'src', 'sprite-projects.json'), { check: true })).ok).toBe(true);
