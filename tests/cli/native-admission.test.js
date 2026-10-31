@@ -10,7 +10,7 @@ import {
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const script = join(root, 'scripts', 'native-admission.mjs');
-const workflow = readFileSync(join(root, '.github', 'workflows', 'native-compatibility.yml'), 'utf8');
+const workflow = readFileSync(join(root, '.github', 'workflows', 'native-compatibility.yml'), 'utf8').replace(/\r\n/g, '\n');
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
 const has = commit => { try { git('cat-file', '-e', `${commit}^{commit}`); git('cat-file', '-e', `${commit}^^{commit}`); return true; } catch { return false; } };
 const changed = commit => git('diff', '--name-only', '--no-renames', `${commit}^`, commit).split('\n').filter(Boolean).sort();
@@ -82,7 +82,12 @@ test.each([
   ['unknown beside docs', ['README.md', 'some-new-dir/x.bin'], [], 'unknown', true],
   ['unknown beside version-only', ['package.json', 'some-new-dir/x.bin'], ['package.json'], 'unknown', true],
   ['skill json is not prose', ['skills/sprite-export/data.json'], [], 'unknown', true],
-  ['site content is not named by a rule', ['site/index.html'], [], 'unknown', true],
+  ['site content only', ['site/index.html', 'site/assets/app.css', 'site/img/logo.png'], [], 'documentation-only', false],
+  ['site content beside docs', ['site/index.html', 'README.md', 'docs/a.md'], [], 'documentation-only', false],
+  ['site content beside native source', ['site/index.html', 'server/index.js'], [], 'native', true],
+  ['site content beside an unknown path', ['site/index.html', 'some-new-dir/x.bin'], [], 'unknown', true],
+  ['examples are not named by a rule', ['examples/demo/index.html'], [], 'unknown', true],
+  ['examples beside site content', ['examples/demo/index.html', 'site/index.html'], [], 'unknown', true],
   ['empty change set', [], [], 'unknown', true],
   ['path escaping the repo', ['docs/../../outside.md'], [], 'unknown', true],
   ['dot-dot path into native source', ['docs/../server/index.js'], [], 'native', true],

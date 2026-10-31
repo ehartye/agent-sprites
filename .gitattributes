@@ -6,3 +6,5 @@ tests/native-ui/*.mjs text eol=lf
 tests/native-ui/*.json text eol=lf
 tests/native-ui/*.html text eol=lf
 tests/native-ui/assets/*.json text eol=lf
+# The admission script has a shebang line, which a CRLF checkout breaks.
+scripts/native-admission.mjs text eol=lf
