@@ -173,13 +173,64 @@ pixels do not, so water tiles remain seamless in any frame. Play one tag for the
 ```
 
 `name` is lowercase letters, digits and hyphens (no underscore, so `<material>_<mask>_<variant>` parses) and cannot
-reuse a built-in. `ramp` is four `#rrggbb` colors: base, dark, light, bright. `patterns` (1-6) are drawn in order; each
+reuse a built-in. `ramp` is four `#rrggbb` colors (base, dark, light, bright) or five: the fifth, `deep`, is the darkest step. `patterns` (1-6) are drawn in order; each
 has a `kind` and optionally `density` (0.05-1) and `variants` (restrict it to up to 8 listed variant numbers; not allowed on `panels` or `furrows`, which draw the shared edge rows):
 `speckle` (two-pixel flecks, `tone`), `clusters` (blobs, `tone`, `size` small|large, `shade`), `cracks`, `panels`
 (slab seam, `cols` 1|2), `ripples`, `furrows`, `polygons` (cracked plates), `bubbles` (orange-glint style, uses the
-bright step), `streaks` (diagonal gloss, `tone`) and `stripe` (lane paint, `color`). `tone` is mixed, dark, light or
-bright. `animated: true` (needs a `ripples` pattern, optional `fps`) makes a four-frame tagged animation like water.
-The built-in wasteland materials are specs of exactly this shape.
+bright step), `streaks` (diagonal gloss, `tone`), `stripe` (lane paint, `color`), and the layered-rock kinds `bedding`
+(wavering lit and shade hairlines), `crystals` (small lit clusters, each with a shade pixel) and `sheen` (a thin glint
+line, at most two pixels thick). `tone` is mixed, dark, light or bright, or `deep` (needs a five-colour ramp); `bedding` and
+`crystals` accept only light, bright or mixed. `animated: true` (needs a `ripples` pattern, optional `fps`) makes a four-frame
+tagged animation like water. The built-in wasteland materials are specs of exactly this shape.
+
+#### Ramp, grain, rim roles, pattern seeds and animated variants (0.99.0)
+
+Each option is optional; omitting it leaves earlier output byte-identical.
+
+- **`deep`.** The fifth ramp colour is drawn only where a pattern asks `tone: "deep"`, so existing marks never change. A
+  `deep` pattern on a four-colour ramp, or a ramp of six colours, is rejected with a message naming `ramp`.
+- **`grain`** is `none`, `soft` or `lattice` (the default, identical to omitting it). `lattice` gives every variant the same edge-ring marks;
+  `none` draws no edge-ring marks; `soft` seeds the edge marks per variant, so positions differ between variants while
+  opposite edges still match and seams stay closed. An unknown value is rejected naming `grain`.
+- **`rimRoles`** is `{"light": "#rrggbb", "dark": "#rrggbb"}`: with `overlayEdge.rim`, rim pixels use only those two colours plus
+  the material ramp. Omitted, the rim is derived from the ramp as before. A malformed value is rejected naming `rimRoles`;
+  the report gains `rimRoles` (per material) only when a material sets it.
+- **Per-variant seeds.** `bedding`, `crystals` and `sheen` draw from a noise seed that includes the variant, so a material's
+  variants differ. At the default density three variants share at most half of their mark positions pairwise; at `density` 1
+  bedding can still share up to about 60 percent, so lower the density when a pool must look varied.
+- **`variants` (1 to 4) on an animated material** makes that many looks of the four-frame loop. Tiles are named
+  `<material>_f<k>_<v>` (k the frame, v the variant) with one tag `<material>_v<v>` per look; overlays and `worldReport` handle
+  the names. Atlas growth: at most 4 frames times the variant count per animated material, so three variants is up to twelve
+  tiles instead of four. Omitted, the names (`<material>_<k>`, tag `<material>`) and bytes are unchanged. The generator emits the
+  tiles; the game picks a variant per tile and plays one tag for the whole map so neighbours stay in step.
+
+```json
+{ "version": 1, "output": "./dist", "scale": 1,
+  "environment": { "name": "ridge", "kind": "terrain-overlay", "seed": 7, "pixelScale": 2, "variants": 3,
+    "materials": ["dust", "slate", "murk"], "overlayEdge": { "rim": true, "round": 4 },
+    "customMaterials": [
+      { "name": "slate", "ramp": ["#5a6470", "#3c4650", "#8a96a2", "#c4ccd4", "#222a32"],
+        "rimRoles": { "light": "#b8c2cc", "dark": "#1a2028" }, "grain": "soft", "seed": 5,
+        "patterns": [{ "kind": "bedding", "density": 0.5, "tone": "light" },
+                     { "kind": "crystals", "density": 0.4, "tone": "bright" },
+                     { "kind": "sheen", "density": 0.4 },
+                     { "kind": "clusters", "tone": "deep", "size": "small" }] },
+      { "name": "murk", "animated": true, "fps": 4, "variants": 3,
+        "ramp": ["#2f4a55", "#1f3640", "#4f7a88", "#9ac4d0"], "patterns": [{ "kind": "ripples", "density": 0.6 }] }] } }
+```
+
+```powershell
+sprite.js build sprite-project.json --json
+```
+
+The build writes `murk_f0_0` .. `murk_f3_2` with tags `murk_v0`, `murk_v1` and `murk_v2`. To see the three new pattern kinds,
+run `node examples/environment/pattern-contact-sheet.mjs` from the repository root (`--zoom N --out path` change the
+scale and destination). It regenerates [`pattern-contact-sheet.png`](pattern-contact-sheet.png): six variants of
+each kind side by side and joined as in a map, then all three on a five-colour ramp with the default and the soft grain.
+
+Craft note: keep a material's ramp small (four or five tones), use a pool of three or four variants, and let marks loop
+across the tile edge so seams do not show. Keep key clusters from touching edge to edge, and avoid strong contrast inside a
+repeating texture.
 
 ### `terrain-overlay`: arbitrary-pair transitions
 

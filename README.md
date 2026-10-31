@@ -575,7 +575,7 @@ space aligned with the art. Terrain recipes provide deterministic variants;
 `terrain-transition` supplies 47 neighbor-aware path masks with rounded corners,
 irregular shoulders and four seam-compatible variants. The wasteland set (dust, sand,
 gravel, rubble, concrete, asphalt, ash, mud, slag, fused-glass, salt-crust, clay, animated water, tilled-soil and
-tilled-soil-wet), inline `customMaterials`, and `terrain-overlay` (alpha-edged 47-mask encroachment overlays plus base
+tilled-soil-wet), inline `customMaterials` (a four or five colour ramp with `deep`, `grain` none, soft or lattice, `rimRoles`, the `bedding`, `crystals` and `sheen` patterns, and 1 to 4 `variants` of an animated material, which grows its atlas to at most 4 frames times the variants), and `terrain-overlay` (alpha-edged 47-mask encroachment overlays plus base
 tiles from one build, optionally with a 1 px lit rim, rounded concave corners and rimless `-soft` twins via `overlayEdge`) give an open-ended ground sandbox; see
 [wasteland terrain](examples/environment/README.md#wasteland-terrain-custom-materials-and-overlays). World-space coasts (`overlayEdge.world`, `animate`, top-level `overlays`, 0.87.0) are in [the overlayEdge.world section](examples/environment/README.md). The
 habitat kit offers cottage, workshop, kitchen and barn styles with distinct roof
