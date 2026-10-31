@@ -39,6 +39,14 @@ const json = value => JSON.stringify(value, null, 2) + '\n';
 const pathKey = path => process.platform === 'win32' ? path.toLowerCase() : path;
 const inside = (parent, child) => { const r = relative(parent, child); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
 
+// Name the operating system's code and the loopback address so a refused listen is actionable.
+function describeListenError(error) {
+  let message = String(error?.message ?? error);
+  if (error?.code && !message.includes(error.code)) message = `${error.code}: ${message}`;
+  if (!message.includes('127.0.0.1')) message = `${message} (listening on 127.0.0.1)`;
+  return Object.assign(new Error(`Build API could not listen: ${message}`), { cause: error });
+}
+
 // Keep shared HTTP route semantics without fetch's per-operation stream overhead.
 // One private agent belongs to one build; callers still await every mutation.
 function requestOperation(url, op, agent) {
@@ -175,7 +183,8 @@ export async function buildProject(configPath, { signal, onProgress, generatorPo
     const app = express(); app.use(express.json({ limit: API_BODY_LIMIT }));
     app.use('/api/session', sessionRoutes(state));
     for (const routes of [drawRoutes, shapeRoutes, cellRoutes, groupRoutes]) app.use('/api', routes(state));
-    server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', () => accept(s)); s.once('error', reject); });
+    // Express 5 passes a listen failure to the callback as its first argument.
+    server = await new Promise((accept, reject) => { const s = app.listen(0, '127.0.0.1', error => error ? reject(describeListenError(error)) : accept(s)); s.once('error', error => reject(describeListenError(error))); });
     checkCanceled();
     const url = `http://127.0.0.1:${server.address().port}`;
     agent = new Agent({ keepAlive: true, maxSockets: 1 });

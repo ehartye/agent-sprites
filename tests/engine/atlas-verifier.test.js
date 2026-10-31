@@ -313,3 +313,25 @@ test('maxAspect rejects a long strip atlas and passes a squarer one, only when a
   expect(validateAtlas(atlas, {width:16,height:8,maxAspect:3}).errors.map(e => e.code)).not.toContain('atlas-shape');
   expect(validateAtlas(atlas, {width:16,height:8,maxAspect:0.5}).errors.map(e => e.code)).toContain('max-aspect');
 });
+
+test('tag-frame-key flags a named alias inside a tag range, names the tag and frame, and ignores aliases after every range', () => {
+  const sheet = (aliasAt, tagTo) => ({
+    frames: Array.from({ length: 6 }, (_, i) => ({ ...atlas.frames[0], filename: i === aliasAt ? 'sway' : String(i) })),
+    meta: { ...atlas.meta, frameTags: [{ name: 'walk', from: 2, to: tagTo, direction: 'forward' }] },
+  });
+  const keyErrors = a => validateAtlas(a, { width: 16, height: 8 }).errors.filter(e => e.code === 'tag-frame-key');
+  const bad = keyErrors(sheet(3, 4));
+  expect(bad).toHaveLength(1);
+  expect(bad[0].path).toContain('"walk"');
+  expect(bad[0].path).toContain('frames[3]');
+  expect(keyErrors(sheet(5, 4))).toEqual([]);
+  expect(keyErrors(sheet(-1, 5))).toEqual([]);
+  expect(keyErrors({ ...sheet(-1, 5), meta: { ...atlas.meta, frameTags: [] } })).toEqual([]);
+});
+
+test('the invalid frame-key fixture fails verify with exactly one tag-frame-key error', async () => {
+  const fixture = fileURLToPath(new URL('../fixtures/atlas-invalid/frame-key.atlas.json', import.meta.url));
+  const report = await verifyAtlasFile(fixture);
+  expect(report.ok).toBe(false);
+  expect(report.errors.map(e => e.code)).toEqual(['tag-frame-key']);
+});

@@ -56,6 +56,11 @@ export function validateAtlas(atlas, { width, height, expectedTags = [], expecte
     if (!Number.isInteger(tag.from) || !Number.isInteger(tag.to) || tag.from < 0 || tag.to < tag.from || tag.to >= frames.length)
       error('tag-range', path, 'Tag range must address existing frames in ascending order.');
     if (!['forward', 'reverse', 'pingpong', 'pingpong_reverse'].includes(tag.direction ?? 'forward')) error('tag-direction', path, 'Unsupported tag direction.');
+    // Engines resolve a tag's from..to as array indexes, and loaders that key frames by filename read the same numbers, so every frame inside a range must be named for its own index. Aliases belong after the last range.
+    if (Number.isInteger(tag.from) && Number.isInteger(tag.to) && tag.from >= 0 && tag.to >= tag.from && tag.to < frames.length)
+      for (let j = tag.from; j <= tag.to; j++)
+        if (object(frames[j]) && frames[j].filename !== String(j))
+          error('tag-frame-key', `${path} "${tag.name}" frames[${j}]`, `Frame ${j} in tag "${tag.name}" is named "${frames[j].filename}" but must be named "${j}"; move named aliases after the last tag range.`);
   });
   for (const tag of expectedTags) if (!tagNames.has(tag)) error('missing-tag', 'meta.frameTags', `Required animation is missing: ${tag}`);
   if (!Array.isArray(expectedFrames) || expectedFrames.some(name => typeof name !== 'string' || !name.length))
