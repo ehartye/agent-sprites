@@ -448,14 +448,16 @@
     "from": 12,
     "to": 14,
     "direction": "pingpong_reverse",
-    "loop": false
+    "loop": false,
+    "repeat": "1"
    },
    {
     "name": "reverse-once",
     "from": 15,
     "to": 18,
     "direction": "reverse",
-    "loop": false
+    "loop": false,
+    "repeat": "1"
    }
   ],
   "slices": [

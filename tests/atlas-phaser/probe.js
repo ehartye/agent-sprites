@@ -6,17 +6,21 @@ window.atlasProbe=(async()=>{
   // Same directions atlas with every tag's `loop` flipped (absent counts as true).
   const flipped=await (await fetch(`${base('directions')}.atlas.json`)).json();
   for(const tag of flipped.meta.frameTags)tag.loop=tag.loop===false;
+  // Same directions atlas with every tag's `repeat` flipped: "1" removed where present, added where absent.
+  const repeatFlipped=await (await fetch(`${base('directions')}.atlas.json`)).json();
+  for(const tag of repeatFlipped.meta.frameTags){if(tag.repeat==='1')delete tag.repeat;else tag.repeat='1';}
   return new Promise((resolve,reject)=>{
     class ProbeScene extends Phaser.Scene {
       preload(){
         this.load.on('loaderror',file=>reject(Error(`Load failed: ${file.url}`)));
         for(const name of names)this.load.aseprite(name,`${base(name)}.png`,`${base(name)}.atlas.json`);
         this.load.aseprite('directions-loop-flipped',`${base('directions')}.png`,flipped);
+        this.load.aseprite('directions-repeat-flipped',`${base('directions')}.png`,repeatFlipped);
       }
       create(){
         try{
           const result={phaser:Phaser.VERSION,fixtures:{}};
-          for(const name of [...names,'directions-loop-flipped']){
+          for(const name of [...names,'directions-loop-flipped','directions-repeat-flipped']){
             const created=this.anims.createFromAseprite(name);
             const frameNames=this.textures.get(name).getFrameNames();
             const tags=created.map(anim=>({

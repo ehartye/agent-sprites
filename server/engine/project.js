@@ -223,7 +223,7 @@ export class Project {
         if (bi === undefined) throw new Error(`Group "${name}" references unknown cell "${ref}"`);
         frames.push(this._asepriteFrame(String(frames.length), { ...frames[bi].frame }, resolveFrameDurationMs(this, ref, { group: name, defaultFps, fpsMap })));
       }
-      frameTags.push({ name, from, to: frames.length - 1, direction: resolveAnimationDirection(this, name, directionMap), ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name] } : {}) });
+      frameTags.push({ name, from, to: frames.length - 1, direction: resolveAnimationDirection(this, name, directionMap), ...(Object.hasOwn(this.animationLoops, name) ? { loop: this.animationLoops[name], ...(this.animationLoops[name] === false ? { repeat: '1' } : {}) } : {}) });
     }
 
     // Named cells become alias frames AFTER every tag run, so tools that look

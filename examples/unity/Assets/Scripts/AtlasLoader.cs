@@ -157,10 +157,13 @@ public static class AtlasLoader
             object d;
             if (t.TryGetValue("direction", out d)) directionName = MiniJson.Str(d, name + ".direction");
             AtlasDirection direction = ParseDirection(directionName, name);
-            // "loop" is only present when it was set; a tag loops unless it is explicitly false.
+            // "loop" is only present when it was set; a tag loops unless it is explicitly false. Without "loop", a "repeat"
+            // of the string "1" (what Aseprite writes) makes a one-shot. A tag with neither loops.
             bool loop = true;
             object l;
-            if (t.TryGetValue("loop", out l) && l is bool) loop = (bool)l;
+            object r;
+            if (t.TryGetValue("loop", out l)) { if (l is bool) loop = (bool)l; }
+            else if (t.TryGetValue("repeat", out r) && r is string && (string)r == "1") loop = false;
 
             var clip = new AtlasClip
             {

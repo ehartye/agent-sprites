@@ -20,6 +20,15 @@ function cellPivot(atlas) {
   return p ? { x: p.x, y: p.y } : null;
 }
 
+/**
+ * The loop rule every engine loader applies: a present `loop` wins (a tag loops unless it is explicitly false);
+ * without `loop`, a `repeat` of the string "1" marks a one-shot; a tag with neither loops.
+ */
+export function resolveLoop(tag) {
+  if (Object.hasOwn(tag, 'loop')) return tag.loop !== false;
+  return tag.repeat !== '1';
+}
+
 /** Everything an engine loader must reproduce for one fixture, computed from the committed atlas. */
 export function computeExpected(name, atlas) {
   const pivot = cellPivot(atlas);
@@ -38,7 +47,8 @@ export function computeExpected(name, atlas) {
     return {
       name: tag.name,
       direction: tag.direction ?? 'forward',
-      loop: tag.loop !== false, // loops unless the tag's loop is explicitly false
+      loop: resolveLoop(tag),
+      ...(Object.hasOwn(tag, 'repeat') ? { repeat: tag.repeat } : {}),
       steps,
       durationMs: steps.reduce((sum, s) => sum + s.duration, 0),
       frames,
@@ -63,6 +73,7 @@ export function diffExpected(actual, committed) {
     if (!other) { out.push(`tag "${tag.name}" is missing from the committed expected file`); continue; }
     if (other.direction !== tag.direction) out.push(`tag "${tag.name}" direction: expected ${other.direction}, computed ${tag.direction}`);
     if (other.loop !== tag.loop) out.push(`tag "${tag.name}" loop: expected ${other.loop}, computed ${tag.loop}`);
+    if (other.repeat !== tag.repeat) out.push(`tag "${tag.name}" repeat: expected ${JSON.stringify(other.repeat)}, computed ${JSON.stringify(tag.repeat)}`);
     if (other.steps?.length !== tag.steps.length) out.push(`tag "${tag.name}" step count: expected ${other.steps?.length}, computed ${tag.steps.length}`);
     tag.steps.forEach((step, i) => {
       const o = other.steps?.[i];
@@ -127,10 +138,11 @@ describe('what each fixture covers', () => {
   test('trimmed: a trimmed pingpong_reverse tag that plays once, with the cell pivot', () => {
     const { atlas } = load('trimmed');
     expect(atlas.frames.every(f => f.trimmed === true)).toBe(true);
-    expect(atlas.meta.frameTags).toEqual([{ name: 'sweep', from: 3, to: 5, direction: 'pingpong_reverse', loop: false }]);
+    expect(atlas.meta.frameTags).toEqual([{ name: 'sweep', from: 3, to: 5, direction: 'pingpong_reverse', loop: false, repeat: '1' }]);
     const exp = computeExpected('trimmed', atlas);
     const sweep = exp.tags[0];
     expect(sweep.loop).toBe(false);
+    expect(sweep.repeat).toBe('1');
     expect(sweep.steps).toEqual([{ index: 5, duration: 200 }, { index: 4, duration: 125 }, { index: 3, duration: 75 }, { index: 4, duration: 125 }]);
     expect(sweep.frames[3]).toEqual({
       frame: { x: 0, y: 0, w: 30, h: 22 }, offset: { x: 1, y: 1 }, sourceSize: { w: 32, h: 24 }, pivot: { x: 16, y: 22 },
@@ -167,7 +179,47 @@ describe('what each fixture covers', () => {
     expect(steps('pingpong-reverse-once')).toEqual([2, 1, 0, 1]);
     expect(exp.tags.find(t => t.name === 'forward-run').loop).toBe(true);
     expect(exp.tags.find(t => t.name === 'reverse-once').loop).toBe(false);
+    expect(exp.tags.filter(t => !t.loop).map(t => [t.name, t.repeat])).toEqual([['pingpong-reverse-once', '1'], ['reverse-once', '1']]);
+    expect(exp.tags.filter(t => t.loop).every(t => !('repeat' in t))).toBe(true);
     expect(exp.pivot).toEqual({ x: 6, y: 11 });
+  });
+});
+
+// repeat-rule.atlas.json is a hand-written atlas beside the fixture folders: the first four cells of the
+// directions sheet, with one tag per case of the loop rule. repeat-rule.expected.json is generated like the others.
+describe('repeat-rule: how loop and repeat combine', () => {
+  const atlasPath = join(FIXTURES, 'repeat-rule.atlas.json');
+  const expectedPath = join(FIXTURES, 'repeat-rule.expected.json');
+  const atlas = readJson(atlasPath);
+  const expected = computeExpected('repeat-rule', atlas);
+
+  if (UPDATE) test('regenerates repeat-rule.expected.json', () => {
+    writeFileSync(expectedPath, JSON.stringify(expected, null, 1) + '\n');
+    expect(existsSync(expectedPath)).toBe(true);
+  });
+
+  test('committed repeat-rule.expected.json matches the atlas', () => {
+    expect(existsSync(expectedPath), 'repeat-rule.expected.json is missing; run with UPDATE_ATLAS_FIXTURES=1').toBe(true);
+    const committed = readJson(expectedPath);
+    expect(diffExpected(expected, committed)).toEqual([]);
+    expect(committed).toEqual(expected);
+  });
+
+  test('repeat-only is a one-shot, loop wins over repeat, and neither or another repeat is a loop', () => {
+    const tags = Object.fromEntries(atlas.meta.frameTags.map(t => [t.name, t]));
+    expect(tags['repeat-only']).toEqual({ name: 'repeat-only', from: 0, to: 3, direction: 'forward', repeat: '1' });
+    expect(tags['loop-true-repeat']).toMatchObject({ loop: true, repeat: '1' });
+    expect(tags['loop-false-repeat']).toMatchObject({ loop: false, repeat: '1' });
+    expect(tags.neither).not.toHaveProperty('loop');
+    expect(tags.neither).not.toHaveProperty('repeat');
+    expect(Object.fromEntries(expected.tags.map(t => [t.name, t.loop]))).toEqual({
+      'repeat-only': false, 'loop-true-repeat': true, 'loop-false-repeat': false, neither: true, 'repeat-two': true,
+    });
+  });
+
+  test('the sheet it reads exists and has the size the atlas states', () => {
+    const png = readFileSync(join(FIXTURES, atlas.meta.image));
+    expect({ w: png.readUInt32BE(16), h: png.readUInt32BE(20) }).toEqual(atlas.meta.size);
   });
 });
 

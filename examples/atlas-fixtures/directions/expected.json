@@ -232,6 +232,7 @@
    "name": "pingpong-reverse-once",
    "direction": "pingpong_reverse",
    "loop": false,
+   "repeat": "1",
    "steps": [
     {
      "index": 14,
@@ -318,6 +319,7 @@
    "name": "reverse-once",
    "direction": "reverse",
    "loop": false,
+   "repeat": "1",
    "steps": [
     {
      "index": 18,

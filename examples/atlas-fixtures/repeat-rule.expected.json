@@ -1,0 +1,546 @@
+{
+ "note": "Generated from the atlas by tests/engine/engine-loader-fixtures.test.js. Do not edit by hand.",
+ "fixture": "repeat-rule",
+ "image": "directions/directions.png",
+ "atlas": "repeat-rule.atlas.json",
+ "pivot": {
+  "x": 6,
+  "y": 11
+ },
+ "tags": [
+  {
+   "name": "repeat-only",
+   "direction": "forward",
+   "loop": false,
+   "repeat": "1",
+   "steps": [
+    {
+     "index": 0,
+     "duration": 80
+    },
+    {
+     "index": 1,
+     "duration": 120
+    },
+    {
+     "index": 2,
+     "duration": 160
+    },
+    {
+     "index": 3,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "0": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "1": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "2": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "3": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "loop-true-repeat",
+   "direction": "forward",
+   "loop": true,
+   "repeat": "1",
+   "steps": [
+    {
+     "index": 0,
+     "duration": 80
+    },
+    {
+     "index": 1,
+     "duration": 120
+    },
+    {
+     "index": 2,
+     "duration": 160
+    },
+    {
+     "index": 3,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "0": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "1": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "2": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "3": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "loop-false-repeat",
+   "direction": "forward",
+   "loop": false,
+   "repeat": "1",
+   "steps": [
+    {
+     "index": 0,
+     "duration": 80
+    },
+    {
+     "index": 1,
+     "duration": 120
+    },
+    {
+     "index": 2,
+     "duration": 160
+    },
+    {
+     "index": 3,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "0": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "1": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "2": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "3": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "neither",
+   "direction": "forward",
+   "loop": true,
+   "steps": [
+    {
+     "index": 0,
+     "duration": 80
+    },
+    {
+     "index": 1,
+     "duration": 120
+    },
+    {
+     "index": 2,
+     "duration": 160
+    },
+    {
+     "index": 3,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "0": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "1": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "2": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "3": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  },
+  {
+   "name": "repeat-two",
+   "direction": "forward",
+   "loop": true,
+   "repeat": "2",
+   "steps": [
+    {
+     "index": 0,
+     "duration": 80
+    },
+    {
+     "index": 1,
+     "duration": 120
+    },
+    {
+     "index": 2,
+     "duration": 160
+    },
+    {
+     "index": 3,
+     "duration": 240
+    }
+   ],
+   "durationMs": 600,
+   "frames": {
+    "0": {
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "1": {
+     "frame": {
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "2": {
+     "frame": {
+      "x": 24,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    },
+    "3": {
+     "frame": {
+      "x": 36,
+      "y": 0,
+      "w": 12,
+      "h": 12
+     },
+     "offset": {
+      "x": 0,
+      "y": 0
+     },
+     "sourceSize": {
+      "w": 12,
+      "h": 12
+     },
+     "pivot": {
+      "x": 6,
+      "y": 11
+     }
+    }
+   }
+  }
+ ]
+}

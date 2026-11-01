@@ -12,6 +12,7 @@
    "name": "sweep",
    "direction": "pingpong_reverse",
    "loop": false,
+   "repeat": "1",
    "steps": [
     {
      "index": 5,
