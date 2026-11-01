@@ -40,7 +40,7 @@ Godot may print "leaked" notices when a script quits. They are harmless.
 - The tag range: `from` and `to` are inclusive indexes into the atlas `frames` array.
 - Per-frame durations. Each frame keeps its exported milliseconds; the animation runs at 1000 fps so the stored duration is the millisecond count.
 - All four directions: `forward`, `reverse`, `pingpong` and `pingpong_reverse`. The way back is written out as explicit frames, with neither end repeated, rather than using Godot's native ping-pong mode.
-- The loop flag. A tag loops unless its `loop` is explicitly false; a tag with `loop: false` plays once and holds its last frame.
+- The loop flag. A tag is a one-shot when `loop` is false, or when `loop` is absent and `repeat` is `"1"`; it then plays once and holds its last frame. `loop` wins when both are present, a tag with neither loops, and a `repeat` of any other value (for example `"2"`) is ignored, so the tag loops. Counted loops are not supported. `AtlasLoader.tag_loops(tag)` holds the rule.
 - Trimmed frames. Each frame is drawn at its `spriteSourceSize` offset inside the untrimmed cell, and its texture size is the untrimmed cell size (`AtlasTexture.margin` is set to the offset and the size difference).
 - The pivot, from the slice named `pivot`, relative to the untrimmed cell.
 
