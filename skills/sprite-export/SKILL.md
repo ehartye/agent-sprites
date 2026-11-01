@@ -1,6 +1,6 @@
 ---
 name: sprite-export
-description: Export pixel-art PNG sprite sheets, paired normal maps and Aseprite JSON atlases, or composite exported animations into a GIF proof. Use for game-ready sprite destinations, normal/color alignment or timing review; not 3D mesh baking.
+description: Export pixel-art PNG sprite sheets, paired normal maps and Aseprite JSON atlases (one-shot tags carry loop and repeat), or composite exported animations into a GIF proof. Use for game-ready sprite destinations, normal/color alignment or timing review; not 3D mesh baking.
 ---
 
 Export the current sprite project. Usage: /sprite-export [dest folder]
@@ -30,7 +30,8 @@ Pinned by `tests/engine/atlas-frame-key-contract.test.js`:
 - Named alias frames come after the cell and group runs and sit outside every tag range, so aliases never disturb tag lookup.
 - `direction` is one of `forward`, `reverse`, `pingpong`, `pingpong_reverse`, the same four strings Aseprite writes.
 - `loop` (boolean) is present only when set; its absence means the tag loops.
-- This exporter never writes `repeat`. Aseprite writes a `repeat` count (a string such as `"2"`) only when the count is above zero and writes no `loop`, so a consumer that expects `repeat` must read `loop` instead.
+- A one-shot tag (loop setting false) carries `loop: false` and `repeat: "1"`, a quoted string as Aseprite writes it. A looping tag, or a tag with no loop setting, gets no `repeat`. Aseprite itself writes a `repeat` count (such as `"2"`) and no `loop`; this exporter writes `repeat` only as `"1"`, so counted loops are not supported.
+- A consumer treats a tag as a one-shot when `loop` is false, or when `loop` is absent and `repeat` is `"1"`; `loop` wins when both are present, and any other `repeat` value is ignored (the tag loops). The Godot and Unity example loaders follow this rule. `verify` does not validate `repeat`.
 
 Then run the managed launcher with `verify <exported-name>.atlas.json --contact-sheet review.png --report review.json --json` and any required `--expect-tags idle,walk`. A zero exit confirms structure; follow [sprite verification](../sprite-verification/SKILL.md) to inspect every frame and animation before integration.
 

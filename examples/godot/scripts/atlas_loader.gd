@@ -30,6 +30,15 @@ const FPS := 1000.0
 const DIRECTIONS := ["forward", "reverse", "pingpong", "pingpong_reverse"]
 
 
+## Whether a tag loops. A present "loop" decides (a tag loops unless it is explicitly false).
+## Without "loop", a "repeat" of the string "1" makes a one-shot. A tag with neither loops.
+static func tag_loops(tag: Dictionary) -> bool:
+	if tag.has("loop"):
+		return tag.loop != false
+	var repeat_count: Variant = tag.get("repeat")
+	return not (repeat_count is String and repeat_count == "1")
+
+
 static func load_atlas(png_path: String, atlas_path: String) -> Dictionary:
 	var atlas: Variant = _read_json(atlas_path)
 	if not (atlas is Dictionary) or not atlas.has("frames") or not atlas.has("meta"):
@@ -59,8 +68,7 @@ static func load_atlas(png_path: String, atlas_path: String) -> Dictionary:
 		if direction not in DIRECTIONS or first < 0 or last < first or last >= frames.size():
 			push_error("Unsupported tag %s (direction %s, range %d to %d)" % [tag.name, direction, first, last])
 			return {}
-		# A tag loops unless its loop is explicitly false.
-		var loops: bool = tag.get("loop", true) != false
+		var loops := tag_loops(tag)
 		var name: String = tag.name
 		sprite_frames.add_animation(name)
 		sprite_frames.set_animation_speed(name, FPS)

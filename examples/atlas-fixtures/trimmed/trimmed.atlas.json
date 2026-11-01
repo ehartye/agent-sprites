@@ -215,7 +215,8 @@
     "from": 3,
     "to": 5,
     "direction": "pingpong_reverse",
-    "loop": false
+    "loop": false,
+    "repeat": "1"
    }
   ],
   "slices": [

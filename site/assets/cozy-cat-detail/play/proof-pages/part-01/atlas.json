@@ -1,7 +1,7 @@
 {
   "frames": [
     {
-      "filename": "source_000",
+      "filename": "0",
       "frame": {
         "x": 0,
         "y": 0,
@@ -23,7 +23,7 @@
       "duration": 50
     },
     {
-      "filename": "source_001",
+      "filename": "1",
       "frame": {
         "x": 384,
         "y": 0,
@@ -45,7 +45,7 @@
       "duration": 50
     },
     {
-      "filename": "source_002",
+      "filename": "2",
       "frame": {
         "x": 768,
         "y": 0,
@@ -67,7 +67,7 @@
       "duration": 50
     },
     {
-      "filename": "source_003",
+      "filename": "3",
       "frame": {
         "x": 1152,
         "y": 0,
@@ -89,7 +89,7 @@
       "duration": 50
     },
     {
-      "filename": "source_004",
+      "filename": "4",
       "frame": {
         "x": 1536,
         "y": 0,
@@ -111,7 +111,7 @@
       "duration": 50
     },
     {
-      "filename": "source_005",
+      "filename": "5",
       "frame": {
         "x": 0,
         "y": 256,
@@ -133,7 +133,7 @@
       "duration": 50
     },
     {
-      "filename": "source_006",
+      "filename": "6",
       "frame": {
         "x": 384,
         "y": 256,
@@ -155,7 +155,7 @@
       "duration": 50
     },
     {
-      "filename": "source_007",
+      "filename": "7",
       "frame": {
         "x": 768,
         "y": 256,
@@ -177,7 +177,7 @@
       "duration": 50
     },
     {
-      "filename": "source_008",
+      "filename": "8",
       "frame": {
         "x": 1152,
         "y": 256,
@@ -199,7 +199,7 @@
       "duration": 50
     },
     {
-      "filename": "source_009",
+      "filename": "9",
       "frame": {
         "x": 1536,
         "y": 256,
@@ -221,7 +221,7 @@
       "duration": 50
     },
     {
-      "filename": "source_010",
+      "filename": "10",
       "frame": {
         "x": 0,
         "y": 512,
@@ -243,7 +243,7 @@
       "duration": 50
     },
     {
-      "filename": "source_011",
+      "filename": "11",
       "frame": {
         "x": 384,
         "y": 512,
@@ -265,7 +265,7 @@
       "duration": 50
     },
     {
-      "filename": "source_012",
+      "filename": "12",
       "frame": {
         "x": 768,
         "y": 512,
@@ -287,7 +287,7 @@
       "duration": 50
     },
     {
-      "filename": "source_013",
+      "filename": "13",
       "frame": {
         "x": 1152,
         "y": 512,
@@ -309,7 +309,7 @@
       "duration": 50
     },
     {
-      "filename": "source_014",
+      "filename": "14",
       "frame": {
         "x": 1536,
         "y": 512,
@@ -331,7 +331,7 @@
       "duration": 50
     },
     {
-      "filename": "source_015",
+      "filename": "15",
       "frame": {
         "x": 0,
         "y": 768,
@@ -353,7 +353,7 @@
       "duration": 50
     },
     {
-      "filename": "source_016",
+      "filename": "16",
       "frame": {
         "x": 384,
         "y": 768,
@@ -375,7 +375,7 @@
       "duration": 50
     },
     {
-      "filename": "source_017",
+      "filename": "17",
       "frame": {
         "x": 768,
         "y": 768,
@@ -397,7 +397,7 @@
       "duration": 50
     },
     {
-      "filename": "source_018",
+      "filename": "18",
       "frame": {
         "x": 1152,
         "y": 768,
@@ -419,7 +419,7 @@
       "duration": 50
     },
     {
-      "filename": "source_019",
+      "filename": "19",
       "frame": {
         "x": 1536,
         "y": 768,
@@ -441,7 +441,7 @@
       "duration": 50
     },
     {
-      "filename": "source_020",
+      "filename": "20",
       "frame": {
         "x": 0,
         "y": 1024,
@@ -463,7 +463,7 @@
       "duration": 50
     },
     {
-      "filename": "source_021",
+      "filename": "21",
       "frame": {
         "x": 384,
         "y": 1024,
@@ -485,7 +485,7 @@
       "duration": 50
     },
     {
-      "filename": "source_022",
+      "filename": "22",
       "frame": {
         "x": 768,
         "y": 1024,
@@ -507,7 +507,7 @@
       "duration": 50
     },
     {
-      "filename": "source_023",
+      "filename": "23",
       "frame": {
         "x": 1152,
         "y": 1024,
@@ -529,7 +529,7 @@
       "duration": 50
     },
     {
-      "filename": "source_024",
+      "filename": "24",
       "frame": {
         "x": 1536,
         "y": 1024,
@@ -551,7 +551,7 @@
       "duration": 50
     },
     {
-      "filename": "source_025",
+      "filename": "25",
       "frame": {
         "x": 0,
         "y": 1280,
@@ -573,7 +573,7 @@
       "duration": 50
     },
     {
-      "filename": "source_026",
+      "filename": "26",
       "frame": {
         "x": 384,
         "y": 1280,
@@ -595,7 +595,7 @@
       "duration": 50
     },
     {
-      "filename": "source_027",
+      "filename": "27",
       "frame": {
         "x": 768,
         "y": 1280,
@@ -617,7 +617,7 @@
       "duration": 50
     },
     {
-      "filename": "source_028",
+      "filename": "28",
       "frame": {
         "x": 1152,
         "y": 1280,
@@ -639,7 +639,7 @@
       "duration": 50
     },
     {
-      "filename": "source_029",
+      "filename": "29",
       "frame": {
         "x": 1536,
         "y": 1280,
@@ -661,7 +661,7 @@
       "duration": 50
     },
     {
-      "filename": "source_030",
+      "filename": "30",
       "frame": {
         "x": 0,
         "y": 1536,
@@ -683,7 +683,7 @@
       "duration": 50
     },
     {
-      "filename": "source_031",
+      "filename": "31",
       "frame": {
         "x": 384,
         "y": 1536,
@@ -705,7 +705,7 @@
       "duration": 50
     },
     {
-      "filename": "source_032",
+      "filename": "32",
       "frame": {
         "x": 768,
         "y": 1536,
@@ -727,7 +727,7 @@
       "duration": 50
     },
     {
-      "filename": "source_033",
+      "filename": "33",
       "frame": {
         "x": 1152,
         "y": 1536,
@@ -749,7 +749,7 @@
       "duration": 50
     },
     {
-      "filename": "source_034",
+      "filename": "34",
       "frame": {
         "x": 1536,
         "y": 1536,
@@ -771,7 +771,7 @@
       "duration": 50
     },
     {
-      "filename": "source_035",
+      "filename": "35",
       "frame": {
         "x": 0,
         "y": 1792,
@@ -793,7 +793,7 @@
       "duration": 50
     },
     {
-      "filename": "source_036",
+      "filename": "36",
       "frame": {
         "x": 384,
         "y": 1792,
@@ -815,7 +815,7 @@
       "duration": 50
     },
     {
-      "filename": "source_037",
+      "filename": "37",
       "frame": {
         "x": 768,
         "y": 1792,
@@ -837,7 +837,7 @@
       "duration": 50
     },
     {
-      "filename": "source_038",
+      "filename": "38",
       "frame": {
         "x": 1152,
         "y": 1792,
@@ -859,7 +859,7 @@
       "duration": 50
     },
     {
-      "filename": "source_039",
+      "filename": "39",
       "frame": {
         "x": 1536,
         "y": 1792,
@@ -883,7 +883,7 @@
   ],
   "meta": {
     "app": "agent-sprites lossless proof page",
-    "version": "0.94.0",
+    "version": "0.100.0",
     "image": "sheet.png",
     "format": "RGBA8888",
     "size": {
@@ -897,7 +897,8 @@
         "from": 0,
         "to": 39,
         "direction": "forward",
-        "loop": false
+        "loop": false,
+        "repeat": "1"
       }
     ],
     "slices": [

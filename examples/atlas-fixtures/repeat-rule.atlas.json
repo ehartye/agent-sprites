@@ -1,0 +1,162 @@
+{
+ "frames": [
+  {
+   "filename": "0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 12
+   },
+   "duration": 80
+  },
+  {
+   "filename": "1",
+   "frame": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 12
+   },
+   "duration": 120
+  },
+  {
+   "filename": "2",
+   "frame": {
+    "x": 24,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 12
+   },
+   "duration": 160
+  },
+  {
+   "filename": "3",
+   "frame": {
+    "x": 36,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 12
+   },
+   "duration": 240
+  }
+ ],
+ "meta": {
+  "app": "agent-sprites",
+  "version": "1.0",
+  "image": "directions/directions.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 48,
+   "h": 12
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "repeat-only",
+    "from": 0,
+    "to": 3,
+    "direction": "forward",
+    "repeat": "1"
+   },
+   {
+    "name": "loop-true-repeat",
+    "from": 0,
+    "to": 3,
+    "direction": "forward",
+    "loop": true,
+    "repeat": "1"
+   },
+   {
+    "name": "loop-false-repeat",
+    "from": 0,
+    "to": 3,
+    "direction": "forward",
+    "loop": false,
+    "repeat": "1"
+   },
+   {
+    "name": "neither",
+    "from": 0,
+    "to": 3,
+    "direction": "forward"
+   },
+   {
+    "name": "repeat-two",
+    "from": 0,
+    "to": 3,
+    "direction": "forward",
+    "repeat": "2"
+   }
+  ],
+  "slices": [
+   {
+    "name": "pivot",
+    "color": "#0000ffff",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 0,
+       "y": 0,
+       "w": 12,
+       "h": 12
+      },
+      "pivot": {
+       "x": 6,
+       "y": 11
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

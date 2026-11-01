@@ -244,7 +244,7 @@ export async function composedProof({
       );
       return {
         ...frame,
-        filename: `source_${String(start + i).padStart(3, "0")}`,
+        filename: String(i),
         frame: { x, y, w, h },
       };
     });
@@ -263,6 +263,7 @@ export async function composedProof({
           to: chosen.length - 1,
           direction: "forward",
           loop: false,
+          repeat: "1",
         },
       ],
       slices: [

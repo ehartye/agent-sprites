@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import express from 'express';
 import {chromium} from 'playwright';
 // Values below were observed from Phaser 4.2.1 `load.aseprite` + `anims.createFromAseprite`, not derived from the Aseprite spec.
-// Observed: Phaser ignores the tag `loop` flag (every animation has repeat 0), plays `pingpong_reverse` forward without yoyo,
+// Observed: Phaser ignores the tag `loop` flag and the tag `repeat` key (every animation has repeat 0), plays `pingpong_reverse` forward without yoyo,
 // reverses `reverse`, sets yoyo only for `pingpong`, and named alias frames after the tag do not disturb tag lookup.
 const PHASER_VERSION='4.2.1';
 const PINNED={
@@ -47,6 +47,7 @@ try{
   assert.deepEqual(result.blinkAliases,{open:{width:16,height:16},closed:{width:16,height:16}},'Alias frame lookup');
   const strip=tags=>tags.map(({key,repeat,yoyo,frames})=>({key,repeat,yoyo,frames}));
   assert.deepEqual(strip(result.fixtures['directions-loop-flipped'].tags),strip(result.fixtures.directions.tags),'Flipping tag `loop` changes nothing');
+  assert.deepEqual(strip(result.fixtures['directions-repeat-flipped'].tags),strip(result.fixtures.directions.tags),'Flipping tag `repeat` changes nothing');
   console.log('atlas-phaser: ok');
 }finally{
   await Promise.allSettled([browser?.close(),new Promise(resolve=>server.close(resolve))]);

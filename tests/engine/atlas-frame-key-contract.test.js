@@ -3,8 +3,8 @@ import { Project } from '../../server/engine/project.js';
 
 // Returns a list of layout defects in an exported atlas (empty when sound).
 // Contract: grid and tag-range frames are keyed by their array index, named
-// aliases come after every tag range, tags carry no `repeat`, and `loop` is
-// present only when set.
+// aliases come after every tag range, `repeat` is the string "1" on a tag whose
+// loop is false and absent otherwise, and `loop` is present only when set.
 function findLayoutDefects(atlas) {
   const defects = [];
   const { frames, meta } = atlas;
@@ -15,7 +15,7 @@ function findLayoutDefects(atlas) {
     }
   });
   for (const t of meta.frameTags) {
-    if ('repeat' in t) defects.push(`tag "${t.name}" has a repeat key`);
+    if (t.loop === false ? t.repeat !== '1' : 'repeat' in t) defects.push(`tag "${t.name}" has a wrong repeat key`);
   }
   return defects;
 }
@@ -52,13 +52,37 @@ describe('atlas frame key and tag contract', () => {
     expect(findLayoutDefects(atlas)).toEqual([]);
   });
 
-  it('emits no repeat key and only emits loop when set', () => {
+  it('emits repeat "1" only on a tag whose loop is false, and only emits loop when set', () => {
     const atlas = exportContractProject();
     const once = atlas.meta.frameTags.find(t => t.name === 'once');
     const walk = atlas.meta.frameTags.find(t => t.name === 'walk');
-    for (const tag of atlas.meta.frameTags) expect(tag).not.toHaveProperty('repeat');
     expect(once.loop).toBe(false);
+    expect(once.repeat).toBe('1');
+    expect(walk).not.toHaveProperty('repeat');
     expect(walk).not.toHaveProperty('loop');
+  });
+
+  it('emits no repeat on a looping tag or a tag with no loop setting', () => {
+    const p = makeProject();
+    p.animationLoops = { spin: true, once: false };
+    const atlas = p.exportAseprite({
+      imageName: 'hero.png',
+      groups: { spin: ['0,0', '0,1'], once: ['1,0'], plain: ['1,1'] },
+    });
+    const byName = Object.fromEntries(atlas.meta.frameTags.map(t => [t.name, t]));
+    expect(byName.spin.loop).toBe(true);
+    expect(byName.spin).not.toHaveProperty('repeat');
+    expect(byName.once).toMatchObject({ loop: false, repeat: '1' });
+    expect(byName.plain).not.toHaveProperty('repeat');
+    expect(findLayoutDefects(atlas)).toEqual([]);
+  });
+
+  it('reports a looping tag that carries a repeat key and a one-shot tag without one', () => {
+    const atlas = exportContractProject();
+    atlas.meta.frameTags.find(t => t.name === 'walk').repeat = '1';
+    expect(findLayoutDefects(atlas)).toHaveLength(1);
+    delete atlas.meta.frameTags.find(t => t.name === 'once').repeat;
+    expect(findLayoutDefects(atlas)).toHaveLength(2);
   });
 
   it('reports an alias moved inside a tag range', () => {

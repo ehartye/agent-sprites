@@ -4,7 +4,7 @@
   "kind": "composed-full-sequence",
   "producer": {
     "name": "agent-sprites example delivery wrapper",
-    "version": "0.94.0",
+    "version": "0.100.0",
     "encoder": "sharp",
     "encoderVersion": "0.35.4"
   },
@@ -27,7 +27,7 @@
       "frameCount": 40,
       "durationMs": 2000,
       "report": "proof-pages/part-01/proof.json",
-      "sha256": "99b83eebc30cf6276c681637d75296302f927fc59638651e7b3d715884e95f8f",
+      "sha256": "84d12c4e88841f7ee7581844c35d4eac0a2904131085aa0cb8c62d44d6682dca",
       "bytes": 18959,
       "rasterPixels": 23930520,
       "pixelComparison": {
@@ -43,7 +43,7 @@
       "frameCount": 40,
       "durationMs": 2000,
       "report": "proof-pages/part-02/proof.json",
-      "sha256": "aa43ed860dd20dafbed5725c484ca14f798a60dc56bd53ca169a67ecfd65bb6f",
+      "sha256": "f31fe12278893d22044f765dfb6291481188c37b0f487424b7eef2034e7362f8",
       "bytes": 18960,
       "rasterPixels": 23930520,
       "pixelComparison": {
@@ -59,7 +59,7 @@
       "frameCount": 40,
       "durationMs": 2000,
       "report": "proof-pages/part-03/proof.json",
-      "sha256": "ea31fa91686d8098e1009eb589eb455786a96b5dfbd1d4b3fd9681fad4ac60e1",
+      "sha256": "b817afd2e9e0628cc84cacd578c27499c62542b0d7c3f37e006a27abf3d106c3",
       "bytes": 18961,
       "rasterPixels": 23930520,
       "pixelComparison": {
@@ -75,7 +75,7 @@
       "frameCount": 40,
       "durationMs": 2000,
       "report": "proof-pages/part-04/proof.json",
-      "sha256": "43a163578778cd88cb1b0f35cd49501322934e99ad5bdab91135a5990d8c4b37",
+      "sha256": "c09fb39e88b83818289d52f18a9d30b47df983bb95a8b24c45133480411d3525",
       "bytes": 18962,
       "rasterPixels": 23930520,
       "pixelComparison": {
@@ -299,22 +299,22 @@
       {
         "path": "proof-pages/part-01/proof.json",
         "bytes": 18959,
-        "sha256": "99b83eebc30cf6276c681637d75296302f927fc59638651e7b3d715884e95f8f"
+        "sha256": "84d12c4e88841f7ee7581844c35d4eac0a2904131085aa0cb8c62d44d6682dca"
       },
       {
         "path": "proof-pages/part-02/proof.json",
         "bytes": 18960,
-        "sha256": "aa43ed860dd20dafbed5725c484ca14f798a60dc56bd53ca169a67ecfd65bb6f"
+        "sha256": "f31fe12278893d22044f765dfb6291481188c37b0f487424b7eef2034e7362f8"
       },
       {
         "path": "proof-pages/part-03/proof.json",
         "bytes": 18961,
-        "sha256": "ea31fa91686d8098e1009eb589eb455786a96b5dfbd1d4b3fd9681fad4ac60e1"
+        "sha256": "b817afd2e9e0628cc84cacd578c27499c62542b0d7c3f37e006a27abf3d106c3"
       },
       {
         "path": "proof-pages/part-04/proof.json",
         "bytes": 18962,
-        "sha256": "43a163578778cd88cb1b0f35cd49501322934e99ad5bdab91135a5990d8c4b37"
+        "sha256": "c09fb39e88b83818289d52f18a9d30b47df983bb95a8b24c45133480411d3525"
       }
     ]
   },

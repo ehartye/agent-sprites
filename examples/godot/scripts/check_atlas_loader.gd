@@ -44,15 +44,17 @@ func _initialize() -> void:
 		var dir := root_dir.path_join(fixture_name)
 		if not FileAccess.file_exists(dir.path_join("expected.json")):
 			continue
-		check_fixture(fixture_name, dir)
+		check_fixture(fixture_name, dir, "expected.json")
+	# repeat-rule is a hand-written atlas beside the fixture folders: one tag per case of the loop rule.
+	check_fixture("repeat-rule", root_dir, "repeat-rule.expected.json")
 	if fixtures_checked == 0:
 		fail("-", "-", null, "no fixtures found in " + FIXTURES_DIR)
 	if not failures.is_empty():
 		finish()
 
 
-func check_fixture(fixture_name: String, dir: String) -> void:
-	var expected: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("expected.json")))
+func check_fixture(fixture_name: String, dir: String, expected_file: String) -> void:
+	var expected: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join(expected_file)))
 	if tamper and fixtures_checked == 0:
 		# Change one expected duration in memory so the check has to notice.
 		expected.tags[0].steps[0].duration = int(expected.tags[0].steps[0].duration) + 1

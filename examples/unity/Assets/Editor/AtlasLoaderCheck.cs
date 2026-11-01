@@ -12,7 +12,7 @@ using UnityEngine;
 //   Unity -batchmode -nographics -quit -projectPath examples/unity -executeMethod AtlasLoaderCheck.Run -logFile -
 //   Unity -batchmode -nographics -quit -projectPath examples/unity -executeMethod AtlasLoaderCheck.RunTampered -logFile -
 //
-// Run exits 0 and logs "ATLAS-LOADER PASS fixtures=3 tags=6" when everything matches. Anything else, including an
+// Run exits 0 and logs "ATLAS-LOADER PASS fixtures=4 tags=11" when everything matches. Anything else, including an
 // unhandled exception, exits 1. RunTampered changes one expected duration in memory first, so it must exit 1 and
 // name the tag and frame.
 public static class AtlasLoaderCheck
@@ -73,29 +73,37 @@ public static class AtlasLoaderCheck
                 tampered = true;
             }
             fixtures++;
-            tags += CheckFixture(name, folder, expected, failures);
+            tags += CheckFixture(name, folder, "expected.json", expected, failures);
             CheckImportSettings(name, folder, failures);
+        }
+        // repeat-rule is a hand-written atlas beside the fixture folders: one tag per case of the loop rule.
+        string ruleExpected = Path.Combine(fixturesRoot, "repeat-rule.expected.json");
+        if (!File.Exists(ruleExpected)) failures.Add("MISMATCH fixture=repeat-rule: repeat-rule.expected.json is missing");
+        else
+        {
+            fixtures++;
+            tags += CheckFixture("repeat-rule", fixturesRoot, "repeat-rule.expected.json", ReadExpected(ruleExpected), failures);
         }
 
         if (tamper && !tampered) failures.Add("tamper had nothing to change");
         foreach (string failure in failures) Log(failure);
-        if (failures.Count == 0 && !tamper && fixtures == 3 && tags == 6)
+        if (failures.Count == 0 && !tamper && fixtures == 4 && tags == 11)
         {
             Log("ATLAS-LOADER PASS fixtures=" + fixtures + " tags=" + tags);
             return 0;
         }
         if (failures.Count == 0 && !tamper)
-            failures.Add("expected 3 fixtures with 6 tags, found " + fixtures + " with " + tags);
+            failures.Add("expected 4 fixtures with 11 tags, found " + fixtures + " with " + tags);
         if (failures.Count == 0) failures.Add("tamper was not detected");
         Log("ATLAS-LOADER FAIL fixtures=" + fixtures + " tags=" + tags + " mismatches=" + failures.Count + (tamper ? " (tampered run)" : ""));
         return 1;
     }
 
-    static int CheckFixture(string fixture, string folder, List<ExpectedTag> expected, List<string> failures)
+    static int CheckFixture(string fixture, string folder, string expectedFile, List<ExpectedTag> expected, List<string> failures)
     {
-        var root = MiniJson.Obj(MiniJson.Parse(File.ReadAllText(Path.Combine(folder, "expected.json"))), "expected.json");
-        string png = Path.Combine(folder, MiniJson.Str(MiniJson.Field(root, "image", "expected.json"), "image"));
-        string atlasPath = Path.Combine(folder, MiniJson.Str(MiniJson.Field(root, "atlas", "expected.json"), "atlas"));
+        var root = MiniJson.Obj(MiniJson.Parse(File.ReadAllText(Path.Combine(folder, expectedFile))), expectedFile);
+        string png = Path.Combine(folder, MiniJson.Str(MiniJson.Field(root, "image", expectedFile), "image"));
+        string atlasPath = Path.Combine(folder, MiniJson.Str(MiniJson.Field(root, "atlas", expectedFile), "atlas"));
 
         Texture2D texture = AtlasLoader.LoadTexture(png);
         LoadedAtlas atlas = AtlasLoader.Load(texture, File.ReadAllText(atlasPath));

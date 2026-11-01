@@ -31,7 +31,7 @@ Without the editor, `AtlasLoader.LoadFiles(pngPath, atlasPath)` reads the pair f
 - The tag range: `from` and `to` are inclusive indexes into the atlas `frames` array, which is not the grid cell index.
 - Per-frame durations, in milliseconds.
 - All four directions (`forward`, `reverse`, `pingpong`, `pingpong_reverse`). A direction is expanded into an explicit frame list, the order the exporter's own preview plays, with the way back of a ping-pong not repeating either end. Unity's `WrapMode` is not used.
-- The loop flag. A tag loops unless its `loop` is explicitly false; then it plays once and holds its last frame.
+- The loop flag. A tag is a one-shot when `loop` is false, or when `loop` is absent and `repeat` is `"1"`; it then plays once and holds its last frame. `loop` wins when both are present, a tag with neither loops, and a `repeat` of any other value (for example `"2"`) is ignored, so the tag loops. Counted loops are not supported.
 - Trimmed frames: each sprite is the opaque box, and the loader reports the offset and the untrimmed source size.
 - The pivot: the atlas pivot is in pixels from the top-left of the untrimmed cell, and each sprite's pivot is converted into its own rectangle. For the trimmed fixture's frame 3 (a 30x22 box at offset (1, 1) in a 32x24 cell, pivot (16, 22)) that is (15, 21) from the top-left of the box, which Unity reports as `sprite.pivot` = (15, 1) from the bottom-left.
 
