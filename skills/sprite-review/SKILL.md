@@ -20,6 +20,14 @@ and what the brief asked of it (style references, mood, constraints). A review w
 brief can only judge craft, and must say so. List what is **not** in scope (interiors,
 animation, UI) so a clean report is not read as covering it.
 
+For a continuing project, use its supplied direction packet or existing Wiki art bible
+and scoped review note when available. Apply [persistent direction](references/persistent-direction.md)
+to bind that context to the actual candidate, preserve settled choices and strengths,
+and propose explicit reopenings when evidence warrants them. Keep recommendations,
+requirements, model suggestions and owner approval distinct. Missing persistent context
+does not block an ordinary review: say it is absent and continue from the current brief
+and pixels, without inventing history or creating a separate state store.
+
 ## 2. Collect the evidence kit
 
 Make these views for every asset, from the shipped pixels. Do not review from memory or
@@ -95,6 +103,10 @@ below 2.5 rework.
 
 Name the strengths worth preserving, and any quirk that looks like a defect but is a
 deliberate style choice the brief supports. The plan must not undo them.
+When persistent context is available, cite the related decision and artifact identities.
+An objective defect can justify proposing to reopen a weak choice; preserving strengths
+does not require concealing defects. Reopening is a proposal until the authorized actor
+resolves it. Do not transfer approval to changed bytes or unseen frames.
 
 ## 5. Write the remediation plan
 
@@ -109,6 +121,10 @@ One row per finding, ordered by visible gain at the real zoom. For each:
 - **Expected lift**: which score moves and by how much.
 - **Acceptance check**: how the re-review proves it, using the same view.
 
+For a direction-aware review, use the linked reference's finding fields and scoped
+dispositions so the next reviewer can distinguish a new issue from an explicit reopening.
+Keep rubric gates and bands as review results; they never establish owner acceptance.
+
 **Order.** Fix silhouette and value first, because they change what every later pass is
 painting over. Group fixes to a shared kit once, not per asset. Put cheap fixes that touch
 no shape before expensive ones.
@@ -122,5 +138,7 @@ one. Do not list options as one-line labels.
 Lead with the verdict and bands, then the score table, strengths to preserve, the plan, and
 the re-review criteria. State the limits plainly: what was not viewed, which scores are
 inferred, and that a rubric finds defects but does not supply taste. For a human-gated
-pipeline, the human approval stays the final judge. A proposal changes nothing in the
-project; applying it is a separate request.
+pipeline, the human approval stays the final judge. A proposal alone changes nothing in
+the project. Apply edits only within the user's existing authorization and project policy;
+do not require a fresh permission ceremony for each already-authorized edit. Record what
+was actually inspected and accepted, by whom and for which revision and scope.
