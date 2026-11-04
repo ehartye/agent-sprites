@@ -651,7 +651,7 @@ async function run() {
     return;
   }
   if (cmd === 'verify') {
-    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--outline-colors "#39283f"] [--orphan-pixels] [--max-colors 12] [--min-color-pixels 4] [--allow-colors "#fffaf0"] [--review] [--pairs "#fff:#000" | --pairs-file pairs.json] [--min-contrast 4.5] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
+    if (!positional[0]) throw new Error('Usage: agent-sprites verify <atlas.json> [--expect-tags idle,walk] [--expect-frames seed,planter | --expect-frames-file expected.json] [--outline-colors "#39283f"] [--orphan-pixels] [--max-colors 12] [--min-color-pixels 4] [--allow-colors "#fffaf0"] [--palette file.json|.hex|.gpl] [--palette-extra "#rrggbb,..."] [--palette-mode fail|advisory] [--mask-frame name] [--review] [--pairs "#fff:#000" | --pairs-file pairs.json] [--min-contrast 4.5] [--max-aspect 3] [--contact-sheet review.png] [--report report.json] [--json]');
     if (Object.hasOwn(args, 'pairs') && Object.hasOwn(args, 'pairs-file')) throw new Error('--pairs and --pairs-file are mutually exclusive.');
     const optionNumber = name => {
       if (args[name] === undefined) return undefined;
@@ -660,6 +660,7 @@ async function run() {
     };
     const maxColors = optionNumber('max-colors'), minColorPixels = optionNumber('min-color-pixels'), minContrast = optionNumber('min-contrast');
     for (const name of ['allow-colors', 'pairs']) if (Object.hasOwn(args, name) && (typeof args[name] !== 'string' || !args[name].trim())) throw new Error(`--${name} needs a value.`);
+    for (const name of ['palette', 'palette-extra', 'palette-mode', 'mask-frame']) if (Object.hasOwn(args, name) && (typeof args[name] !== 'string' || !args[name].trim())) throw new Error(`--${name} needs a value.`);
     const allowColors = args['allow-colors'] === undefined ? [] : String(args['allow-colors']).split(',').map(x => x.trim()).filter(Boolean);
     let pairs;
     if (args.pairs !== undefined) {
@@ -685,12 +686,18 @@ async function run() {
       outlineColors: args['outline-colors'] === undefined ? undefined : String(args['outline-colors']).split(',').map(c=>c.trim()),
       contactPath: args['contact-sheet'], contactFrames: args['contact-frames'] ? String(args['contact-frames']).split(',').map(x=>x.trim()).filter(Boolean) : [], reportPath: args.report, scale: num(args.scale) ?? 4, maxAspect: num(args['max-aspect']),
       orphanPixels: bool(args['orphan-pixels']), maxColors, minColorPixels, allowColors, review, pairs, minContrast,
+      palettePath: args.palette, paletteExtra: args['palette-extra'] === undefined ? [] : args['palette-extra'].split(',').map(c => c.trim()),
+      paletteMode: args['palette-mode'], maskFrame: args['mask-frame'],
     });
     if (bool(args.json)) console.log(JSON.stringify(report));
     else {
-      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors || report.pixelHygiene ? 'structural' + (report.outlineColors ? ', outline' : '') + (report.pixelHygiene ? ', pixel-hygiene' : '') + ' checks' : 'structural checks only'})`);
+      console.log(`${report.ok ? 'PASS' : 'FAIL'}: ${report.frameCount} atlas frames (${report.outlineColors || report.pixelHygiene || report.paletteCensus ? 'structural' + (report.outlineColors ? ', outline' : '') + (report.pixelHygiene ? ', pixel-hygiene' : '') + (report.paletteCensus ? ', palette' : '') + ' checks' : 'structural checks only'})`);
       for (const item of [...report.errors, ...report.warnings]) console.log(`${item.code}: ${item.message}`);
       for (const [kind, path] of Object.entries(report.artifacts)) console.log(`${kind}: ${path}`);
+      if (report.paletteCensus) for (const row of report.paletteCensus.frames) {
+        console.log(`Palette (${report.paletteCensus.mode}) ${row.filename}: ${row.offPalettePixels} off-palette pixels, ${row.offPaletteColors} colors; ${row.maskedPixels} masked.`);
+        for (const c of row.colors) console.log(`  ${c.color}: ${c.pixels} pixels; samples ${JSON.stringify(c.samples)}${c.samplesTruncated ? ' (truncated)' : ''}`);
+      }
       if (report.review) printReview(report.review);
     }
     if (!report.ok) process.exitCode = 1;

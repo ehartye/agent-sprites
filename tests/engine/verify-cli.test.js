@@ -34,6 +34,20 @@ test('hygiene flags map onto the checks', async () => {
   expect(JSON.parse(stdout)).toMatchObject({ ok: true, pixelHygiene: { maxColors: 3, allowColors: ['#ff0000'] } });
 }, 30000);
 
+test('palette census CLI exposes strict/advisory modes, extras and missing option errors', async () => {
+  addLonePixel();
+  const palette = join(dir, 'allowed.hex'); writeFileSync(palette, '39283f\nef ac83'.replace(' ', ''));
+  const failed = await failure('verify', file, '--palette', palette, '--json');
+  expect(failed.code).toBe(1);
+  expect(JSON.parse(failed.stdout).paletteCensus.frames[0].offPalettePixels).toBe(1);
+  const advisory = await cli('verify', file, '--palette', palette, '--palette-mode', 'advisory');
+  expect(advisory.stdout).toContain('Palette (advisory)');
+  expect(advisory.stdout).toContain('#ff0000: 1 pixels');
+  expect(JSON.parse((await cli('verify', file, '--palette', palette, '--palette-extra', '#ff0000', '--json')).stdout).ok).toBe(true);
+  for (const args of [['--palette'], ['--palette-mode', 'advisory'], ['--palette', palette, '--mask-frame', 'missing'], ['--palette', palette, '--palette-extra', '#fff']])
+    expect((await failure('verify', file, ...args)).code).toBe(1);
+}, 30000);
+
 test('a lone pixel fails with orphan-pixels only when the flag is given', async () => {
   addLonePixel();
   const failed = await failure('verify', file, '--orphan-pixels');

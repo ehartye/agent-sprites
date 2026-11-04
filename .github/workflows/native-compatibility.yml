@@ -120,7 +120,7 @@ jobs:
         run: >-
           node node_modules/vitest/vitest.mjs run tests/db
           tests/engine/raster.test.js tests/engine/canvas-renderer.test.js
-          tests/engine/atlas-verifier.test.js
+          tests/engine/atlas-verifier.test.js tests/engine/palette-census.test.js tests/engine/verify-cli.test.js
           tests/engine/shared-geometry.test.js tests/engine/shared-validation-work.test.js
           tests/io/bounded-input.test.js
           tests/web/project-import-api.test.js tests/web/project-import-shutdown.test.js

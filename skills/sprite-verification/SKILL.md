@@ -51,6 +51,12 @@ options off for dithered and anti-aliased art.
 node "<plugin-root>/scripts/run-managed.js" verify art/hero.atlas.json --orphan-pixels --max-colors 12 --allow-colors "#ffffff"
 ```
 
+For exact palette membership use `verify --palette allowed.hex --palette-mode fail`
+(or `advisory` to retain findings without failing). This is separate from hygiene
+exemptions: `--allow-colors` does not exempt off-palette pixels. Add declared ramps
+with `--palette-extra "#112233,#445566"`. Read the [palette census contract](references/palette-census.md)
+for supported files, explicit masks, alpha semantics and coordinate limits.
+
 Run in order; each level catches what the previous one can't.
 
 Frame keys are part of the structural check. Engines and loaders read a tag's

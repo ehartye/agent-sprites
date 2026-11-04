@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, realpathSync, existsSync, statSync } from 
 import { resolve, dirname, basename } from 'node:path';
 import { createCanvas, loadImage } from 'canvas';
 import { parseHex, buildReview } from './verify-review.js';
+import sharp from 'sharp';
+import { readCensusPalette, censusFrames } from './palette-census.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 export function atlasFrames(atlas) {
@@ -195,7 +197,7 @@ function pixelHygiene(pixels, width, height, { orphans, maxColors, minColorPixel
 }
 
 /** Offline verification always decodes the real local PNG, never session state. */
-export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4, maxAspect, orphanPixels = false, maxColors, minColorPixels, allowColors = [], review = false, pairs, minContrast } = {}) {
+export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFrames = [], outlineColors, contactPath, contactFrames = [], reportPath, scale = 4, maxAspect, orphanPixels = false, maxColors, minColorPixels, allowColors = [], review = false, pairs, minContrast, palettePath, paletteExtra = [], paletteMode, maskFrame } = {}) {
   atlasPath = resolve(atlasPath);
   let report = { ok: false, frameCount: 0, errors: [], warnings: [], artifacts: { atlas: atlasPath } };
   let safeReport = false;
@@ -207,12 +209,23 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     if (typeof atlas?.meta?.image !== 'string' || !atlas.meta.image) { fail('image-read', 'Atlas meta.image must name a local PNG.'); return report; }
     const imagePath = resolve(dirname(atlasPath), atlas.meta.image);
     report.artifacts.image = imagePath;
-    const paths = [atlasPath, imagePath, contactPath, reportPath].filter(Boolean).map(p => canonical(resolve(p)));
+    if (palettePath !== undefined && (typeof palettePath !== 'string' || !palettePath.trim())) { fail('palette', 'palettePath requires a file path.'); return report; }
+    const paths = [atlasPath, imagePath, palettePath, contactPath, reportPath].filter(Boolean).map(p => canonical(resolve(p)));
     const identities = paths.filter(p => existsSync(p)).map(p => { const s = statSync(p, { bigint: true }); return `${s.dev}:${s.ino}`; });
     if (new Set(paths).size !== paths.length || new Set(identities).size !== identities.length) {
       fail('output-path', 'Review output paths must differ from each other and from atlas/PNG inputs (including file links).'); return report;
     }
     safeReport = Boolean(reportPath);
+    let paletteColors;
+    if (palettePath === undefined && (paletteMode !== undefined || maskFrame !== undefined || paletteExtra.length)) {
+      fail('palette', 'palette-extra, palette-mode and mask-frame require a palette.'); return report;
+    }
+    if (palettePath !== undefined) {
+      if (paletteMode !== undefined && !['fail', 'advisory'].includes(paletteMode)) { fail('palette-mode', 'palette-mode must be fail or advisory.'); return report; }
+      if (maskFrame !== undefined && (typeof maskFrame !== 'string' || !maskFrame.length)) { fail('mask-frame', 'mask-frame needs an exact frame name.'); return report; }
+      try { paletteColors = readCensusPalette(palettePath, paletteExtra); }
+      catch (e) { fail('palette', e.message); return report; }
+    }
     if (outlineColors !== undefined && (!Array.isArray(outlineColors) || !outlineColors.length || outlineColors.some(c => typeof c!=='string' || !/^#[0-9a-f]{6}$/i.test(c)))) {
       fail('outline-colors', 'outlineColors must be a nonempty array of #RRGGBB colors.'); return report;
     }
@@ -230,15 +243,34 @@ export async function verifyAtlasFile(atlasPath, { expectedTags = [], expectedFr
     if (minContrast !== undefined && (typeof minContrast!=='number' || !Number.isFinite(minContrast) || minContrast <= 0)) { fail('min-contrast', 'min-contrast must be a positive number.'); return report; }
     const hygiene = orphanPixels || maxColors !== undefined || minColorPixels !== undefined;
     const contourColors = outlineColors === undefined ? null : new Set(outlineColors.map(c=>parseInt(c.slice(1),16)));
-    let image;
+    let image, imageBytes;
     try {
-      const bytes = readFileSync(imagePath);
+      const bytes = readFileSync(imagePath); imageBytes = bytes;
       if (!bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw new Error('Expected PNG file bytes.');
       image = await loadImage(bytes);
     } catch (e) { fail('image-read', `Cannot decode PNG: ${e.message}`); return report; }
     report = { ...validateAtlas(atlas, { width: image.width, height: image.height, expectedTags, expectedFrames, maxAspect }), artifacts: report.artifacts };
     if (!report.ok) return report;
     const frames = atlasFrames(atlas);
+    if (paletteColors) {
+      try {
+        // Decode straight RGBA rather than Canvas premultiplication, which can round translucent RGB.
+        const metadata = await sharp(imageBytes).metadata();
+        if (metadata.icc || imageBytes[24] !== 8 || ![2, 3, 6].includes(imageBytes[25]))
+          throw new Error('Palette census requires 8-bit RGB/RGBA or indexed PNG without an embedded ICC profile.');
+        const { data, info } = await sharp(imageBytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        if (info.width !== image.width || info.height !== image.height || info.channels !== 4) throw new Error('Census decode dimensions changed.');
+        const rows = censusFrames(data, info.width, frames, paletteColors, maskFrame);
+        report.paletteCensus = { mode: paletteMode ?? 'fail', palette: paletteColors, alpha: 'nonzero',
+          maskFrame: maskFrame ?? null, coordinates: 'packed-frame-local', frames: rows };
+        for (const row of rows) if (row.offPalettePixels) {
+          const finding = { code: 'off-palette', filename: row.filename, count: row.offPalettePixels,
+            message: `Frame ${row.filename}: ${row.offPalettePixels} off-palette pixels in ${row.offPaletteColors} colors.` };
+          if (paletteMode === 'advisory') report.warnings.push(finding);
+          else { report.ok = false; report.errors.push(finding); }
+        }
+      } catch (e) { fail('palette-census', e.message); return report; }
+    }
     const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
     const checkedContours = new Set(), checkedHygiene = new Set(), reviewRects = new Map(), frameKeys = [];
     if (contourColors) report.outlineColors = outlineColors;
