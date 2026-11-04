@@ -58,6 +58,7 @@ they are never silently clipped to fit. Each line advances by its tallest child
 plus `rowGap` (default `gap`, including explicit zero). Measurement, placement,
 scroll extent and pagination share that topology. Vertical alignment cannot
 split a visual line across pages. Defaults for nonwrapping rows stay unchanged.
+A wrapping row nested inside a paginated stack is placed as one indivisible block: it is never split across the stack's pages, a block that does not fit beside its sibling moves whole to the next page, and a block taller than a page gets its own page and reports actionable overflow.
 
 Low-level `placeBitmapText` also accepts a strictly boolean `wrap: false`.
 `maxWidth` and `maxHeight` retain alignment and fit/paint diagnostics while source
