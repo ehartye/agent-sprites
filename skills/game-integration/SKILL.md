@@ -282,7 +282,7 @@ projects. The custom generator workflow below remains useful for other assets.
    For characters and furniture, draw at the report's ground with the published
    `playback-runtime.mjs` (`drawAtGround`, `createWalker`) instead of the cell bottom;
    if you drive walks yourself, honor `frameDistances` when a gait has them (the frame is the first
-   whose running total exceeds `distance % cycleDistance`); see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). Keep the generated directory dedicated to build outputs.
+   whose running total exceeds `distance % cycleDistance`); see the [character walking rules](../../examples/character-cast/README.md#anatomy-and-distance-driven-walking-0214). The output directory may be new or an existing empty one (a build claims it); a directory that holds anything, even a hidden file, is refused as not owned, and a directory a previous build owns is rebuilt. Keep it dedicated to build outputs.
    A build with `trim: true` (or `export --trim true`) packs frames tightly: draw each at its
    `spriteSourceSize.x/y` offset inside the cell (engines' Aseprite importers and `drawAtGround` do).
 

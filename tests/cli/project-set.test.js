@@ -56,6 +56,15 @@ test('builds every listed project in order and then reports both as current', as
   expect(snapshotTree(join(dir, '..'))).toEqual(before);
 }, 15000);
 
+test('builds a set into pre-created empty output folders', async () => {
+  const out = join(dir, '..', 'out');
+  mkdirSync(join(out, 'a'), { recursive: true }); mkdirSync(join(out, 'b'));
+  const built = await buildSet(list);
+  expect(built).toMatchObject({ ok: true, total: 2, attempted: 2, succeeded: 2, failed: 0 });
+  expect(built.projects.map(p => p.status)).toEqual(['built', 'built']);
+  for (const id of ['a', 'b']) expect(existsSync(join(out, id, '.agent-sprites-build.json'))).toBe(true);
+}, 15000);
+
 test('same-size changes to finalized artifacts cannot be certified as current', async () => {
   writeFileSync(list, JSON.stringify({ version: 1, projects: ['a/sprite-project.json'] }));
   const built = await buildProject(a);

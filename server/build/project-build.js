@@ -92,6 +92,8 @@ function outputOwner(output, configPath) {
 function assertOwnedOutput(output, configPath) {
   if (!existsSync(output)) return;
   if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) throw new Error('Output must be a regular build directory, not a file or link.');
+  // An existing directory with no entries at all is claimed; the build writes the marker when it publishes.
+  if (readdirSync(output).length === 0) return;
   let prior;
   try { prior = JSON.parse(readFileSync(join(output, marker), 'utf8')); } catch { /* explicit error below */ }
   const expected = outputOwner(output, configPath);
@@ -100,7 +102,7 @@ function assertOwnedOutput(output, configPath) {
     (prior.version === 1 && pathKey(prior.config) === pathKey(configPath)) ||
     (prior.version === 2 && expected.version === 2 && pathKey(prior.config) === pathKey(expected.config))
   );
-  if (!owned || !Array.isArray(prior?.files)) throw new Error('Output directory is not owned by this build config. Choose a new output directory.');
+  if (!owned || !Array.isArray(prior?.files)) throw new Error('Output directory is not owned by this build config. Choose a new or empty output directory.');
   const allowed = new Set([...prior.files, marker]);
   if (readdirSync(output).some(file => !allowed.has(file) || !lstatSync(join(output, file)).isFile())) throw new Error('Output contains files outside the previous build; move them before rebuilding.');
 }
