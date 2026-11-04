@@ -526,9 +526,19 @@ Optional `expectedFrames` lists the exact static aliases your game consumes;
 contracts to catch a renamed or omitted crop, prop, or animation before integration.
 A missing frame fails the staged build and leaves the previous export untouched.
 
-Output must be a dedicated generated directory. Rebuilds replace only a directory
-marked as owned by the same config, refuse extra files, and preserve the last
-successful build on failure. A `.build-lock` beside the output prevents concurrent
+Output must be a new directory or an existing empty one: a build claims an empty
+directory and writes its ownership marker there. A directory that holds anything,
+even a hidden file such as `.gitkeep`, is refused with `Output directory is not
+owned by this build config. Choose a new or empty output directory.` Rebuilds
+replace only a directory marked as owned by the same config, refuse extra files,
+and preserve the last successful build on failure. For example:
+
+```powershell
+mkdir out
+Invoke-Sprite build .\sprite-project.json --json
+```
+
+with `"output": "out"` in the config. A `.build-lock` beside the output prevents concurrent
 builds; after a crashed process, confirm it has stopped before removing that lock.
 Ownership follows the config's relative path from the output, so copying a project
 and its output together preserves rebuilds when their layout stays the same.
