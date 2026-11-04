@@ -285,7 +285,9 @@ OFFLINE VERIFICATION (does not start or contact a server)
                          --check only parses a tileset's .pxl sources (no output written, exit 1 on any
                          mistyped row, naming file, line and expected width); usable in CI
   build-set <sprite-projects.json> [--check] [--json]
-                         rebuild every listed project, or report stale outputs without writing
+                         rebuild every listed project; --check inspects recorded inputs and published artifact integrity,
+                         including generator/ops builds, without running generators or writing outputs
+                         one-project manifest beside its config: {"version":1,"projects":["./sprite-project.json"]}
   tileset-preview <layout.json> --out <directory> [--scale N] [--night] [--json]
                          compose built frames into contact sheets (rooms, fence runs, icon boards) from a JSON layout,
                          using the same neighbour-mask rules as a game: autotile glyphs pick <prefix>_<mask>;

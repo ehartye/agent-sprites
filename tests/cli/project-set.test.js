@@ -316,6 +316,56 @@ test('CLI JSON checks fail on stale sets, then build and check succeed without a
   expect(JSON.parse((await exec(process.execPath, [cli, 'build-set', list, '--check', '--json'], options)).stdout).ok).toBe(true);
 }, 20000);
 
+test.each(['ops', 'generator'])('single-project %s check explains a usable read-only one-project freshness check', async source => {
+  const cli = fileURLToPath(new URL('../../scripts/sprite.js', import.meta.url));
+  const root = join(dir, 'a'), configPath = join(root, 'project with spaces.json');
+  const counter = join(root, 'generator-ran.txt');
+  writeFileSync(join(root, 'generate.mjs'), `import {writeFileSync,readFileSync} from 'node:fs';
+    writeFileSync(${JSON.stringify(counter)},'ran');
+    console.log(readFileSync(new URL('./ops.json',import.meta.url),'utf8'));`);
+  writeFileSync(configPath, JSON.stringify({ version: 1, output: '../../out/a', scale: 1,
+    ...(source === 'generator' ? { generator: 'generate.mjs' } : { ops: 'ops.json' }) }));
+  const invoke = (...args) => exec(process.execPath, [cli, ...args], { cwd: dir, windowsHide: true,
+    env: { ...process.env, SPRITE_PORT: '1' } }).then(r => ({ ...r, code: 0 }), e => e);
+  const before = snapshotTree(join(dir, '..'));
+  const refused = await invoke('build', configPath, '--check', '--json');
+  expect(refused.code).toBe(1);
+  const report = JSON.parse(refused.stdout);
+  expect(report).toMatchObject({ ok: false, errors: [{ code: 'check-input' }] });
+  const message = report.errors[0].message;
+  expect(message).toContain('build-set "<new-manifest.json>" --check --json');
+  expect(message).toContain('without running generators or starting a server');
+  const manifest = JSON.parse(message.split('\n').find(line => line.startsWith('{')));
+  expect(manifest).toEqual({ version: 1, projects: ['./project with spaces.json'] });
+  const human = await invoke('build', configPath, '--check');
+  expect(human.code).toBe(1); expect(human.stdout).toContain(message);
+  expect(snapshotTree(join(dir, '..'))).toEqual(before);
+  expect(existsSync(counter)).toBe(false);
+
+  const suggested = join(root, 'check-projects.json');
+  writeFileSync(suggested, JSON.stringify(manifest));
+  const unbuilt = await invoke('build-set', suggested, '--check', '--json');
+  expect(unbuilt.code).toBe(1); expect(JSON.parse(unbuilt.stdout).stale).toBe(1);
+  expect(existsSync(counter)).toBe(false);
+  const built = await invoke('build', configPath, '--json');
+  expect(built.code, built.stdout + built.stderr).toBe(0);
+  const published = JSON.parse(built.stdout);
+  const snapshot = snapshotTree(join(dir, '..'));
+  const current = await invoke('build-set', suggested, '--check', '--json');
+  expect(current.code).toBe(0); expect(JSON.parse(current.stdout)).toMatchObject({ ok: true, attempted: 0, stale: 0 });
+  expect(snapshotTree(join(dir, '..'))).toEqual(snapshot);
+  writeFileSync(published.artifacts.sheet, 'damaged artifact');
+  const damaged = snapshotTree(join(dir, '..'));
+  expect((await invoke('build-set', suggested, '--check', '--json')).code).toBe(1);
+  expect(snapshotTree(join(dir, '..'))).toEqual(damaged);
+  if (source === 'generator') {
+    writeFileSync(join(root, 'generate.mjs'), 'throw Error("intentional generator failure");');
+    const failed = await invoke('build', configPath, '--json');
+    expect(failed.code).toBe(1); expect(JSON.parse(failed.stdout).ok).toBe(false);
+    expect(failed.stdout).toContain('intentional generator failure');
+  }
+}, 30000);
+
 test('check names a mistyped tileset row by file and line before any rebuild', async () => {
   const root = join(dir, 'tiles'); mkdirSync(root, { recursive: true });
   writeFileSync(join(root, 'a.pxl'), '@palette\ng #6b7d3a\n@tile one\n' + ['ggg', 'gggg', 'gggg', 'gggg'].join('\n') + '\n');
