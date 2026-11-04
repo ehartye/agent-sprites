@@ -800,3 +800,7 @@ the default, so an untagged pose sheet can be reviewed in motion. Selecting a ce
 in another row changes that row preview. Saved groups retain their frame order,
 repeated frames and FPS. These preview choices do not create exported animation
 tags; use animation groups when defining a finished animation.
+
+### Palette census (0.103.0)
+
+Offline `verify --palette` reports exact off-palette pixel/color counts with explicit masks and fail/advisory modes. See the [census contract](skills/sprite-verification/references/palette-census.md). Existing assets are read only unless an existing explicit report/contact output is requested. Alpha-layer authoring is outside this release.
