@@ -210,6 +210,13 @@ An old receipt without `integrity` is explicitly uncertified
 (`output-integrity-missing`); checking does not repair files or add a receipt.
 Rebuild deliberately from the canonical inputs when adopting the new producer.
 
+For one generator or ops project, save a new list beside its config (do not overwrite the config):
+`{"version":1,"projects":["./sprite-project.json"]}`. Run
+`agent-sprites build-set ./sprite-projects.json --check --json` after saving that list as `sprite-projects.json`.
+Single-project `build --check` only validates inline tileset `.pxl` sources; it does not check generator syntax or
+published-output freshness. A current build-set result does not prove that a generator will run successfully now;
+normal build failures still fail. Both check routes are read-only and need no server.
+
 `agent-sprites app-icons app-icons.json [--check]` builds the web app icon set (192 and 512 icons, maskable 512, apple-touch 180
 without alpha, 16/32/48 favicons, `favicon.ico`, optional 1200x630 share card) from three tiles of a built tileset using whole-number
 scales only; the config fields are in the game-integration skill.
