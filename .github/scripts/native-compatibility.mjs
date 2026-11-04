@@ -57,7 +57,12 @@ try {
     assert.equal(check.fingerprint, description.fingerprint);
     const cliVersion = execute('run-managed.js', ['--version']).trim();
     assert.equal(cliVersion, description.version);
-    receipt.managed = { setup, check, cliVersion };
+    const managedOnly = JSON.parse(execute('setup.js', ['--managed-only', '--source', resolve(source), '--expect-version', description.version, '--check', '--json']));
+    assert.equal(managedOnly.ok, true); assert.equal(managedOnly.linkOk, null);
+    assert.equal(managedOnly.qualification, 'managed-launcher');
+    assert.equal(managedOnly.runtimeRoot, check.runtimeRoot);
+    assert.equal(execFileSync(process.execPath, [managedOnly.launcher, '--version'], { encoding: 'utf8' }).trim(), description.version);
+    receipt.managed = { setup, check, cliVersion, managedOnly };
   } else if (phase !== 'receipt') throw Error('Expected prepare, dependencies, managed or receipt phase');
   receipt.phaseResult = 'passed';
 } catch (error) {

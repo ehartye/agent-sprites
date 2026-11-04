@@ -36,6 +36,47 @@ beforeEach(() => {
 afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
 
 describe('managed CLI installation', () => {
+  test('managed-only qualification never queries or changes the global link', () => {
+    symlinkSync(source, join(globalRoot, 'agent-sprites'), process.platform === 'win32' ? 'junction' : 'dir');
+    const calls = [];
+    const isolatedNpm = (args, opts) => {
+      calls.push(args[0]);
+      if (args[0] !== 'ci') throw new Error('Global npm access forbidden');
+      return npm(args, opts);
+    };
+    const runtime = installRuntime(source, { home, link: false, npm: isolatedNpm, checkDependencies: deps });
+    const report = inspectInstallation(source, { home, link: false, npm: isolatedNpm, checkDependencies: deps });
+    expect(report).toMatchObject({ ok: true, runtimeOk: true, linkRequired: false, linkOk: null, linked: null, qualification: 'managed-launcher', fingerprint: runtime.fingerprint, sourceRoot: source, launcher: join(source, 'scripts', 'run-managed.js'), environment: { AGENT_SPRITES_HOME: home } });
+    expect(calls).toEqual(['ci']);
+    expect(realpathSync(join(globalRoot, 'agent-sprites'))).toBe(source);
+    expect(inspectInstallation(source, { home, npm, checkDependencies: deps })).toMatchObject({ ok: false, boundary: 'link' });
+    expect(inspectInstallation(source, { home, link: false, npm: isolatedNpm, checkDependencies: () => { throw new Error('native missing'); } })).toMatchObject({ ok: false, runtimeOk: false, boundary: 'dependencies' });
+    put(runtime.cli, '// tampered');
+    expect(inspectInstallation(source, { home, link: false, npm: isolatedNpm, checkDependencies: deps }).ok).toBe(false);
+  });
+
+  test.each([
+    ['--source', 'relative', '--expect-version', '1.2.3', '--managed-only'],
+    ['--source', 'relative', '--managed-only'],
+    ['--expect-version', '1.2.3'],
+    ['--unknown'],
+  ])('setup rejects incomplete or unsafe selectors before creating a home: %j', (...args) => {
+    expect(() => execFileSync(process.execPath, [join(process.cwd(), 'scripts/setup.js'), ...args, '--json'], { env: { ...process.env, AGENT_SPRITES_HOME: home }, stdio: 'pipe' })).toThrow();
+    expect(existsSync(home)).toBe(false);
+  });
+
+  test('an unexpected pinned version fails before installing or repairing anything', () => {
+    expect(() => execFileSync(process.execPath, [join(process.cwd(), 'scripts/setup.js'), '--managed-only', '--source', source, '--expect-version', '9.9.9', '--json'], { env: { ...process.env, AGENT_SPRITES_HOME: home }, stdio: 'pipe' })).toThrow(/Expected pinned version/);
+    expect(existsSync(home)).toBe(false);
+  });
+
+  test('an incompatible original launcher policy is rejected before installation', () => {
+    for (const file of ['managed-runtime.js', 'run-managed.js', 'source-fingerprint.js']) copyFileSync(join(process.cwd(), 'scripts', file), join(source, 'scripts', file));
+    put(join(source, 'scripts', 'run-managed.js'), '// unrelated launcher');
+    expect(() => execFileSync(process.execPath, [join(process.cwd(), 'scripts/setup.js'), '--managed-only', '--source', source, '--expect-version', '1.2.3', '--json'], { env: { ...process.env, AGENT_SPRITES_HOME: home }, stdio: 'pipe' })).toThrow(/Unsupported pinned managed launcher policy/);
+    expect(existsSync(home)).toBe(false);
+  });
+
   test('copies runtime outside plugin, links only after dependency validation, and resolves exact release', () => {
     const order = [];
     const runtime = installRuntime(source, { home, npm: (args, opts) => { order.push(args[0]); return npm(args, opts); }, checkDependencies: () => order.push('deps') });

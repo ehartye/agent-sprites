@@ -92,6 +92,11 @@ workaround for an unwritable prefix.
 
 ## Required invocation for every sprite skill
 
+For explicitly pinned build/review releases, follow
+[side-by-side qualification](references/pinned-runtimes.md). A successful managed
+qualification satisfies readiness for that exact source and environment. Ordinary
+setup continues to require the global link.
+
 Run operations through the absolute launcher from the loaded plugin:
 
 ```text

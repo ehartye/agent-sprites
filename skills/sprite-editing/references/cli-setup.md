@@ -1,5 +1,9 @@
 # Managed CLI setup and invocation
 
+For a deliberately pinned build/review pair, use the explicit
+[side-by-side route](../../sprite-setup/references/pinned-runtimes.md) and its
+reported launcher/environment. The ordinary setup rules below remain the default.
+
 Every sprite skill uses the managed CLI installed by [sprite setup](../../sprite-setup/SKILL.md).
 Run setup on first use and after a plugin update. It installs outside the plugin cache,
 links the CLI, and checks plugin/CLI/server version sync. Never use a bare PATH
