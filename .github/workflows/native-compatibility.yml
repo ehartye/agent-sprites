@@ -31,6 +31,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Pull requests are classified by the base commit's script, so a pull request cannot change the rule that admits it.
+      - name: Check out the base commit's classifier
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+          persist-credentials: false
+          sparse-checkout: scripts/native-admission.mjs
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
@@ -41,7 +51,7 @@ jobs:
           ADMIT_EVENT: ${{ github.event_name }}
           ADMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           ADMIT_HEAD: ${{ github.event.pull_request.head.sha || github.event.after }}
-        run: node scripts/native-admission.mjs classify --event "$ADMIT_EVENT" --base "$ADMIT_BASE" --head "$ADMIT_HEAD"
+        run: node ${{ github.event_name == 'pull_request' && '.base/scripts/native-admission.mjs' || 'scripts/native-admission.mjs' }} classify --event "$ADMIT_EVENT" --base "$ADMIT_BASE" --head "$ADMIT_HEAD"
 
   # Version-only changes skip the matrix; the four version files must still agree.
   identity:
@@ -54,12 +64,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Check out the base commit's classifier
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+          persist-credentials: false
+          sparse-checkout: scripts/native-admission.mjs
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
           package-manager-cache: false
       - name: Check the four version files carry the same version
-        run: node scripts/native-admission.mjs check-identity
+        run: node ${{ github.event_name == 'pull_request' && '.base/scripts/native-admission.mjs' || 'scripts/native-admission.mjs' }} check-identity
 
   native:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
