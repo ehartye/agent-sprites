@@ -627,7 +627,7 @@ without requiring a Canvas context. `drawPixelFit(ctx, image, bounds, destinatio
 
 For common dialogs, menus, forms, lists, reading views, notices and HUDs, use the
 [shared native component contract](examples/ui/native-components.md). This is an
-producer-owned contract, verified by `npm run test:ui` and `npm run test:ui:native`.
+producer-owned contract, verified by `npm run test:ui` and `npm run test:ui:native`. The native proof is a local command that no CI job runs; beyond the themed WebGL2 and Canvas cases it covers compressed tiling with the `readSourceRGBA` port (uniform and detailed art), wrong-period and wrong-density negative controls that must be detected, and prelaid text (a double space, and "Card 7B" at zoom 1.5).
 Producer releases depend on these checks and the established plugin release checks;
 each host independently pins and verifies its adoption. It supplies stock components/families, themes, layout, interaction
 and a native Phaser host through `ui-index.mjs`. Games provide authored models,
