@@ -45,6 +45,50 @@
       "duration": 125
     },
     {
+      "filename": "2",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 4
+      },
+      "duration": 125
+    },
+    {
+      "filename": "3",
+      "frame": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 4
+      },
+      "duration": 125
+    },
+    {
       "filename": "night",
       "frame": {
         "x": 0,
@@ -87,6 +131,50 @@
         "h": 4
       },
       "duration": 125
+    },
+    {
+      "filename": "uniform",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 4
+      },
+      "duration": 125
+    },
+    {
+      "filename": "detailed",
+      "frame": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "sourceSize": {
+        "w": 4,
+        "h": 4
+      },
+      "duration": 125
     }
   ],
   "meta": {
@@ -95,7 +183,7 @@
     "image": "contract-skin.png",
     "format": "RGBA8888",
     "size": {
-      "w": 8,
+      "w": 16,
       "h": 4
     },
     "scale": "1",
