@@ -80,6 +80,22 @@ it is not a complete wardrobe or walking system.
 4. Rebuild and inspect the exported pixels. Fix the largest visible mismatch
    before making more variants. Preserve changes in ops/generator/recipe source;
    edits inside generated output disappear on rebuild.
+5. Rebuild a native cast together, not one costume: a template change can move
+   pixels of every member, so one rebuilt member can stop matching its
+   neighbours. List the cast's build configs in a project-set file
+   (`{"version":1,"projects":["cast-gardener.build.json", ...]}`, paths relative
+   to the file) and run `node scripts/sprite.js build-set <set-file>`; for the
+   eight everyday cast configs in `examples/native-character` it prints
+   `8/8 projects built; 0 failed.` Before mixing old and new sheets, run
+   `build-set <set-file> --check`: it writes nothing and prints
+   `8/8 projects current; 0 need attention.` The build manifest records the tool
+   name and version; a sheet built by another version is reported stale (exit 1):
+   `tool-version: Built with agent-sprites 0.1.0; current tool is agent-sprites 0.102.0.`
+   A build config cannot pin a template version, so rebuilding the whole cast
+   with one tool version is how sheets stay consistent. The repository pins every
+   cast member's pixels with golden hashes (`tests/native-cast-goldens.test.js`);
+   a deliberate template change regenerates them with `UPDATE_GOLDENS=1` and
+   names its reason in the release notes.
 
 For motion, load [sprite motion](../sprite-motion/SKILL.md) after the neutral
 design reads well. A frozen walk contact is not idle. Author direction-specific
