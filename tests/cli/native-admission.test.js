@@ -232,6 +232,93 @@ test('check-identity passes on this repository', () => {
   expect(run(['check-identity', '--root', root]).status).toBe(0);
 });
 
+// One expression on the event name picks the script: the base commit's copy on pull requests, the workspace copy otherwise.
+const SELECTED_SCRIPT = String.raw`\$\{\{ github\.event_name == 'pull_request' && '\.base/scripts/native-admission\.mjs' \|\| 'scripts/native-admission\.mjs' \}\}`;
+const jobText = name => {
+  const start = workflow.indexOf(`\n  ${name}:`);
+  const next = workflow.slice(start + 1).search(/\n  [a-z-]+:\n/);
+  return workflow.slice(start, next < 0 ? undefined : start + 1 + next);
+};
+const stepsOf = job => job.split('\n      - ').slice(1);
+const PINNED_CHECKOUT = /actions\/checkout@([0-9a-f]{40}) # v\d+/;
+
+test.each(['admit', 'identity'])('workflow %s job classifies from the pull request base commit, not the pull request tree', name => {
+  const job = jobText(name);
+  const steps = stepsOf(job);
+  const checkouts = steps.filter(step => PINNED_CHECKOUT.test(step));
+  const workspace = checkouts.filter(step => !/path: \.base/.test(step));
+  const base = checkouts.filter(step => /path: \.base/.test(step));
+  expect(workspace).toHaveLength(1);
+  expect(base).toHaveLength(1);
+  const [baseStep] = base;
+  expect(baseStep).toMatch(/\n {8}if: github\.event_name == 'pull_request'\n/);
+  // The workspace checkout cleans the workspace, so the base checkout must come after it.
+  expect(steps.indexOf(baseStep)).toBeGreaterThan(steps.indexOf(workspace[0]));
+  expect(baseStep.match(PINNED_CHECKOUT)[1]).toBe(workspace[0].match(PINNED_CHECKOUT)[1]);
+  expect(baseStep).toMatch(/\n {10}ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n/);
+  expect(baseStep).toMatch(/\n {10}persist-credentials: false\n/);
+  expect(baseStep).toMatch(/\n {10}sparse-checkout: scripts\/native-admission\.mjs\n/);
+  expect(baseStep).toMatch(/\n {10}sparse-checkout-cone-mode: false(\n|$)/);
+  // The pull request tree stays the working directory: no working-directory or cd on the run line.
+  expect(job).not.toMatch(/working-directory:/);
+  expect(job).not.toMatch(/\bcd\b/);
+  // Nothing in the job runs the workspace copy unconditionally.
+  expect(job).not.toMatch(/node scripts\/native-admission\.mjs/);
+  expect(job).toMatch(new RegExp(`run: node ${SELECTED_SCRIPT} ${name === 'admit' ? 'classify --event' : 'check-identity'}`));
+});
+
+test('workflow ADMIT env still names the event, base and head', () => {
+  const env = jobText('admit');
+  expect(env).toMatch(/ADMIT_EVENT: \$\{\{ github\.event_name \}\}/);
+  expect(env).toMatch(/ADMIT_BASE: \$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.before \}\}/);
+  expect(env).toMatch(/ADMIT_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.event\.after \}\}/);
+});
+
+test('the base copy of the classifier admits a pull request whose head rewrites the classifier to call everything documentation-only', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'sprite-admission-'));
+  const repo = join(directory, 'repo');
+  const baseCopy = join(directory, 'base-copy');
+  const output = join(directory, 'output.txt');
+  const sh = (cwd, ...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'core.autocrlf=false', '-c', 'commit.gpgsign=false', ...args],
+    { cwd, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  try {
+    mkdirSync(join(repo, 'scripts'), { recursive: true });
+    mkdirSync(join(repo, 'docs'));
+    mkdirSync(join(baseCopy, 'scripts'), { recursive: true });
+    sh(repo, 'init', '-q');
+    // Base commit: the real classifier plus a documentation file.
+    writeFileSync(join(repo, 'scripts', 'native-admission.mjs'), readFileSync(script));
+    writeFileSync(join(repo, 'docs', 'guide.md'), 'guide\n');
+    sh(repo, 'add', '-A');
+    sh(repo, 'commit', '-q', '-m', 'base');
+    const base = sh(repo, 'rev-parse', 'HEAD');
+    // Head commit: a classifier that waves everything through as documentation, and a changed file under scripts/.
+    writeFileSync(join(repo, 'scripts', 'native-admission.mjs'), [
+      "import { appendFileSync } from 'node:fs';",
+      "appendFileSync(process.env.GITHUB_OUTPUT, 'class=documentation-only\\nnative=false\\nidentity=false\\n');",
+      '',
+    ].join('\n'));
+    writeFileSync(join(repo, 'scripts', 'tool.js'), 'export const x = 1;\n');
+    sh(repo, 'add', '-A');
+    sh(repo, 'commit', '-q', '-m', 'head');
+    const head = sh(repo, 'rev-parse', 'HEAD');
+    const args = ['classify', '--event', 'pull_request', '--base', base, '--head', head];
+    const env = { ...process.env, GITHUB_OUTPUT: output };
+    const lines = () => readFileSync(output, 'utf8').split('\n').filter(Boolean);
+
+    // The base copy is what `.base/scripts/native-admission.mjs` holds in the workflow; the working directory is the pull request tree.
+    writeFileSync(join(baseCopy, 'scripts', 'native-admission.mjs'), sh(repo, 'show', `${base}:scripts/native-admission.mjs`) + '\n');
+    const node = file => execFileSync(process.execPath, [file, ...args], { cwd: repo, env, timeout: 20000, windowsHide: true, stdio: 'ignore' });
+    node(join(baseCopy, 'scripts', 'native-admission.mjs'));
+    expect(lines()).toEqual(['class=native', 'native=true', 'identity=false']);
+
+    // Control: the pull request's own copy is the attack, and it suppresses the matrix.
+    rmSync(output);
+    node(join(repo, 'scripts', 'native-admission.mjs'));
+    expect(lines()).toEqual(['class=documentation-only', 'native=false', 'identity=false']);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+}, 60000);
+
 test('workflow wires the admission script and keeps release and manual triggers', () => {
   const triggers = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\npermissions:'));
   expect(triggers).toMatch(/\n  workflow_dispatch:/);
@@ -240,8 +327,8 @@ test('workflow wires the admission script and keeps release and manual triggers'
   expect(triggers).toMatch(/\n  push:\n    branches: \[main\]/);
   expect(workflow).not.toMatch(/\bschedule:/);
   expect(workflow).not.toMatch(/paths-ignore/);
-  expect(workflow).toMatch(/node scripts\/native-admission\.mjs classify --event/);
-  expect(workflow).toMatch(/node scripts\/native-admission\.mjs check-identity/);
+  expect(workflow).toMatch(new RegExp(`node ${SELECTED_SCRIPT} classify --event`));
+  expect(workflow).toMatch(new RegExp(`node ${SELECTED_SCRIPT} check-identity`));
   const nativeJob = workflow.slice(workflow.indexOf('\n  native:'));
   expect(nativeJob).toMatch(/needs: admit\n    if: needs\.admit\.outputs\.native == 'true'/);
   const identityJob = workflow.slice(workflow.indexOf('\n  identity:'), workflow.indexOf('\n  native:'));
