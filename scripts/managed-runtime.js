@@ -86,7 +86,7 @@ export function checkDependencies(root) {
   { cwd: root, windowsHide: true, stdio: 'pipe' });
 }
 
-export function installRuntime(source, { home = managedHome(), npm = runNpm, checkDependencies: check = checkDependencies } = {}) {
+export function installRuntime(source, { home = managedHome(), npm = runNpm, checkDependencies: check = checkDependencies, link = true } = {}) {
   const runtime = location(source, home);
   mkdirSync(runtime.home, { recursive: true });
   const lock = join(runtime.home, 'setup.lock');
@@ -119,10 +119,12 @@ export function installRuntime(source, { home = managedHome(), npm = runNpm, che
         check(runtime.root);
       }
     }
-    npm(['link', '--omit=dev', '--no-audit', '--no-fund'], { cwd: runtime.root, progress: true });
-    const globalRoot = npm(['root', '--global'], { cwd: runtime.root });
-    const linked = join(globalRoot, 'agent-sprites');
-    if (!existsSync(linked) || !samePath(realpathSync(linked), realpathSync(runtime.root))) throw new Error('npm link did not select the managed runtime');
+    if (link) {
+      npm(['link', '--omit=dev', '--no-audit', '--no-fund'], { cwd: runtime.root, progress: true });
+      const globalRoot = npm(['root', '--global'], { cwd: runtime.root });
+      const linked = join(globalRoot, 'agent-sprites');
+      if (!existsSync(linked) || !samePath(realpathSync(linked), realpathSync(runtime.root))) throw new Error('npm link did not select the managed runtime');
+    }
     return runtime;
   } finally {
     closeSync(fd);
@@ -131,10 +133,16 @@ export function installRuntime(source, { home = managedHome(), npm = runNpm, che
   }
 }
 
-export function inspectInstallation(source, { home = managedHome(), npm = runNpm, checkDependencies: check = checkDependencies } = {}) {
+export function inspectInstallation(source, { home = managedHome(), npm = runNpm, checkDependencies: check = checkDependencies, link = true } = {}) {
   const expected = location(source, home);
   const report = { ok: false, runtimeOk: false, linkOk: false, pluginVersion: expected.version, cliVersion: null, runtimeRoot: expected.root, fingerprint: expected.fingerprint, linked: false, dependencies: false, node: process.version, npm: null, prefix: null, npmExecpath: null, errors: [] };
-  try { report.npmExecpath = npmCli(); } catch { /* reported as null; a real npm call below records the failure */ }
+  report.qualification = link ? 'global-link' : 'managed-launcher';
+  report.linkRequired = link;
+  report.sourceRoot = expected.source;
+  report.launcher = join(expected.source, 'scripts', 'run-managed.js');
+  report.environment = { AGENT_SPRITES_HOME: expected.home, SPRITE_PORT: String(process.env.SPRITE_PORT || '3377') };
+  if (!link) { report.linkOk = null; report.linked = null; }
+  if (link) try { report.npmExecpath = npmCli(); } catch { /* reported as null; a real npm call below records the failure */ }
   if (report.npmExecpath) {
     try { const meta = readJson(join(dirname(report.npmExecpath), '..', 'package.json')); if (meta.name === 'npm') report.npm = meta.version; } catch { /* version stays null */ }
   }
@@ -145,6 +153,7 @@ export function inspectInstallation(source, { home = managedHome(), npm = runNpm
     stage = 'dependencies';
     check(runtime.root); report.dependencies = true;
     report.runtimeOk = true;
+    if (!link) { report.ok = true; return report; }
     stage = 'link';
     const globalRoot = npm(['root', '--global'], { cwd: runtime.root });
     const linked = join(globalRoot, 'agent-sprites');
@@ -158,7 +167,7 @@ export function inspectInstallation(source, { home = managedHome(), npm = runNpm
     if (!report.pathConfigured) report.pathHint = `Add ${report.pathDirectory} to your user PATH for the optional bare agent-sprites command. Skills use the checked launcher regardless of PATH.`;
   } catch (error) { report.errors.push(error.message); report.boundary = error.boundary || stage; }
   if (!report.boundary && report.errors.length) report.boundary = 'link';
-  report.linkOk = report.linked && report.boundary !== 'link';
+  report.linkOk = link ? report.linked && report.boundary !== 'link' : null;
   report.ok = report.dependencies && report.linked && report.errors.length === 0;
   return report;
 }
