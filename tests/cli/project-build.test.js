@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, mkdirSync, cpSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildProject } from '../../server/build/project-build.js';
@@ -177,6 +177,48 @@ test('refuses lifecycle writes and non-build-owned output directories', async ()
   mkdirSync(join(dir,'dist')); writeFileSync(join(dir,'dist','mine.txt'),'keep');
   expect((await buildProject(config)).ok).toBe(false);
   expect(readFileSync(join(dir,'dist','mine.txt'),'utf8')).toBe('keep');
+});
+
+const notOwned = 'Output directory is not owned by this build config. Choose a new or empty output directory.';
+
+test('claims a pre-created empty output directory and records its ownership marker', async () => {
+  mkdirSync(join(dir,'dist'));
+  const result = await buildProject(config);
+  expect(result.errors).toEqual([]);
+  expect(result.ok).toBe(true);
+  const marker = JSON.parse(readFileSync(join(dir,'dist','.agent-sprites-build.json'),'utf8'));
+  expect(marker.files).toEqual(expect.arrayContaining(['robot.png','robot.atlas.json','sprite-manifest.json']));
+  for (const file of marker.files) expect(existsSync(join(dir,'dist',file))).toBe(true);
+  // The claimed directory is now owned and rebuilds like any other.
+  expect((await buildProject(config)).ok).toBe(true);
+});
+
+test.each([
+  ['a hidden .gitkeep file', '.gitkeep', 'x'],
+  ['a visible unowned file', 'mine.txt', 'keep'],
+])('refuses a pre-created output directory holding %s and leaves it untouched', async (_label, name, body) => {
+  mkdirSync(join(dir,'dist')); writeFileSync(join(dir,'dist',name),body);
+  const result = await buildProject(config);
+  expect(result.ok).toBe(false);
+  expect(result.errors).toEqual([{ code: 'build', message: notOwned }]);
+  expect(readdirSync(join(dir,'dist'))).toEqual([name]);
+  expect(readFileSync(join(dir,'dist',name),'utf8')).toBe(body);
+});
+
+test('refuses a pre-created output directory holding only an empty nested folder', async () => {
+  mkdirSync(join(dir,'dist','nested'),{ recursive: true });
+  const result = await buildProject(config);
+  expect(result.ok).toBe(false);
+  expect(result.errors).toEqual([{ code: 'build', message: notOwned }]);
+  expect(readdirSync(join(dir,'dist'))).toEqual(['nested']);
+});
+
+test('refuses a file at the output path', async () => {
+  writeFileSync(join(dir,'dist'),'not a directory');
+  const result = await buildProject(config);
+  expect(result.ok).toBe(false);
+  expect(result.errors).toEqual([{ code: 'build', message: 'Output must be a regular build directory, not a file or link.' }]);
+  expect(readFileSync(join(dir,'dist'),'utf8')).toBe('not a directory');
 });
 
 test('runs an explicit Node generator relative to config and captures its operations', async () => {
