@@ -25,6 +25,26 @@
         "right": 3,
         "bottom": 3
       }
+    },
+    {
+      "alias": "uniform",
+      "cell": "0,2",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "alias": "detailed",
+      "cell": "0,3",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 3,
+        "bottom": 3
+      }
     }
   ],
   "skins": {
@@ -45,6 +65,38 @@
       "minHeight": 4
     },
     "day": {
+      "insets": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "padding": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "minWidth": 4,
+      "minHeight": 4
+    },
+    "uniform": {
+      "insets": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "padding": {
+        "left": 1,
+        "right": 1,
+        "top": 1,
+        "bottom": 1
+      },
+      "minWidth": 4,
+      "minHeight": 4
+    },
+    "detailed": {
       "insets": {
         "left": 1,
         "right": 1,

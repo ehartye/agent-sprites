@@ -18,7 +18,7 @@
   },
   "frames": [
     {
-      "alias": "question_cream",
+      "alias": "digit7_cream",
       "cell": "0,0",
       "bounds": {
         "left": 0,
@@ -28,8 +28,148 @@
       }
     },
     {
-      "alias": "question_ink",
+      "alias": "digit7_ink",
       "cell": "0,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "question_cream",
+      "cell": "1,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "question_ink",
+      "cell": "1,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperA_cream",
+      "cell": "2,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperA_ink",
+      "cell": "2,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperB_cream",
+      "cell": "3,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperB_ink",
+      "cell": "3,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperC_cream",
+      "cell": "4,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "upperC_ink",
+      "cell": "4,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerA_cream",
+      "cell": "5,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerA_ink",
+      "cell": "5,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerR_cream",
+      "cell": "6,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerR_ink",
+      "cell": "6,1",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerD_cream",
+      "cell": "7,0",
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    {
+      "alias": "lowerD_ink",
+      "cell": "7,1",
       "bounds": {
         "left": 0,
         "top": 0,
@@ -39,6 +179,24 @@
     }
   ],
   "glyphs": {
+    "7": {
+      "advance": 4,
+      "frames": {
+        "cream": "digit7_cream",
+        "ink": "digit7_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    " ": {
+      "advance": 2,
+      "frames": {},
+      "bounds": null
+    },
     "?": {
       "advance": 4,
       "frames": {
@@ -52,10 +210,83 @@
         "bottom": 4
       }
     },
-    " ": {
-      "advance": 2,
-      "frames": {},
-      "bounds": null
+    "A": {
+      "advance": 4,
+      "frames": {
+        "cream": "upperA_cream",
+        "ink": "upperA_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    "B": {
+      "advance": 4,
+      "frames": {
+        "cream": "upperB_cream",
+        "ink": "upperB_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    "C": {
+      "advance": 4,
+      "frames": {
+        "cream": "upperC_cream",
+        "ink": "upperC_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    "a": {
+      "advance": 4,
+      "frames": {
+        "cream": "lowerA_cream",
+        "ink": "lowerA_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    "r": {
+      "advance": 4,
+      "frames": {
+        "cream": "lowerR_cream",
+        "ink": "lowerR_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
+    },
+    "d": {
+      "advance": 4,
+      "frames": {
+        "cream": "lowerD_cream",
+        "ink": "lowerD_ink"
+      },
+      "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 2,
+        "bottom": 4
+      }
     }
   }
 }

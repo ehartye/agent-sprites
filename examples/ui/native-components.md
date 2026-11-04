@@ -181,7 +181,7 @@ original repeat period and partial-tail crops. Shorter patterns such as ABAB
 never authorize a one-pixel stretch. Unavailable data keeps exact existing tiling
 and its existing budgets. Source offsets, alpha, paint/clip geometry and physical
 origin remain unchanged. These calculations and seam sampling are source proof;
-the native fixture separately proves representative WebGL2/Canvas pixels.
+the native proof separately checks WebGL2/Canvas pixels with this port supplied (see Verification and host obligations).
 
 Cache identity includes the borrowed texture, source index and source object;
 source replacement invalidates compiled appearance rather than reusing a stale
@@ -440,20 +440,54 @@ An existing extension facade retains its declared bounded operations during adop
 ## Verification and host obligations
 
 `npm run test:ui` runs the existing CPU owners, software export and real Phaser
-declaration checks with one worker. `npm run test:ui:native` starts one owned
-ephemeral server and Chromium instance, then four fresh contexts covering two
-authored themes on WebGL2 and Canvas. It evaluates exact font and skin pixels,
-clipping, nonzero viewport origins, mixed resolution contexts, normalized input,
-stale-event cancellation, scrolling, bounded extensions and owned-resource cleanup.
-Software WebGL proves behavior, not hardware performance. Failure screenshots,
-timings and results remain in a new attempt directory under `.tmp/ui-native/`;
-failures are preserved and retries are zero.
+declaration checks with one worker. `npm run test:ui:native` is a local command:
+no CI job runs it (the native compatibility matrix runs only
+`tests/cli/ui-build.test.js` of the UI tests), so run it by hand whenever the
+shared UI's Phaser path changes. It starts one owned ephemeral server and Chromium
+instance, then four fresh contexts covering two authored themes on WebGL2 and
+Canvas. It evaluates exact font and skin pixels, clipping, nonzero viewport
+origins, mixed resolution contexts, normalized input, stale-event cancellation,
+scrolling, bounded extensions and owned-resource cleanup. A second page,
+`tests/native-ui/proof.html` (script `proof.mjs`), then runs six named cases
+once per renderer, so the report lists 16 cases in all. Each case mounts one panel
+or label at a time and compares decoded screenshot pixels:
+
+- `compressed-uniform`: uniform skin art with the `readSourceRGBA` port supplied
+  renders byte-identical to exact tiling (no port) and to the authored art, and
+  mounts at most the nine stock Images, fewer than exact tiling.
+- `compressed-detailed`: the same for non-uniform art, whose varying axis stays
+  exact; the compressed mount still uses fewer Images than exact tiling.
+- `wrong-period-control`: the port claims a period the art does not have (it
+  overwrites a source column with its neighbour). The case passes only because
+  the output no longer equals exact tiling.
+- `wrong-density-control`: the port returns the source plane at twice its
+  density. The case passes only because the runtime rejects the plane, leaving
+  no Images or scene objects and nothing painted.
+- `prelaid-double-space`: the label "A  B" with `wrap: false` keeps both spaces
+  in one line, and the empty gap shows in the rendered pixels.
+- `prelaid-card-7b-zoom`: "Card 7B" with `wrap: false` at zoom 1.5 stays on one
+  line, reports horizontal overflow and paints past its box; the same box wraps
+  to two lines when wrapping is allowed.
+
+The page supplies `readSourceRGBA` by drawing the loaded skin texture source into
+a 2D canvas (smoothing off) and returning a copy of its bytes with the requested
+`source`. Faults are injected into those returned bytes only, never into the
+runtime. Each control proves detection: a control whose fault goes unnoticed fails
+the run. Software WebGL (SwiftShader) proves behavior, not hardware GPU
+performance; statements about hardware WebGL come from each game's own checks.
+Failure screenshots, timings and results remain in a new attempt directory under
+`.tmp/ui-native/`; failures are preserved and retries are zero.
 
 Tiny checked assets live in `tests/native-ui/assets/`. Their manifest authenticates
 the source recipe, generator, build configurations and output bytes. Ordinary tests
 only read them. Run `npm run build:ui-fixture` when their recipe changes; it uses
-the normal manifest build pipeline. Browser installation is explicit with
-`npx playwright install chromium`; no test downloads or replaces tools.
+the normal manifest build pipeline; the runner stops with "recipe changed; run
+npm run build:ui-fixture" when the recipe and the checked inputs disagree. The
+fixture font carries several glyphs so the prelaid-text cases can use real words.
+Browser installation is explicit with `npx playwright install chromium`; no test
+downloads or replaces tools. The runner has no separate browser check: with
+Chromium missing, Playwright's launch error names the missing executable and this
+command, and the run exits nonzero.
 
 The host must keep borrowed assets immutable and replace source identity when
 their bytes change; realize every declared mapping through its actual parent and

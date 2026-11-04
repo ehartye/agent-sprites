@@ -1,35 +1,35 @@
 {
   "format": "agent-sprites/ui-native-assets@1",
   "inputs": {
-    "recipe.json": "9414bfd359d6ec90652f8ef22fed68fbf4ee3eb976320e2e14a7379e130ab262",
-    "generate.mjs": "08a482170d336940323d2e308177cd2d5a42bed1fd5488799f01122627839d87",
+    "recipe.json": "f8d721f4921042cbd019b5bbeb92fcac0563a5155bd6d615857aefdec47eb411",
+    "generate.mjs": "02d18929c36809501f362e025eb4d1252bb10af13e1ef8876c093bf84c898836",
     "font.build.json": "27ab9d8d0aa742ebaacbe2420821019bc879f82ee3de5f8d592f8ef455a3d554",
     "skin.build.json": "a989c1c5269e18d259897ad60256f6b9d96e279b2099bd5dde3f96e6d09de45d"
   },
   "files": {
     "font.png": {
-      "bytes": 114,
-      "sha256": "3b220dd6a8cb0633c1f0b16a40ce514d2a7640c4a0fffc4b65bfdd9ec7875df1"
+      "bytes": 214,
+      "sha256": "0fd67be0cc45b1f1b4e02368d69613116355cd8e1a08beb26e91994a23685177"
     },
     "font.atlas.json": {
-      "bytes": 1731,
-      "sha256": "0912728ee33cf1474f908837e497279e0648b367b55efcd9107a078cee55042d"
+      "bytes": 11898,
+      "sha256": "7af47838c8d9bd7f423a9b9460e4c6174aa1f98af000244e8f8f480d15472561"
     },
     "font.report.json": {
-      "bytes": 958,
-      "sha256": "f56aa56f6dac976827129e747003f1dd91222d0171cb14f4ab8617759678cb87"
+      "bytes": 4899,
+      "sha256": "a578ea1d862a74bcc4180dfaac0ee3dbffca71cb75526158351c8e6bca3055d5"
     },
     "skin.png": {
-      "bytes": 137,
-      "sha256": "215d17666e43413c0303eacfb4026150e4e69a0efe5a998786b621522d7e73db"
+      "bytes": 173,
+      "sha256": "f1e8bd8d8b540e5ba0eff373b3b13ff75ece18421ad674618e2dddbf72e4199f"
     },
     "skin.atlas.json": {
-      "bytes": 1713,
-      "sha256": "1f5694e8bc02a5719fcdaa5aedbe7825ff9bdca9b9145b5ff5ff8ad27086edc8"
+      "bytes": 3157,
+      "sha256": "018714e91010d62e5132d9942339d0a23989452a854a9ba1587ae675fb247bc7"
     },
     "skin.report.json": {
-      "bytes": 989,
-      "sha256": "09b307bd6f25df3c2bb28290835239b97230fd1329b370415ad08cb1ad7a88d5"
+      "bytes": 1867,
+      "sha256": "2690a39480fa8a1894aa0753f0afbba08319e9025396ff4399efc020562635c3"
     }
   }
 }
