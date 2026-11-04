@@ -629,3 +629,48 @@ test('reading, notice and HUD families deliver scroll, controlled paging, visibi
   const notice=layoutUi(u.noticeFamily({id:'toast',message:'A',visible:false}),env);expect(notice.records[0].state).toBe('hidden');expect(notice.records.every(r=>r.effectiveHitBounds===null&&r.paintBounds===null)).toBe(true);
   const hud=layoutUi(u.hudFamily({id:'hud',arrangement:'absolute',items:[u.meter({id:'energy',value:1,min:0,max:4,layout:{x:20,y:4,width:40,height:8}})]}),env);expect(hud.records[1].bounds).toEqual({x:20,y:4,width:40,height:8});expect(hud.records[1].parts.find(p=>p.kind==='meter').fill.width).toBe(10);expect(createUiInteraction({id:'test:hud',plan:hud}).inspect({limit:5}).focusId).toBe(null);
 });
+
+test('flow contract: wrapping rows with a smaller final page repack full-width rows into one more page than the default',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const children=()=>[0,1,2,3].map(i=>u.panel({id:`r${i}`,layout:{width:100,height:20}}));
+  const make=(page,layout)=>layoutUi(u.row({id:'w',layout:{width:100,height:40,wrap:true,overflow:'paginate',page,...layout},children:children()}),env);
+  const visible=plan=>plan.records.slice(1).filter(r=>r.state==='visible').map(r=>r.id);
+  expect(make(0,{}).records[0].overflow.pageCount).toBe(2);
+  expect([0,1].map(page=>visible(make(page,{})))).toEqual([['r0','r1'],['r2','r3']]);
+  const pages=[0,1,2].map(page=>make(page,{lastPageHeight:20}));
+  expect(pages.map(plan=>plan.records[0].overflow.pageCount)).toEqual([3,3,3]);
+  expect(pages.map(visible)).toEqual([['r0','r1'],['r2'],['r3']]);
+  expect(pages.map(plan=>plan.records.slice(1).map(r=>r.bounds.y))).toEqual([[0,20,0,0],[0,20,0,0],[0,20,0,0]]);
+});
+
+test('flow contract: a wrapping row inside a paginated stack stays one indivisible block and oversize reports actionable overflow',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const tree=(height,layout)=>u.stack({id:'s',layout:{width:100,height:60,overflow:'paginate',...layout},children:[
+    u.panel({id:'top',layout:{height:20}}),
+    u.row({id:'nw',layout:{width:100,wrap:true},children:[0,1,2].map(i=>u.panel({id:`n${i}`,layout:{width:100,height}}))}),
+    u.panel({id:'after',layout:{height:20}})]});
+  const visible=plan=>plan.records.slice(1).filter(r=>r.state==='visible').map(r=>r.id);
+  const block=['nw','n0','n1','n2'];
+  // fits beside its sibling: one page for the whole block
+  const fits=[0,1].map(page=>layoutUi(tree(10,{page}),env));
+  expect(fits.map(visible)).toEqual([['top',...block],['after']]);
+  expect(fits[0].records[0].overflow.pageCount).toBe(2);
+  // does not fit beside its sibling but fits a page: moved whole, never split
+  const moved=[0,1,2].map(page=>layoutUi(tree(15,{page}),env));
+  expect(moved.map(plan=>plan.records[0].overflow.pageCount)).toEqual([3,3,3]);
+  expect(moved.map(visible)).toEqual([['top'],[...block],['after']]);
+  // taller than a page: still one block on its own page, with reported overflow
+  const big=[0,1,2].map(page=>layoutUi(tree(25,{page}),env));
+  expect(big.map(visible)).toEqual([['top'],[...block],['after']]);
+  expect(big[1].records[0].overflow).toMatchObject({page:1,pageCount:3,vertical:true,maxScrollY:15});
+});
+
+test('grid row gap: an omitted rowGap falls back to gap while an explicit zero does not',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const grid=layout=>layoutUi(u.grid({id:'g',layout:{width:100,columns:2,gap:2,...layout},children:['a','b','c','d'].map(id=>u.panel({id,layout:{height:10,minHeight:10}}))}),env);
+  const omitted=grid({}),zero=grid({rowGap:0});
+  expect(omitted.records.find(r=>r.id==='c').bounds.y).toBe(12);
+  expect(omitted.records[0].measure.preferred.height).toBe(22);
+  expect(zero.records.find(r=>r.id==='c').bounds.y).toBe(10);
+  expect(zero.records[0].measure.preferred.height).toBe(20);
+});
