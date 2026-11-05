@@ -59,12 +59,12 @@ function shapeGroupIndex(state, project) {
   });
 }
 
-export function projectSummary(state) {
+export function projectSummary(state, { preview = false } = {}) {
   const view = requireProject(state), project = view.project;
   const cells = {};
   for (const ref of Object.keys(view.cellVersions)) {
     const cell = project.cells.getCell(ref);
-    cells[ref] = { name: cell.name, reference: cell.reference, shapeCount: cell.shapes._byId.size,
+    cells[ref] = { name: cell.name, reference: preview ? null : cell.reference, shapeCount: cell.shapes._byId.size,
       version: view.cellVersions[ref], ...(cell.lighting === undefined ? {} : { lighting: cell.lighting }) };
   }
   const live = state.db && state.sessionId;
@@ -82,8 +82,8 @@ export function projectSummary(state) {
     animationFps: live ? state.db.getCellGroupFps(state.sessionId) : project.animationFps,
     animationDirections: live ? state.db.getCellGroupDirections(state.sessionId) : project.animationDirections,
     frameDurations: project.frameDurations, animationLoops: project.animationLoops,
-    review: project.review, constructionReplayAvailable: Boolean(project.constructionReplay),
-    cells, cellVersions: { ...view.cellVersions }, shapeGroups };
+    review: preview ? null : project.review, constructionReplayAvailable: !preview && Boolean(project.constructionReplay),
+    cells, cellVersions: { ...view.cellVersions }, shapeGroups: preview ? {} : shapeGroups };
 }
 
 export function assertProjectPins(state, pins) {
@@ -175,7 +175,7 @@ function frameResponseWriter(maxBytes) {
 }
 
 // Validation and serialization share one synchronous identity/revision snapshot.
-export function projectFrames(state, query, rawQuery, limits = FRAME_LIMITS) {
+export function projectFrames(state, query, rawQuery, limits = FRAME_LIMITS, { preview = false } = {}) {
   if (Buffer.byteLength(rawQuery) > limits.maxQueryBytes) throw fail('Frame query is too long');
   if (typeof query.refs !== 'string') throw fail('Provide 1–8 distinct canonical cell refs');
   const refs = query.refs.split('|');
@@ -192,7 +192,7 @@ export function projectFrames(state, query, rawQuery, limits = FRAME_LIMITS) {
     if (count++) output.raw(',');
     output.value(ref); output.raw(':{"name":');
     const cell = project.cells.getCell(ref);
-    output.value(cell.name); output.raw(',"reference":'); output.value(cell.reference);
+    output.value(cell.name); output.raw(',"reference":'); output.value(preview ? null : cell.reference);
     output.raw(',"shapes":[');
     if (cell.shapes._byId.size * 3 - 1 > output.remaining()) throw oversizedFrames();
     let shapes = 0;
@@ -209,7 +209,7 @@ export function projectFrames(state, query, rawQuery, limits = FRAME_LIMITS) {
   }
   output.raw('},"cellVersions":'); output.value(Object.fromEntries(refs.map(ref => [ref, view.cellVersions[ref]])));
   output.raw(',"shapeGroups":{');
-  const index = shapeGroupIndex(state, project); count = 0;
+  const index = preview ? [] : shapeGroupIndex(state, project); count = 0;
   for (const ref of refs) {
     if (count++) output.raw(',');
     output.value(ref); output.raw(':{');
