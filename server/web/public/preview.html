@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Sprite preview</title>
+  <link rel="icon" href="/branding/sprite.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/shared-preview.css">
+  <script type="module" src="/js/shared-preview.js"></script>
+</head>
+<body class="shared-preview-body">
+  <main class="shared-preview">
+    <h1>Sprite preview</h1>
+    <p id="preview-status" role="status">Opening shared preview…</p>
+    <div id="preview-controls" hidden>
+      <label>Sequence <select id="preview-sequence"></select></label>
+      <label>Row <input id="preview-row" type="number" min="1" value="1"></label>
+    </div>
+    <div id="full-preview-mount"></div>
+  </main>
+</body>
+</html>

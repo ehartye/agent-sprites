@@ -13,7 +13,10 @@ Built and battle-tested by shipping real games with it (SNES-style dungeon crawl
 
 ## Collaborative preview workbench
 
-Open the server's preview URL to work on the same live draft as your agent.
+Open the server's localhost URL to work on the same live draft as your agent.
+For phone or remote viewing, run `agent-sprites preview create` and share the returned `url`.
+The existing Full Preview controls render the selected project with read-only, expiring access.
+See [preview links](docs/preview-links.md) for lifetime, revocation and network limits.
 
 - **Sessions** switches among saved drafts; **Copy for edits** creates an independent session with its own save destination. All viewers on one server follow its active session.
 - **All palettes** displays every preset together. Selecting a library swatch uses its exact color without changing existing artwork.

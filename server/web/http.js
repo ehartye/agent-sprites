@@ -17,6 +17,8 @@ import { controlRoutes } from './api/control-routes.js';
 import { castingRoutes } from './api/casting-routes.js';
 import { workbenchRoutes } from './api/workbench-routes.js';
 import { constructionReplayRoutes } from './api/construction-replay-routes.js';
+import { ownerRequestAllowed } from './preview-access.js';
+import { createPreviewRoutes } from './preview-routes.js';
 import { API_BODY_LIMIT } from './api/policy.js';
 import { ProjectImportJobs } from '../import/project-import-jobs.js';
 import { projectImportRoutes } from './api/project-import-routes.js';
@@ -64,6 +66,16 @@ export function dispatchWebMessage(state, msg) {
 export async function startWebServer(state, port, options = {}) {
   const app = express();
   const frames = frameLimits(options.frames);
+  const previews = createPreviewRoutes(state, { frames });
+  // Static preview dependencies are public code; every project/data route stays gated.
+  const publicAsset = /^\/(?:css\/(?:styles|shared-preview)\.css|branding\/(?:sprite\.svg|fonts\/(?:DMSans|PixelifySans)\.ttf)|js\/(?:animation|cell-raster|erase-layer|native-frame-raster|native-frame-worker|project-frames|preview-sequences|shared-preview)\.js|js\/shared\/[a-z-]+\.js)$/;
+  app.use((req, res, next) => {
+    res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' });
+    if (req.path.startsWith('/preview/') || ((req.method === 'GET' || req.method === 'HEAD') && publicAsset.test(req.path)) || ownerRequestAllowed(req)) return next();
+    res.status(403).json({ ok: false, error: 'Owner access requires matching localhost origin. Use a scoped preview link remotely.' });
+  });
+  app.use('/preview', previews.preview);
+  app.use('/api/previews', previews.owner);
   const imports = new ProjectImportJobs(state, options.imports);
   app.use('/api/workbench/imports', projectImportRoutes(state, imports));
   app.use(express.json({ limit: API_BODY_LIMIT }));
@@ -102,7 +114,7 @@ export async function startWebServer(state, port, options = {}) {
 
   const actualPort = httpServer.address().port;
 
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ server: httpServer, verifyClient: ({ req }, done) => done(ownerRequestAllowed(req), 403, 'Local owner access required') });
   state.wss = wss;
 
   let summaryPending = false, disposed = false;
@@ -182,7 +194,7 @@ export async function startWebServer(state, port, options = {}) {
     });
   });
 
-  const dispose = () => { disposed = true; return imports.close(); };
+  const dispose = () => { disposed = true; previews.clear(); return imports.close(); };
   state.disposeImports = dispose;
   httpServer.once('close', () => { void dispose(); });
   return { port: actualPort, httpServer, wss, imports, dispose };

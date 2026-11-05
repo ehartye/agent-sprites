@@ -278,6 +278,8 @@ SESSION
                          set the sprite pivot/origin exported in the atlas
   status                 show active project info
   skin-tone <tone>       apply rose|peach|apricot|terracotta|umber|plum|espresso to skin role groups
+  preview create [--seconds 3600]  create a read-only, expiring project link (server must be running)
+  preview revoke --id ID  revoke that link and opened browser access
   restart                graceful shutdown + respawn of sprite server
 
 OFFLINE VERIFICATION (does not start or contact a server)
@@ -703,6 +705,17 @@ async function run() {
     }
     if (!report.ok) process.exitCode = 1;
     return;
+  }
+  if (cmd === 'preview') {
+    if (!['create', 'revoke'].includes(positional[0])) throw new Error('Usage: preview create [--seconds 3600] | preview revoke --id <share-id>');
+    if (await health() !== 'ready') throw new Error('Preview commands require an already running compatible sprite server. Start or update it separately when safe.');
+    const status = await api('GET', '/api/previews/status').catch(() => null);
+    if (!status?.ok || status.data?.protocol !== 1) throw new Error('This server does not support scoped previews. Update and restart it separately when safe.');
+    const result = positional[0] === 'create'
+      ? await api('POST', '/api/previews', { ...(args.seconds === undefined ? {} : { seconds: num(args.seconds) }), ...(args.feedback === undefined ? {} : { feedback: true }) })
+      : await api('POST', '/api/previews/revoke', { id: args.id });
+    if (!result.ok) throw new Error(result.error ?? 'Preview command failed');
+    console.log(JSON.stringify(result.data, null, 2)); return;
   }
   try {
     await ensureServer();
