@@ -1,23 +1,11 @@
 // Capture source/package metadata before long-lived renderer modules load.
 import './build/producer-identity.js';
-import { networkInterfaces, tmpdir } from 'os';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { startWebServer } from './web/http.js';
 import { SessionDB } from './db/session.js';
 import { Project } from './engine/project.js';
 import { GroupManager } from './engine/group-manager.js';
-
-// Tailscale assigns 100.64.0.0/10 CGNAT addresses. Scan interfaces for one.
-function findTailscaleIp() {
-  for (const addrs of Object.values(networkInterfaces())) {
-    for (const a of addrs ?? []) {
-      if (a.family === 'IPv4' && !a.internal && a.address.startsWith('100.')) {
-        return a.address;
-      }
-    }
-  }
-  return null;
-}
 
 const db = new SessionDB();
 
@@ -46,8 +34,7 @@ if (lastSession?.draft_json) {
 const WEB_PORT = parseInt(process.env.SPRITE_PORT ?? '3377', 10);
 startWebServer(state, WEB_PORT).then((info) => {
   console.error(`Sprite editor: http://localhost:${info.port}`);
-  const tsIp = findTailscaleIp();
-  if (tsIp) console.error(`Tailscale:     http://${tsIp}:${info.port}`);
+  console.error('For remote viewing, create an expiring link with: agent-sprites preview create');
 }).catch((err) => {
   console.error(`Web server failed: ${err.message}`);
   process.exit(1);
