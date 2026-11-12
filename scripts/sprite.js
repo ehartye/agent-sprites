@@ -295,7 +295,8 @@ OFFLINE VERIFICATION (does not start or contact a server)
   app-icons <app-icons.json> [--check] [--json]
                          build the web app icon set (192/512, maskable, apple-touch, favicons, .ico, optional share
                          card) from 64/32/16 px tiles of a built tileset, by whole-number scales only; --check
-                         compares decoded pixels with the files on disk and writes nothing
+                         compares decoded pixels with the files on disk and writes nothing. Minimal config, paths
+                         relative to it: {"version":1,"atlas":"built/icons.atlas.json","output":"icons"}
   trace <image.png|image.webp> --out <new-directory> [--name reference] [--json]
     Convert source pixels to editable shapes; verify exact rendering before writing.
   atlas-proof <proof.json> --out <new-directory> [--json]

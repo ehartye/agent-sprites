@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "output": "built",
+  "omit": ["project", "operations", "preview"],
+  "tileset": { "name": "icons", "cell": 64, "columns": 3, "sources": ["icons.pxl"] }
+}

@@ -219,7 +219,9 @@ normal build failures still fail. Both check routes are read-only and need no se
 
 `agent-sprites app-icons app-icons.json [--check]` builds the web app icon set (192 and 512 icons, maskable 512, apple-touch 180
 without alpha, 16/32/48 favicons, `favicon.ico`, optional 1200x630 share card) from three tiles of a built tileset using whole-number
-scales only; the config fields are in the game-integration skill.
+scales only. The config needs `version`, `atlas` and `output`:
+`{"version": 1, "atlas": "built/icons.atlas.json", "output": "icons"}`. The [app icons recipe](examples/app-icons/README.md)
+is a complete working example with the tile layout, every field, the output files and a matching web manifest.
 
 To look at tiles composed into rooms, fence runs or icon boards, `agent-sprites tileset-preview layout.json --out sheets
 [--scale N] [--night]` stamps built frames from a small JSON layout (autotile glyphs pick `<prefix>_<mask>` from

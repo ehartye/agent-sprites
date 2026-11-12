@@ -1,5 +1,5 @@
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {dirname, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import sharp from 'sharp';
 import {decodePng} from '../engine/png-decode.js';
 
@@ -81,25 +81,41 @@ function samePixels(name, a, b) {
 }
 const loadImage = path => { const png = decodePng(readFileSync(path)); return {w: png.width, h: png.height, data: png.data}; };
 
-function validate(config) {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) throw Error('Config must be an object.');
-  for (const k of Object.keys(config)) if (!FIELDS.includes(k)) throw Error(`Unknown app-icons field: ${k}`);
-  if (config.version !== 1) throw Error('Config requires version: 1.');
-  if (typeof config.atlas !== 'string' || !config.atlas) throw Error('atlas must be the path of the built tileset .atlas.json holding the icon tiles.');
-  if (typeof config.output !== 'string' || !config.output) throw Error('output must be the directory for the icon files.');
+const EXAMPLE = '{"version": 1, "atlas": "built/icons.atlas.json", "output": "icons"}';
+const TILE_SIZES = {master: 64, mid: 32, tiny: 16};
+const TILE_DEFAULTS = {master: 'icon_master', mid: 'icon_32', tiny: 'icon_16'};
+const CARD_REQUIRED = ['width', 'height', 'scale', 'sceneWidth', 'masterX', 'horizon'];
+
+function readConfig(configPath, file) {
+  let text;
+  try { text = readFileSync(configPath, 'utf8'); } catch { throw Error(`Cannot read the config ${configPath}. Create ${file} there, for example ${EXAMPLE}.`); }
+  try { return JSON.parse(text); } catch (error) { throw Error(`${file} is not valid JSON (${error.message}). A minimal config is ${EXAMPLE}.`); }
+}
+
+function validate(config, file = 'app-icons.json') {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw Error(`${file} must hold one JSON object, for example ${EXAMPLE}.`);
+  for (const k of Object.keys(config)) if (!FIELDS.includes(k)) throw Error(`Unknown app-icons field "${k}" in ${file}. The fields are ${FIELDS.join(', ')}; remove or rename it.`);
+  if (config.version === undefined) throw Error(`${file} has no "version" field. Add "version": 1 to it, for example ${EXAMPLE}.`);
+  if (config.version !== 1) throw Error(`${file} has "version": ${JSON.stringify(config.version)}, but app-icons reads only the number 1. Set "version": 1.`);
+  if (typeof config.atlas !== 'string' || !config.atlas) throw Error(`${file} needs "atlas": the path, relative to ${file}, of the built tileset .atlas.json that holds the icon tiles, for example "atlas": "built/icons.atlas.json".`);
+  if (typeof config.output !== 'string' || !config.output) throw Error(`${file} needs "output": the directory, relative to ${file}, that receives the icon files, for example "output": "icons".`);
+  if (config.tiles !== undefined && (!config.tiles || typeof config.tiles !== 'object' || Array.isArray(config.tiles))) throw Error(`"tiles" in ${file} must be an object of frame names, for example ${JSON.stringify(TILE_DEFAULTS)}; leave it out to use those names.`);
   const tiles = config.tiles ?? {};
-  for (const k of Object.keys(tiles)) if (!['master', 'mid', 'tiny'].includes(k)) throw Error(`Unknown tiles field: ${k}`);
-  const names = {master: tiles.master ?? 'icon_master', mid: tiles.mid ?? 'icon_32', tiny: tiles.tiny ?? 'icon_16'};
-  for (const [k, v] of Object.entries(names)) if (typeof v !== 'string' || !v) throw Error(`tiles.${k} must be a frame name.`);
+  for (const k of Object.keys(tiles)) if (!(k in TILE_SIZES)) throw Error(`Unknown tiles field "${k}" in ${file}. The fields are master, mid and tiny.`);
+  const names = {master: tiles.master ?? TILE_DEFAULTS.master, mid: tiles.mid ?? TILE_DEFAULTS.mid, tiny: tiles.tiny ?? TILE_DEFAULTS.tiny};
+  for (const [k, v] of Object.entries(names)) if (typeof v !== 'string' || !v) throw Error(`tiles.${k} in ${file} must be the frame name of the ${TILE_SIZES[k]}x${TILE_SIZES[k]} tile, for example "${TILE_DEFAULTS[k]}".`);
   if (config.card !== undefined) {
     const c = config.card;
-    if (!c || typeof c !== 'object' || Array.isArray(c)) throw Error('card must be an object.');
-    for (const k of Object.keys(c)) if (!CARD_FIELDS.includes(k)) throw Error(`Unknown card field: ${k}`);
-    for (const k of ['width', 'height', 'scale', 'sceneWidth', 'masterX', 'horizon']) if (!Number.isInteger(c[k]) || c[k] < 0) throw Error(`card.${k} must be a non-negative integer.`);
+    if (!c || typeof c !== 'object' || Array.isArray(c)) throw Error(`"card" in ${file} must be an object with ${CARD_REQUIRED.join(', ')}; leave it out to skip og-card.png.`);
+    for (const k of Object.keys(c)) if (!CARD_FIELDS.includes(k)) throw Error(`Unknown card field "${k}" in ${file}. The fields are ${CARD_FIELDS.join(', ')}.`);
+    for (const k of CARD_REQUIRED) {
+      if (c[k] === undefined) throw Error(`card.${k} is missing in ${file}. A card needs all of ${CARD_REQUIRED.join(', ')}.`);
+      if (!Number.isInteger(c[k]) || c[k] < 0) throw Error(`card.${k} must be a non-negative integer.`);
+    }
     whole(c.scale, 'card.scale'); whole(c.width, 'card.width'); whole(c.height, 'card.height');
     if (c.height % c.scale) throw Error(`card.height ${c.height} must be a whole number of scene pixels at card.scale ${c.scale}.`);
-    if (c.stars !== undefined && (!c.stars || !Array.isArray(c.stars.at) || !Array.isArray(c.stars.sample) || c.stars.sample.length !== 2 || c.stars.at.some(p => !Array.isArray(p) || p.length !== 2 || p.some(n => !Number.isInteger(n))))) throw Error('card.stars is {sample: [x, y], at: [[x, y], ...]} in pixels.');
-    if (c.logo !== undefined && (!c.logo || typeof c.logo.image !== 'string' || !Number.isInteger(c.logo.scale) || !Number.isInteger(c.logo.x))) throw Error('card.logo is {image, scale, x}.');
+    if (c.stars !== undefined && (!c.stars || !Array.isArray(c.stars.at) || !Array.isArray(c.stars.sample) || c.stars.sample.length !== 2 || c.stars.sample.some(n => !Number.isInteger(n) || n < 0 || n > 63) || c.stars.at.some(p => !Array.isArray(p) || p.length !== 2 || p.some(n => !Number.isInteger(n))))) throw Error('card.stars is {"sample": [x, y], "at": [[x, y], ...]}: sample is a pixel of the 64x64 master tile (0 to 63) whose colour the stars take, and at lists scene pixels.');
+    if (c.logo !== undefined && (!c.logo || typeof c.logo.image !== 'string' || !c.logo.image || !Number.isInteger(c.logo.scale) || c.logo.scale < 1 || !Number.isInteger(c.logo.x))) throw Error('card.logo is {"image": "logo.png", "scale": 3, "x": 40}: a PNG path relative to the config, a whole-number scale of at least 1 and the left edge in card pixels.');
   }
   return names;
 }
@@ -112,21 +128,27 @@ export async function buildAppIcons(configPath, {check = false} = {}) {
   const result = {ok: false, mode: check ? 'check' : 'build', output: null, files: [], errors: []};
   try {
     configPath = resolve(configPath);
-    const config = JSON.parse(readFileSync(configPath, 'utf8')), base = dirname(configPath), names = validate(config);
+    const file = basename(configPath), config = readConfig(configPath, file), base = dirname(configPath), names = validate(config, file);
     const outDir = resolve(base, config.output);
     result.output = outDir;
     const atlasPath = resolve(base, config.atlas);
-    if (!existsSync(atlasPath)) throw Error(`atlas "${config.atlas}" does not exist; build the icon tileset first.`);
-    const atlas = JSON.parse(readFileSync(atlasPath, 'utf8'));
-    if (!Array.isArray(atlas.frames) || typeof atlas.meta?.image !== 'string') throw Error('atlas is not an Aseprite atlas.');
+    if (!existsSync(atlasPath)) throw Error(`atlas "${config.atlas}" does not exist (looked for ${atlasPath}; the path is relative to ${file}). Build the icon tileset first with agent-sprites build, then point "atlas" at the .atlas.json it writes.`);
+    let atlas;
+    try { atlas = JSON.parse(readFileSync(atlasPath, 'utf8')); } catch (error) { throw Error(`atlas "${config.atlas}" is not valid JSON (${error.message}).`); }
+    if (!Array.isArray(atlas?.frames) || typeof atlas.meta?.image !== 'string') throw Error(`atlas "${config.atlas}" is not an Aseprite atlas with a frames array and meta.image. Point "atlas" at the <name>.atlas.json a tileset build writes, not at the sprite manifest or the tileset report.`);
     const frames = new Map(atlas.frames.map(f => [f.filename, f.frame])), sheet = loadImage(resolve(dirname(atlasPath), atlas.meta.image));
     const tile = (name, size) => {
       const f = frames.get(name);
-      if (!f) throw Error(`The atlas has no frame ${name}.`);
+      if (!f) {
+        const known = [...frames.keys()], key = Object.keys(names).find(k => names[k] === name);
+        const have = known.length ? `${known.slice(0, 12).join(', ')}${known.length > 12 ? ` and ${known.length - 12} more` : ''}` : 'no frames';
+        throw Error(`The atlas has no frame ${name} (the ${size}x${size} ${key} tile). It has ${have}. Name the tile ${name} in the tileset source, or set "tiles": {"${key}": "<frame name>"} in ${file}.`);
+      }
+      if (f.w < size || f.h < size) throw Error(`Frame ${name} is ${f.w}x${f.h}, but this tile is read as ${size}x${size} from the frame's top left. Build the icon tileset with "cell": 64.`);
       const im = image(size, size);
       for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
         const s = at(sheet, f.x + x, f.y + y), d = at(im, x, y);
-        if (sheet.data[s + 3] !== 255) throw Error(`${name} (${x},${y}) is not opaque: an icon tile has no transparent pixel.`);
+        if (sheet.data[s + 3] !== 255) throw Error(`${name} (${x},${y}) is not opaque: an icon tile has no transparent pixel. The tile must fill the top left ${size}x${size} of its cell${size < 64 ? `; in a .pxl source with a 64 px cell, place it with @tile ${name} x=0 y=0 w=${size} rows=${size}` : ''}.`);
         for (let k = 0; k < 4; k++) im.data[d + k] = sheet.data[s + k];
       }
       return im;
