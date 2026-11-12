@@ -364,14 +364,20 @@ Reference the PNGs from the web manifest (192 + 512, `"purpose": "any maskable"`
 
 ### A complete pixel-art brand set
 
-When the icon is a real picture rather than a glyph, build it as a `tileset` project (a `.pxl` tile per size, see the [tileset recipe](../../examples/tileset/README.md)) and let `agent-sprites app-icons` scale it, by whole numbers only. The config names the built atlas (`atlas`), the output folder (`output`), the three tiles (`tiles`: `master` default `icon_master` 64x64, `mid` `icon_32`, `tiny` `icon_16`) and an optional `card` (`width`, `height`, `scale`, `sceneWidth`, `masterX`, `horizon`, `stars: {sample, at}`, `logo: {image, scale, x}`); it writes icon-192/512, icon-maskable-512, apple-touch-icon (RGB, no alpha), favicon-16/32/48, favicon.ico and og-card.png, and `--check` compares decoded pixels with the files on disk (use it in a test). The rules it applies:
+When the icon is a real picture rather than a glyph, build it as a `tileset` project with `"cell": 64` and let `agent-sprites app-icons` scale it, by whole numbers only. Save the config beside the project as `app-icons.json`. `version`, `atlas` and `output` are all required, and `version` is always `1`:
+
+```json
+{"version": 1, "atlas": "built/icons.atlas.json", "output": "icons"}
+```
+
+`atlas` is the `<name>.atlas.json` the tileset build wrote and `output` the folder for the icons, both relative to the config. Build the tileset, then run `sprite.js app-icons app-icons.json`. It reads three opaque tiles from the top left of their cells: `icon_master` (64x64), `icon_32` and `icon_16`; in the `.pxl` source place the small ones with `@tile icon_32 x=0 y=0 w=32 rows=32` and `@tile icon_16 x=0 y=0 w=16 rows=16`. It writes icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png (RGB, no alpha), favicon-16/32/48.png and favicon.ico; it does not write the web manifest or the page's link tags. Read the [app icons recipe](../../examples/app-icons/README.md), a complete working example, before renaming tiles (`tiles`), adding the share card (`card`, six required fields, writes og-card.png) or writing the manifest. The rules it applies:
 
 - **Master 64×64** (drawn full-bleed: flat sky and soil along the border, the subject inside a circle of radius 34 around the centre). 192 = 3×, 512 = 8×.
 - **Maskable 512**: platforms crop to a circle of 40% of the side, so do not reuse the "any" image. Extend the master's own edge pixels to 86×86, scale 6× (516) and crop 2 px off each side; the art is then 75% of the side and everything outside it is flat bleed.
 - **apple-touch-icon 180**: iOS fills transparency with black and wants no alpha at all. Crop the master's 60×60 centre (the border is bleed, so nothing is lost) and scale 3×; write the PNG as 8-bit RGB (`pngjs`: `colorType: 2`), not RGBA.
 - **Favicons 16 / 32 / 48** are *drawn again* at 16×16 and 32×32 (a 64 px picture does not survive halving: keep only the 3 or 4 shapes that read, such as sun, roof with a lit window, one ear, a sprout); 48 = the 16 tile at 3×. `favicon.ico` is a 6-byte directory plus one 16-byte entry per size in front of the PNG bytes (PNG entries are valid in every current browser).
 - **Share card 1200×630** (`og:image`, `twitter:card` = `summary_large_image`, absolute `https://` URLs in the meta tags): 630 = 70 × 9, so compose a 134×70 scene at 9× (crop 3 px per side) with the master extended sideways by its edge pixels; a logo at 3× lines up on that grid.
-- `app-icons --check` compares **decoded pixels**, not bytes (deflate output differs between Node versions). Also test the committed files: sizes, no alpha on the touch icon, the maskable safe zone, the manifest resolving under the site's base path.
+- `app-icons app-icons.json --check` writes nothing and exits 1 when a file is stale or missing (use it in a test). It compares **decoded pixels**, not bytes (deflate output differs between Node versions). Also test the committed files: sizes, no alpha on the touch icon, the maskable safe zone, the manifest resolving under the site's base path.
 
 Look at the result at 16, 32 and 60 px (area-averaged, as an OS draws it) and on a home-screen mock, not only at 512.
 
