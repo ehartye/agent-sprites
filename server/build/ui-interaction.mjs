@@ -2,6 +2,17 @@ import {UI_NODE_KINDS} from './ui-components.mjs';
 import {projectPixelPoint} from './ui-runtime.mjs';
 import {copyUiData, freezeUiData, snapshotUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-theme.mjs';
 
+// Native rendering reads only appearance state, not the complete public layout
+// observation. The weak association accepts genuine engines only and exposes no
+// mutable records/tokens or extra input authority. Public inspect stays unchanged.
+const appearanceReaders = new WeakMap();
+/** Internal native-renderer observation, not a public admission shortcut. */
+export function readUiAppearance(interaction) {
+  const read = appearanceReaders.get(interaction);
+  if (!read) throw new TypeError('Expected a genuine UI interaction instance');
+  return read();
+}
+
 const stable = value => JSON.stringify(value, (_, entry) => entry && !Array.isArray(entry) && typeof entry === 'object' ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
 const contains = (bounds, point) => bounds && point && point.x >= bounds.x && point.y >= bounds.y && point.x < bounds.x + bounds.width && point.y < bounds.y + bounds.height;
 const eligible = record => !!record && record.focusable && record.state === 'visible' && !!record.effectiveFocusBounds && record.effectiveFocusBounds.width > 0 && record.effectiveFocusBounds.height > 0;
@@ -331,5 +342,14 @@ export function createUiInteraction(scope, policy = {}) {
     return freezeUiData({scopeId: current.source.id, modelRevision: current.plan.revision, disposed, focusId, hoverId, heldCount: held.size, controls, nextAfterId: start + controls.length < current.plan.records.length ? controls.at(-1).id : null});
   }
   function dispose() { if (!disposed) { disposed = true; generation++; held.clear(); consumed.clear(); paneFocus.clear(); focusId = null; hoverId = null; } }
-  return Object.freeze({handle, update, inspect, dispose});
+  const api = Object.freeze({handle, update, inspect, dispose});
+  appearanceReaders.set(api, () => {
+    const pressed = new Set([...held.values()].map(token => token.controlId));
+    const controls = current.plan.records.map(record => Object.freeze({
+      id: record.id, state: record.state, enabled: record.enabled, selected: record.selected === undefined ? undefined : !!record.selected,
+      focused: record.id === focusId, hovered: record.id === hoverId, pressed: pressed.has(record.id),
+    }));
+    return Object.freeze({scopeId: current.source.id, modelRevision: current.plan.revision, disposed, controls: Object.freeze(controls)});
+  });
+  return api;
 }

@@ -402,3 +402,7 @@ test('coordinator exact stale-geometry witness: unrelated revisions cannot reloc
   expect(valid.handle({type:'release',inputId:'pointer:1',point:{x:2,y:2},pointSpace:'physical'})).toEqual([{kind:'activate',controlId:'tap',actionId:'game:tap',modelRevision:1,activationId:expect.any(String)}]);
   expect(valid.handle({type:'release',inputId:'pointer:1',point:{x:2,y:2},pointSpace:'physical'})).toEqual([]);
 });
+
+// Dependency-free focused owner is also included in the canonical UI gate.
+import {appearanceCases} from './fixtures/appearance-contract.mjs';
+for(const [name,run] of appearanceCases)test(name,run);

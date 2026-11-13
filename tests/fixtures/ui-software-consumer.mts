@@ -131,3 +131,17 @@ iconPlacementMount.placeIcons({expectedRevision:2,revision:3,items:[{id:'icon',x
 iconPlacementMount.placeIcons({revision:3,items:[]});
 // @ts-expect-error Ordinary-mount placement does not broaden passive ownership.
 passive.placeIcons({expectedRevision:2,revision:3,items:[]});
+
+// Private appearance reader is readonly and carries no layout/admission authority.
+import {readUiAppearance} from '../../server/build/ui-interaction.mjs';
+declare const compactAppearanceInstance: import('../../server/build/ui-interaction.mjs').UiInteraction;
+const compactAppearance=readUiAppearance(compactAppearanceInstance);
+const compactSelected:boolean|undefined=compactAppearance.controls[0].selected;
+const compactPressed:boolean=compactAppearance.controls[0].pressed;
+void compactSelected;void compactPressed;
+// @ts-expect-error compact renderer observations deliberately exclude geometry
+compactAppearance.controls[0].bounds;
+// @ts-expect-error compact renderer observations are readonly
+compactAppearance.controls[0].pressed=false;
+// @ts-expect-error compact renderer arrays are readonly
+compactAppearance.controls.push(compactAppearance.controls[0]);
