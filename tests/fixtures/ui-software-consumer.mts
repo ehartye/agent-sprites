@@ -145,3 +145,13 @@ compactAppearance.controls[0].bounds;
 compactAppearance.controls[0].pressed=false;
 // @ts-expect-error compact renderer arrays are readonly
 compactAppearance.controls.push(compactAppearance.controls[0]);
+
+// Isolated ordering is explicit; legacy add-only scenes remain valid by default.
+declare const stockGroup: import('../../server/build/ui-phaser-runtime.mjs').NativeStockGroup;
+const isolatedScene={...structuralScene,add:{...structuralScene.add,container:(_x:number,_y:number)=>stockGroup}};
+const isolatedUi=createPhaserUi({scene:isolatedScene,theme,ports:nativePorts,stockOrdering:'isolated',limits:{stockGroups:8}});
+const isolatedMount=isolatedUi.mount(snapshot,{parent:structuralParent,scope:'consumer:isolated'});
+const stockGroupCount:number|undefined=isolatedMount.inspect({limit:1}).native.stockGroups;
+void stockGroupCount;
+// @ts-expect-error Ordering mode is an explicit contract, not a guessed capability.
+createPhaserUi({scene:structuralScene,theme,ports:nativePorts,stockOrdering:'auto'});

@@ -30,8 +30,10 @@ export interface NativeFrame {
 }
 /** Structural foreign-object boundary: Phaser Container.add is generic over GameObject. */
 export interface NativeParent {add(object:object):unknown;}
+/** Private identity-transform stock container. Only its owned children are sorted. */
+export interface NativeStockGroup extends NativeParent {remove(object:object,destroyChild?:false):unknown;sort(property:'depth'):unknown;destroy():void;}
 export interface NativeScene {
-  readonly add:{image(x:number,y:number,texture:string|NativeTexture,frame?:string|number):NativeImage;rectangle(x:number,y:number,width:number,height:number,color:number):NativeRectangle};
+  readonly add:{container?(x:number,y:number):NativeStockGroup;image(x:number,y:number,texture:string|NativeTexture,frame?:string|number):NativeImage;rectangle(x:number,y:number,width:number,height:number,color:number):NativeRectangle};
   readonly events:{on(event:'shutdown',listener:()=>void):unknown;off(event:'shutdown',listener:()=>void):unknown};
 }
 export interface AssetRequest {readonly kind:'font'|'skin'|'icon';readonly id:string;readonly tone?:string;}
@@ -84,7 +86,7 @@ export interface NativeObservation {
   readonly controls:readonly {readonly id:string;readonly kind:string;readonly role:string;readonly enabled:boolean;readonly focused:boolean;readonly hovered:boolean;readonly pressed:boolean;
     readonly state:string;readonly bounds:Rect;readonly hitBounds:Rect;readonly focusBounds:Rect;readonly effectiveHitBounds:Rect|null;readonly effectiveFocusBounds:Rect|null;readonly clipBounds:Rect|null;readonly paintBounds:Rect|null;readonly semanticContextId:string;readonly contextRevisions:Readonly<Record<string,number>>}[];
   readonly nextAfterId:string|null;
-  readonly native:{readonly textMemo?:UiLayoutMemoStats;readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly preparations?:number;readonly cleanupFailures:readonly string[]};
+  readonly native:{readonly textMemo?:UiLayoutMemoStats;readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly stockGroups?:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly preparations?:number;readonly cleanupFailures:readonly string[]};
 }
 /** Unreleased draft: local layout x/y for admitted direct decorative icon leaves.
  * Expected revision must match; next revision strictly increases. All other
@@ -112,4 +114,10 @@ export interface PhaserUi<F=unknown> {
   registerExtension(id:`${string}:${string}`,definition:NativeExtension<F>):()=>void;
   dispose():void;
 }
-export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly limits?:{readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number;readonly sourceBytes?:number}}):PhaserUi<F>;
+/** Direct is backwards-compatible, including add-only proxy parents. Isolated opts into
+ * one owned stock group per mount/actual stable attachment parent identity. Extensions
+ * remain outside stock groups. Callers must keep borrowed parents alive, including
+ * parents aliased with owned leases. Physical parent identity must not be hidden by
+ * per-attachment proxies. Isolated group count defaults to 256 and is observable
+ * separately from native.objects (paint primitives). */
+export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly stockOrdering?:'direct'|'isolated';readonly limits?:{readonly stockGroups?:number;readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number;readonly sourceBytes?:number}}):PhaserUi<F>;

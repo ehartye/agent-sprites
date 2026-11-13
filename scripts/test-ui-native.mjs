@@ -230,3 +230,11 @@ try {
   console.log(JSON.stringify(report));
   if(report.failures.length)process.exitCode=1;
 }
+
+// Retained insertion and isolated ownership parity run after this browser closes.
+if(!process.exitCode){
+  const {spawnSync}=await import('node:child_process');
+  const result=spawnSync(process.execPath,['--test','--test-concurrency=1','tests/native-ui/retained-paint-order.test.mjs'],{cwd:fileURLToPath(root),stdio:'inherit',windowsHide:true});
+  if(result.error)throw result.error;
+  if(result.status!==0)process.exitCode=result.status??1;
+}

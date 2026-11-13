@@ -139,10 +139,13 @@ function ownership(failures) {
 }
 
 /** Stock native painter and lifecycle owner. No input subscriptions or game dispatch. */
-export function createPhaserUi({scene, theme, ports, limits = {}}) {
+export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering = 'direct'}) {
   if (!scene?.add?.image || !scene.add.rectangle || !scene.events?.on || !scene.events.off || !ports?.resolveAsset || !ports.attachContext) throw new TypeError('Native scene and asset/context ports are required');
   if (theme?.format !== 'agent-sprites/ui-theme@1') throw new TypeError('Expected prepared UI theme');
-  const budget = {objects:8192,fragments:4096,extensionRegions:256,sourceBytes:4194304,...limits};
+  if (!['direct','isolated'].includes(stockOrdering)) throw new TypeError('Unknown stock ordering mode');
+  const isolated=stockOrdering==='isolated';
+  if(isolated&&typeof scene.add.container!=='function')throw new TypeError('Isolated stock ordering requires native container creation');
+  const budget = {objects:8192,fragments:4096,extensionRegions:256,sourceBytes:4194304,...(isolated?{stockGroups:256}:{}),...limits};
   for (const value of Object.values(budget)) if (!Number.isInteger(value) || value < 1) throw new RangeError('Native budgets must be positive integers');
   const registry = new Map(), mounts = new Set(), prefix = `shared-ui:${++hostIdentity}`;
   let disposed = false, mountIdentity = 0, subscribed = false;
@@ -158,7 +161,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
     if (!parent?.add) throw new TypeError('Native parent is required');
     if ([...mounts].some(m=>m.scope === scope)) throw new TypeError(`Duplicate native scope ${scope}`);
     let lifecycle = 'mounted', plan, interaction, created = 0, destroyed = 0, frameIdentity = 0;
-    const failures = [], owner = ownership(failures), objects = new Map(), fragments = new Map(), attachments = new Map(), extensions = new Map();
+    const failures = [], owner = ownership(failures), objects = new Map(), fragments = new Map(), attachments = new Map(), extensions = new Map(), stockGroups = new Map();
     const textureIds = new WeakMap(), sourceIds=new WeakMap(); let textureIdentity = 0, sourceIdentity=0, planes=new Map();
     const mountPrefix = `${prefix}:${++mountIdentity}`;
     let passiveCache=new Map(), passiveAccepted, preparations=0, textMemo;
@@ -558,12 +561,39 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
     function close(state) {
       if (lifecycle !== 'mounted') return;
       lifecycle = state;interaction?.dispose();mounts.delete(api);
-      try {owner.drain();} finally {objects.clear();fragments.clear();attachments.clear();extensions.clear();planes.clear();passiveCache.clear();textMemo=undefined;compiled=undefined;prepared=undefined;}
+      const errors=[],attempt=release=>{try{release();}catch(error){errors.push(error);}};
+      try {
+        if(!isolated){owner.drain();return;}
+        // Explicit phases matter when a later attachment aliases an earlier group.
+        if(isolated){
+          for(const entry of extensions.values())attempt(entry.release);
+          for(const group of [...stockGroups.values()])attempt(group.release);
+        }
+        attempt(owner.drain);
+        if(errors.length)throw new AggregateError(errors,'UI cleanup failed');
+      } finally {objects.clear();stockGroups.clear();fragments.clear();attachments.clear();extensions.clear();planes.clear();passiveCache.clear();textMemo=undefined;compiled=undefined;prepared=undefined;}
+    }
+    function stockGroup(parent) {
+      let group=stockGroups.get(parent);if(group)return group;
+      if(stockGroups.size>=budget.stockGroups)throw new RangeError('Native stock group budget exceeded');
+      const child=ownership(failures),release=owner.add(()=>{try{child.drain();}finally{stockGroups.delete(parent);}});
+      const native=scene.add.container(0,0);
+      if(typeof native?.destroy==='function')child.add(()=>native.destroy());
+      if(!native?.add||typeof native.remove!=='function'||typeof native.sort!=='function'||typeof native.destroy!=='function')throw new TypeError('Invalid native stock group capability');
+      group={native,owner:child,release,contexts:new Set(),dirty:false};stockGroups.set(parent,group);
+      parent.add(native);return group;
     }
     function attach(nextPlan) {
       const desired = new Set(nextPlan.contexts.map(c=>c.id));
       for (const [id,entry] of attachments) if (!desired.has(id) || stable(entry.context)!==stable(nextPlan.contexts.find(c=>c.id===id))) {
+        if(isolated)for(const [key,ext]of extensions)if(Object.hasOwn(ext.contextRevisions,id)){ext.release();extensions.delete(key);}
         for (const [key,item] of objects) if (item.contextId===id) {item.release();objects.delete(key);}
+        if(isolated){
+          entry.group.contexts.delete(id);
+          // Borrowed placeholders retain their sibling slot across replacement.
+          // Owned leases may destroy their parent immediately, so drain first.
+          if(!entry.group.contexts.size&&entry.lease.ownership==='owned')entry.group.release();
+        }
         entry.release();attachments.delete(id);
       }
       for (const context of nextPlan.contexts) if (!attachments.has(context.id)) {
@@ -571,7 +601,14 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         const lease = ports.attachContext({context,parent,scope},child.facade);
         if (!lease?.parent?.add || !['owned','borrowed'].includes(lease.ownership) || lease.ownership==='owned' && typeof lease.release!=='function') throw new TypeError('Invalid context attachment ownership');
         if (lease.ownership==='owned') child.add(lease.release);
-        attachments.set(context.id,{context,lease,release});
+        const entry={context,lease,release};attachments.set(context.id,entry);
+      }
+      if(isolated){
+        // Resolve every desired identity before pruning placeholders: aliases may
+        // appear later, and a replacement must not consume two accepted budgets.
+        const parents=new Set([...attachments.values()].map(entry=>entry.lease.parent));
+        for(const [parent,group]of stockGroups)if(!parents.has(parent))group.release();
+        for(const entry of attachments.values())if(!entry.group){entry.group=stockGroup(entry.lease.parent);entry.group.contexts.add(entry.context.id);}
       }
     }
     function frameKey(command) {
@@ -627,9 +664,23 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         if (!item) {
           if (objects.size>=budget.objects) throw new RangeError('Native object budget exceeded');
           const object=command.kind==='image'?scene.add.image(0,0,command.asset.texture):scene.add.rectangle(0,0,1,1,ink??0);created++;
-          const release=owner.add(()=>{destroyed++;object.destroy();});
-          item={kind:command.kind,contextId:command.contextId,object,release};objects.set(command.key,item);
-          attachments.get(command.contextId).lease.parent.add(object);
+          const attachment=attachments.get(command.contextId),group=isolated?attachment.group:null;
+          const release=(group?.owner??owner).add(()=>{
+            destroyed++;
+            if(!group){object.destroy();return;}
+            const errors=[];
+            try{group.native.remove(object,false);}catch(error){errors.push(error);}
+            try{object.destroy();}catch(error){errors.push(error);}
+            if(errors.length){
+              // A faulty destructor must not leave a visible scene-level orphan.
+              try{object.setVisible(false);}catch(error){errors.push(error);}
+              try{object.removeFromDisplayList?.();}catch(error){errors.push(error);}
+              if(errors.length===1)throw errors[0];
+              throw new AggregateError(errors,'Native stock cleanup failed: '+errors.map(error=>error?.message??error).join('; '));
+            }
+          });
+          item={kind:command.kind,contextId:command.contextId,object,release,group};objects.set(command.key,item);
+          (group?.native??attachment.lease.parent).add(object);
         }
         usedObjects.add(command.key);
         const {object}=item,d=command.bounds;
@@ -640,10 +691,12 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         } else {
           const b=clipped??d;object.setSize(b.width,b.height).setOrigin(0,0).setPosition(b.x,b.y).setScale(1).setFillStyle(ink??0);
         }
+        if(isolated&&item.depth!==depth){item.group.dirty=true;item.depth=depth;}
         object.setAlpha(command.opacity).setDepth(depth++).setVisible(visible);
       }
       for (const [key,item] of objects) if(!usedObjects.has(key)){item.release();objects.delete(key);}
       for (const [key,item] of fragments) if(!usedFrames.has(key)){item.release();fragments.delete(key);}
+      if(isolated)for(const group of stockGroups.values())if(group.dirty){group.native.sort('depth');group.dirty=false;}
       const desired=new Set(prepared.extensionPlans.map(e=>e.id));
       for (const [id,entry] of extensions) if(!desired.has(id)){entry.release();extensions.delete(id);}
       for (const ext of prepared.extensionPlans) {
@@ -651,7 +704,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         if (prior && prior.definition===ext.definition && prior.signature===signature) continue;
         if (prior){prior.release();extensions.delete(ext.id);}
         const child=ownership(failures),release=owner.add(child.drain);
-        extensions.set(ext.id,{release,signature,definition:ext.definition,extensionId:ext.extensionId});
+        extensions.set(ext.id,{release,signature,definition:ext.definition,extensionId:ext.extensionId,...(isolated?{contextRevisions:ext.allocation.contextRevisions}:{})});
         const native=ports.extensionFacade?.({extensionId:ext.extensionId,allocation:ext.allocation},child.facade);
         ext.definition.mount(ext.model,ext.allocation,Object.freeze({...child.facade,native}));
       }
@@ -698,7 +751,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
         observation={scopeId:scope,modelRevision:plan.revision,disposed:lifecycle!=='mounted',focusId:null,hoverId:null,heldCount:0,controls,nextAfterId:from+controls.length<plan.records.length?controls.at(-1).id:null};
       }else observation=interaction.inspect(options);
         const controls=observation.controls.map(r=>({id:r.id,kind:r.kind,role:r.role,enabled:r.enabled,...(passive?{focusable:false}:{}),focused:r.focused,hovered:r.hovered,pressed:r.pressed,state:r.state,bounds:r.bounds,hitBounds:r.hitBounds,focusBounds:r.focusBounds,effectiveHitBounds:r.effectiveHitBounds,effectiveFocusBounds:r.effectiveFocusBounds,clipBounds:r.clipBounds,paintBounds:r.paintBounds,semanticContextId:r.semanticContextId,contextRevisions:r.contextRevisions}));
-      return freezeUiData({...observation,controls,native:{lifecycle,textMemo:inspectUiLayoutMemo(textMemo),objects:objects.size,fragments:fragments.size,attachments:attachments.size,extensions:extensions.size,created,destroyed,...(passive?{preparations}:{}),cleanupFailures:[...failures]}});
+      return freezeUiData({...observation,controls,native:{lifecycle,textMemo:inspectUiLayoutMemo(textMemo),objects:objects.size,...(isolated?{stockGroups:stockGroups.size}:{}),fragments:fragments.size,attachments:attachments.size,extensions:extensions.size,created,destroyed,...(passive?{preparations}:{}),cleanupFailures:[...failures]}});
     },dispose(){close('disposed');},uses(id){return [...extensions.values()].some(e=>e.extensionId===id);}});
     try {
       mounts.add(api);
