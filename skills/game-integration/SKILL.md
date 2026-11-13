@@ -218,6 +218,11 @@ of each new pattern kind side by side and joined as in a map (`--zoom N --out pa
 across the tile edge so seams do not show. Keep key clusters from touching edge to edge, and avoid strong contrast inside a
 repeating texture: it reads as a grid at map scale.
 
+**Isometric floors.** `"projection": "diamond"` on a `terrain` or `terrain-overlay` recipe draws every cell as a 64 by 32
+pixel diamond for a 2:1 isometric floor: same aliases, masks and edge options, texture and rims made in screen pixels.
+Draw a tile at `((x - y) * 32, (x + y) * 16)`; masks keep their map meaning. Limits and the report fields:
+[diamond tiles](../../examples/environment/README.md#diamond-tiles-for-an-isometric-floor).
+
 ## Tilesets, props, item icons and crop stages
 
 For a regular grid where frame index equals cell index (Phaser tilemap tilesets, Tiled), item icon sheets and crop
