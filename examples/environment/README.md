@@ -350,3 +350,41 @@ diagonal-only neighbour bleeds along both neighbours' edges the same way). Varia
 The boundary is an irregular wave (no 1-pixel spikes; adjacent columns differ by at most one) with rounded outer corners.
 Because the neighbouring cell stays a full tile of its own material, regions still follow the 1x1 grid; the overlay
 adds the organic fringe on the lower-priority side.
+
+### Diamond tiles for an isometric floor
+
+Add `"projection": "diamond"` to a `terrain` or `terrain-overlay` recipe and every cell is a 64 by 32 pixel diamond
+for a 2:1 isometric floor, with the same aliases, masks, variants, rims, rounded corners, soft twins and contact bands
+as the square recipe.
+
+```json
+{ "version": 1, "output": "./dist", "scale": 1,
+  "environment": { "name": "iso-ground", "kind": "terrain-overlay", "seed": 7, "variants": 3, "projection": "diamond",
+    "materials": ["meadow", "mere"], "overlayEdge": { "rim": true, "round": 4, "soft": ["meadow"] },
+    "customMaterials": [
+      { "name": "meadow", "ramp": ["#6b7d3a","#4a5c2f","#8a9a4a","#a9b45a"], "seed": 23,
+        "patterns": [{"kind":"speckle","density":0.6,"tone":"light"}, {"kind":"clusters","density":0.4,"size":"small","tone":"dark"}] },
+      { "name": "mere", "animated": true, "fps": 4, "ramp": ["#3f7a8d","#2f5f78","#6fa4b4","#8fc4c4"],
+        "patterns": [{"kind":"ripples","density":0.6}] }] } }
+```
+
+- **How the tiles lie.** Map +x runs to screen (+32, +16) and map +y to (-32, +16); a tile is drawn with the top left
+  of its cell at `((x - y) * 32, (x + y) * 16)`. The cell's transparent corners belong to the neighbours: diamonds laid
+  this way cover every screen pixel exactly once (rows are 2, 6, 10 ... 62 pixels wide, 1,024 pixels a tile).
+  `environment-report.json` repeats this under `diamond`.
+- **Masks keep their map meaning.** Compute the neighbour mask from the map exactly as for square tiles: bit `n` is
+  the tile at map y - 1, which on screen is across the upper right edge; `e` the lower right, `s` the lower left,
+  `w` the upper left. The shape of each overlay is the square overlay's, read through the projection, so the seam
+  rule holds unchanged.
+- **Texture, rim and band are made in screen pixels.** A square tile is not projected (its pixels would land on a
+  sheared lattice). Marks run along the floor's 2:1 directions; a rim edge facing up or left on the screen takes the
+  light rim colour; the contact band falls to the screen's right and below.
+- **Variants never cut a mark.** A material's variants share one field of marks that repeats over the tile lattice.
+  Every variant keeps the marks that cross a tile edge and its own choice of the marks inside, so any variant sits
+  beside any other. `grain` does not apply: there is no edge ring to seed.
+- **Limits.** Pixel materials only (the wasteland set and `customMaterials`); the six vector materials and
+  `terrain-transition` are refused. `pixelScale` is refused: a diamond is drawn at one pixel size. `panels` and
+  `stripe` draw one seam each way through the middle of the tile, `furrows` runs along one floor direction, and
+  `polygons` draws as `cracks`. A full overlay set is 46 masks a variant a material at 64 by 32 pixels: use
+  `overlays.masks` and `overlays.skip` to leave out cells a game never draws.
+

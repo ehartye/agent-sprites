@@ -6,6 +6,7 @@ import {GRID,WASTELAND_SPECS,WASTELAND_MATERIALS,ANIMATION_FRAMES,materialTile,v
 import {validateWorld,worldCoverage,worldParams,worldVariants} from './environment-world-edge.js';
 import {DEFAULT_EDGE_SHADE_COLOR,EDGE_DEPTH,MAX_EDGE_SHADE_WIDTH,MAX_ROUND,OVERLAY_BITS,OVERLAY_MASKS,edgeShadePixels,normalizeOverlayMask,overlayCoverage,overlayPixels} from './environment-overlay.js';
 import {readPixelScale,scaleShape,screenBounds,sourceBounds,sourcePen} from './environment-pixel-scale.js';
+import {DIAMOND,diamondEdgeShadePixels,diamondOverlayPixels,materialDiamond,projectCoverage} from './environment-diamond.js';
 
 const hashName=s=>[...s].reduce((h,ch)=>(Math.imul(h,31)+ch.charCodeAt(0))>>>0,7);
 /** Draw a GRID by GRID pixel tile (null is transparent) as merged rectangles, at either pixel scale. */
@@ -25,6 +26,16 @@ function drawPixelTile(p,pixels){
   for(const r of open.values())done.push(r);
   done.sort((a,b)=>a.y-b.y||a.x-b.x);
   for(const r of done)q.rect(`tile_${r.y}_${r.x}`,r.x*k,r.y*k,r.w*k,r.h*k,r.c);
+}
+/** Draw a diamond tile (64 by 32 pixels, null is transparent) as one rectangle per run of a colour along a row. */
+function drawDiamondTile(p,pixels){
+  const {width,height}=DIAMOND;
+  for(let y=0;y<height;y++)for(let x=0;x<width;){
+    const c=pixels[y*width+x],start=x;
+    if(c===null){x++;continue;}
+    while(x<width&&pixels[y*width+x]===c)x++;
+    p.rect(`tile_${y}_${start}`,start,y,x-start,1,c);
+  }
 }
 const fallback=(value,other)=>value===undefined?other:value;
 const shade=(hex,k)=>'#'+[1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*k).toString(16).padStart(2,'0')).join('');
@@ -97,7 +108,7 @@ function worldReport(world,frames){
 /** Expand a reusable environment recipe into ordinary named, editable vector shapes. */
 export function generateEnvironmentRecipe(config){
   if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Environment must be an object');
-  for(const key of Object.keys(config))if(!['name','kind','seed','materials','variants','style','pixelScale','customMaterials','base','overlayEdge','overlays'].includes(key))throw Error(`Unknown environment field: ${key}`);
+  for(const key of Object.keys(config))if(!['name','kind','seed','materials','variants','style','pixelScale','customMaterials','base','overlayEdge','overlays','projection'].includes(key))throw Error(`Unknown environment field: ${key}`);
   const kind=config.kind,name=fallback(config.name,'environment'),seed=fallback(config.seed,7);
   const scale=readPixelScale(config);
   if(!['terrain','terrain-transition','terrain-overlay','habitat','furniture'].includes(kind))throw Error(`Unsupported environment kind: ${kind}`);
@@ -105,6 +116,11 @@ export function generateEnvironmentRecipe(config){
   if(!Number.isSafeInteger(seed))throw Error('Environment seed must be a safe integer');
   if(config.style!==undefined&&(kind!=='habitat'||!HABITAT_STYLES.includes(config.style)))throw Error('Habitat style must be cottage, workshop, kitchen, barn, capsule, vault, gantry or dome and applies only to habitat');
   const pixelKinds=['terrain','terrain-overlay'];
+  // `projection: "diamond"` draws the tiles as 64 by 32 pixel diamonds for a 2:1 isometric floor (environment-diamond.js)
+  const diamond=config.projection==='diamond';
+  if(config.projection!==undefined&&!['square','diamond'].includes(config.projection))throw Error('Environment projection must be "square" or "diamond"');
+  if(diamond&&!['terrain','terrain-overlay'].includes(kind))throw Error('The diamond projection applies only to terrain and terrain-overlay');
+  if(diamond&&config.pixelScale!==undefined)throw Error('The diamond projection draws at one pixel size; leave pixelScale out');
   if(!pixelKinds.includes(kind)&&config.materials!==undefined)throw Error('Materials apply only to terrain and terrain-overlay');
   if(!pixelKinds.includes(kind)&&config.customMaterials!==undefined)throw Error('customMaterials apply only to terrain and terrain-overlay');
   if(kind!=='terrain-overlay'&&config.base!==undefined)throw Error('base applies only to terrain-overlay');
@@ -126,6 +142,7 @@ export function generateEnvironmentRecipe(config){
   if(pixelKinds.includes(kind)){
     if(!Array.isArray(materials)||!materials.length||new Set(materials).size!==materials.length||materials.some(m=>!supported.includes(m)))throw Error(kind==='terrain'?'Terrain materials must be a nonempty unique array of supported materials':'Overlay materials must be a nonempty unique array of wasteland or custom materials');
     for(const c of custom)if(!materials.includes(c.name))throw Error(`Custom material ${c.name} is not listed in materials`);
+    if(diamond)for(const m of materials)if(!specs[m])throw Error(`The diamond projection draws pixel materials only; ${m} is a vector material`);
   }
   if(kind==='terrain'&&(!Number.isInteger(variants)||variants<1||variants>4))throw Error('Terrain variants must be between 1 and 4');
   if(kind==='terrain-overlay'&&(!Number.isInteger(variants)||variants<1||variants>8))throw Error('Overlay variants must be between 1 and 8');
@@ -176,7 +193,7 @@ export function generateEnvironmentRecipe(config){
     }
   }else for(const alias of kind==='habitat'?['habitat_floor','habitat_back','habitat_front','habitat_roof']:Object.keys(FURNITURE_COLLISIONS))entries.push({alias});
   const aliases=entries.map(e=>e.alias);
-  const screenWidth=kind==='habitat'?320:kind.startsWith('terrain')?32:64,screenHeight=kind==='habitat'?256:screenWidth,width=screenWidth/scale,height=screenHeight/scale,cols=kind==='terrain-overlay'?Math.min(OVERLAY_MASKS.length,aliases.length):kind.startsWith('terrain')?variants:kind==='habitat'?2:3;
+  const screenWidth=diamond?DIAMOND.width:kind==='habitat'?320:kind.startsWith('terrain')?32:64,screenHeight=diamond?DIAMOND.height:kind==='habitat'?256:screenWidth,width=screenWidth/scale,height=screenHeight/scale,cols=kind==='terrain-overlay'?Math.min(OVERLAY_MASKS.length,aliases.length):kind.startsWith('terrain')?variants:kind==='habitat'?2:3;
   const operations=[{command:'new',name,size:`${width}x${height}`,cols,rows:Math.ceil(aliases.length/cols),palette:'pico8'}],frames=[];
   for(const [index,alias] of aliases.entries()){
     const cell=`${Math.floor(index/cols)},${index%cols}`,names=new Set(),bounds={left:screenWidth,top:screenHeight,right:-1,bottom:-1};
@@ -200,14 +217,17 @@ export function generateEnvironmentRecipe(config){
     Object.defineProperty(pen,'src',{value:sourcePen(pen,scale)});
     let details={};
     const entry=entries[index];
+    // the same entries either way: a diamond cell takes its texture from the screen-space generator and its shape through the projection
+    const tileOf=diamond?materialDiamond:materialTile,drawTile=diamond?drawDiamondTile:drawPixelTile;
+    const shadeOf=diamond?(c,o)=>diamondEdgeShadePixels(projectCoverage(c),o):edgeShadePixels,overlayOf=diamond?(c,t,r)=>diamondOverlayPixels(projectCoverage(c),t,r):overlayPixels;
     if(kind==='terrain'&&isPixel(entry.material)){
       const spec=specs[entry.material];
-      drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
+      drawTile(pen,tileOf(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
       details={material:entry.material,variant:entry.variant,...(entry.frame!==undefined?{frame:entry.frame}:{}),seamless:true,...(spec.animated?{animation:entry.tag??entry.material}:{})};
     }else if(kind==='terrain-overlay'){
       const spec=specs[entry.material];
       if(entry.role==='base'){
-        drawPixelTile(pen,materialTile(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
+        drawTile(pen,tileOf(entry.material,spec,entry.variant,seed,entry.frame??entry.variant));
         details={material:entry.material,role:'base',variant:entry.variant,...(entry.frame!==undefined?{frame:entry.frame}:{}),seamless:true,...(spec.animated?{animation:entry.tag??entry.material}:{})};
       }else{
         const maskInfo={mask:entry.mask,variant:entry.variant,neighbors:Object.entries(OVERLAY_BITS).filter(([,bit])=>entry.mask&bit).map(([k])=>k)};
@@ -217,15 +237,15 @@ export function generateEnvironmentRecipe(config){
         const worldInfo=entry.params?{corners:entry.corners,flavour:entry.flavour,...(entry.onMaterial?{on:entry.onMaterial}:{})}:{};
         if(entry.role==='edge-shade'){
           // the band is cut from the very coverage the overlay of this material, mask and variant uses, so it hugs the same ragged edge
-          drawPixelTile(pen,edgeShadePixels(coverage,edge.shade));
+          drawTile(pen,shadeOf(coverage,edge.shade));
           details={material:entry.material,role:'edge-shade',...maskInfo,...worldInfo};
         }else{
           // an animated material overlays with the ripple phase of its variant (overlays are static snapshots) unless `animate` gives it every phase
           const texVariant=entry.params?entry.flavour%variants:entry.variant;
           // with `variants` the overlay wears look texVariant % variants at the frame of its phase: exactly the base tile `<material>_f<phase>_<look>`
           const looks=looksOf(entry.material);
-          const tile=looks?materialTile(entry.material,spec,texVariant%looks,seed,(entry.phase??0)%ANIMATION_FRAMES):materialTile(entry.material,spec,texVariant,seed,(texVariant+(entry.phase??0))%ANIMATION_FRAMES);
-          drawPixelTile(pen,overlayPixels(coverage,tile,edge.rim&&!entry.soft?rimColors(spec):null));
+          const tile=looks?tileOf(entry.material,spec,texVariant%looks,seed,(entry.phase??0)%ANIMATION_FRAMES):tileOf(entry.material,spec,texVariant,seed,(texVariant+(entry.phase??0))%ANIMATION_FRAMES);
+          drawTile(pen,overlayOf(coverage,tile,edge.rim&&!entry.soft?rimColors(spec):null));
           details={material:entry.material,role:'overlay',...maskInfo,...worldInfo,...(entry.phase!==undefined?{phase:entry.phase,...(entry.animation?{animation:entry.animation}:{})}:{})};
         }
       }
@@ -262,5 +282,5 @@ export function generateEnvironmentRecipe(config){
     animations.push({name:e.animation,fps:specs[e.material].fps,frames:e.frames,cells:own.map(f=>f.cell),overlay:true});
   }
   operations.push(kind==='furniture'?{command:'pivot',x:32/scale,y:62/scale}:{command:'pivot',x:0,y:0});
-  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(custom.some(c=>c.rimRoles)?{rimRoles:Object.fromEntries(custom.filter(c=>c.rimRoles).map(c=>[c.name,{...c.rimRoles}]))}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'+(materials.some(looksOf)?', <material>_f<frame>_<variant> base of an animated material with variants':'')}:{}),...(world?{world:worldReport(world,frames)}:{}),...(edge.shade?{edgeShade:{width:edge.shade.width,widthUnits:'source pixels of the cell',color:edge.shade.color,dir:edge.shade.dir,materials:edge.shade.materials??materials,aliasPattern:'<material>-shade_<mask>_<variant>',semantics:'Same mask and variant as the overlay of that material: the band lies on the uncovered pixels within width of the overlay edge (dir light: below and right of it; all: every side). Draw it over the tile base and under the overlay, at one opacity.'}}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
+  return {operations,report:{version:1,ok:true,kind,seed,cellSize:{width,height},...(diamond?{projection:'diamond',diamond:{mapX:[DIAMOND.width/2,DIAMOND.height/2],mapY:[-DIAMOND.width/2,DIAMOND.height/2],origin:'top vertex',edges:{n:'upper right',e:'lower right',s:'lower left',w:'upper left'},light:'screen top left'}}:{}),...(config.pixelScale!==undefined?{pixelScale:scale,screenCellSize:{width:screenWidth,height:screenHeight}}:{}),frames,...(kind==='terrain-transition'?{neighbors:TRANSITION_BITS,normalizeDiagonals:true,seams:'matching-neighborhood-edges',foreground:'packed-earth',background:'moss'}:{}),...(animations.length?{animations}:{}),...(custom.length?{customMaterials:custom.map(c=>c.name)}:{}),...(custom.some(c=>c.rimRoles)?{rimRoles:Object.fromEntries(custom.filter(c=>c.rimRoles).map(c=>[c.name,{...c.rimRoles}]))}:{}),...(kind==='terrain-overlay'?{materials,variants,base:config.base!==false,neighbors:OVERLAY_BITS,maskSemantics:'Mask bit set = that neighbour of the tile is this overlay material. The overlay bleeds into the tile across that edge or corner; the tile base material shows elsewhere.',normalizeDiagonals:'A diagonal bit is meaningful only when both adjacent cardinal bits are clear; otherwise it is cleared.',validMasks:OVERLAY_MASKS,emptyMask:0,edgeDepth:EDGE_DEPTH*2,edgeDepthSource:EDGE_DEPTH,edgeDepthUnits:'edgeDepth is in screen pixels, edgeDepthSource in source pixels of the cell',seams:'matching-neighborhood-edges',aliasPattern:'<material>_<mask>_<variant> overlay, <material>_<variant> base'+(materials.some(looksOf)?', <material>_f<frame>_<variant> base of an animated material with variants':'')}:{}),...(world?{world:worldReport(world,frames)}:{}),...(edge.shade?{edgeShade:{width:edge.shade.width,widthUnits:'source pixels of the cell',color:edge.shade.color,dir:edge.shade.dir,materials:edge.shade.materials??materials,aliasPattern:'<material>-shade_<mask>_<variant>',semantics:'Same mask and variant as the overlay of that material: the band lies on the uncovered pixels within width of the overlay edge (dir light: below and right of it; all: every side). Draw it over the tile base and under the overlay, at one opacity.'}}:{}),...(kind==='habitat'?{layout:structuredClone(HABITAT_LAYOUT),...(config.style?{style:config.style}:{})}:{})}};
 }
