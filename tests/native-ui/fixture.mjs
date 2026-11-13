@@ -12,7 +12,7 @@ const theme=u.defineTheme({version:1,id:`native:${themeId}`,fonts:{body:{font}},
 let scene,host,mount,revision=1,contextRevision=1,scroll=0,extensionDisposed=0,failExtension=false;
 let attachmentsCreated=0,attachmentsDisposed=0,originOffset=0;
 const fixtureRoots=[];
-let disposedResult,shutdownPromise,inputDeliveries=0;
+let disposedResult,shutdownPromise,inputDeliveries=0,passiveProbe,referenceProbeUi;
 const createFixtureRoot=()=>{const root=scene.add.container();fixtureRoots.push(root);return root;};
 const inspectFixtureRoots=()=>fixtureRoots.map(root=>({children:root.list.length,borrowedAlive:root.scene===scene}));
 const intents=[];
@@ -76,7 +76,58 @@ canvas.addEventListener('pointerup',pointerUp);
 let keyboardId=0;
 const keyDown=event=>{if(event.key==='Enter')route({type:'default',inputId:`keyboard:${++keyboardId}`});if(event.key==='Escape')route({type:'cancel',inputId:`keyboard:${++keyboardId}`});};
 window.addEventListener('keydown',keyDown);
+let iconProbe,iconProbeUi;
 window.nativeUi={
+  iconPlacementProbe(mode,until=8){
+    this.stopIconPlacementProbe();
+    const source=font.glyphs['?'].frames[tone].source,other=font.glyphs['?'].frames[tone==='cream'?'ink':'cream'].source;
+    const art=f=>({width:f.width,height:f.height,frame:{x:f.x,y:f.y,width:f.width,height:f.height}});
+    const iconTheme=u.defineTheme({version:1,id:'native:icon-placement',fonts:{body:{font}},icons:{down:art(source),right:art(other)},
+      roles:{root:{},art:{},below:{alternatives:[{kind:'flat',color:'#303050'}]},above:{alternatives:[{kind:'flat',color:'#20f080'}]},button:{font:'body',tone,alternatives:[{kind:'flat',color:'#502030'}]}},geometry:{gap:0,padding:0,minTarget:0}});
+    iconProbeUi=u.createPhaserUi({scene,theme:mode==='reference'?structuredClone(iconTheme):iconTheme,ports:{
+      resolveAsset:()=>({ownership:'borrowed',texture:scene.textures.get('native-font')}),
+      attachContext:({context})=>{const p=scene.add.container(context.localToPhysical.origin.x,context.localToPhysical.origin.y).setScale(context.localToPhysical.scale);attachmentsCreated++;return {ownership:'owned',parent:p,release:()=>{attachmentsDisposed++;p.destroy();}};},
+    }});
+    const steps=[[-40,4,'down'],[-2,4,'down'],[4,4,'down'],[7.25,4,'down'],[59,43,'down'],[4,4,'right'],[4.25,4,'right'],[4,4,'right',true],[5,5,'right',true]];
+    const context=changed=>({id:'native:icon-placement',revision:changed?2:1,localToPhysical:{scale:changed?3:2,x:changed?7:12,y:changed?4:8},sourcePixelPhysicalSize:2,viewport:{x:3,y:2,width:64,height:48}});
+    const snapshot=(revision,[x,y,asset,changed])=>({revision,context:context(changed),tree:u.absolute({id:'icon-root',appearanceRole:'root',layout:{width:64,height:48,padding:0,overflow:'clip'},children:[
+      u.panel({id:'below',appearanceRole:'below',layout:{x:0,y:0,width:24,height:15}}),
+      u.icon({id:'moving-icon',appearanceRole:'art',asset,layout:{x,y,width:source.width,height:source.height}}),
+      u.panel({id:'later-overlap',appearanceRole:'above',layout:{x:5,y:5,width:2,height:3}}),
+      u.button({id:'probe-control',appearanceRole:'button',label:'?',actionId:'native:probe',layout:{x:30,y:4,width:20,height:10}}),
+    ]})});
+    iconProbe=iconProbeUi.mount(snapshot(1,steps[0]),{parent:createFixtureRoot(),scope:'native:icon-probe',policy:{retainUnchangedPresses:true}});
+    iconProbe.handle({type:'press',inputId:'probe-held',point:{x:80,y:22},pointSpace:'physical'});
+    let placements=0,fullUpdates=0;
+    for(let i=1;i<=until;i++){
+      const [x,y,asset,changed]=steps[i],prior=steps[i-1];
+      if(mode==='reference'||asset!==prior[2]||changed!==prior[3]){iconProbe.update(snapshot(i+1,steps[i]));fullUpdates++;}
+      else{iconProbe.placeIcons({expectedRevision:i,revision:i+1,items:[{id:'moving-icon',x,y}]});placements++;}
+      iconProbe.handle({type:'hover',point:{x:155,y:115},pointSpace:'physical'});
+    }
+    return {...iconProbe.inspect({limit:20}),placements,fullUpdates};
+  },
+  stopIconPlacementProbe(){iconProbe?.dispose();iconProbeUi?.dispose();iconProbe=iconProbeUi=null;},
+
+  retainedProbe(mode,until=6){
+    passiveProbe?.dispose();passiveProbe=null;referenceProbeUi?.dispose();referenceProbeUi=null;
+    // Uncached raw prepared-theme reference independently exercises the old
+    // copy-out path; it cannot share the certified-theme placement memo.
+    if(mode==='reference')referenceProbeUi=u.createPhaserUi({scene,theme:structuredClone(theme),ports:{
+      resolveAsset:r=>({ownership:'borrowed',texture:scene.textures.get(r.kind==='font'?'native-font':'native-skin')}),
+      attachContext:({context})=>{const parent=scene.add.container(context.localToPhysical.origin.x,context.localToPhysical.origin.y).setScale(context.localToPhysical.scale);attachmentsCreated++;return {ownership:'owned',parent,release:()=>{attachmentsDisposed++;parent.destroy();}};},
+    }});
+    const context={id:'native:passive',revision:1,localToPhysical:{scale:2,x:12,y:8},sourcePixelPhysicalSize:2,viewport:{x:3,y:2,width:64,height:48}};
+    const annotationFor=id=>u.absolute({id,layout:{width:20,height:9,padding:0,overflow:'clip'},children:[[-1,0],[1,0],[0,-1],[0,1],[0,0]].map(([x,y],i)=>u.text({id:id+':ink:'+i,label:'???',layout:{x,y,width:22,height:8,wrap:false}}))});
+    let revision=0;
+    for(const [x,y]of [[-40,4],[-2,4],[4,4],[7,4],[7.25,4],[59,43],[4.25,4]].slice(0,until+1)){
+      const annotation=annotationFor('annotation:revision:'+revision);
+      const snapshot=mode==='retained'?{revision:++revision,context,items:[{id:annotation.id,tree:annotation,x,y}]}:{revision:++revision,context,tree:u.absolute({id:'probe-root',layout:{width:64,height:48,padding:0,overflow:'clip'},children:[{...annotation,layout:{...annotation.layout,x,y}}]})};
+      if(passiveProbe)passiveProbe.update(snapshot);else passiveProbe=(mode==='reference'?referenceProbeUi:host)[mode==='retained'?'mountPassive':'mount'](snapshot,{parent:createFixtureRoot(),scope:'native:passive-probe'});
+    }
+    return passiveProbe.inspect({limit:32});
+  },
+  stopRetainedProbe(){passiveProbe?.dispose();passiveProbe=null;referenceProbeUi?.dispose();referenceProbeUi=null;},
   renderer:window.nativeGame.renderer.type,webgl2:!!window.nativeGame.renderer.gl&&window.nativeGame.renderer.gl instanceof WebGL2RenderingContext,
   inspect:()=>mount.inspect({limit:32}),handle:route,intents,
   update(options={}){revision++;if(options.context)contextRevision++;if(options.origin!==undefined)originOffset=options.origin;if(options.scroll!==undefined)scroll=options.scroll;failExtension=!!options.fail;mount.update(snapshot());return mount.inspect({limit:32});},
@@ -84,6 +135,7 @@ window.nativeUi={
   lifecycle(){return {attachmentsCreated,attachmentsDisposed,extensionDisposed,borrowedFonts:scene.textures.exists('native-font'),borrowedSkins:scene.textures.exists('native-skin'),fontFrames:Object.keys(scene.textures.get('native-font').frames),skinFrames:Object.keys(scene.textures.get('native-skin').frames),sceneObjects:scene.children.list.length};},
   remount(){mount.dispose();const borrowedRoots=inspectFixtureRoots();mount=host.mount(snapshot(),{parent:createFixtureRoot(),scope:'native:screen'});return {...mount.inspect({limit:32}),borrowedRoots};},
   dispose(){
+    this.stopIconPlacementProbe();passiveProbe?.dispose();referenceProbeUi?.dispose();
     if(disposedResult)return disposedResult;
     mount.dispose();host.dispose();
     const observation=mount.inspect({limit:32}),lifecycle=this.lifecycle(),borrowedRoots=inspectFixtureRoots();

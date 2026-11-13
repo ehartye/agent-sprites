@@ -1,6 +1,7 @@
-import {copyUiData, freezeUiData, uiNumber, uiKeys, uiId, uiInsets, uiRect} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, snapshotUiData, publishUiData, uiNumber, uiKeys, uiId, uiInsets, uiRect} from './ui-theme.mjs';
 
 export const UI_NODE_KINDS = Object.freeze(['panel', 'header', 'card', 'text', 'button', 'actionBar', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager', 'progress', 'meter', 'separator', 'icon', 'notice', 'tooltip', 'extension', 'stack', 'row', 'grid', 'absolute']);
+const validatedNodes = new WeakSet();
 const controls = new Set(['button', 'listRow', 'itemSlot', 'field', 'toggle', 'stepper', 'tabs', 'fold', 'pager']);
 const values = {
   field: ['value', 'selection', 'composition', 'maxLength'], toggle: ['value'], fold: ['value'],
@@ -81,15 +82,17 @@ function make(kind, props) {
   return result;
 }
 
-/** Validate even raw trees at the publication boundary; caller nodes are always copied. */
+/** Validate raw trees at publication; only library-certified immutable nodes may be shared. */
 export function validateUiTree(tree) {
-  const copy = copyUiData(tree), ids = new Map(), focusScopes = [];
+  const copy = snapshotUiData(tree), ids = new Map(), focusScopes = [];
   function visit(value) {
     if (!value || typeof value !== 'object') throw new TypeError('Invalid UI node');
-    const {kind, ...props} = value, result = make(kind, props);
+    const known = validatedNodes.has(value);
+    let result = value;
+    if (!known) { const {kind, ...props} = value; result = make(kind, props); }
     if (ids.has(result.id)) throw new TypeError(`Duplicate node ID: ${result.id}`);
     ids.set(result.id, result);
-    result.children = result.children.map(visit);
+    if (known) result.children.forEach(visit); else result.children = result.children.map(visit);
     if (result.focus) focusScopes.push(result.focus);
     return result;
   }
@@ -102,10 +105,19 @@ export function validateUiTree(tree) {
     }
     for (const [role, id] of Object.entries(focus)) if (role !== 'order' && id !== undefined && !(role === 'initialId' && focus.order?.includes(id)) && (!ids.has(id) || role === 'initialId' && !ids.get(id).focusable)) throw new TypeError(`Unknown or unfocusable focus ID: ${id}`);
   }
-  return freezeUiData(result);
+  const snapshot = publishUiData(result);
+  // A semantic certificate covers the complete frozen subtree. Mark parents
+  // last so a failed child mark cannot certify an incomplete ancestor.
+  const certify = node => {
+    if (validatedNodes.has(node)) return;
+    node.children.forEach(certify);
+    validatedNodes.add(node);
+  };
+  certify(snapshot);
+  return snapshot;
 }
 
-export function node(kind, props) { return validateUiTree(make(kind, copyUiData(props))); }
+export function node(kind, props) { return validateUiTree(make(kind, snapshotUiData(props))); }
 export const panel = props => node('panel', props);
 export const header = props => node('header', props);
 export const card = props => node('card', props);
@@ -173,7 +185,7 @@ export function noticeFamily(input) {
 
 /** Shared HUD regions retain authored arrangement and values; no game rule is inferred. */
 export function hudFamily(input) {
-  const {items, arrangement = 'row', ...props} = copyUiData(input);
+  const {items, arrangement = 'row', ...props} = snapshotUiData(input);
   uiKeys(props, ['id', 'layout', 'appearanceRole', 'contextId', 'paneId'], 'HUD family');
   if (!Array.isArray(items) || !['row', 'stack', 'absolute'].includes(arrangement)) throw new TypeError('HUD family requires stock items and a declared arrangement');
   return node(arrangement, {...props, role: 'hud', focusable: false, children: items});

@@ -74,3 +74,55 @@ test('flow contract: wrap is boolean, final capacity is finite nonnegative',asyn
   for(const wrap of [1,'false',null,{}])expect(()=>u.row({id:'r',layout:{wrap}})).toThrow(/wrap|boolean/i);
   for(const lastPageHeight of [-1,NaN,Infinity,'30',null])expect(()=>u.stack({id:'p',layout:{lastPageHeight}})).toThrow();
 });
+
+test('composed snapshots reuse validated immutable children while rechecking whole-tree authority',async()=>{
+  const u=await api(),leaf=u.button({id:'go',label:'Go',actionId:'app:go'}),branch=u.panel({id:'branch',children:[leaf]});
+  const root=u.panel({id:'root',children:[branch]});
+  expect(root.children[0]).toBe(branch);expect(root.children[0].children[0]).toBe(leaf);
+  expect(()=>u.panel({id:'duplicate',children:[branch,leaf]})).toThrow(/Duplicate/);
+  expect(()=>u.panel({id:'focus',children:[branch],focus:{defaultId:'absent'}})).toThrow(/focus ID/);
+  const forged=Object.freeze({...leaf,enabled:'yes'});expect(()=>u.panel({id:'raw',children:[forged]})).toThrow(/boolean/);
+  const {snapshotUiData}=await import('../../server/build/ui-theme.mjs');
+  const certified=snapshotUiData({...leaf,enabled:'yes'});expect(()=>u.validateUiTree(certified)).toThrow(/boolean/);
+});
+
+test('HUD families retain certified children without retaining mutable caller metadata',async()=>{
+  const u=await api(),leaf=u.text({id:'label',label:'Ready'}),items=[leaf],layout={width:100,height:40};
+  const tree=u.hudFamily({id:'hud',arrangement:'absolute',items,layout});
+  expect(tree.children[0]).toBe(leaf);items.length=0;layout.width=200;
+  expect(tree.children).toHaveLength(1);expect(tree.layout.width).toBe(100);
+  expect(Object.isFrozen(items)).toBe(false);expect(Object.isFrozen(layout)).toBe(false);
+  expect(()=>u.hudFamily({id:'duplicate',items:[leaf,leaf]})).toThrow(/Duplicate/);
+});
+
+
+test('mixed raw and certified trees reuse only semantic certificates and capture Proxy wrappers',async()=>{
+ const u=await api(),known=u.button({id:'known',label:'Go',actionId:'app:go'}),other=u.text({id:'wrapped',label:'Raw wrapper'});let descriptors=0;
+ const proxy=new Proxy(other,{getOwnPropertyDescriptor(target,key){descriptors++;return Reflect.getOwnPropertyDescriptor(target,key);}});
+ const result=u.validateUiTree({kind:'panel',id:'mixed-root',layout:{},children:[known,proxy],focus:{defaultId:'known'}});
+ expect(result.children[0]).toBe(known);expect(result.children[1]).not.toBe(other);expect(descriptors).toBeGreaterThan(0);expect(Object.isFrozen(result.children[1])).toBe(true);
+ let reads=0;const accessor=Object.defineProperty({...other},'label',{enumerable:true,get(){reads++;return 'changed';}});expect(()=>u.validateUiTree(accessor)).toThrow();expect(reads).toBe(0);
+ expect(()=>u.validateUiTree({kind:'panel',id:'dup-mixed',children:[known,known]})).toThrow(/Duplicate/);
+ expect(()=>u.validateUiTree({kind:'panel',id:'focus-mixed',children:[known],focus:{defaultId:'absent'}})).toThrow(/focus/);
+});
+
+
+test('semantic certificates cover immutable subtrees without redundant semantic writes',async()=>{
+ const u=await api(),leaf=u.text({id:'cert-leaf',label:'A'}),root=u.panel({id:'cert-root',children:[leaf]}),original=WeakSet.prototype.add;let writes=0,leafWrites=0,value;
+ WeakSet.prototype.add=function(v){writes++;if(v===leaf)leafWrites++;return original.call(this,v);};
+ try{value=u.validateUiTree(root);}finally{WeakSet.prototype.add=original;}
+ expect(value).toBe(root);expect(value.children[0]).toBe(leaf);expect(writes).toBe(0);
+ writes=leafWrites=0;WeakSet.prototype.add=function(v){writes++;if(v===leaf)leafWrites++;return original.call(this,v);};
+ try{value=u.validateUiTree({kind:'panel',id:'cert-new-root',children:[leaf]});}finally{WeakSet.prototype.add=original;}
+ expect(value.children[0]).toBe(leaf);expect(writes).toBeGreaterThan(0);expect(leafWrites).toBe(0);expect(u.validateUiTree(value)).toBe(value);
+});
+
+test('a failed descendant semantic mark never stamps its ancestor certificate',async()=>{
+ const u=await api(),original=WeakSet.prototype.add;let semanticSet,parentMarks=0;
+ WeakSet.prototype.add=function(v){if(v?.id==='cert-mark-probe'&&v.kind==='text')semanticSet=this;return original.call(this,v);};
+ try{u.text({id:'cert-mark-probe',label:'Marker'});}finally{WeakSet.prototype.add=original;}
+ expect(semanticSet).toBeTruthy();const raw={kind:'panel',id:'cert-parent',children:[{kind:'text',id:'cert-child',label:'A'}]};
+ WeakSet.prototype.add=function(v){if(this===semanticSet&&v.id==='cert-parent')parentMarks++;if(this===semanticSet&&v.id==='cert-child')throw Error('controlled semantic mark failure');return original.call(this,v);};
+ try{expect(()=>u.validateUiTree(raw)).toThrow(/controlled semantic mark failure/);}finally{WeakSet.prototype.add=original;}
+ expect(parentMarks).toBe(0);const recovered=u.validateUiTree(raw);expect(u.validateUiTree(recovered)).toBe(recovered);
+});

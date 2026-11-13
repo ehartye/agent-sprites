@@ -75,6 +75,10 @@ export interface UiLayoutPlan {
 }
 /** Semantic records retain input order. actionPlan/slot geometry describes independently supplied paint order. */
 export function layoutUi(tree: UiNode, environment: LayoutEnvironment): UiLayoutPlan;
+/** @internal Unclipped template for the passive native owner; not an input plan. */
+type WithUnboundedClip<T> = T extends unknown ? Omit<T,'clipBounds'> & {readonly clipBounds:Rect|null|undefined} : never;
+export type UnclippedUiLayoutPlan = Omit<UiLayoutPlan,'records'> & {readonly records:readonly (Omit<LayoutRecord,'clipBounds'|'contentClipBounds'|'parts'> & {readonly clipBounds:Rect|null|undefined;readonly contentClipBounds:Rect|null|undefined;readonly parts:readonly WithUnboundedClip<PaintPart>[]})[]};
+export function layoutUiUnclipped(tree: UiNode, environment: LayoutEnvironment): UnclippedUiLayoutPlan;
 
 /** Heights are measured by the existing source adapter in one semantic space.
  * heightOf/keep must be stable pure callbacks. No native resources belong here. */
@@ -87,3 +91,12 @@ export interface UiPageRun {readonly block:number;readonly from?:number;readonly
  * the ordinary tail at that capacity. Oversize indivisible runs get their own
  * page and remain available to the native owner's clipped scrolling policy. */
 export function paginateUiBlocks(blocks:readonly UiPageBlock[],options:{readonly pageHeight:number;readonly lastPageHeight?:number;readonly gap?:number;readonly minSplit?:number}):readonly (readonly UiPageRun[])[];
+
+declare const layoutMemoIdentity:unique symbol;
+/** @internal Opaque mount-scoped, bounded immutable text data only. */
+export interface UiLayoutMemo {readonly [layoutMemoIdentity]:true;}
+export interface UiLayoutMemoStats {readonly entries:number;readonly units:number;readonly hits:number;readonly misses:number;readonly evictions:number;}
+/** @internal Raw prepared themes bypass memoization. Ordinary plan validation remains complete. */
+export function prepareUiLayout(tree:UiNode,environment:LayoutEnvironment,previous?:UiLayoutMemo):{readonly plan:UiLayoutPlan;readonly memo:UiLayoutMemo|undefined};
+export function prepareUnclippedUiLayout(tree:UiNode,environment:LayoutEnvironment,previous?:UiLayoutMemo):{readonly plan:UnclippedUiLayoutPlan;readonly memo:UiLayoutMemo|undefined};
+export function inspectUiLayoutMemo(memo:UiLayoutMemo|undefined):UiLayoutMemoStats;

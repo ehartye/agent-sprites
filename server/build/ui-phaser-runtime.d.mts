@@ -1,6 +1,6 @@
 import type {UiTheme, UiData, Rect} from './ui-theme.mjs';
 import type {UiNode} from './ui-components.mjs';
-import type {Context, ResolvedContext, ExtensionDefinition, LayoutRecord} from './ui-layout.mjs';
+import type {Context, ResolvedContext, ExtensionDefinition, LayoutRecord, UiLayoutMemoStats} from './ui-layout.mjs';
 import type {NormalizedUiEvent, UiIntent, InteractionPolicy} from './ui-interaction.mjs';
 
 /** Structural subset of installed Phaser 4.2.1; no second Phaser package is loaded. */
@@ -84,15 +84,30 @@ export interface NativeObservation {
   readonly controls:readonly {readonly id:string;readonly kind:string;readonly role:string;readonly enabled:boolean;readonly focused:boolean;readonly hovered:boolean;readonly pressed:boolean;
     readonly state:string;readonly bounds:Rect;readonly hitBounds:Rect;readonly focusBounds:Rect;readonly effectiveHitBounds:Rect|null;readonly effectiveFocusBounds:Rect|null;readonly clipBounds:Rect|null;readonly paintBounds:Rect|null;readonly semanticContextId:string;readonly contextRevisions:Readonly<Record<string,number>>}[];
   readonly nextAfterId:string|null;
-  readonly native:{readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly cleanupFailures:readonly string[]};
+  readonly native:{readonly textMemo?:UiLayoutMemoStats;readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly preparations?:number;readonly cleanupFailures:readonly string[]};
+}
+/** Unreleased draft: local layout x/y for admitted direct decorative icon leaves.
+ * Expected revision must match; next revision strictly increases. All other
+ * semantic/layout/context changes require ordinary full update. */
+export interface IconPlacements {
+  readonly expectedRevision:number;
+  readonly revision:number;
+  readonly items:readonly {readonly id:string;readonly x:number;readonly y:number}[];
 }
 export interface MountedPhaserUi {
+  placeIcons(request:IconPlacements):void;
   update(snapshot:UiSnapshot):void;
   handle(input:NormalizedUiEvent):readonly UiIntent[];
   inspect(options:{readonly limit:number;readonly afterId?:string}):NativeObservation;
   dispose():void;
 }
+/** Passive positions are relative to the context viewport. Accepted revisions
+ * strictly increase; context changes require a newer context revision. */
+export interface PassiveUiSnapshot {readonly revision:number;readonly context:Context;readonly items:readonly {readonly id:string;readonly tree:UiNode;readonly x:number;readonly y:number}[];}
+export interface MountedPassiveUi {update(snapshot:PassiveUiSnapshot):void;inspect(options:{readonly limit:number;readonly afterId?:string}):NativeObservation;dispose():void;}
 export interface PhaserUi<F=unknown> {
+  /** Stock text/flat passive forest with a defineTheme-certified immutable theme only. No input handle or action authority. */
+  mountPassive(snapshot:PassiveUiSnapshot,options:{readonly parent:NativeParent;readonly scope:string}):MountedPassiveUi;
   mount(snapshot:UiSnapshot,options:{readonly parent:NativeParent;readonly scope:string;readonly policy?:InteractionPolicy}):MountedPhaserUi;
   registerExtension(id:`${string}:${string}`,definition:NativeExtension<F>):()=>void;
   dispose():void;

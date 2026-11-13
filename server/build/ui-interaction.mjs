@@ -1,6 +1,6 @@
 import {UI_NODE_KINDS} from './ui-components.mjs';
 import {projectPixelPoint} from './ui-runtime.mjs';
-import {copyUiData, freezeUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, snapshotUiData, uiNumber, uiId, uiRect, uiKeys} from './ui-theme.mjs';
 
 const stable = value => JSON.stringify(value, (_, entry) => entry && !Array.isArray(entry) && typeof entry === 'object' ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
 const contains = (bounds, point) => bounds && point && point.x >= bounds.x && point.y >= bounds.y && point.x < bounds.x + bounds.width && point.y < bounds.y + bounds.height;
@@ -14,9 +14,9 @@ const inputParts = record => (record.parts ?? []).filter(part => part.kind === '
 const semanticKeys = ['id', 'kind', 'role', 'enabled', 'focusable', 'actionId', 'paneId', 'parentId', 'value', 'selection', 'composition', 'min', 'max', 'step', 'options', 'pageCount', 'maxLength', 'label', 'selected', 'appearanceRole', 'variant', 'layout', 'regions', 'metadata', 'hidden', 'extensionId', 'model', 'contextId', 'labelContextId', 'skinContextId', 'semanticContextId'];
 function semantic(plan) { return stable({focus: plan.focus, records: plan.records.map(record => Object.fromEntries(semanticKeys.filter(key => record[key] !== undefined).map(key => [key, record[key]])))}); }
 function prepare(scope) {
-  const source = copyUiData(scope);
+  let source = snapshotUiData(scope);
   uiKeys(source, ['id', 'plan'], 'interaction scope'); uiId(source.id, 'Scope ID', true);
-  const plan = source.plan;
+  let plan = source.plan;
   if (plan?.format !== 'agent-sprites/ui-layout@1' || !Array.isArray(plan.contexts) || !plan.contexts.length || !Array.isArray(plan.records)) throw new TypeError('Expected a portable UI layout plan');
   if (!Number.isInteger(uiNumber(plan.revision, 'model revision'))) throw new RangeError('Invalid model revision');
   const contexts = new Map(), records = new Map();
@@ -46,7 +46,9 @@ function prepare(scope) {
     if(record.kind==='panel' && (record.parentId===undefined || (record.children??[]).length || [...records.values()].some(r=>r.parentId===record.id) || record.label!==undefined || !Array.isArray(record.parts) || record.parts.some(p=>p.kind!=='flat') || record.state==='visible'&&record.parts.length!==1))throw new TypeError('State-owner panel must be a leaf flat decoration');
     if(plan.focus?.order?.includes(record.id)||['initialId','defaultId','cancelId'].some(key=>plan.focus?.[key]===record.id))throw new TypeError('State-owner consumer cannot gain focus authority');
   }
-  plan.focus ??= {};
+  if (plan.focus === undefined || plan.focus === null) {
+    source = snapshotUiData({...source, plan: {...plan, focus: {}}}); plan = source.plan;
+  }
   uiKeys(plan.focus, ['initialId', 'defaultId', 'cancelId', 'order'], 'focus');
   if (plan.focus.order !== undefined) {
     if (!Array.isArray(plan.focus.order) || plan.focus.order.length > 10000 || new Set(plan.focus.order).size !== plan.focus.order.length) throw new TypeError('Invalid or duplicate focus order');

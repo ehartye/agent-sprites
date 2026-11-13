@@ -168,6 +168,38 @@ try {
       const remounted=await page.evaluate(()=>window.nativeUi.remount());assert.equal(remounted.native.lifecycle,'mounted');assert.ok(remounted.borrowedRoots.every(root=>root.children===0&&root.borrowedAlive),'Library unmount empties and preserves borrowed fixture roots');
       const failed=await page.evaluate(()=>{let error;try{window.nativeUi.update({fail:true});}catch(e){error=e.message;}return {error,observation:window.nativeUi.inspect(),lifecycle:window.nativeUi.lifecycle()};});
       assert.match(failed.error,/Deliberate extension failure/);assert.equal(failed.observation.native.lifecycle,'retired');assert.equal(failed.observation.native.objects,0);assert.equal(failed.observation.native.extensions,0);
+      const passiveSteps=[];
+      for(let step=0;step<7;step++){
+        const referenceProbe=await page.evaluate(step=>window.nativeUi.retainedProbe('reference',step),step);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        const referencePixels=await page.locator('canvas').screenshot();
+        const retainedProbe=await page.evaluate(step=>window.nativeUi.retainedProbe('retained',step),step);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        const retainedPixels=await page.locator('canvas').screenshot();
+        const refInk=await sharp(referencePixels).raw().toBuffer({resolveWithObject:true}),retainedInk=await sharp(retainedPixels).raw().toBuffer({resolveWithObject:true});
+        assert.deepEqual(retainedInk.info,refInk.info);assert.deepEqual(retainedInk.data,refInk.data,'Retained outline/clip/movement pixels equal freshly prepared stock reference at step '+step);
+        assert.equal(retainedProbe.heldCount,0);assert.equal(retainedProbe.focusId,null);
+        if(step===6)assert.ok(retainedProbe.native.preparations<7,'Whole-pixel movements reuse preparation');
+        passiveSteps.push({step,referenceObjects:referenceProbe.native.objects,retainedObjects:retainedProbe.native.objects,preparations:retainedProbe.native.preparations,pixelBytes:refInk.data.length,exactPixels:true});
+      }
+      specimen.retainedPassive={steps:passiveSteps,exactPixels:true};
+      await page.evaluate(()=>window.nativeUi.stopRetainedProbe());
+      const iconSteps=[];
+      for(let step=0;step<9;step++){
+        const reference=await page.evaluate(step=>window.nativeUi.iconPlacementProbe('reference',step),step);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        const referencePixels=await page.locator('canvas').screenshot();
+        const placed=await page.evaluate(step=>window.nativeUi.iconPlacementProbe('placed',step),step);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        const placedPixels=await page.locator('canvas').screenshot();
+        const refInk=await sharp(referencePixels).raw().toBuffer({resolveWithObject:true}),placedInk=await sharp(placedPixels).raw().toBuffer({resolveWithObject:true});
+        assert.deepEqual(placedInk.info,refInk.info);assert.deepEqual(placedInk.data,refInk.data,'Placed stock-icon pixels equal independent full-layout reference at step '+step);
+        assert.deepEqual(placed.controls,reference.controls);assert.equal(placed.heldCount,step<7?1:0,'Unchanged hold survives placement; context replacement cancels it');
+        if(step===8){assert.equal(placed.placements,6);assert.equal(placed.fullUpdates,2);}
+        iconSteps.push({step,pixelBytes:refInk.data.length,placements:placed.placements,fullUpdates:placed.fullUpdates,heldCount:placed.heldCount,exactPixels:true});
+      }
+      specimen.iconPlacements={steps:iconSteps,exactPixels:true};
+      await page.evaluate(()=>window.nativeUi.stopIconPlacementProbe());
       const cleaned=await page.evaluate(()=>window.nativeUi.dispose());assert.equal(cleaned.observation.native.objects,0);assert.equal(cleaned.observation.native.fragments,0);assert.equal(cleaned.observation.native.created,cleaned.observation.native.destroyed);assert.equal(cleaned.lifecycle.attachmentsCreated,cleaned.lifecycle.attachmentsDisposed);assert.equal(cleaned.lifecycle.borrowedFonts,true);assert.equal(cleaned.lifecycle.borrowedSkins,true);assert.deepEqual(cleaned.lifecycle.fontFrames,['__BASE']);assert.deepEqual(cleaned.lifecycle.skinFrames,['__BASE']);assert.ok(cleaned.lifecycle.extensionDisposed>=3);
       assert.ok(cleaned.borrowedRoots.every(root=>root.children===0&&root.borrowedAlive),'Library disposal preserves empty borrowed roots');assert.equal(cleaned.lifecycle.sceneObjects,cleaned.borrowedRoots.length,'Only fixture roots remain after library cleanup');assert.equal(cleaned.sceneObjectsAfterRootCleanup,0,'Host root cleanup empties the actual scene display list');
       assert.deepEqual(errors,[]);specimen.passed=true;

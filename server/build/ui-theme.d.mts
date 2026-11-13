@@ -83,6 +83,12 @@ export function defineTheme(input: ThemeInput): UiTheme;
 export function resolveThemeRole(theme: UiTheme, id: string): PreparedThemeRole;
 /** Internal cross-module data validators. No callbacks, native resources or caller references survive copying. */
 export function copyUiData<T>(value: T): T;
+/** Internal immutable publication; only validated library snapshots may share references. */
+export function snapshotUiData<T>(value: T): DeepReadonly<T>;
+/** Internal membership only; grants no certificate. */
+export function isUiSnapshot(value: unknown): boolean;
+/** Trusted internal transfer of ordinary non-Proxy library allocations; never raw caller input. */
+export function publishUiData<T>(value: T): DeepReadonly<T>;
 export function freezeUiData<T>(value: T): DeepReadonly<T>;
 export function uiNumber(value: number, name: string, minimum?: number): number;
 export function uiKeys(value: unknown, keys: readonly string[], name: string): void;

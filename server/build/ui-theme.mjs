@@ -1,27 +1,97 @@
 import {BITMAP_TEXT_POLICY, measureBitmapText} from './ui-runtime.mjs';
 
+// Use assignment only for a fresh ordinary record with no inherited hazards.
+// Unknown/preinstalled shims retain their original descriptor-call behavior.
+const apply=Reflect.apply;
+const originalDefine=Object.defineProperty, own=Object.hasOwn, getPrototype=Object.getPrototypeOf;
+const nativeText=fn=>typeof fn==='function'?Function.prototype.toString.call(fn):'';
+const nativeWriters=nativeText(originalDefine)==='function defineProperty() { [native code] }'&&nativeText(own)==='function hasOwn() { [native code] }'&&nativeText(getPrototype)==='function getPrototypeOf() { [native code] }';
+const recordPrototype=nativeWriters?getPrototype({}):null, fastRecordWrite=nativeWriters&&recordPrototype===Object.prototype;
+const immutableUiData = new WeakSet(), deeplyFrozenUiData = new WeakSet();
+
 /** Shared validation helpers. Copy data before freezing; never freeze caller objects. @internal */
-export function copyUiData(value, seen = new Set()) {
+export function copyUiData(value, seen = new Set()) { return cloneUiData(value, seen, false); }
+
+/** Internal publication boundary. Only this module can certify reusable data. */
+export function snapshotUiData(value) { return cloneUiData(value, new Set(), true); }
+
+/** Internal identity check; never grants a validation certificate. */
+export function isUiSnapshot(value) { return immutableUiData.has(value); }
+
+function cloneUiData(value, seen, immutable) {
   if (value === null || ['string', 'boolean', 'undefined'].includes(typeof value)) return value;
   if (typeof value === 'number') { if (!Number.isFinite(value)) throw new TypeError('UI data numbers must be finite'); return value; }
+  if (immutable && immutableUiData.has(value)) return value;
   if (typeof value !== 'object' || seen.has(value)) throw new TypeError('UI data must be acyclic plain data');
   seen.add(value);
   const array = Array.isArray(value);
   if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new TypeError('UI data must be plain records');
   const result = array ? [] : {};
+  let recordWriteSafe=!array&&fastRecordWrite;
   for (const key of Reflect.ownKeys(value)) {
     if (array && key === 'length') continue;
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (typeof key !== 'string' || !descriptor.enumerable || !('value' in descriptor) || ['__proto__', 'prototype', 'constructor'].includes(key)) throw new TypeError('UI data has unsupported properties');
-    Object.defineProperty(result, key, {value: copyUiData(descriptor.value, seen), enumerable: true, writable: true, configurable: true});
+    const defineOwner=Object, define=defineOwner.defineProperty; // Preserve pre-child callee and receiver.
+    const child=cloneUiData(descriptor.value,seen,immutable);
+    // A child Proxy may have changed prototype keys or descriptor get/set
+    // fields. Check AFTER recursion; array writes keep the original path.
+    // A custom definer can expose or modify this target. Never resume the
+    // fast path on that container, even if the global method is restored.
+    if(define!==originalDefine)recordWriteSafe=false;
+    if (recordWriteSafe && !own(recordPrototype,key) && !own(recordPrototype,'get') && !own(recordPrototype,'set')) result[key]=child;
+    else apply(define,defineOwner,[result,key,{value:child,enumerable:true,writable:true,configurable:true}]);
   }
   if (array && (result.length !== value.length || Object.keys(result).length !== value.length)) throw new TypeError('UI arrays must be dense');
   seen.delete(value);
+  if (immutable) { Object.freeze(result); immutableUiData.add(result); }
   return result;
 }
-/** @internal */
+
+/** Trusted internal ownership transfer: ordinary non-Proxy library allocations only.
+ * Public/raw inputs must pass clone-based admission first. Retains aliases. @internal */
+export function publishUiData(value) {
+  function validate(requireFrozen = false) {
+    const active = new Set(), visited = new Set(), order = [];
+    function visit(entry) {
+      if (entry === null || ['string', 'boolean', 'undefined'].includes(typeof entry)) return;
+      if (typeof entry === 'number') { if (!Number.isFinite(entry)) throw new TypeError('UI data numbers must be finite'); return; }
+      if (immutableUiData.has(entry)) return;
+      if (typeof entry !== 'object' || active.has(entry)) throw new TypeError('UI data must be acyclic plain data');
+      if (visited.has(entry)) return;
+      const array = Array.isArray(entry);
+      if (array && Object.getPrototypeOf(entry) !== Array.prototype) throw new TypeError('Owned UI arrays must have the ordinary array prototype');
+      if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(entry))) throw new TypeError('UI data must be plain records');
+      if (requireFrozen && !Object.isFrozen(entry)) throw new TypeError('Owned UI data changed during publication');
+      active.add(entry);
+      const keys = Reflect.ownKeys(entry);
+      for (const key of keys) {
+        if (array && key === 'length') continue;
+        const descriptor = Object.getOwnPropertyDescriptor(entry, key);
+        if (typeof key !== 'string' || !descriptor?.enumerable || !('value' in descriptor) || ['__proto__', 'prototype', 'constructor'].includes(key)) throw new TypeError('UI data has unsupported properties');
+        if (array && (!Number.isInteger(+key) || String(+key) !== key || +key < 0 || +key >= entry.length)) throw new TypeError('UI arrays must be dense');
+        visit(descriptor.value);
+      }
+      if (array && keys.length - 1 !== entry.length) throw new TypeError('UI arrays must be dense');
+      active.delete(entry); visited.add(entry); order.push(entry);
+    }
+    visit(value); return order;
+  }
+  const order = validate();
+  for (const entry of order) Object.freeze(entry);
+  // Defensively recheck before certification. Own-descriptor checks cannot
+  // prove arbitrary Proxy inherited reads safe; the ownership precondition stays.
+  for (const entry of validate(true)) immutableUiData.add(entry);
+  return value;
+}
+
+/** Certified data is already recursively frozen. Generic freezing has its own
+ * separate memo and never grants a validation certificate. @internal */
 export function freezeUiData(value) {
-  if (value && typeof value === 'object') { for (const child of Object.values(value)) freezeUiData(child); Object.freeze(value); }
+  if (value && typeof value === 'object' && !immutableUiData.has(value) && !deeplyFrozenUiData.has(value)) {
+    for (const child of Object.values(value)) freezeUiData(child);
+    Object.freeze(value); deeplyFrozenUiData.add(value);
+  }
   return value;
 }
 /** @internal */
@@ -139,7 +209,7 @@ export function defineTheme(input) {
   const geometry = {gap: 0, padding: 0, minTarget: 0, ...source.geometry};
   uiKeys(geometry, ['gap', 'padding', 'minTarget'], 'theme geometry');
   uiNumber(geometry.gap, 'geometry.gap'); uiNumber(geometry.minTarget, 'geometry.minTarget'); geometry.padding = uiInsets(geometry.padding);
-  return freezeUiData({...source, format: 'agent-sprites/ui-theme@1', fonts, skins, roles, geometry});
+  return publishUiData({...source, format: 'agent-sprites/ui-theme@1', fonts, skins, roles, geometry});
 }
 
 export function resolveThemeRole(theme, id) {
