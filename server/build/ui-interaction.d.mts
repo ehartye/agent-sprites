@@ -60,3 +60,17 @@ export interface UiInteraction {
   dispose(): void;
 }
 export function createUiInteraction(scope: InteractionScope, policy?: InteractionPolicy): UiInteraction;
+
+/** @internal Compact renderer state from a genuine interaction instance.
+ * Does not expose geometry, layout parts, mutable tokens or admission authority.
+ * Public inspect remains the complete bounded/paginated observation API. */
+export interface UiAppearanceObservation {
+  readonly scopeId: string; readonly modelRevision: number; readonly disposed: boolean;
+  readonly controls: readonly (Readonly<Pick<LayoutRecord, 'id' | 'state' | 'enabled'>> & {
+    /** Optional selection paint truthiness; raw public observations are unchanged. */
+    readonly selected?: boolean;
+    readonly focused: boolean; readonly hovered: boolean; readonly pressed: boolean;
+  })[];
+}
+/** @internal */
+export function readUiAppearance(interaction: UiInteraction): UiAppearanceObservation;

@@ -1,6 +1,6 @@
 import {layoutUiUnclipped,prepareUiLayout,prepareUnclippedUiLayout,inspectUiLayoutMemo} from './ui-layout.mjs';
 import {validateUiTree} from './ui-components.mjs';
-import {createUiInteraction} from './ui-interaction.mjs';
+import {createUiInteraction,readUiAppearance} from './ui-interaction.mjs';
 import {iterateNineSliceTiles, planNineSlice, placeBitmapText, projectPixelRect, quantizePhysicalRect} from './ui-runtime.mjs';
 import {copyUiData, freezeUiData, snapshotUiData, publishUiData, isUiSnapshot, resolveThemeRole, uiId, uiRect, uiKeys} from './ui-theme.mjs';
 
@@ -607,8 +607,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
       // clears the crop flag, then setFrame replaces each surviving Image's
       // retired Frame. Phaser 4.2.1's no-argument crop does not read that Frame.
       for(const [key,item]of fragments)if(!desiredFrames.has(key)){item.release();fragments.delete(key);}
-      const feedback = passive?new Map(prepared.plan.records.map(r=>[r.id,r])):new Map();let afterId;
-      if(!passive) do {const page=interaction.inspect({limit:256,...(afterId?{afterId}:{})});for(const r of page.controls)feedback.set(r.id,r);afterId=page.nextAfterId;} while(afterId);
+      const feedback = passive?new Map(prepared.plan.records.map(r=>[r.id,r])):appearanceFeedback();
       const usedObjects = new Set(), usedFrames = new Set();let depth=0;
       for (const command of prepared.commands) {
         const record = feedback.get(command.recordId), clipped = intersect(command.bounds,command.clip);
@@ -679,9 +678,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}}) {
     }
     function appearanceFeedback() {
       if(passive)return new Map();
-      const feedback=new Map();let afterId;
-      do{const page=interaction.inspect({limit:256,...(afterId?{afterId}:{})});for(const r of page.controls)feedback.set(r.id,r);afterId=page.nextAfterId;}while(afterId);
-      return feedback;
+      return new Map(readUiAppearance(interaction).controls.map(record=>[record.id,record]));
     }
     function handle(input) {
       if(lifecycle!=='mounted') return [];
