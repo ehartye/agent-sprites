@@ -674,3 +674,138 @@ test('grid row gap: an omitted rowGap falls back to gap while an explicit zero d
   expect(zero.records.find(r=>r.id==='c').bounds.y).toBe(10);
   expect(zero.records[0].measure.preferred.height).toBe(20);
 });
+
+
+test('owned layout publication isolates mutable prepared theme data before retaining references',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),theme=structuredClone(env.theme);
+  const tree=u.text({id:'owned-label',label:'A'}),plan=layoutUi(tree,{...env,theme});
+  expect(Object.isFrozen(theme)).toBe(false);expect(Object.isFrozen(theme.fonts.body.font.glyphs.A)).toBe(false);expect(Object.isFrozen(theme.fonts.body.font.glyphs.A.frames.cream.source)).toBe(false);
+  const before=JSON.stringify(plan);theme.fonts.body.font.glyphs.A.advance=999;theme.roles.text.tone='changed';theme.fonts.body.font.glyphs.A.frames.cream.source.x=99;
+  expect(JSON.stringify(plan)).toBe(before);expect(Object.isFrozen(plan)).toBe(true);
+});
+
+
+test('scoped immutable text memo shares certified geometry while every semantic plan remains fresh',async()=>{
+ const [{layoutUi,prepareUiLayout,inspectUiLayoutMemo},u,{defineTheme,isUiSnapshot}]=await api(),env=environment(defineTheme);
+ expect(typeof prepareUiLayout).toBe('function');
+ const tree=(labelId,actionId)=>u.absolute({id:'root',children:[u.text({id:labelId,label:'A i?',layout:{x:3.25,y:2,width:40,height:12,wrap:false}}),u.button({id:'action',label:'A',actionId,layout:{x:50,y:20,width:20,height:10}})]});
+ const first=prepareUiLayout(tree('old-label','old-action'),env),second=prepareUiLayout(tree('new-label','new-action'),{...env,revision:2},first.memo);
+ const a=first.plan.records.find(r=>r.id==='old-label').text,b=second.plan.records.find(r=>r.id==='new-label').text;
+ expect(a).toBe(b);expect(Object.isFrozen(a)).toBe(true);expect(isUiSnapshot(a)).toBe(true);
+ expect(second.plan.records.find(r=>r.id==='action').actionId).toBe('new-action');expect(second.plan).toEqual(layoutUi(tree('new-label','new-action'),{...env,revision:2}));
+ const before=inspectUiLayoutMemo(second.memo);
+ expect(()=>prepareUiLayout({...tree('bad-label','new-action'),children:[{...u.text({id:'bad-label',label:'A'}),layout:{width:-1}}]},env,second.memo)).toThrow();
+ expect(()=>prepareUiLayout(tree('new-label','new-action'),{...env,context:{...env.context,localToPhysical:{scale:0,x:0,y:0}}},second.memo)).toThrow();
+ expect(inspectUiLayoutMemo(second.memo)).toEqual(before);
+ const moved=prepareUiLayout(tree('new-label','new-action'),{...env,context:{...env.context,revision:2,localToPhysical:{scale:3,x:1,y:2}}},second.memo);
+ expect(moved.plan).toEqual(layoutUi(tree('new-label','new-action'),{...env,context:{...env.context,revision:2,localToPhysical:{scale:3,x:1,y:2}}}));expect(moved.plan.records[1].text).not.toBe(b);
+});
+
+test('scoped text memo remains bounded and bypasses mutable raw theme metrics',async()=>{
+ const [{layoutUi,prepareUiLayout,inspectUiLayoutMemo},u,{defineTheme}]=await api(),env=environment(defineTheme);
+ expect(typeof prepareUiLayout).toBe('function');let memo;
+ for(let i=0;i<300;i++)memo=prepareUiLayout(u.text({id:'label',label:'A '+i,layout:{width:90,height:10}}),env,memo).memo;
+ const stats=inspectUiLayoutMemo(memo);expect(stats.entries).toBeLessThanOrEqual(256);expect(stats.units).toBeLessThanOrEqual(4194304);expect(stats.evictions).toBeGreaterThan(0);
+ const raw=structuredClone(env.theme);let reads=0;Object.defineProperty(raw.fonts.body.font.glyphs.A,'advance',{enumerable:true,get(){reads++;return 7;}});
+ const tree=u.text({id:'raw',label:'A A',layout:{width:90,height:10}}),rawEnv={...env,theme:raw};layoutUi(tree,rawEnv);const budget=reads;reads=0;
+ const one=prepareUiLayout(tree,rawEnv,memo);expect(one.memo).toBeUndefined();expect(reads).toBe(budget);reads=0;
+ const two=prepareUiLayout(tree,rawEnv,one.memo);expect(reads).toBe(budget);expect(two.plan).toEqual(one.plan);
+});
+
+
+test('memoized complete plans equal uncached plans for pagination fields tabs and fractional density changes',async()=>{
+ const [{layoutUi,prepareUiLayout},u,{defineTheme}]=await api(),env=environment(defineTheme);let memo;
+ const variants=[
+  ...[0,1,2].map(page=>u.text({id:'pages',label:'AA AA AA\ni\nA',layout:{x:.25,y:.5,width:14,height:12,lastPageHeight:8,overflow:'paginate',page}})),
+  ...[0,1,2,3].map(start=>u.field({id:'field',value:'A😀 i',selection:{start,end:Math.min(5,start+1),direction:'forward'},composition:'i',layout:{x:.25,y:.5,width:14,height:12,lastPageHeight:8,overflow:'paginate',page:0}})),
+  u.tabs({id:'tabs',value:'one',options:[{id:'one',label:'A i'},{id:'two',label:'??',enabled:false}],layout:{x:.25,y:.5,width:80,height:14}}),
+ ];
+ for(const scale of [1,2,3])for(const tree of variants)for(let repeat=0;repeat<2;repeat++){
+  const e={...env,revision:repeat+1,context:{...env.context,revision:scale,localToPhysical:{scale,x:1,y:2},sourcePixelPhysicalSize:3}};
+  const prepared=prepareUiLayout(tree,e,memo);memo=prepared.memo;expect(prepared.plan).toEqual(layoutUi(tree,e));
+ }
+});
+
+
+test('text memo preserves signed-zero context values in exact immutable placement output',async()=>{
+ const [{layoutUi,prepareUiLayout},u,{defineTheme}]=await api(),env=environment(defineTheme),tree=u.text({id:'label',label:'A',layout:{width:30,height:10}});
+ const first=prepareUiLayout(tree,env),negative={...env,context:{...env.context,localToPhysical:{...env.context.localToPhysical,x:-0}}};
+ const expected=layoutUi(tree,negative);expect(Object.is(expected.records[0].text.resolution.localToPhysical.origin.x,-0)).toBe(true);
+ const second=prepareUiLayout(tree,negative,first.memo);expect(second.plan).toEqual(expected);expect(Object.is(second.plan.records[0].text.resolution.localToPhysical.origin.x,-0)).toBe(true);
+});
+
+
+test('dependency sharing retains the complete immutable inherited map within one layout only',async()=>{
+ const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),tree=u.absolute({id:'root',children:[u.panel({id:'parent',children:[u.panel({id:'child'})]}),u.panel({id:'sibling'})]});
+ const first=layoutUi(tree,env),map=first.records[0].contextRevisions;
+ expect(first.records.every(r=>r.contextRevisions===map)).toBe(true);expect(Object.keys(map)).toEqual(['test:main']);expect(map['test:main']).toBe(1);expect(Object.isFrozen(map)).toBe(true);
+ const next=layoutUi(tree,env);expect(next.records[0].contextRevisions).not.toBe(map);expect(next.records.every(r=>r.contextRevisions===next.records[0].contextRevisions)).toBe(true);
+ expect(first.records[1].measure).not.toBe(first.records[2].measure);expect(first.records[1].parts).not.toBe(first.records[2].parts);
+});
+
+test('dependency sharing preserves ancestor extras and key order without contaminating siblings',async()=>{
+ const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);env.additionalContexts=['skin','label','child'].map((id,i)=>({...env.context,id:'test:'+id,revision:i+2}));
+ const tree=u.absolute({id:'root',skinContextId:'test:skin',labelContextId:'test:label',children:[u.panel({id:'branch',contextId:'test:child',skinContextId:'test:skin',labelContextId:'test:label',children:[u.panel({id:'return',contextId:'test:main'})]}),u.panel({id:'sibling',skinContextId:'test:skin',labelContextId:'test:label'})]});
+ const plan=layoutUi(tree,env),maps=Object.fromEntries(plan.records.map(r=>[r.id,r.contextRevisions]));
+ expect(Object.entries(maps.root)).toEqual([['test:main',1],['test:skin',2],['test:label',3]]);expect(Object.entries(maps.branch)).toEqual([['test:main',1],['test:skin',2],['test:label',3],['test:child',4]]);
+ expect(maps.branch).not.toBe(maps.root);expect(maps.return).toBe(maps.branch);expect(maps.sibling).toBe(maps.root);expect(Object.hasOwn(maps.root,'test:child')).toBe(false);
+});
+
+test('dependency sharing uses own revisions and preserves signed zero and fresh context validation',async()=>{
+ const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),tree=u.absolute({id:'root',children:[u.panel({id:'child'})]});let reads=0;const prior=Object.getOwnPropertyDescriptor(Object.prototype,'test:main');
+ try{Object.defineProperty(Object.prototype,'test:main',{configurable:true,get(){reads++;return 1;}});const p=layoutUi(tree,env);expect(Object.hasOwn(p.records[0].contextRevisions,'test:main')).toBe(true);expect(p.records[1].contextRevisions).toBe(p.records[0].contextRevisions);expect(reads).toBe(0);}finally{if(prior)Object.defineProperty(Object.prototype,'test:main',prior);else delete Object.prototype['test:main'];}
+ const minus=layoutUi(tree,{...env,context:{...env.context,revision:-0}}),plus=layoutUi(tree,{...env,context:{...env.context,revision:0}});expect(Object.is(minus.records[1].contextRevisions['test:main'],-0)).toBe(true);expect(Object.is(plus.records[1].contextRevisions['test:main'],0)).toBe(true);expect(minus.records[0].contextRevisions).not.toBe(plus.records[0].contextRevisions);
+ expect(()=>layoutUi(tree,{...env,additionalContexts:[{...env.context}]})).toThrow(/Duplicate context/);expect(()=>layoutUi(u.panel({id:'unknown',contextId:'test:unknown'}),env)).toThrow(/Unknown context/);expect(()=>layoutUi({...tree,children:[tree.children[0],tree.children[0]]},env)).toThrow(/Duplicate node/);
+});
+
+test('dependency sharing keeps raw-theme getter work and returned data detached',async()=>{
+ const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),raw=structuredClone(env.theme);let reads=0;Object.defineProperty(raw.fonts.body.font.glyphs.A,'advance',{enumerable:true,get(){reads++;return 7;}});env.theme=raw;
+ const tree=u.absolute({id:'root',children:[u.text({id:'a',label:'A'}),u.text({id:'b',label:'A'})]}),first=layoutUi(tree,env),firstReads=reads;expect(firstReads).toBeGreaterThan(0);reads=0;layoutUi(tree,env);expect(reads).toBe(firstReads);
+ expect(first.records[1].contextRevisions).not.toBe(first.records[0].contextRevisions);expect(first.records[2].contextRevisions).not.toBe(first.records[1].contextRevisions);env.context.revision=8;env.context.viewport.x=9;expect(first.records.every(r=>r.contextRevisions['test:main']===1)).toBe(true);expect(first.contexts[0].viewport.x).toBe(0);
+});
+
+test('dependency sharing is isolated from nested measure layouts and rejected memo candidates',async()=>{
+ const [{layoutUi,prepareUiLayout,inspectUiLayoutMemo},u,{defineTheme}]=await api(),env=environment(defineTheme);let nested=0;
+ env.extensions={'test:nested':{version:1,measure(){const p=layoutUi(u.absolute({id:'inner',children:[u.panel({id:'leaf'})]}),{...env,extensions:{},context:{...env.context,id:'test:inner',revision:33}});expect(p.records.every(r=>r.contextRevisions['test:inner']===33&&!Object.hasOwn(r.contextRevisions,'test:main'))).toBe(true);nested++;return{min:{width:0,height:0},preferred:{width:20,height:10},overflow:'clip'};}}};
+ const tree=u.absolute({id:'outer',children:[u.extension({id:'nested',extensionId:'test:nested',model:{},layout:{width:20,height:10}}),u.text({id:'text',label:'AA'})]}),accepted=prepareUiLayout(tree,env);expect(accepted.plan.records.every(r=>r.contextRevisions===accepted.plan.records[0].contextRevisions)).toBe(true);expect(nested).toBe(2);const before=inspectUiLayoutMemo(accepted.memo);
+ expect(()=>prepareUiLayout({...tree,focus:{initialId:'absent'}},{...env,revision:2},accepted.memo)).toThrow(/focus ID/);expect(inspectUiLayoutMemo(accepted.memo)).toEqual(before);expect(accepted.plan.records.every(r=>Object.entries(r.contextRevisions).length===1&&r.contextRevisions['test:main']===1)).toBe(true);
+});
+
+
+test('owned default regions: absent hit and focus reuse only their invocation-owned record bounds',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const tree=u.stack({id:'region-root',children:[u.button({id:'region-a',label:'A',layout:{height:12}}),u.button({id:'region-b',label:'i',layout:{height:12}})]});
+  const plan=layoutUi(tree,env),again=layoutUi(tree,env);
+  for(const r of plan.records){expect(r.hitBounds).toBe(r.bounds);expect(r.focusBounds).toBe(r.bounds);expect(Object.isFrozen(r.bounds)).toBe(true);expect(Reflect.ownKeys(r.bounds)).toEqual(['x','y','width','height']);expect(again.records.find(v=>v.id===r.id).bounds).not.toBe(r.bounds);}
+  expect(plan.records[1].bounds).not.toBe(plan.records[2].bounds);expect(Object.isFrozen(env.context.viewport)).toBe(false);
+  const before=plan.records[0].bounds.width;env.context.viewport.width=200;expect(plan.records[0].bounds.width).toBe(before);expect(()=>{plan.records[0].hitBounds.width=1;}).toThrow(TypeError);
+});
+
+test('owned default regions: explicit equal-valued hit or focus stays a separate translated rectangle',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  const tree=u.button({id:'region-explicit',layout:{x:3,y:4,width:20,height:10},regions:{hit:{x:0,y:0,width:20,height:10},focus:{x:2,y:1,width:18,height:9}}}),r=layoutUi(tree,env).records[0];
+  expect(r.hitBounds).toEqual(r.bounds);expect(r.hitBounds).not.toBe(r.bounds);expect(r.focusBounds).toEqual({x:5,y:5,width:18,height:9});expect(r.focusBounds).not.toBe(r.bounds);expect(r.focusBounds).not.toBe(r.hitBounds);
+  const mixed=layoutUi(u.button({id:'region-one',layout:{width:20,height:10},regions:{hit:{x:1,y:0,width:18,height:10}}}),env).records[0];expect(mixed.focusBounds).toBe(mixed.bounds);expect(mixed.hitBounds).not.toBe(mixed.bounds);
+});
+
+test('owned default regions: signed zero, mixed context and clips keep exact geometry and caller isolation',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme);
+  env.context.viewport={x:-0,y:-0,width:100,height:60};const zero=layoutUi(u.button({id:'region-zero',layout:{x:-0,y:-0,width:20,height:10}}),env).records[0];expect(Object.is(zero.bounds.x,-0)).toBe(true);expect(Object.is(zero.hitBounds.x,-0)).toBe(true);expect(zero.hitBounds).toBe(zero.bounds);
+  const other={...env.context,id:'test:other',revision:2,localToPhysical:{scale:1.5,x:7,y:9},viewport:{x:0,y:0,width:100,height:60}};
+  const tree=u.stack({id:'region-scroll',layout:{width:50,height:10,overflow:'scroll',scrollY:3},children:[u.button({id:'region-child',contextId:'test:other',layout:{height:30}})]});
+  const plan=layoutUi(tree,{...env,additionalContexts:[other]}),child=plan.records[1];expect(child.semanticContextId).toBe('test:other');expect(child.hitBounds).toBe(child.bounds);expect(child.focusBounds).toBe(child.bounds);expect(child.effectiveHitBounds).not.toBe(child.bounds);expect(child.clipBounds).not.toBe(child.bounds);expect(child.contextRevisions).toEqual({'test:main':1,'test:other':2});
+  const held=structuredClone(child.bounds);other.viewport.width=1;other.localToPhysical.x=1000;expect(child.bounds).toEqual(held);expect(Object.isFrozen(other.viewport)).toBe(false);
+});
+
+test('owned default regions: raw-theme copy-out preserves distinct detached region objects',async()=>{
+  const [{layoutUi},u,{defineTheme}]=await api(),env=environment(defineTheme),rawTheme=structuredClone(env.theme),tree=u.button({id:'region-raw',layout:{width:20,height:10}});
+  const r=layoutUi(tree,{...env,theme:rawTheme}).records[0];expect(r.hitBounds).toEqual(r.bounds);expect(r.focusBounds).toEqual(r.bounds);expect(r.hitBounds).not.toBe(r.bounds);expect(r.focusBounds).not.toBe(r.bounds);expect(r.hitBounds).not.toBe(r.focusBounds);expect(Object.isFrozen(rawTheme)).toBe(false);expect(Object.isFrozen(r.bounds)).toBe(true);
+});
+
+test('owned default regions: nested preparation and rejected layout preserve accepted region and memo owners',async()=>{
+  const [{prepareUiLayout,inspectUiLayoutMemo},u,{defineTheme}]=await api(),env=environment(defineTheme),tree=u.button({id:'region-held',label:'A'}),accepted=prepareUiLayout(tree,env),old=inspectUiLayoutMemo(accepted.memo);let nested;
+  const extensions={'test:region':{version:1,measure(){nested=prepareUiLayout(u.button({id:'region-inner',label:'i'}),{...env,revision:2});return{min:{width:1,height:1},preferred:{width:1,height:1},overflow:'visible'};}}};
+  const outer=prepareUiLayout(u.extension({id:'region-outer',extensionId:'test:region',extensionVersion:1,model:{}}),{...env,extensions},accepted.memo);
+  expect(nested.plan.records[0].hitBounds).toBe(nested.plan.records[0].bounds);expect(outer.plan.records[0].hitBounds).toBe(outer.plan.records[0].bounds);expect(nested.plan.records[0].bounds).not.toBe(outer.plan.records[0].bounds);
+  expect(()=>prepareUiLayout({...tree,focus:{initialId:'missing'}},env,accepted.memo)).toThrow();expect(inspectUiLayoutMemo(accepted.memo)).toEqual(old);expect(accepted.plan.records[0].hitBounds).toBe(accepted.plan.records[0].bounds);expect(accepted.plan.records[0].id).toBe('region-held');
+});

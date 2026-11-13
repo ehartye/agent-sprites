@@ -107,3 +107,27 @@ button({id:'bad-state-owner',metadata:{'ui:stateOwner':17}});
 // @ts-expect-error transient appearance cannot grant action authority
 const invalidPlacement:NativeAppearancePlacement={nativeStates:{pressed:{actionId:'game:bad'}}};
 void invalidPlacement;
+
+const passive=createPhaserUi({scene:structuralScene,theme,ports:nativePorts}).mountPassive({revision:1,context,items:[{id:'passive-label',tree:text({id:'passive-label',label:'?'}),x:0,y:0}]},{parent:structuralParent,scope:'consumer:passive'});
+passive.update({revision:2,context,items:[]});
+// @ts-expect-error Passive ownership cannot acquire an input handle.
+passive.handle({type:'activate',controlId:'passive-label'});
+
+// Memo tokens are opaque, scoped immutable data; they never replace a snapshot.
+import {prepareUiLayout,inspectUiLayoutMemo,type UiLayoutMemo} from '../../server/build/ui-layout.mjs';
+const memoPlan=prepareUiLayout(text({id:'memo-label',label:'?'}),{theme,context,revision:1});
+inspectUiLayoutMemo(memoPlan.memo);
+// @ts-expect-error Ordinary records cannot forge a memo token.
+const forgedMemo:UiLayoutMemo={};
+void forgedMemo;
+
+const iconPlacementMount=createPhaserUi({scene:structuralScene,theme,ports:nativePorts}).mount(snapshot,{parent:structuralParent,scope:'consumer:icon-placement'});
+iconPlacementMount.placeIcons({expectedRevision:1,revision:2,items:[{id:'icon',x:1.25,y:-2}]});
+// @ts-expect-error Stock placement cannot replace immutable image content.
+iconPlacementMount.placeIcons({expectedRevision:2,revision:3,items:[{id:'icon',x:0,y:0,asset:'other'}]});
+// @ts-expect-error Placement coordinates remain finite-number data, not strings.
+iconPlacementMount.placeIcons({expectedRevision:2,revision:3,items:[{id:'icon',x:'0',y:0}]});
+// @ts-expect-error A placement needs an explicit current-publication dependency.
+iconPlacementMount.placeIcons({revision:3,items:[]});
+// @ts-expect-error Ordinary-mount placement does not broaden passive ownership.
+passive.placeIcons({expectedRevision:2,revision:3,items:[]});

@@ -1,7 +1,52 @@
 import {pixelResolution, measureBitmapText, placeBitmapText, planNineSlice, projectPixelRect, quantizePhysicalRect} from './ui-runtime.mjs';
 import {planActionGroup} from './ui-action-group.mjs';
 import {validateUiTree} from './ui-components.mjs';
-import {copyUiData, freezeUiData, uiId, uiNumber, uiKeys, uiRect, uiInsets, resolveThemeRole} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, snapshotUiData, publishUiData, isUiSnapshot, uiId, uiNumber, uiKeys, uiRect, uiInsets, resolveThemeRole} from './ui-theme.mjs';
+
+// Opaque scope-owned candidates. No game, native object or input authority is
+// retained here; rejected preparation never changes an accepted memo.
+const layoutMemos=new WeakMap(), memoEntryLimit=256, memoUnitLimit=4194304;
+export function inspectUiLayoutMemo(token) {
+  if(token===undefined)return Object.freeze({entries:0,units:0,hits:0,misses:0,evictions:0});
+  const state=layoutMemos.get(token);if(!state)throw new TypeError('Unknown layout memo');
+  return Object.freeze({entries:state.entries.size,units:state.units,hits:state.hits,misses:state.misses,evictions:state.evictions});
+}
+function prepareLayout(tree,environment,previous,clipToViewport) {
+  const old=previous===undefined?undefined:layoutMemos.get(previous);
+  if(previous!==undefined&&!old)throw new TypeError('Unknown layout memo');
+  // Raw prepared themes intentionally keep their getter/read and copy-out
+  // compatibility. Only privately certified immutable themes can share data.
+  if(!isUiSnapshot(environment.theme))return {plan:layoutPlan(tree,environment,clipToViewport),memo:undefined};
+  const base=old?.theme===environment.theme?old:undefined;
+  const state={theme:environment.theme,entries:new Map(base?.entries),units:base?.units??0,hits:base?.hits??0,misses:base?.misses??0,evictions:base?.evictions??0};
+  const fontIds=new Map(Object.entries(environment.theme.fonts).map(([id,face])=>[face.font,id]));
+  function memo(kind,font,parameters,build) {
+    // Preserve signed zero and own undefined fields. Escape the tag namespace
+    // for literal strings so no caller string can collide with typed markers.
+    const key=JSON.stringify([kind,fontIds.get(font),parameters],(_key,value)=>{
+      if(value===undefined)return '~uiMemo:u';
+      if(typeof value==='number'){if(!Number.isFinite(value))throw new TypeError('Memo numbers must be finite');return Object.is(value,-0)?'~uiMemo:-0':value;}
+      if(typeof value==='string'&&value.startsWith('~uiMemo:'))return '~uiMemo:s:'+value;
+      if(typeof value==='function'||typeof value==='symbol')throw new TypeError('Memo options must be data');
+      return value;
+    });
+    const found=state.entries.get(key);
+    if(found){state.hits++;state.entries.delete(key);state.entries.set(key,found);return found.value;}
+    state.misses++;const value=build(),text=String(parameters[0]??'');
+    // Conservative retained-data units, not a claim of exact VM heap bytes.
+    // Long strings/source maps and glyph graphs are bounded as well as entries.
+    const units=2048+key.length*2+text.length*256+(value.draws?.length??0)*1024+(value.sourceOffsets?.length??0)*128+(value.lines?.length??value.sourceLines?.length??0)*1024;
+    if(units>memoUnitLimit)return value;
+    const certified=publishUiData(value);
+    while(state.entries.size>=memoEntryLimit||state.units+units>memoUnitLimit){const [id,entry]=state.entries.entries().next().value;state.entries.delete(id);state.units-=entry.units;state.evictions++;}
+    state.entries.set(key,{value:certified,units});state.units+=units;return certified;
+  }
+  const plan=layoutPlan(tree,environment,clipToViewport,memo),token=Object.freeze({});layoutMemos.set(token,state);return {plan,memo:token};
+}
+/** @internal Native owners commit the opaque candidate only after full admission. */
+export function prepareUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,true);}
+/** @internal Same text-only memo, with intrinsic clips for retained passive ink. */
+export function prepareUnclippedUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,false);}
 
 const rect = (x, y, width, height) => uiRect({x, y, width, height});
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -100,7 +145,14 @@ function textValue(node) {
 }
 
 /** Pure preparation: uses source metrics, returns continuous semantics and quantized paint. */
-export function layoutUi(tree, environment) {
+export function layoutUi(tree, environment) { return layoutPlan(tree,environment,true); }
+
+/** Internal retained-paint preparation. Intrinsic clips remain; the native
+ * passive owner applies the stationary viewport after translating each item. */
+export function layoutUiUnclipped(tree, environment) { return layoutPlan(tree,environment,false); }
+function layoutPlan(tree, environment, clipToViewport, memo) {
+  const measureText=(font,text,options)=>memo?memo('measure',font,[text,options],()=>measureBitmapText(font,text,options)):measureBitmapText(font,text,options);
+  const placeText=(font,text,x,y,options)=>memo?memo('place',font,[text,x,y,options],()=>placeBitmapText(font,text,x,y,options)):placeBitmapText(font,text,x,y,options);
   const root = validateUiTree(tree), {theme} = environment;
   if (theme?.format !== 'agent-sprites/ui-theme@1') throw new TypeError('Expected a prepared UI theme');
   const revision = uiNumber(environment.revision, 'model revision');
@@ -168,11 +220,11 @@ export function layoutUi(tree, environment) {
     let naturalText = {width: 0, height: 0}, wrappedText = naturalText, textMin = 0;
     if (face && label !== undefined) {
       const options = {scale: c.physicalPixelsPerSourcePixel, policy: face.policy};
-      naturalText = measureBitmapText(face.font, label, options);
-      wrappedText = node.kind === 'tabs' || l.wrap === false ? naturalText : measureBitmapText(face.font, label, {...options, maxWidth: innerWidth * data.context.localToPhysical.scale});
+      naturalText = measureText(face.font, label, options);
+      wrappedText = node.kind === 'tabs' || l.wrap === false ? naturalText : measureText(face.font, label, {...options, maxWidth: innerWidth * data.context.localToPhysical.scale});
       naturalText = {width: naturalText.width / data.context.localToPhysical.scale, height: naturalText.height / data.context.localToPhysical.scale};
       wrappedText = {width: wrappedText.width / data.context.localToPhysical.scale, height: wrappedText.height / data.context.localToPhysical.scale};
-      textMin = maximum([...label].filter(ch => ch !== '\n').map(ch => measureBitmapText(face.font, ch, options).width / data.context.localToPhysical.scale));
+      textMin = maximum([...label].filter(ch => ch !== '\n').map(ch => measureText(face.font, ch, options).width / data.context.localToPhysical.scale));
     }
     const children = node.kind === 'fold' && !node.value ? [] : node.children.filter(child => !child.hidden);
     const cellWidth = node.kind === 'grid' ? Math.max(0, (innerWidth - gap * ((l.columns ?? 1) - 1)) / (l.columns ?? 1)) : innerWidth;
@@ -285,7 +337,7 @@ export function layoutUi(tree, environment) {
       bounds = mapRect(allocationContext, context, bounds);
       inheritedClip = inheritedClip && mapRect(allocationContext, context, inheritedClip);
     }
-    inheritedClip = inheritedClip && intersection(inheritedClip, context.viewport);
+    if(clipToViewport) inheritedClip = inheritedClip && intersection(inheritedClip, context.viewport);
     const measured = measure(node, bounds.width), index = records.length;
     const content = rect(bounds.x + p.left, bounds.y + p.top, Math.max(0, bounds.width - p.left - p.right), Math.max(0, bounds.height - p.top - p.bottom));
     const labelContent = mapRect(context, labelContext, content), skinBounds = mapRect(context, skinContext, bounds), skinContent = mapRect(context, skinContext, content);
@@ -293,11 +345,20 @@ export function layoutUi(tree, environment) {
     let clip = mode === 'visible' ? inheritedClip : intersection(inheritedClip, content);
     const fullyClipped = inheritedClip === null || mode !== 'visible' && clip === null;
     const hidden = suppressed || !!node.hidden;
-    const regionBounds = region => region ? rect(bounds.x + region.x, bounds.y + region.y, region.width, region.height) : {...bounds};
+    // Allocation owns these bounds and never mutates them. Default regions
+    // share that immutable product; explicit regions keep translated geometry.
+    // Raw-theme snapshot admission still copies unbranded aliases separately.
+    const regionBounds = region => region ? rect(bounds.x + region.x, bounds.y + region.y, region.width, region.height) : bounds;
     const hitBounds = regionBounds(node.regions?.hit), focusBounds = regionBounds(node.regions?.focus);
     const effectiveHit = hidden || inheritedClip === null ? null : intersection(hitBounds, inheritedClip);
     const effectiveFocus = hidden || inheritedClip === null ? null : intersection(focusBounds, inheritedClip);
-    const dependencies = {...inheritedDependencies, ...Object.fromEntries([...new Set([context.id, skinContext.id, labelContext.id])].map(id => [id, contextMap.get(id).revision]))};
+    const dependencyIds = [...new Set([context.id, skinContext.id, labelContext.id])];
+    // This invocation owns the inherited map. Reuse its complete ordered data
+    // only when the merge changes nothing; child contexts never mutate parents.
+    // Final publication freezes/certifies the shared allocation once. Raw-theme
+    // snapshot admission still copies its unbranded aliases as before.
+    const covered = dependencyIds.every(id => Object.hasOwn(inheritedDependencies, id) && Object.is(inheritedDependencies[id], contextMap.get(id).revision));
+    const dependencies = covered ? inheritedDependencies : {...inheritedDependencies, ...Object.fromEntries(dependencyIds.map(id => [id, contextMap.get(id).revision]))};
     const record = {...node, bounds, hitBounds, focusBounds, effectiveHitBounds: effectiveHit, effectiveFocusBounds: effectiveFocus, clipBounds: inheritedClip, contentClipBounds: clip, semanticContextId: context.id, contextRevisions: dependencies, paneId: node.paneId ?? inheritedPane, state: hidden ? 'hidden' : effectiveHit || effectiveFocus ? 'visible' : 'clipped', measure: {min: measured.min, preferred: measured.preferred}, contentBounds: content, paintBounds: null, parts: [], overflow: {mode}};
     delete record.children;
     // Retain topology after flattening so the interaction publication barrier
@@ -305,7 +366,7 @@ export function layoutUi(tree, environment) {
     record.parentId=parents.get(node.id);
     records.push(record);
     const textMaxWidth = node.kind === 'tabs' ? undefined : labelContent.width;
-    const ownText = face && label !== undefined && !hidden ? placeBitmapText(face.font, label, labelContent.x, labelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : null;
+    const ownText = face && label !== undefined && !hidden ? placeText(face.font, label, labelContent.x, labelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : null;
     const ownTextBounds = ownText ? mapRect(labelContext, context, rect(labelContent.x, labelContent.y, ownText.width, ownText.height)) : null;
     // If text plus children overflows, page text first and give child pages the
     // full viewport. A repeated header belongs outside the paginated container.
@@ -437,7 +498,7 @@ export function layoutUi(tree, environment) {
     } else if (role.appearance?.kind === 'flat' && !hidden) record.parts.push({kind: 'flat', color: role.appearance.color, bounds: paintRect(skinContext, skinBounds), contextId: skinContext.id});
     let caretSourceLine;
     if (ownText && (!ownTextPages || record.overflow.page < ownTextPages)) {
-      record.text = textShiftX || textShiftY ? placeBitmapText(face.font, label, shiftedLabelContent.x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : ownText;
+      record.text = textShiftX || textShiftY ? placeText(face.font, label, shiftedLabelContent.x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy, maxWidth: textMaxWidth, maxHeight: labelContent.height, sourceOffsets: node.kind === 'field',wrap:l.wrap}) : ownText;
       if (node.kind === 'field') {
         const caret = node.selection.direction === 'backward' ? node.selection.start : node.selection.end;
         // Soft wraps share a source endpoint. Preserve the full mapping's
@@ -449,7 +510,7 @@ export function layoutUi(tree, environment) {
         // Keep whole-source metrics and UTF-16 mappings. Only the packed source
         // range may paint; a viewport clip alone can expose the next line.
         const pagePolicy={...face.policy,...(to<full.lines.length?{lastLine:'line'}:{})};
-        const page=placeBitmapText(face.font,full.sourceLines.slice(from,to).join('\n'),lines[0].x,lines[0].y,{resolution:labelContext,tone:role.tone,policy:pagePolicy,wrap:false});
+        const page=placeText(face.font,full.sourceLines.slice(from,to).join('\n'),lines[0].x,lines[0].y,{resolution:labelContext,tone:role.tone,policy:pagePolicy,wrap:false});
         const physicalBounds=quantizePhysicalRect(projectPixelRect(context,viewport),{mode:'inside'});
         const metric={...page.physicalAnchor,width:visibleText.width*context.localToPhysical.scale,height:textPageHeights[record.overflow.page]*context.localToPhysical.scale};
         const escapes=(bounds,axis,extent)=>!!bounds&&(bounds[axis]<physicalBounds[axis]||bounds[axis]+bounds[extent]>physicalBounds[axis]+physicalBounds[extent]);
@@ -478,17 +539,17 @@ export function layoutUi(tree, environment) {
       if (cursorBounds || !textPageRanges) {
         cursorBounds ??= rect(shiftedLabelContent.x, shiftedLabelContent.y, caretWidth, face.font.lineHeight * labelContext.sourceToLocalScale);
         record.parts.push({kind: 'caret', bounds: cursorBounds, contextId: labelContext.id});
-        if (node.composition !== null) record.parts.push({kind: 'composition', placement: placeBitmapText(face.font, node.composition, cursorBounds.x, cursorBounds.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
+        if (node.composition !== null) record.parts.push({kind: 'composition', placement: placeText(face.font, node.composition, cursorBounds.x, cursorBounds.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
       }
     }
     if (node.kind === 'tabs' && record.text) {
       record.parts = record.parts.filter(part => part.kind !== 'text');
       let x = shiftedLabelContent.x;
       for (const option of node.options) {
-        const width = measureBitmapText(face.font, option.label, {scale: labelContext.physicalPixelsPerSourcePixel, policy: face.policy}).width / labelContext.localToPhysical.scale;
+        const width = measureText(face.font, option.label, {scale: labelContext.physicalPixelsPerSourcePixel, policy: face.policy}).width / labelContext.localToPhysical.scale;
         const bounds = rect(x, shiftedLabelContent.y, width, labelContent.height);
-        record.parts.push({kind: 'tab', value: option.id, selected: option.id === node.value, enabled: node.enabled && option.enabled !== false, bounds, hitBounds: fullyClipped || hidden ? null : intersection(mapRect(labelContext, context, bounds), clip), placement: placeBitmapText(face.font, option.label, x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
-        x += width + measureBitmapText(face.font, '  ', {scale: labelContext.physicalPixelsPerSourcePixel, policy: face.policy}).width / labelContext.localToPhysical.scale;
+        record.parts.push({kind: 'tab', value: option.id, selected: option.id === node.value, enabled: node.enabled && option.enabled !== false, bounds, hitBounds: fullyClipped || hidden ? null : intersection(mapRect(labelContext, context, bounds), clip), placement: placeText(face.font, option.label, x, shiftedLabelContent.y, {resolution: labelContext, tone: role.tone, policy: face.policy}), contextId: labelContext.id});
+        x += width + measureText(face.font, '  ', {scale: labelContext.physicalPixelsPerSourcePixel, policy: face.policy}).width / labelContext.localToPhysical.scale;
       }
     }
     if (['stepper', 'pager'].includes(node.kind)) {
@@ -515,7 +576,7 @@ export function layoutUi(tree, environment) {
     if (node.kind === 'extension') record.extension = {id: node.extensionId, version: node.extensionVersion, model: node.model, allocation: content, clipBounds: clip, contextRevisions: dependencies};
     for (const part of record.parts) {
       const target = contextMap.get(part.contextId), contentPart = ['text', 'composition', 'tab', 'selection', 'caret', 'icon', 'meter', 'progress', 'indicator'].includes(part.kind), semanticClip = contentPart ? clip : inheritedClip;
-      part.clipBounds = semanticClip && !fullyClipped ? intersection(mapRect(context, target, semanticClip), target.viewport) : null;
+      part.clipBounds = semanticClip === undefined && !clipToViewport ? undefined : semanticClip && !fullyClipped ? (clipToViewport ? intersection(mapRect(context,target,semanticClip),target.viewport) : mapRect(context,target,semanticClip)) : null;
     }
     record.paintBounds = union(record.parts.map(part => { const bounds = part.placement?.paintedBounds.rect ?? part.plan?.paintedBounds.rect ?? part.bounds ?? part.track; return bounds ? mapRect(contextMap.get(part.contextId), context, bounds) : null; }));
     record.effectivePaintBounds = union(record.parts.map(part => { const bounds = part.placement?.paintedBounds.rect ?? part.plan?.paintedBounds.rect ?? part.bounds ?? part.track, clipped = bounds && part.clipBounds ? intersection(bounds, part.clipBounds) : null; return clipped ? mapRect(contextMap.get(part.contextId), context, clipped) : null; }));
@@ -529,6 +590,9 @@ export function layoutUi(tree, environment) {
   }
   const viewport = contextMap.get(root.contextId ?? contexts[0].id).viewport, measured = measure(root, viewport.width), l = root.layout;
   const container = root.children.length > 0 || ['stack', 'row', 'grid', 'absolute', 'panel'].includes(root.kind);
-  allocate(root, rect(viewport.x + (l.x ?? 0), viewport.y + (l.y ?? 0), l.width ?? Math.min(l.maxWidth ?? Number.MAX_VALUE, Math.max(l.minWidth ?? 0, container ? viewport.width : measured.preferred.width)), l.height ?? Math.min(l.maxHeight ?? Number.MAX_VALUE, Math.max(l.minHeight ?? 0, container ? viewport.height : measured.allocatedHeight))), viewport);
-  return freezeUiData({format: 'agent-sprites/ui-layout@1', revision, themeId: theme.id, contexts, focus: root.focus ?? {}, records});
+  allocate(root, rect(viewport.x + (l.x ?? 0), viewport.y + (l.y ?? 0), l.width ?? Math.min(l.maxWidth ?? Number.MAX_VALUE, Math.max(l.minWidth ?? 0, container ? viewport.width : measured.preferred.width)), l.height ?? Math.min(l.maxHeight ?? Number.MAX_VALUE, Math.max(l.minHeight ?? 0, container ? viewport.height : measured.allocatedHeight))), clipToViewport ? viewport : undefined);
+  const plan = {format: 'agent-sprites/ui-layout@1', revision, themeId: theme.id, contexts, focus: root.focus ?? {}, records};
+  // Raw prepared themes may expose metric getters. Preserve their historical
+  // read behavior and copy retained references; certified themes are owned.
+  return isUiSnapshot(theme) ? publishUiData(plan) : snapshotUiData(plan);
 }

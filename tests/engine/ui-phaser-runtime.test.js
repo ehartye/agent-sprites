@@ -1,4 +1,4 @@
-import {test, expect} from 'vitest';
+import {test, expect, vi} from 'vitest';
 import {EventEmitter} from 'node:events';
 import {existsSync} from 'node:fs';
 import {normalizeBitmapFont} from '../../server/build/ui-runtime.mjs';
@@ -7,6 +7,14 @@ import {layoutUi} from '../../server/build/ui-layout.mjs';
 import {iterateNineSliceTiles,projectPixelRect} from '../../server/build/ui-runtime.mjs';
 import * as u from '../../server/build/ui-components.mjs';
 const {button}=u;
+
+// Observe the real portable publisher without adding a production test API or
+// replacing weak ownership. Normally disabled; assertions compare actual plans.
+const nativePlanObservation=vi.hoisted(()=>({observe:null}));
+vi.mock('../../server/build/ui-theme.mjs',async importOriginal=>{
+  const real=await importOriginal();
+  return {...real,publishUiData(value){const result=real.publishUiData(value);nativePlanObservation.observe?.(result);return result;}};
+});
 
 // This seam double models only the installed Phaser Image/Rectangle/Texture APIs.
 // It cannot establish native pixels, renderer state or real input transport.
@@ -802,4 +810,378 @@ test('a reconcile-time destructor failure is retained while the retired scope dr
   expect(m.inspect({limit:1}).native.lifecycle).toBe('retired');
   expect(m.inspect({limit:1}).native.cleanupFailures.join(' ')).toMatch(/removed glyph failed/);
   expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);ui.dispose();
+});
+
+
+test('retained passive movement keeps offscreen ink and common native objects without new text preparation',async()=>{
+  const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f);
+  const tree=u.text({id:'label',label:'???',layout:{width:20,height:8,wrap:false}});
+  const snapshot=(revision,x,y=4)=>({revision,context:f.context,items:[{id:'label',tree,x,y}]});
+  expect(typeof ui.mountPassive).toBe('function');
+  const m=ui.mountPassive(snapshot(1,-40),{parent:f.parent,scope:'test:passive'});
+  expect(m.handle).toBeUndefined();expect(m.inspect({limit:5}).native.objects).toBe(0);
+  m.update(snapshot(2,4));expect(m.inspect({limit:5}).native.objects).toBe(3);
+  const visible=f.objects.filter(o=>o.visible&&!o.destroyed),before=m.inspect({limit:5});
+  m.update(snapshot(3,7));const after=m.inspect({limit:5});
+  expect(after.native.created).toBe(before.native.created);
+  expect(after.native.preparations).toBe(before.native.preparations);
+  expect(visible.map(o=>o.x)).toEqual([7,12,17]);
+  expect(after.controls[0]).toMatchObject({id:'label',bounds:{x:7,y:4},focused:false,focusable:false});
+  m.update(snapshot(4,7.25));expect(m.inspect({limit:5}).native.preparations).toBe(before.native.preparations+1);
+  ui.dispose();expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);
+});
+
+test('retained passive batches reject authority raw accessors duplicates and aggregate over-budget publication atomically',async()=>{
+  const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi({...f,limits:{objects:4}});
+  expect(typeof ui.mountPassive).toBe('function');
+  const tree=u.text({id:'one',label:'??',layout:{width:20,height:8}}),item={id:'one',tree,x:4,y:4};
+  const m=ui.mountPassive({revision:1,context:f.context,items:[item]},{parent:f.parent,scope:'test:passive-atomic'});
+  const accepted=m.inspect({limit:5}),positions=f.objects.map(o=>[o.x,o.y]);
+  const reject=items=>{expect(()=>m.update({revision:2,context:f.context,items})).toThrow();expect(m.inspect({limit:5})).toEqual(accepted);expect(f.objects.map(o=>[o.x,o.y])).toEqual(positions);};
+  reject([{...item,x:12},item]);
+  reject([{...item,x:12},{id:'two',x:0,y:0,tree:u.text({id:'two',label:'???',layout:{width:20,height:8}})}]);
+  for(const tree of [u.button({id:'one',actionId:'game:attack'}),u.text({id:'one',label:'?',focusable:true}),u.text({id:'one',label:'?',focus:{}}),u.text({id:'one',label:'?',regions:{hit:{x:0,y:0,width:1,height:1}}})])reject([{...item,tree}]);
+  let reads=0;const bad={...item};Object.defineProperty(bad,'x',{enumerable:true,get(){reads++;return 0;}});reject([bad]);expect(reads).toBe(0);
+  expect(()=>m.update({revision:0,context:f.context,items:[item]})).toThrow();
+  expect(()=>m.update({revision:2,context:{...f.context,viewport:{...f.context.viewport,width:99}},items:[item]})).toThrow();
+  expect(()=>m.update({revision:1,context:f.context,items:[{...item,x:8}]})).toThrow();
+  expect(m.inspect({limit:5})).toEqual(accepted);
+  const source=f.texture.source[0];f.texture.source[0]={};expect(()=>m.update({revision:2,context:f.context,items:[{...item,x:8}]})).toThrow();f.texture.source[0]=source;
+  expect(m.inspect({limit:5})).toEqual(accepted);
+  m.update({revision:2,context:f.context,items:[]});expect(m.inspect({limit:5}).native.objects).toBe(0);
+  m.update({revision:3,context:f.context,items:[item]});expect(m.inspect({limit:5}).native.objects).toBe(2);
+  f.scene.events.emit('shutdown');expect(m.inspect({limit:5}).native.lifecycle).toBe('disposed');ui.dispose();
+});
+
+
+test('retained passive common-painter geometry matches fresh stock layout through outline clipping phase and context changes',async()=>{
+  const {createPhaserUi}=await api();
+  const ink=f=>f.objects.filter(o=>o.visible&&!o.destroyed).map(o=>{
+    const frame=f.fragments.get(o.frame),round=n=>typeof n==='number'?Math.round(n*1e8)/1e8:n;
+    return [o.kind,o.x,o.y,o.width,o.height,o.scaleX,o.scaleY,o.color,o.tint,o.alpha,o.depth,...o.crop??[],frame?.cutX,frame?.cutY,frame?.width,frame?.height].map(round);
+  });
+  for(const scale of [1,2,3]){
+    const a=fixture(),b=fixture();
+    for(const f of [a,b])f.context={...f.context,localToPhysical:{scale,x:1,y:2},sourcePixelPhysicalSize:2,viewport:{x:3,y:2,width:40,height:25}};
+    const tree=u.absolute({id:'outline',layout:{width:20,height:9,padding:0,overflow:'clip'},children:[[-1,0],[1,0],[0,-1],[0,1],[0,0]].map(([x,y],i)=>u.text({id:'ink:'+i,label:'???',layout:{x,y,width:22,height:8,wrap:false}}))});
+    const ua=createPhaserUi(a),ub=createPhaserUi(b);let ma,mb,revision=0;
+    for(const [x,y]of [[-40,4],[-2,4],[4,4],[7,4],[7.25,4],[38,20],[4,4]]){
+      const item={id:'outline',tree,x,y},snap={revision:++revision,context:a.context,items:[item]};
+      const fresh={revision,context:b.context,tree:u.absolute({id:'root',layout:{width:40,height:25,padding:0,overflow:'clip'},children:[{...tree,layout:{...tree.layout,x,y}}]})};
+      if(ma){ma.update(snap);mb.update(fresh);}else{ma=ua.mountPassive(snap,{parent:a.parent,scope:'test:retained-geometry'});mb=ub.mount(fresh,{parent:b.parent,scope:'test:fresh-geometry'});}
+      expect(ink(a),JSON.stringify({scale,x,y})).toEqual(ink(b));
+    }
+    ua.dispose();ub.dispose();
+  }
+});
+
+
+test('retained passive cache rejects finite translation overflow before publication',async()=>{
+ const {createPhaserUi}=await api(),f=fixture();f.context={...f.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};
+ const ui=createPhaserUi(f),tree=u.absolute({id:'huge',layout:{x:1e308,width:1,height:1}}),item={id:'huge',tree,x:0,y:0};
+ const m=ui.mountPassive({revision:1,context:f.context,items:[item]},{parent:f.parent,scope:'test:passive-overflow'}),accepted=m.inspect({limit:1});
+ expect(()=>m.update({revision:2,context:f.context,items:[{...item,x:1e308}]})).toThrow();expect(m.inspect({limit:1})).toEqual(accepted);ui.dispose();
+});
+test('retained passive caching requires a certified immutable theme while ordinary raw admission remains supported',async()=>{
+ const {createPhaserUi}=await api(),f=fixture();f.theme=structuredClone(f.theme);
+ const ui=createPhaserUi(f),tree=u.text({id:'label',label:'?',layout:{width:20,height:8}});
+ expect(()=>ui.mountPassive({revision:1,context:f.context,items:[{id:'label',tree,x:0,y:0}]},{parent:f.parent,scope:'test:passive-theme'})).toThrow(/immutable|certified/i);
+ const ordinary=ui.mount({revision:1,context:f.context,tree},{parent:f.parent,scope:'test:raw-theme'});expect(ordinary.inspect({limit:1}).native.lifecycle).toBe('mounted');ui.dispose();
+});
+
+
+test('native text memo keeps admission and held binding authority while dropping retained data on disposal',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi({...f,limits:{objects:12}});
+ const tree=actionId=>u.absolute({id:'root',children:[u.text({id:'static',label:'???',layout:{x:30,y:0,width:30,height:10}}),u.button({id:'action',label:'?',actionId,layout:{width:20,height:10}})]});
+ const m=ui.mount({revision:1,context:f.context,tree:tree('old-action')},{parent:f.parent,scope:'test:text-memo'});
+ expect(m.inspect({limit:5}).native.textMemo?.entries).toBeGreaterThan(0);
+ m.handle({type:'press',inputId:'held',point:{x:4,y:4},pointSpace:'physical'});
+ m.update({revision:2,context:f.context,tree:tree('new-action')});
+ expect(m.inspect({limit:5}).native.textMemo.hits).toBeGreaterThan(0);
+ expect(m.handle({type:'release',inputId:'held',point:{x:4,y:4},pointSpace:'physical'}).filter(x=>x.kind==='activate')).toEqual([]);
+ const accepted=m.inspect({limit:5});expect(()=>m.update({revision:3,context:f.context,tree:u.text({id:'too-many',label:'?'.repeat(9000),layout:{width:90000,height:8}})})).toThrow();expect(m.inspect({limit:5})).toEqual(accepted);
+ ui.dispose();expect(m.inspect({limit:5}).native.textMemo.entries).toBe(0);
+});
+
+
+test('passive ID-only templates reuse active preparation while preserving current identities and native lifetimes',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f);
+ const tree=(id,label='???')=>u.absolute({id,layout:{width:24,height:9,padding:0,overflow:'clip'},children:[[-1,0],[0,0]].map(([x,y],i)=>u.text({id:id+':ink:'+i,label,layout:{x,y,width:24,height:8,wrap:false}}))});
+ const item=(id,x=4)=>({id,tree:tree(id),x,y:4});
+ const m=ui.mountPassive({revision:1,context:f.context,items:[item('old')]},{parent:f.parent,scope:'test:template'}),before=m.inspect({limit:20}),oldObjects=f.objects.filter(o=>o.visible&&!o.destroyed);
+ m.update({revision:2,context:f.context,items:[item('new',7),item('sibling',12)]});
+ const after=m.inspect({limit:20});expect(after.native.preparations).toBe(before.native.preparations);
+ expect(after.controls.map(r=>r.id)).toEqual(['new','new:ink:0','new:ink:1','sibling','sibling:ink:0','sibling:ink:1']);
+ expect(after.heldCount).toBe(0);expect(m.handle).toBeUndefined();expect(oldObjects.every(o=>o.destroyed===1)).toBe(true);
+ expect(after.native.created-after.native.destroyed).toBe(after.native.objects);
+ const positions=f.objects.filter(o=>o.visible&&!o.destroyed).map(o=>[o.x,o.y]);expect(positions).toEqual([[6,4],[11,4],[16,4],[7,4],[12,4],[17,4],[11,4],[16,4],[21,4],[12,4],[17,4],[22,4]]);
+ ui.dispose();expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.fragments.size).toBe(0);
+});
+
+test('passive template admission validates new trees raw descriptors aggregate budgets and source identity atomically',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi({...f,limits:{objects:4}}),tree=id=>u.text({id,label:'???',layout:{width:24,height:8,wrap:false}}),item=id=>({id,tree:tree(id),x:4,y:4});
+ const m=ui.mountPassive({revision:1,context:f.context,items:[item('old')]},{parent:f.parent,scope:'test:template-atomic'}),accepted=m.inspect({limit:10}),native=f.objects.map(o=>[o.x,o.y,o.destroyed]);
+ const reject=items=>{expect(()=>m.update({revision:2,context:f.context,items})).toThrow();expect(m.inspect({limit:10})).toEqual(accepted);expect(f.objects.map(o=>[o.x,o.y,o.destroyed])).toEqual(native);};
+ reject([item('new'),item('another')]);reject([item('new'),item('new')]);
+ reject([{...item('new'),tree:{...tree('new'),focusable:true}}]);reject([{...item('new'),tree:{...tree('new'),actionId:'game:act'}}]);reject([{...item('new'),tree:{...tree('new'),metadata:{'ui:stateOwner':'old'}}}]);reject([{...item('new'),tree:tree('wrong-root')}]);
+ let reads=0;const bad={...tree('new')};Object.defineProperty(bad,'label',{enumerable:true,get(){reads++;return '???';}});reject([{...item('new'),tree:bad}]);expect(reads).toBe(0);
+ const source=f.texture.source[0];f.texture.source[0]={};reject([item('new')]);f.texture.source[0]=source;
+ m.update({revision:2,context:f.context,items:[item('new')]});expect(m.inspect({limit:10}).native.preparations).toBe(accepted.native.preparations);ui.dispose();
+});
+
+test('passive template lookup preserves exact optional values phase mapping and active-only lifetime',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),item=(id,layout={width:24,height:8,wrap:false},x=4)=>({id,tree:u.text({id,label:'???',layout}),x,y:4});let revision=1,context=f.context;
+ const m=ui.mountPassive({revision,context,items:[item('a')]},{parent:f.parent,scope:'test:template-boundaries'});let count=m.inspect({limit:10}).native.preparations;
+ const update=(entry,extra=1)=>{m.update({revision:++revision,context,items:entry?[entry]:[]});count+=extra;expect(m.inspect({limit:10}).native.preparations).toBe(count);};
+ update(item('b'),0);update(item('c',{width:24,height:8,wrap:false,x:0}));update(item('d',{width:24,height:8,wrap:false,x:-0}));update(item('e',{width:24,height:8,wrap:false,x:-0,overflow:undefined}));
+ update(item('f',{width:24,height:8,wrap:false,x:-0,overflow:undefined},4.25));
+ context={...context,revision:2,localToPhysical:{...context.localToPhysical,x:2}};update(item('g',{width:24,height:8,wrap:false,x:-0,overflow:undefined},4.25));
+ update(null,0);update(item('h',{width:24,height:8,wrap:false,x:-0,overflow:undefined},4.25));ui.dispose();
+});
+
+test('passive non-template semantics fall back while stock shape order and contents remain exact',async()=>{
+ const {createPhaserUi}=await api();
+ for(const extra of [{metadata:{'test:id':'literal'}},{paneId:'literal'},{layout:{overflow:'scroll'}},{layout:{overflow:'paginate'}},{kind:'notice'},{kind:'panel'}]){
+  const f=fixture(),ui=createPhaserUi(f);
+  const make=id=>{const {kind,...props}=extra;return {id,tree:u.node(kind??'text',{id,label:'?',appearanceRole:'text',...props,layout:{width:24,height:8,...extra.layout}}),x:4,y:4};};
+  const m=ui.mountPassive({revision:1,context:f.context,items:[make('old')]},{parent:f.parent,scope:'test:fallback'}),before=m.inspect({limit:10}).native.preparations;
+  m.update({revision:2,context:f.context,items:[make('new')]});expect(m.inspect({limit:10}).native.preparations).toBe(before+1);ui.dispose();
+ }
+});
+
+test('passive template swaps current colon IDs and changed shapes match independent stock geometry',async()=>{
+ const {createPhaserUi}=await api(),a=fixture(),b=fixture(),ua=createPhaserUi(a),ub=createPhaserUi(b);
+ const ink=f=>f.objects.filter(o=>o.visible&&!o.destroyed).map(o=>{const q=f.fragments.get(o.frame);return [o.kind,o.x,o.y,o.width,o.height,o.scaleX,o.scaleY,o.color,o.tint,o.alpha,o.depth,...o.crop??[],q?.cutX,q?.cutY,q?.width,q?.height];});
+ const make=(id,label,x,extra={})=>({id,tree:u.absolute({id,layout:{width:24,height:9,padding:0,overflow:'clip'},children:[u.text({id:id+':child:literal',label,layout:{width:24,height:8,wrap:false},...extra})]}),x,y:4});
+ let ma,mb,revision=0;
+ const cases=[[make('id:0','?',-40),make('id:1','??',12)],[make('id:0','??',4),make('id:1','?',15)],[make('other:0','??',7),make('other:1','??',20)],[make('hidden','??',7,{hidden:true}),make('changed','???',20)]];
+ for(const items of cases){const snap={revision:++revision,context:a.context,items},fresh={revision,context:b.context,tree:u.absolute({id:'fresh-root',layout:{width:100,height:60,padding:0,overflow:'clip'},children:items.map(i=>({...i.tree,layout:{...i.tree.layout,x:i.x,y:i.y}}))})};
+  if(ma){ma.update(snap);mb.update(fresh);}else{ma=ua.mountPassive(snap,{parent:a.parent,scope:'test:swap'});mb=ub.mount(fresh,{parent:b.parent,scope:'test:fresh'});}
+  expect(ink(a)).toEqual(ink(b));expect(ma.inspect({limit:20}).controls.map(r=>r.id)).toEqual(items.flatMap(i=>[i.id,i.id+':child:literal']));
+  if(revision===3)expect(ma.inspect({limit:20}).native.preparations).toBe(2);
+ }
+ ua.dispose();ub.dispose();expect(a.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test('passive oversized template shapes retain ordinary admission without unbounded fingerprints',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),item=id=>({id,tree:u.text({id,role:'large-semantic-role-'.repeat(3000),label:'?',layout:{width:20,height:8}}),x:4,y:4});
+ const m=ui.mountPassive({revision:1,context:f.context,items:[item('old')]},{parent:f.parent,scope:'test:bounded-shape'}),before=m.inspect({limit:2}).native.preparations;
+ m.update({revision:2,context:f.context,items:[item('new')]});expect(m.inspect({limit:2})).toMatchObject({controls:[{id:'new'}],native:{preparations:before+1,objects:1}});ui.dispose();
+});
+
+
+
+// Draft stock-icon translation port: the same complete native mount remains
+// authoritative. These structural assertions require independent native pixels.
+function iconPlacementFixture() {
+  const f=fixture();
+  f.theme=defineTheme({version:1,id:'test:icon-placement',fonts:f.theme.fonts,icons:{
+    arrow:{width:8,height:6,frame:{x:4,y:2,width:8,height:6}},
+    other:{width:8,height:6,frame:{x:16,y:2,width:8,height:6}},
+  },roles:{root:{},art:{font:'body',tone:'cream'},'art.chosen':{},label:{font:'body',tone:'cream'},button:{font:'body',tone:'cream',alternatives:[{kind:'flat',color:'#123456'}]},back:{alternatives:[{kind:'flat',color:'#123456'}]}},geometry:{gap:0,padding:0,minTarget:0}});
+  f.icon=(x=4,y=4,extra={})=>u.icon({id:'arrow',appearanceRole:'art',asset:'arrow',...extra,layout:{x,y,width:8,height:6,...extra.layout}});
+  f.snapshot=(revision=1,x=4,y=4,extra={})=>({revision,context:f.context,tree:u.absolute({id:'root',appearanceRole:'root',layout:{width:f.context.viewport.width,height:f.context.viewport.height,padding:0,overflow:'clip'},children:[
+    u.panel({id:'below',appearanceRole:'back',layout:{x:0,y:0,width:30,height:20}}),f.icon(x,y,extra),
+    u.text({id:'later',appearanceRole:'label',label:'?',layout:{x:5,y:5,width:10,height:8}}),
+    button({id:'ok',label:'?',actionId:'original:ok',layout:{x:72,y:0,width:20,height:10}}),
+  ]})});
+  return f;
+}
+function iconPlacementInk(f) {
+  return f.objects.filter(o=>o.visible&&!o.destroyed).sort((a,b)=>a.depth-b.depth).map(o=>{
+    const frame=f.fragments.get(o.frame),round=n=>typeof n==='number'?Math.round(n*1e8)/1e8:n;
+    return [o.kind,o.x,o.y,o.width,o.height,o.scaleX,o.scaleY,o.color,o.tint,o.alpha,o.depth,...o.crop??[],frame?.cutX,frame?.cutY,frame?.width,frame?.height].map(round);
+  });
+}
+
+test('placeIcons matches fresh stock geometry across clipping fractional phase and translated contexts',async()=>{
+  const {createPhaserUi}=await api();
+  for(const scale of [1,2,3]){
+    const a=iconPlacementFixture(),b=iconPlacementFixture();
+    for(const f of [a,b])f.context={...f.context,localToPhysical:{scale,x:11,y:7},sourcePixelPhysicalSize:2,viewport:{x:3,y:2,width:100,height:60}};
+    let requests=[];const resolve=a.ports.resolveAsset;a.ports.resolveAsset=request=>{requests.push([request.kind,request.id]);return resolve(request);};
+    const ua=createPhaserUi(a),ub=createPhaserUi(b),ma=ua.mount(a.snapshot(1,-40,4),{parent:a.parent,scope:'test:placed-geometry'}),mb=ub.mount(b.snapshot(1,-40,4),{parent:b.parent,scope:'test:fresh-geometry'});
+    expect(typeof ma.placeIcons).toBe('function');let revision=1;
+    for(const [x,y]of [[-2,4],[4,4],[7.25,4],[96,57],[-40,4],[4.5,4.25],[4,4]]){
+      requests=[];ma.placeIcons({expectedRevision:revision,revision:revision+1,items:[{id:'arrow',x,y}]});revision++;
+      expect(requests).toEqual([['icon','arrow']]);
+      mb.update(b.snapshot(revision,x,y));
+      expect(ma.inspect({limit:20}).controls).toEqual(mb.inspect({limit:20}).controls);
+      expect(iconPlacementInk(a),JSON.stringify({scale,x,y})).toEqual(iconPlacementInk(b));
+      // Appearance selection after normalized input cannot restore old positions.
+      ma.handle({type:'hover',point:{x:180,y:110},pointSpace:'physical'});
+      mb.handle({type:'hover',point:{x:180,y:110},pointSpace:'physical'});
+      expect(iconPlacementInk(a)).toEqual(iconPlacementInk(b));
+    }
+    ua.dispose();ub.dispose();expect(a.fragments.size).toBe(0);expect(a.texture.frameTotal).toBe(1);
+  }
+});
+
+test('placeIcons rejects compact raw forgeries and stale revisions before changing the accepted hold',async()=>{
+  const {createPhaserUi}=await api(),f=iconPlacementFixture(),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:placed-atomic',policy:{retainUnchangedPresses:true}});
+  expect(typeof m.placeIcons).toBe('function');
+  m.handle({type:'press',inputId:'held',point:{x:148,y:4},pointSpace:'physical'});
+  const accepted=m.inspect({limit:20}),ink=iconPlacementInk(f),request={expectedRevision:1,revision:2,items:[{id:'arrow',x:12,y:8}]};
+  const reject=raw=>{expect(()=>m.placeIcons(raw)).toThrow();expect(m.inspect({limit:20})).toEqual(accepted);expect(iconPlacementInk(f)).toEqual(ink);};
+  for(const raw of [
+    {...request,expectedRevision:0},{...request,revision:1},{...request,revision:NaN},{...request,revision:2.5},
+    {...request,unknown:true},{...request,items:[{...request.items[0],asset:'other'}]},
+    {...request,items:[request.items[0],request.items[0]]},{...request,items:[{id:'missing',x:0,y:0}]},
+    {...request,items:[{id:'ok',x:0,y:0}]},{...request,items:[{id:'arrow',x:Infinity,y:0}]},
+    {...request,items:[{id:'arrow',x:0,y:0},{id:'missing',x:0,y:0}]},
+  ])reject(raw);
+  let reads=0;const item={id:'arrow',y:0};Object.defineProperty(item,'x',{enumerable:true,get(){reads++;return 0;}});reject({...request,items:[item]});expect(reads).toBe(0);
+  const inherited=Object.create({x:12});inherited.id='arrow';inherited.y=8;reject({...request,items:[inherited]});
+  const symbol={...request};symbol[Symbol('authority')]=1;reject(symbol);
+  m.placeIcons(request);request.items[0].x=999;
+  expect(Object.isFrozen(request.items)).toBe(false);expect(Object.isFrozen(request.items[0])).toBe(false);
+  expect(m.inspect({limit:20})).toMatchObject({modelRevision:2,heldCount:1});
+  expect(m.inspect({limit:20}).controls.find(r=>r.id==='arrow').bounds.x).toBe(12);
+  expect(m.handle({type:'release',inputId:'held',point:{x:148,y:4},pointSpace:'physical'})).toMatchObject([{actionId:'original:ok',modelRevision:2}]);
+  ui.dispose();
+});
+
+test('placeIcons refuses icon authority descendants and unsupported absolute-root arrangements',async()=>{
+  const {createPhaserUi}=await api();
+  const cases=[
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,focusable:true}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,actionId:'game:bad'}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,focus:{}}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,regions:{hit:{x:0,y:0,width:1,height:1}}}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,metadata:{'app:note':'not placement'}}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,label:'?'}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,children:[u.text({id:'icon-child',appearanceRole:'label',label:'?'})]}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,selected:false}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,hidden:false}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,variant:'chosen'}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.validateUiTree({...n,layout:{...n.layout,padding:0}}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,children:s.tree.children.map(n=>n.id==='arrow'?u.absolute({id:'nested',appearanceRole:'root',children:[n]}):n)})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,layout:{...s.tree.layout,x:1}})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,layout:{...s.tree.layout,padding:1}})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,layout:{...s.tree.layout,scrollX:1}})}),
+    s=>({...s,tree:u.validateUiTree({...s.tree,layout:{...s.tree.layout,width:99}})}),
+  ];
+  for(const alter of cases){
+    const f=iconPlacementFixture(),ui=createPhaserUi(f),m=ui.mount(alter(f.snapshot()),{parent:f.parent,scope:'test:placed-ineligible'});
+    expect(typeof m.placeIcons).toBe('function');const accepted=m.inspect({limit:20}),ink=iconPlacementInk(f);
+    expect(()=>m.placeIcons({expectedRevision:1,revision:2,items:[{id:'arrow',x:12,y:8}]})).toThrow();
+    expect(m.inspect({limit:20})).toEqual(accepted);expect(iconPlacementInk(f)).toEqual(ink);ui.dispose();
+  }
+});
+
+test('placeIcons validates untouched compiled source identity before pure acceptance',async()=>{
+  const {createPhaserUi}=await api(),f=iconPlacementFixture(),art={...f.texture,key:'art',source:[{}]};
+  f.ports.resolveAsset=r=>({ownership:'borrowed',texture:r.kind==='icon'?art:f.texture});
+  const ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:placed-stale-source'});
+  expect(typeof m.placeIcons).toBe('function');const accepted=m.inspect({limit:20}),ink=iconPlacementInk(f),source=f.texture.source[0];
+  f.texture.source[0]={};
+  expect(()=>m.placeIcons({expectedRevision:1,revision:2,items:[{id:'arrow',x:12,y:8}]})).toThrow(/source|stale/i);
+  expect(m.inspect({limit:20})).toEqual(accepted);expect(iconPlacementInk(f)).toEqual(ink);f.texture.source[0]=source;ui.dispose();
+});
+
+test('placeIcons captures Proxy descriptors without semantic gets',async()=>{
+  const {createPhaserUi}=await api(),f=iconPlacementFixture(),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:placed-raw-proxy'});
+  expect(typeof m.placeIcons).toBe('function');let gets=0,descriptors=0;
+  const raw={id:'arrow',x:14,y:8},item=new Proxy(raw,{get(){gets++;throw Error('raw Proxy semantic get');},getOwnPropertyDescriptor(target,key){descriptors++;return Reflect.getOwnPropertyDescriptor(target,key);}});
+  m.placeIcons({expectedRevision:1,revision:2,items:[item]});
+  expect(gets).toBe(0);expect(descriptors).toBeGreaterThan(0);
+  raw.x=99;expect(m.inspect({limit:20}).controls.find(r=>r.id==='arrow').bounds.x).toBe(14);ui.dispose();
+});
+
+test('placeIcons preserves accepted state when the existing full-layout quantizer rejects an inherited setter',async()=>{
+  const {createPhaserUi}=await api(),a=iconPlacementFixture(),b=iconPlacementFixture(),ua=createPhaserUi(a),ub=createPhaserUi(b),ma=ua.mount(a.snapshot(),{parent:a.parent,scope:'test:placed-setter',policy:{retainUnchangedPresses:true}}),mb=ub.mount(b.snapshot(),{parent:b.parent,scope:'test:full-setter',policy:{retainUnchangedPresses:true}});
+  expect(typeof ma.placeIcons).toBe('function');
+  for(const mount of [ma,mb])mount.handle({type:'press',inputId:'held',point:{x:148,y:4},pointSpace:'physical'});
+  const acceptedA=ma.inspect({limit:20}),acceptedB=mb.inspect({limit:20}),inkA=iconPlacementInk(a),inkB=iconPlacementInk(b),fullNext=b.snapshot(2,14,8),prior=Object.getOwnPropertyDescriptor(Object.prototype,'x');let setters=0;
+  try{
+    Object.defineProperty(Object.prototype,'x',{configurable:true,set(){setters++;}});
+    expect(()=>mb.update(fullNext)).toThrow(/finite/i);
+    expect(()=>ma.placeIcons({expectedRevision:1,revision:2,items:[{id:'arrow',x:14,y:8}]})).toThrow(/finite/i);
+  }finally{if(prior)Object.defineProperty(Object.prototype,'x',prior);else delete Object.prototype.x;}
+  expect(setters).toBeGreaterThanOrEqual(2);expect(ma.inspect({limit:20})).toEqual(acceptedA);expect(mb.inspect({limit:20})).toEqual(acceptedB);
+  expect(iconPlacementInk(a)).toEqual(inkA);expect(iconPlacementInk(b)).toEqual(inkB);
+  ma.placeIcons({expectedRevision:1,revision:2,items:[{id:'arrow',x:14,y:8}]});mb.update(fullNext);
+  expect(iconPlacementInk(a)).toEqual(iconPlacementInk(b));expect(ma.inspect({limit:20}).heldCount).toBe(1);ua.dispose();ub.dispose();
+});
+
+test('placeIcons reserves aggregate visible objects and distinct fragments before admitting newly visible icons',async()=>{
+  const {createPhaserUi}=await api();
+  for(const limits of [{objects:1},{fragments:1}]){
+    const f=iconPlacementFixture(),ui=createPhaserUi({...f,limits}),tree=u.absolute({id:'root',appearanceRole:'root',layout:{width:100,height:60,padding:0,overflow:'clip'},children:[f.icon(),u.icon({id:'entering',appearanceRole:'art',asset:'other',layout:{x:-40,y:4,width:8,height:6}})]}),m=ui.mount({revision:1,context:f.context,tree},{parent:f.parent,scope:'test:placed-budget'});
+    expect(typeof m.placeIcons).toBe('function');const accepted=m.inspect({limit:20}),ink=iconPlacementInk(f);
+    expect(()=>m.placeIcons({expectedRevision:1,revision:2,items:[{id:'entering',x:20,y:4}]})).toThrow(/budget/i);
+    expect(m.inspect({limit:20})).toEqual(accepted);expect(iconPlacementInk(f)).toEqual(ink);ui.dispose();
+  }
+});
+
+test('placeIcons full updates reset placement state while native faults retire the complete mount',async()=>{
+  const {createPhaserUi}=await api(),f=iconPlacementFixture(),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:placed-lifetime'});
+  expect(typeof m.placeIcons).toBe('function');
+  m.placeIcons({expectedRevision:1,revision:2,items:[{id:'arrow',x:12,y:8}]});
+  m.update(f.snapshot(3,30,20,{asset:'other'}));
+  expect(()=>m.placeIcons({expectedRevision:2,revision:4,items:[{id:'arrow',x:8,y:8}]})).toThrow();
+  m.placeIcons({expectedRevision:3,revision:4,items:[{id:'arrow',x:35,y:21}]});
+  expect(m.inspect({limit:20}).controls.find(r=>r.id==='arrow').bounds).toMatchObject({x:35,y:21});
+  const image=f.objects.find(o=>o.kind==='image'&&!o.destroyed);image.setPosition=()=>{throw Error('placed native position fault');};
+  expect(()=>m.placeIcons({expectedRevision:4,revision:5,items:[{id:'arrow',x:36,y:22}]})).toThrow(/placed native position fault/);
+  expect(m.inspect({limit:20}).native).toMatchObject({lifecycle:'retired',objects:0,fragments:0,attachments:0});
+  expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.texture.frameTotal).toBe(1);
+  expect(()=>m.placeIcons({expectedRevision:5,revision:6,items:[]})).toThrow(/retired|disposed/i);ui.dispose();
+});
+
+test('placeIcons rejects a stale base when an asset port accepts a newer full publication during preparation',async()=>{
+  const {createPhaserUi}=await api(),f=iconPlacementFixture(),resolve=f.ports.resolveAsset;let m,entered=false;
+  f.ports.resolveAsset=request=>{if(m&&request.kind==='icon'&&!entered){entered=true;m.update(f.snapshot(3,40,20));}return resolve(request);};
+  const ui=createPhaserUi(f);m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:placed-reentrant',policy:{retainUnchangedPresses:true}});
+  m.handle({type:'press',inputId:'held',point:{x:148,y:4},pointSpace:'physical'});
+  expect(()=>m.placeIcons({expectedRevision:1,revision:4,items:[{id:'arrow',x:14,y:8}]})).toThrow(/stale|changed|reentrant/i);
+  expect(entered).toBe(true);expect(m.inspect({limit:20})).toMatchObject({modelRevision:3,heldCount:1,native:{lifecycle:'mounted'}});
+  expect(m.inspect({limit:20}).controls.find(r=>r.id==='arrow').bounds).toMatchObject({x:40,y:20});
+  m.placeIcons({expectedRevision:3,revision:4,items:[{id:'arrow',x:14,y:8}]});
+  expect(m.inspect({limit:20}).controls.find(r=>r.id==='arrow').bounds).toMatchObject({x:14,y:8});ui.dispose();
+});
+
+
+test('certified plan sharing avoids native republication across stock appearance states',async()=>{
+  const {createPhaserUi}=await api(),f=fixture();
+  f.theme=defineTheme({version:1,id:'test:shared-stock',fonts:f.theme.fonts,roles:{button:{font:'body',tone:'cream',placement:{nativeStates:{pressed:{opacity:.5}}}}}});
+  const plans=[],ui=createPhaserUi(f);nativePlanObservation.observe=value=>{if(value?.format==='agent-sprites/ui-layout@1')plans.push(value);};
+  try{
+    const m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:shared-stock'});
+    expect(plans).toHaveLength(1);expect(Object.isFrozen(plans[0])).toBe(true);
+    const old=plans[0];plans.length=0;m.update(f.snapshot(2,'??'));
+    expect(plans).toHaveLength(1);expect(plans[0]).not.toBe(old);expect(old.revision).toBe(1);
+    expect(m.handle({type:'activate',controlId:'ok',inputId:'shared'})).toHaveLength(1);
+  }finally{nativePlanObservation.observe=null;ui.dispose();}
+  expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test.each([false,true])('certified plan sharing keeps extension callbacks with empty regions=%s',async explicit=>{
+  const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f);let calls=0,mounts=0;const plans=[];
+  ui.registerExtension('test:empty',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:20,height:10},overflow:'clip'}),...(explicit?{regions(){calls++;return [];}}:{}),mount(){mounts++;}});
+  const snapshot={revision:1,context:f.context,tree:u.extension({id:'empty',extensionId:'test:empty',model:{value:1},layout:{width:20,height:10}})};
+  nativePlanObservation.observe=value=>{if(value?.format==='agent-sprites/ui-layout@1')plans.push(value);};
+  try{ui.mount(snapshot,{parent:f.parent,scope:'test:shared-empty'});expect(plans).toHaveLength(1);expect(calls).toBe(explicit?2:0);expect(mounts).toBe(1);}finally{nativePlanObservation.observe=null;ui.dispose();}
+});
+
+test('certified plan sharing copies inserted region records and preserves rejection and reentrant layouts',async()=>{
+  const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f);const plans=[];let nested=0,calls=0;
+  ui.registerExtension('test:regions',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:40,height:10},overflow:'clip'}),regions(model,a){
+    calls++;const independent=layoutUi(f.snapshot(9).tree,{revision:9,context:f.context,theme:f.theme});expect(independent.records[0].id).toBe('ok');nested++;
+    return [{id:'one',bounds:{...a.bounds,width:20},actionId:'game:one',focusable:true},{id:model.bad?'one':'two',bounds:{...a.bounds,x:a.bounds.x+20,width:20},actionId:'game:two',focusable:true}];
+  },mount(){}});
+  const snapshot=(revision,bad=false)=>({revision,context:f.context,tree:u.absolute({id:'root',children:[u.extension({id:'ext',extensionId:'test:regions',model:{bad},layout:{width:40,height:10}}),u.button({id:'tail',layout:{y:20,width:20,height:10}})]})});
+  nativePlanObservation.observe=value=>{if(value?.format==='agent-sprites/ui-layout@1'&&value.records[0].id==='root')plans.push(value);};
+  try{
+    const m=ui.mount(snapshot(1),{parent:f.parent,scope:'test:shared-regions'});
+    expect(plans).toHaveLength(2);const [original,expanded]=plans;
+    expect(expanded).not.toBe(original);expect(expanded.records).not.toBe(original.records);expect(expanded.records.map(r=>r.id)).toEqual(['root','ext','ext:one','ext:two','tail']);
+    expect(expanded.records[0]).toBe(original.records[0]);expect(expanded.records.at(-1)).toBe(original.records.at(-1));expect(original.records.map(r=>r.id)).toEqual(['root','ext','tail']);
+    m.handle({type:'press',inputId:'held',point:{x:4,y:4},pointSpace:'physical'});const before=m.inspect({limit:10});
+    expect(()=>m.update(snapshot(2,true))).toThrow(/Duplicate extension/);
+    expect(m.inspect({limit:10})).toEqual(before);expect(original.records).toHaveLength(3);
+    expect(m.handle({type:'release',inputId:'held',point:{x:4,y:4},pointSpace:'physical'})).toMatchObject([{actionId:'game:one'}]);
+    expect(calls).toBe(4);expect(nested).toBe(calls);
+  }finally{nativePlanObservation.observe=null;ui.dispose();}
+  expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
 });
