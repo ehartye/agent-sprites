@@ -503,3 +503,34 @@ For a shared implementation edit, run the affected CPU owner and the native fixt
 when rendering, interaction or lifecycle changes. Producer release runs both UI
 commands and established package/plugin release checks. Stop on passing unchanged
 inputs; widen only for a named changed dependency, observed failure or unresolved risk.
+
+## Retained stock ordering (explicit opt-in)
+
+`createPhaserUi({scene, theme, ports, stockOrdering: 'isolated'})` reserves one private
+identity-transform stock Container per mount and actual attachment-parent identity.
+New stock objects are sorted only inside that owned group. Existing caller siblings
+and extension objects are never sorted or adopted. Multiple contexts attached to the
+same actual parent share the group; separate mounts do not. The group is reserved even
+when stock is initially empty, so later insertions stay below retained overlay extensions.
+Host-declared under-stock extensions may still explicitly send their own objects behind it.
+
+Default `stockOrdering: 'direct'` retains the existing add-only parent/scene contract,
+including tagging proxies. It does not repair Container insertion order. Opt-in needs
+`scene.add.container` and the returned native group's `add`, `remove`, `sort`, and
+`destroy` capabilities. Attachment ports must expose stable actual parent identity,
+not fresh proxies hiding aliases. Borrowed parents remain caller-owned and must stay
+alive while any borrowed attachment survives, including when aliased owned leases retire.
+
+Isolated `limits.stockGroups` defaults to 256 per mount and counts distinct parents,
+not contexts. `inspect().native.stockGroups` is present only in isolated mode;
+`native.objects` still counts paint primitives. Context replacements preserve a reused
+borrowed group's sibling slot. Extensions depending on a replaced context retire
+before its attachment lease. Cleanup attempts extension, stock/group, and remaining
+lease phases even after errors; failures are reported, not silently declared successful.
+Exactly-once stock destructor attempts assume the native private-group detach operation
+works; simultaneous native detach/destructor failures cannot promise complete recovery.
+
+Migration requires actual renderer pixel, input, camera/transform and lifetime parity.
+Cyberpunkt and Fallow have compatible real-parent ports under qualification. Hullgrown's
+add-only tagging proxies require a separate adapter migration and must remain direct.
+Do not infer installation or adoption from a producer release alone.

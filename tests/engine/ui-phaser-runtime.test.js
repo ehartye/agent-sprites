@@ -18,8 +18,22 @@ vi.mock('../../server/build/ui-theme.mjs',async importOriginal=>{
 
 // This seam double models only the installed Phaser Image/Rectangle/Texture APIs.
 // It cannot establish native pixels, renderer state or real input transport.
+// Phaser Container child order is list order, NOT child.depth. Sorting is explicit.
+function fakeContainer(children=[]) {
+ const parent={kind:'container',list:[],destroyed:0,visible:true,parentContainer:null,
+  add(value){for(const child of Array.isArray(value)?value:[value]){if(child.parentContainer===this)continue;child.parentContainer?.remove(child);this.list.push(child);child.parentContainer=this;}return this;},
+  remove(child,destroy=false){const i=this.list.indexOf(child);if(i>=0){this.list.splice(i,1);child.parentContainer=null;if(destroy)child.destroy();}return this;},
+  moveTo(child,index){const i=this.list.indexOf(child);if(i<0)throw Error('Missing child');this.list.splice(i,1);this.list.splice(index,0,child);return this;},
+  sendToBack(child){return this.moveTo(child,0);},bringToTop(child){return this.moveTo(child,this.list.length-1);},
+  sort(property,handler){this.list.sort(handler??((a,b)=>a[property]-b[property]));return this;},
+  setDepth(depth){this.depth=depth;return this;},setVisible(visible){this.visible=visible;return this;},
+  setPosition(x,y){Object.assign(this,{x,y});return this;},setScale(x,y=x){Object.assign(this,{scaleX:x,scaleY:y});return this;},
+  destroy(){this.destroyed++;this.parentContainer?.remove(this);for(const child of [...this.list]){this.remove(child);child.destroy();}}
+ };parent.add(children);return parent;
+}
+function paintedOrder(parent){return parent.list.flatMap(child=>child.destroyed||child.visible===false?[]:child.kind==='container'?paintedOrder(child):child.kind==='rectangle'?[child.color]:[]);}
 function fixture() {
-  const objects = [], fragments = new Map(), parent = {add() {}, destroyed: 0};
+  const objects = [], containers=[], fragments = new Map(), parent = fakeContainer();
   const texture = {key: 'borrowed',frameTotal:1,firstFrame:'__BASE',source:[{}],has: key => fragments.has(key),
     add(name, index, x, y, width, height) {const f = {name, sourceIndex:index, cutX:x, cutY:y, width, height}; fragments.set(name,f);texture.frameTotal++;if(texture.firstFrame==='__BASE')texture.firstFrame=name;return f;},
     get(){return {clone(){return {name:'',sourceIndex:0,source:texture.source[0],setSize(width,height,x,y){Object.assign(this,{width,height,cutX:x,cutY:y});fragments.set(this.name,this);return this;},destroy(){fragments.delete(this.name);}};}};},
@@ -32,17 +46,17 @@ function fixture() {
       setTint(tint) {this.tint=tint;return this;},
       setAlpha(alpha) {this.alpha=alpha;return this;},
       setSize(width,height) {Object.assign(this,{width,height});return this;}, setFillStyle(color) {this.color=color;return this;},
-      setDepth(depth) {this.depth=depth;return this;}, destroy() {this.destroyed++;}};
+      setDepth(depth) {this.depth=depth;return this;}, destroy() {this.destroyed++;this.parentContainer?.remove(this);}};
     objects.push(obj);return obj;
   };
-  const scene = {events:new EventEmitter(), add:{image:()=>make('image'),rectangle:()=>make('rectangle')}};
+  const scene = {events:new EventEmitter(), add:{image:()=>make('image'),rectangle:()=>make('rectangle'),container:(_x,_y,children=[])=>{const c=fakeContainer(children);containers.push(c);return c;}}};
   const font = normalizeBitmapFont({report:{kind:'font',fallback:'?',lineHeight:8,tones:{cream:{}},glyphs:{'?':{advance:5,frames:{cream:'q'},bounds:{left:0,top:0,right:3,bottom:5}},' ':{advance:3}}},atlas:{frames:{q:{frame:{x:0,y:0,w:4,h:6}}}}});
   const colors={focus:'#ffffff',hover:'#ffff00',pressed:'#ff0000',disabled:'#777777',selection:'#444444',caret:'#ffffff',indicator:'#00ff00',separator:'#777777',track:'#111111',fill:'#00ff00',selected:'#333333',adjust:'#ffffff'};
   const theme=defineTheme({version:1,id:'test:native',fonts:{body:{font}},roles:Object.fromEntries(['button','text','panel','absolute','stack','field','tabs','stepper','pager','toggle','fold','progress','meter','separator','icon','extension'].map(k=>[k,{font:'body',tone:'cream',colors,...(k==='button'?{alternatives:[{kind:'flat',color:'#123456'}]}:{})}])),geometry:{gap:0,padding:0,minTarget:0}});
   const context={id:'test:main',revision:1,localToPhysical:{scale:2,x:0,y:0},sourcePixelPhysicalSize:2,viewport:{x:0,y:0,width:100,height:60}};
   const snapshot=(revision=1,label='?')=>({revision,context,tree:button({id:'ok',label,actionId:'game:ok',layout:{width:20,height:10}})});
   const ports={resolveAsset:()=>({ownership:'borrowed',texture}),attachContext:()=>({ownership:'borrowed',parent})};
-  return {scene,theme,ports,parent,objects,fragments,texture,context,snapshot};
+  return {scene,theme,ports,parent,objects,containers,fragments,texture,context,snapshot};
 }
 async function api() {
   const url=new URL('../../server/build/ui-phaser-runtime.mjs',import.meta.url);
@@ -1184,4 +1198,133 @@ test('certified plan sharing copies inserted region records and preserves reject
     expect(calls).toBe(4);expect(nested).toBe(calls);
   }finally{nativePlanObservation.observe=null;ui.dispose();}
   expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+
+// Reconciliation paint-order regression: these inspect faithful Container list order,
+// not the fake object's depth field. Native pixels remain a separate owner.
+function orderFixture(){const f=fixture();f.stockOrdering='isolated';f.theme=defineTheme({version:1,id:'test:paint-order',roles:{root:{},a:{alternatives:[{kind:'flat',color:'#aa0000'}]},b:{alternatives:[{kind:'flat',color:'#00bb00'}]},c:{alternatives:[{kind:'flat',color:'#0000cc'}]},extension:{}}});return f;}
+function orderSnapshot(f,ids,revision=1,contexts={}){return{revision,context:f.context,...(contexts.additionalContexts?{additionalContexts:contexts.additionalContexts}:{}),tree:u.absolute({id:'root',appearanceRole:'root',layout:{width:80,height:40},children:ids.map(id=>u.panel({id,appearanceRole:id,...(contexts[id]?{contextId:contexts[id]}:{}),layout:{x:2,y:2,width:20,height:12}}))})};}
+test('retained stock insertion reorder and removal match a fresh Container paint order',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:paint-order'}),original=[...f.objects];
+ for(const [i,ids]of [['a','b','c'],['c','b','a'],['b','a'],['a','c','b']].entries()){
+  m.update(orderSnapshot(f,ids,i+2));const fresh=orderFixture(),other=createPhaserUi(fresh);other.mount(orderSnapshot(fresh,ids),{parent:fresh.parent,scope:'test:fresh-order'});expect(paintedOrder(f.parent)).toEqual(paintedOrder(fresh.parent));other.dispose();
+ }
+ expect(original.find(o=>o.color===0xaa0000).destroyed).toBe(0);m.dispose();ui.dispose();expect(f.parent.list).toEqual([]);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.parent.destroyed).toBe(0);
+});
+test('private stock order preserves borrowed foreign siblings and another mount',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();const foreign=f.scene.add.rectangle().setFillStyle(0xdddddd).setVisible(true);f.parent.add(foreign);const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:first-owner'});const other=ui.mount(orderSnapshot(f,['b']),{parent:f.parent,scope:'test:second-owner'});
+ const overlay=f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true);f.parent.add(overlay);m.update(orderSnapshot(f,['c','b','a'],2));expect(paintedOrder(f.parent)).toEqual([0xdddddd,0x0000cc,0x00bb00,0xaa0000,0x00bb00,0xeeeeee]);m.dispose();expect(paintedOrder(f.parent)).toEqual([0xdddddd,0x00bb00,0xeeeeee]);other.dispose();ui.dispose();expect(f.parent.list).toEqual([foreign,overlay]);expect(foreign.destroyed).toBe(0);expect(overlay.destroyed).toBe(0);expect(f.parent.destroyed).toBe(0);
+});
+test.each([false,true])('retained extension sibling remains %s underStock across new stock insertion',async underStock=>{
+ const {createPhaserUi}=await api(),f=orderFixture();let created=0,marker;f.ports.extensionFacade=(_request,owner)=>({paint(){created++;marker=owner.own(f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true),o=>o.destroy());f.parent.add(marker);if(underStock)f.parent.sendToBack(marker);}});const ui=createPhaserUi(f);ui.registerExtension('test:layer',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:20,height:12},overflow:'clip'}),mount(_m,_a,scope){scope.native.paint();}});
+ const snap=(ids,revision)=>{const s=orderSnapshot(f,ids,revision);s.tree={...s.tree,children:[...s.tree.children,u.extension({id:'extension',appearanceRole:'extension',extensionId:'test:layer',model:{stable:true},layout:{width:20,height:12}})]};return s;};const m=ui.mount(snap(['a','c'],1),{parent:f.parent,scope:'test:extension-order'}),first=marker;m.update(snap(['a','b','c'],2));expect(created).toBe(1);expect(marker).toBe(first);expect(paintedOrder(f.parent)).toEqual(underStock?[0xeeeeee,0xaa0000,0x00bb00,0x0000cc]:[0xaa0000,0x00bb00,0x0000cc,0xeeeeee]);m.dispose();ui.dispose();expect(marker.destroyed).toBe(1);expect(f.parent.list).toEqual([]);
+});
+test('contexts sharing one borrowed parent retain one interleaved stock paint sequence',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),second={...f.context,id:'test:second'},mapping={b:second.id,additionalContexts:[second]},ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c'],1,mapping),{parent:f.parent,scope:'test:aliased-parent'});m.update(orderSnapshot(f,['a','b','c'],2,mapping));expect(paintedOrder(f.parent)).toEqual([0xaa0000,0x00bb00,0x0000cc]);m.update(orderSnapshot(f,['b','c','a'],3,mapping));expect(paintedOrder(f.parent)).toEqual([0x00bb00,0x0000cc,0xaa0000]);m.dispose();expect(f.parent.list).toEqual([]);expect(f.parent.destroyed).toBe(0);ui.dispose();
+});
+test('owned context parent and private stock resources release exactly once',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();let releases=0;f.ports.attachContext=()=>({ownership:'owned',parent:f.parent,release(){releases++;f.parent.destroy();}});const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:owned-order'});m.update(orderSnapshot(f,['a','b','c'],2));m.dispose();m.dispose();ui.dispose();expect(releases).toBe(1);expect(f.parent.destroyed).toBe(1);expect(f.parent.list).toEqual([]);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.containers.every(c=>c.destroyed===1)).toBe(true);
+});
+
+test('default direct stock attachment preserves legacy adapter calls and creates no groups',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();delete f.stockOrdering;delete f.scene.add.container;const attached=[];f.ports.attachContext=()=>({ownership:'borrowed',parent:{add(object){attached.push(object);f.parent.add(object);}}});
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:legacy-direct'});m.update(orderSnapshot(f,['a','b','c'],2));
+ expect(f.containers).toHaveLength(0);expect(attached).toEqual(f.objects);expect(paintedOrder(f.parent)).toEqual([0xaa0000,0x0000cc,0x00bb00]);m.dispose();ui.dispose();expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test('isolated stock ordering requires container creation without changing default direct capability',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();delete f.scene.add.container;
+ expect(()=>{const ui=createPhaserUi(f);try{ui.mount(orderSnapshot(f,['a']),{parent:f.parent,scope:'test:missing-group'});}finally{ui.dispose();}}).toThrow(/container|isolated|group/i);
+ expect(f.objects).toHaveLength(0);expect(f.parent.list).toEqual([]);
+});
+
+test('refcounted owned context aliases preserve per-lease release timing and destroy group before final parent',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),second={...f.context,id:'test:owned-alias'},mapping={b:second.id,additionalContexts:[second]};let refs=0;const released=[];
+ f.ports.attachContext=({context})=>{refs++;return{ownership:'owned',parent:f.parent,release(){released.push(context.id);if(--refs===0){expect(f.parent.list).toEqual([]);f.parent.destroy();}}};};
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','b','c'],1,mapping),{parent:f.parent,scope:'test:owned-aliases'});
+ expect(refs).toBe(2);expect(f.containers).toHaveLength(1);const group=f.containers[0];
+ m.update(orderSnapshot(f,['c','a'],2));expect(released).toEqual([second.id]);expect(refs).toBe(1);expect(group.destroyed).toBe(0);expect(f.parent.destroyed).toBe(0);expect(paintedOrder(f.parent)).toEqual([0x0000cc,0xaa0000]);
+ m.dispose();m.dispose();ui.dispose();expect(released).toEqual([second.id,f.context.id]);expect(refs).toBe(0);expect(group.destroyed).toBe(1);expect(f.parent.destroyed).toBe(1);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test('borrowed context replacement retains private group identity and foreign sibling slot',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:replacement-slot'});
+ const group=f.containers[0],overlay=f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true);f.parent.add(overlay);
+ const next=orderSnapshot(f,['c','b','a'],2);next.context={...f.context,revision:2,viewport:{...f.context.viewport,width:101}};m.update(next);
+ expect(f.containers).toHaveLength(1);expect(f.parent.list).toEqual([group,overlay]);expect(group.destroyed).toBe(0);expect(paintedOrder(f.parent)).toEqual([0x0000cc,0x00bb00,0xaa0000,0xeeeeee]);
+ m.dispose();ui.dispose();expect(group.destroyed).toBe(1);expect(f.parent.list).toEqual([overlay]);expect(overlay.destroyed).toBe(0);expect(f.parent.destroyed).toBe(0);
+});
+
+test('isolated stock sort failure retires and drains stock group before owned parent',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();let releases=0;f.ports.attachContext=()=>({ownership:'owned',parent:f.parent,release(){releases++;expect(f.parent.list).toEqual([]);f.parent.destroy();}});
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:sort-failure'}),group=f.containers[0];group.sort=()=>{throw Error('private sort failed');};
+ expect(()=>m.update(orderSnapshot(f,['c','b','a'],2))).toThrow(/private sort failed/);expect(m.inspect({limit:1}).native.lifecycle).toBe('retired');expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(group.destroyed).toBe(1);expect(releases).toBe(1);expect(f.parent.destroyed).toBe(1);m.dispose();ui.dispose();expect(releases).toBe(1);
+});
+
+test('isolated stock partially successful group add failure drains every created object once',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),make=f.scene.add.container;f.scene.add.container=(...args)=>{const group=make(...args),add=group.add;group.add=function(object){add.call(this,object);throw Error('private add failed');};return group;};
+ const ui=createPhaserUi(f);expect(()=>ui.mount(orderSnapshot(f,['a']),{parent:f.parent,scope:'test:add-failure'})).toThrow(/private add failed/);ui.dispose();expect(f.objects.length).toBeGreaterThan(0);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.containers.every(c=>c.destroyed===1)).toBe(true);expect(f.parent.list).toEqual([]);expect(f.parent.destroyed).toBe(0);expect(f.scene.events.listenerCount('shutdown')).toBe(0);
+});
+
+test('isolated context replacement retires extension and stock before releasing each owned parent',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),parents=[],markers=[],releases=[];let current;
+ f.ports.attachContext=({context})=>{const parent=fakeContainer();parents.push(parent);current=parent;return{ownership:'owned',parent,release(){expect(parent.list).toEqual([]);releases.push(context.revision);parent.destroy();}};};
+ f.ports.extensionFacade=(_request,owner)=>({paint(){const marker=owner.own(f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true),o=>o.destroy());markers.push(marker);current.add(marker);}});
+ const ui=createPhaserUi(f);ui.registerExtension('test:replacement-extension',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:20,height:12},overflow:'clip'}),mount(_m,_a,scope){scope.native.paint();}});
+ const snap=revision=>{const s=orderSnapshot(f,['a','c'],revision);s.context={...f.context,revision,viewport:{...f.context.viewport,width:100+revision}};s.tree={...s.tree,children:[...s.tree.children,u.extension({id:'extension',appearanceRole:'extension',extensionId:'test:replacement-extension',model:{stable:true},layout:{width:20,height:12}})]};return s;};
+ const m=ui.mount(snap(1),{parent:f.parent,scope:'test:owned-extension-replacement'});m.update(snap(2));expect(releases).toEqual([1]);expect(markers).toHaveLength(2);expect(markers[0].destroyed).toBe(1);expect(markers[1].destroyed).toBe(0);expect(parents[0].destroyed).toBe(1);expect(paintedOrder(parents[1])).toEqual([0xaa0000,0x0000cc,0xeeeeee]);
+ m.dispose();ui.dispose();expect(releases).toEqual([1,2]);expect(markers.every(o=>o.destroyed===1)).toBe(true);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(f.containers.every(c=>c.destroyed===1)).toBe(true);expect(parents.every(p=>p.destroyed===1)).toBe(true);
+});
+
+test('default direct observations do not expose isolated stock group counts',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),m=ui.mount(f.snapshot(),{parent:f.parent,scope:'test:direct-observation'});
+ expect(Object.hasOwn(m.inspect({limit:1}).native,'stockGroups')).toBe(false);m.dispose();expect(Object.hasOwn(m.inspect({limit:1}).native,'stockGroups')).toBe(false);ui.dispose();
+});
+
+test('isolated group budget counts one actual parent for aliased contexts and reports zero after disposal',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),second={...f.context,id:'test:budget-alias'},mapping={b:second.id,additionalContexts:[second]};f.limits={stockGroups:1};
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','b','c'],1,mapping),{parent:f.parent,scope:'test:group-budget-alias'});
+ expect(m.inspect({limit:1}).native.stockGroups).toBe(1);expect(f.containers).toHaveLength(1);m.dispose();expect(m.inspect({limit:1}).native.stockGroups).toBe(0);expect(f.containers[0].destroyed).toBe(1);expect(f.parent.destroyed).toBe(0);ui.dispose();
+});
+
+test('isolated distinct parent group budget refuses before stock allocation and drains only private groups',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),other=fakeContainer(),second={...f.context,id:'test:budget-other'},mapping={b:second.id,additionalContexts:[second]};f.limits={stockGroups:1};
+ f.ports.attachContext=({context})=>({ownership:'borrowed',parent:context.id===second.id?other:f.parent});const ui=createPhaserUi(f);
+ expect(()=>ui.mount(orderSnapshot(f,['a','b'],1,mapping),{parent:f.parent,scope:'test:group-budget-distinct'})).toThrow(/group.*budget|budget.*group/i);
+ expect(f.objects).toHaveLength(0);expect(f.containers.length).toBeLessThanOrEqual(1);expect(f.containers.every(c=>c.destroyed===1)).toBe(true);expect(f.parent.list).toEqual([]);expect(other.list).toEqual([]);expect(f.parent.destroyed).toBe(0);expect(other.destroyed).toBe(0);expect(f.scene.events.listenerCount('shutdown')).toBe(0);ui.dispose();
+});
+
+test('isolated empty stock reserves its slot below a retained extension before new stock appears',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();let marker,mounted=0;f.ports.extensionFacade=(_request,owner)=>({paint(){mounted++;marker=owner.own(f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true),o=>o.destroy());f.parent.add(marker);}});
+ const ui=createPhaserUi(f);ui.registerExtension('test:empty-overlay',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:20,height:12},overflow:'clip'}),mount(_model,_allocation,scope){scope.native.paint();}});
+ const snap=(ids,revision)=>{const s=orderSnapshot(f,ids,revision);s.tree={...s.tree,children:[...s.tree.children,u.extension({id:'extension',appearanceRole:'extension',extensionId:'test:empty-overlay',model:{stable:true},layout:{width:20,height:12}})]};return s;};
+ const m=ui.mount(snap([],1),{parent:f.parent,scope:'test:empty-stock-slot'});expect(f.containers).toHaveLength(1);const group=f.containers[0],original=marker;expect(f.parent.list).toEqual([group,marker]);expect(paintedOrder(f.parent)).toEqual([0xeeeeee]);
+ m.update(snap(['a','c'],2));expect(mounted).toBe(1);expect(marker).toBe(original);expect(f.parent.list).toEqual([group,marker]);expect(paintedOrder(f.parent)).toEqual([0xaa0000,0x0000cc,0xeeeeee]);m.dispose();ui.dispose();expect(marker.destroyed).toBe(1);expect(group.destroyed).toBe(1);expect(f.parent.list).toEqual([]);
+});
+
+test('isolated extension retires before its secondary context revision attachment releases',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),secondaryId='test:extension-secondary',released=[],markers=[],secondaryParents=[];let latest;
+ f.ports.attachContext=({context})=>{if(context.id!==secondaryId)return{ownership:'borrowed',parent:f.parent};const parent=fakeContainer();secondaryParents.push(parent);return{ownership:'owned',parent,release(){expect(latest.destroyed).toBe(1);expect(parent.list).toEqual([]);released.push(context.revision);parent.destroy();}};};
+ f.ports.extensionFacade=({allocation},owner)=>{expect(allocation.context.id).toBe(f.context.id);expect(allocation.contextRevisions[secondaryId]).toBeDefined();return{paint(){latest=owner.own(f.scene.add.rectangle().setFillStyle(0xeeeeee).setVisible(true),o=>o.destroy());markers.push(latest);f.parent.add(latest);}};};
+ const ui=createPhaserUi(f);ui.registerExtension('test:secondary-dependent',{version:1,measure:()=>({min:{width:0,height:0},preferred:{width:20,height:12},overflow:'clip'}),mount(_model,_allocation,scope){scope.native.paint();}});
+ const snap=revision=>({revision,context:f.context,additionalContexts:[{...f.context,id:secondaryId,revision}],tree:u.absolute({id:'root',appearanceRole:'root',layout:{width:80,height:40},children:[u.extension({id:'extension',appearanceRole:'extension',skinContextId:secondaryId,extensionId:'test:secondary-dependent',model:{stable:true},layout:{width:20,height:12}})]})});
+ const m=ui.mount(snap(1),{parent:f.parent,scope:'test:secondary-extension-retirement'});m.update(snap(2));expect(released).toEqual([1]);expect(markers).toHaveLength(2);expect(markers[0].destroyed).toBe(1);expect(markers[1].destroyed).toBe(0);expect(secondaryParents[0].destroyed).toBe(1);
+ m.dispose();ui.dispose();expect(released).toEqual([1,2]);expect(markers.every(o=>o.destroyed===1)).toBe(true);expect(secondaryParents.every(p=>p.destroyed===1)).toBe(true);expect(f.parent.destroyed).toBe(0);expect(f.parent.list).toEqual([]);
+});
+
+test('isolated group budget one permits borrowed parent replacement without counting obsolete placeholder',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture(),nextParent=fakeContainer();f.limits={stockGroups:1};f.ports.attachContext=({context})=>({ownership:'borrowed',parent:context.revision===1?f.parent:nextParent});
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','c']),{parent:f.parent,scope:'test:replacement-budget'}),oldGroup=f.containers[0];
+ const next=orderSnapshot(f,['c','b','a'],2);next.context={...f.context,revision:2};expect(()=>m.update(next)).not.toThrow();
+ expect(m.inspect({limit:1}).native.lifecycle).toBe('mounted');expect(m.inspect({limit:1}).native.stockGroups).toBe(1);expect(oldGroup.destroyed).toBe(1);expect(f.parent.list).toEqual([]);expect(paintedOrder(nextParent)).toEqual([0x0000cc,0x00bb00,0xaa0000]);expect(f.containers).toHaveLength(2);expect(f.parent.destroyed).toBe(0);expect(nextParent.destroyed).toBe(0);
+ m.dispose();ui.dispose();expect(m.inspect({limit:1}).native.stockGroups).toBe(0);expect(nextParent.list).toEqual([]);expect(f.containers.every(c=>c.destroyed===1)).toBe(true);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(nextParent.destroyed).toBe(0);
+});
+
+test('isolated cleanup never retries a stock destructor that throws before detaching from its group',async()=>{
+ const {createPhaserUi}=await api(),f=orderFixture();let leases=0;f.ports.attachContext=()=>({ownership:'owned',parent:f.parent,release(){leases++;expect(f.parent.list).toEqual([]);f.parent.destroy();}});
+ const ui=createPhaserUi(f),m=ui.mount(orderSnapshot(f,['a','b','c']),{parent:f.parent,scope:'test:throwing-stock-cleanup'}),group=f.containers[0],bad=f.objects.find(o=>o.color===0x00bb00);
+ bad.destroy=()=>{bad.destroyed++;throw Error('stock destructor failed before detach');};
+ expect(()=>m.dispose()).toThrow(/cleanup/i);expect(bad.destroyed).toBe(1);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(group.destroyed).toBe(1);expect(group.list).toEqual([]);expect(f.parent.list).toEqual([]);expect(leases).toBe(1);expect(f.parent.destroyed).toBe(1);expect(m.inspect({limit:1}).native.cleanupFailures.join(' ')).toMatch(/stock destructor failed before detach/);
+ m.dispose();ui.dispose();expect(bad.destroyed).toBe(1);expect(leases).toBe(1);
 });
