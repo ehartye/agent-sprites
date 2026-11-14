@@ -19,6 +19,16 @@ at `http://localhost:3377` shows updates; `SPRITE_PORT` changes the port. An
 unrelated service is an identity error: choose an unused port, do not stop that
 service. Ports do not isolate the shared session database.
 
+For phone or remote viewing, use the same managed launcher to run
+`preview create [--seconds 3600]` against the existing server. Share the returned
+`url` when `tailscaleUrl` is available; `localUrl` works on the server host only.
+Links are read-only, expire after one hour by default, and stop when the project
+changes or the server exits. Keep the returned share `id` for
+`preview revoke --id <share-id>`. Do not share the bare editor address remotely.
+An advertised address does not prove phone reachability; ask the intended device
+owner to check it. No network setup or server replacement is implied.
+See [preview links](../../docs/preview-links.md).
+
 ## Project Setup
 
 ```

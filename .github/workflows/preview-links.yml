@@ -1,0 +1,28 @@
+name: Scoped preview links
+
+on:
+  pull_request:
+    paths: ['server/web/**', 'server/project-view.js', 'scripts/sprite.js', 'tests/web/preview-links.test.js', 'package*.json', '.github/workflows/preview-links.yml']
+  push:
+    branches: [main]
+    paths: ['server/web/**', 'server/project-view.js', 'scripts/sprite.js', 'tests/web/preview-links.test.js', 'package*.json', '.github/workflows/preview-links.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '26'
+          package-manager-cache: false
+      - run: npm ci --include=optional --ignore-scripts=false --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node node_modules/vitest/vitest.mjs run tests/web/preview-links.test.js tests/web/http.test.js tests/web/progressive-project.test.js tests/web-ui/websocket.test.js tests/cli/sessions.test.js --maxWorkers=2
