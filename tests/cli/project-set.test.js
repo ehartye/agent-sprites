@@ -1,4 +1,4 @@
-import { test, expect, beforeEach, afterEach } from 'vitest';
+import { test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, readdirSync, lstatSync, symlinkSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -10,6 +10,10 @@ import { buildProject } from '../../server/build/project-build.js';
 import { buildProjectSet as buildSet } from '../../server/build/project-set.js';
 
 const exec = promisify(execFile);
+// Most tests here build projects or start child processes and take two to four seconds
+// alone. In a whole-suite run two of them missed the default five-second limit, so the
+// file's default is fifteen; tests that pass their own limit keep it.
+vi.setConfig({ testTimeout: 15_000 });
 let dir, list, a, b;
 function snapshotTree(root) {
   return readdirSync(root).sort().flatMap(name => {
