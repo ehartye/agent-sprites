@@ -7,3 +7,5 @@ node_modules/
 examples/*/dist/
 examples/environment/*/dist/
 examples/environment/*/dist-*/
+# Written by tests/native-ui/appearance-parity.test.mjs
+reports/
