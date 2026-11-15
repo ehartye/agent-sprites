@@ -780,6 +780,48 @@ npm test        # vitest — engine, handlers, CLI, web API, DB, browser UI (jsd
 npm start       # run the server directly
 ```
 
+## Releasing
+
+There is no changelog; the GitHub release body is the record. This is the process
+0.105.1 followed.
+
+1. **Check what ships.** Everything on `main` since the last tag ships. Read
+   `git log v<last>..origin/main --oneline` and the open pull requests first.
+2. **Bump the version on a release branch**, in a clean checkout or worktree with a
+   locked install (`npm ci`). Four files carry the version, in five places:
+   `package.json`, `package-lock.json` (the top-level `version` and
+   `packages[""].version`), `.claude-plugin/plugin.json` and the `agent-sprites`
+   entry in `.claude-plugin/marketplace.json`.
+3. **Run the gates** in that checkout:
+
+   ```
+   node scripts/native-admission.mjs check-identity   # the four files agree
+   npm run test:ui                                    # UI runtime tests and the strict consumer type check
+   npm run test:ui:native                             # real-browser proof (WebGL and Canvas) and the node:test files
+   npm test                                           # the whole vitest suite, once
+   ```
+
+   No CI job runs `npm test` or the native proof, so they must be run locally.
+4. **Open a pull request** titled `Release <version>` and wait for its checks. A
+   version-only change gets the version identity check; a change that also touches
+   source, tests or workflows gets the native matrix. Squash-merge when green.
+5. **Tag the merge commit** with an annotated tag and push it:
+
+   ```
+   git tag -a v<version> -m "agent-sprites <version>" <merge commit>
+   git push origin v<version>
+   ```
+
+   Tags are never moved or deleted.
+6. **Publish a GitHub release** on that tag, titled `<version>: <short summary>`.
+   The body says what changed, gives behaviour notes for consumers (or says there
+   are none), records the validation that was run with its counts, and ends with
+   "Installed hosts need a plugin update and a setup rerun to pick this up."
+7. **Update the marketplace pin.** In the marketplace repository that lists this
+   plugin, confirm the tag exists on the remote and resolves to the merge commit,
+   then change the `agent-sprites` entry's `source.ref` (the tag), `source.sha`
+   (the full commit id) and `version`, and nothing else, in one pull request.
+
 ## License
 
 MIT

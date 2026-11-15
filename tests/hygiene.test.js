@@ -54,11 +54,14 @@ function trackedFiles() {
 }
 
 test('the deny-list recognises what it denies', () => {
-  expect(findings('C:\\Users\\someone\\repos')).toEqual(['Windows user path']);
-  expect(findings('"C:\\\\Users\\\\someone"')).toEqual(['Windows user path']);
-  expect(findings('/c/Users/someone/repos')).toContain('Git Bash user path');
-  expect(findings('/Users/someone')).toEqual(['macOS home path']);
-  expect(findings('/home/someone')).toEqual(['Linux home path']);
+  // The samples are joined from parts so that this file, which is tracked, does not
+  // contain the paths it denies and fail its own scan.
+  const path = (separator, ...parts) => parts.join(separator);
+  expect(findings(path('\\', 'C:', 'Users', 'someone', 'repos'))).toEqual(['Windows user path']);
+  expect(findings(JSON.stringify(path('\\', 'C:', 'Users', 'someone')))).toEqual(['Windows user path']);
+  expect(findings(path('/', '', 'c', 'Users', 'someone', 'repos'))).toContain('Git Bash user path');
+  expect(findings(path('/', '', 'Users', 'someone'))).toEqual(['macOS home path']);
+  expect(findings(path('/', '', 'home', 'someone'))).toEqual(['Linux home path']);
   expect(findings('a consumer game on a development machine')).toEqual([]);
   expect(deniedWordDigests.size).toBe(7);
   for (const digest of deniedWordDigests) expect(digest).toMatch(/^[0-9a-f]{64}$/);
