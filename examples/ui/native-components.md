@@ -531,6 +531,7 @@ Exactly-once stock destructor attempts assume the native private-group detach op
 works; simultaneous native detach/destructor failures cannot promise complete recovery.
 
 Migration requires actual renderer pixel, input, camera/transform and lifetime parity.
-Cyberpunkt and Fallow have compatible real-parent ports under qualification. Hullgrown's
-add-only tagging proxies require a separate adapter migration and must remain direct.
+Consumers whose attachment ports expose real parents are compatible and opt in after
+their own qualification. Consumers whose ports are add-only tagging proxies require a
+separate adapter migration and must remain direct.
 Do not infer installation or adoption from a producer release alone.

@@ -4,7 +4,7 @@ Date: 2026-11-13. Base: canonical main `2e5daa28642ad185476cc5fe96fa2e1d19120aaf
 
 ## Evidence and scope
 
-A controlled Cyberpunkt inventory tooltip specimen identified full native mount updates as the majority of publication time. A separate optional CDP profile attributed approximately 241 ms inclusive to rich interaction inspection over 24 transitions. These are instrumented synchronous observations, not gameplay FPS or a causal release comparison.
+A controlled inventory tooltip specimen in a consumer game identified full native mount updates as the majority of publication time. A separate optional CDP profile attributed approximately 241 ms inclusive to rich interaction inspection over 24 transitions. These are instrumented synchronous observations, not gameplay FPS or a causal release comparison.
 
 The native renderer previously paginated complete public interaction observations twice per publication/input handling, spreading complete layout records when only paint state was needed. The replacement is a private module-level `readUiAppearance` helper backed by a WeakMap of genuine interaction instances. It returns a new frozen snapshot of id, visibility state, enabled, optional selected paint truthiness, focus, hover and pressed state. Held control IDs are computed once per snapshot. No cache persists observations.
 
@@ -23,6 +23,6 @@ Raw portable scopes can admit nonboolean `selected` data. The internal snapshot 
 
 Receipts: `compact-appearance-ui-20261113.log`, `compact-appearance-native-20261113.log`, `compact-appearance-parity-20261113.log`; detailed native parity reports remain outside the tracked source. No native runtime behavior flag was added for the reference comparison.
 
-## Remaining gates
+## Release status and consumer gate
 
-This is a qualified producer candidate, not a published release. Import the complete authenticated software export into an isolated Cyber consumer, repeat its unchanged fixed tooltip publication assay and representative ordinary-input performance observation, and retain exact artifact/pin identity. Do not claim solid 60 FPS from these producer tests. Version metadata-only edits do not warrant repeating unchanged runtime gates.
+Released in 0.104.1 (tag v0.104.1, commit 37b5a3d). The consumer gate named when this note was written was to import the complete authenticated software export into an isolated copy of the first consumer, repeat its unchanged fixed tooltip publication assay and representative ordinary-input performance observation, and retain exact artifact/pin identity. This repository holds no record of that run; the release pull request (#257) states that an authenticated same-specimen tooltip observation in that consumer showed lower publication cost, and that statement was not re-verified here. Do not claim solid 60 FPS from these producer tests. Version metadata-only edits do not warrant repeating unchanged runtime gates.

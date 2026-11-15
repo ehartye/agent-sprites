@@ -88,7 +88,7 @@ export interface NativeObservation {
   readonly nextAfterId:string|null;
   readonly native:{readonly textMemo?:UiLayoutMemoStats;readonly lifecycle:'mounted'|'retired'|'disposed';readonly objects:number;readonly stockGroups?:number;readonly fragments:number;readonly attachments:number;readonly extensions:number;readonly created:number;readonly destroyed:number;readonly preparations?:number;readonly cleanupFailures:readonly string[]};
 }
-/** Unreleased draft: local layout x/y for admitted direct decorative icon leaves.
+/** Since 0.104.0: local layout x/y for admitted direct decorative icon leaves.
  * Expected revision must match; next revision strictly increases. All other
  * semantic/layout/context changes require ordinary full update. */
 export interface IconPlacements {
