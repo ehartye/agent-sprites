@@ -1,3 +1,4 @@
+import {rasterPassiveTextEntry} from './ui-runtime.mjs';
 import {layoutUiUnclipped,prepareUiLayout,prepareUnclippedUiLayout,inspectUiLayoutMemo} from './ui-layout.mjs';
 import {validateUiTree} from './ui-components.mjs';
 import {createUiInteraction,readUiAppearance} from './ui-interaction.mjs';
@@ -139,10 +140,11 @@ function ownership(failures) {
 }
 
 /** Stock native painter and lifecycle owner. No input subscriptions or game dispatch. */
-export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering = 'direct'}) {
+export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering = 'direct', passiveTextPlanes = false}) {
   if (!scene?.add?.image || !scene.add.rectangle || !scene.events?.on || !scene.events.off || !ports?.resolveAsset || !ports.attachContext) throw new TypeError('Native scene and asset/context ports are required');
   if (theme?.format !== 'agent-sprites/ui-theme@1') throw new TypeError('Expected prepared UI theme');
   if (!['direct','isolated'].includes(stockOrdering)) throw new TypeError('Unknown stock ordering mode');
+  if(typeof passiveTextPlanes!=='boolean')throw new TypeError('Invalid passiveTextPlanes option');
   const isolated=stockOrdering==='isolated';
   if(isolated&&typeof scene.add.container!=='function')throw new TypeError('Isolated stock ordering requires native container creation');
   const budget = {objects:8192,fragments:4096,extensionRegions:256,sourceBytes:4194304,...(isolated?{stockGroups:256}:{}),...limits};
@@ -165,6 +167,39 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
     const textureIds = new WeakMap(), sourceIds=new WeakMap(); let textureIdentity = 0, sourceIdentity=0, planes=new Map();
     const mountPrefix = `${prefix}:${++mountIdentity}`;
     let passiveCache=new Map(), passiveAccepted, preparations=0, textMemo;
+    const rasterCache=new WeakMap(), paintPlanes=new Map();let planeSerial=0,planeDesired=new Set(),lastPaintEligibility;
+    function exactTextAttachment(contextId){
+      const seen=new Set();let node=attachments.get(contextId)?.lease.parent;
+      if(!node)return false;
+      for(;node;node=node.parentContainer){
+        if(seen.has(node)||seen.size>=128)return false;seen.add(node);
+        if((node.alpha??1)!==1||(node.rotation??0)!==0||![0,-1].includes(node.blendMode??0)||![node.x??0,node.y??0,node.scaleX??1,node.scaleY??1].every(Number.isInteger)||(node.scaleX??1)<1||(node.scaleY??1)<1)return false;
+      }
+      return (scene.cameras?.cameras??[]).every(camera=>{const zx=camera.zoomX??camera.zoom??1,zy=camera.zoomY??camera.zoom??1;return !camera._follow&&!camera.useBounds&&!camera.shakeEffect?.isRunning&&(camera.alpha??1)===1&&(camera.rotation??0)===0&&zx>0&&zy>0&&[camera.x??0,camera.y??0,camera.scrollX??0,camera.scrollY??0,zx,zy,(camera.x??0)+(camera.width??0)*(camera.originX??.5)*(1-zx),(camera.y??0)+(camera.height??0)*(camera.originY??.5)*(1-zy)].every(Number.isInteger);});
+    }
+    function textEligibility(prepared){const contexts=new Map();return (prepared.paintGroups??[]).map(g=>{const id=prepared.commands[g.start].contextId;if(!contexts.has(id))contexts.set(id,exactTextAttachment(id));return contexts.get(id)&&g.sources.every(source=>source.scaleMode===1)?'1':'0';}).join('');}
+    function materializeTextPlanes(prepared){
+      planeDesired=new Set();if(!prepared.paintGroups?.length)return prepared.commands;
+      const groups=new Map(prepared.paintGroups.map(g=>[g.start,g])),result=[];let bytes=0;
+      for(let i=0;i<prepared.commands.length;){
+        const group=groups.get(i),r=group?.raster;
+        if(!group||!exactTextAttachment(prepared.commands[i].contextId)||!group.sources.every(source=>source.scaleMode===1)||planeDesired.size>=128||bytes+r.data.length>4194304){result.push(prepared.commands[i++]);continue;}
+        let native=paintPlanes.get(group.id);
+        if(native?.raster!==r){
+          const key=mountPrefix+':text-plane:'+ ++planeSerial;let texture;
+          const release=owner.add(()=>scene.textures.remove(key)),alive=()=>{if(lifecycle!=='mounted')throw Error('Text plane owner retired during allocation');};
+          try{texture=scene.textures.createCanvas(key,r.width,r.height);alive();const image=texture.context.createImageData(r.width,r.height);alive();image.data.set(r.data);texture.context.putImageData(image,0,0);alive();texture.setFilter(1);alive();texture.refresh();alive();}
+          catch(error){release();throw error;}
+          native={raster:r,texture,release,previous:native};paintPlanes.set(group.id,native);
+        }
+        planeDesired.add(group.id);bytes+=r.data.length;
+        result.push({...prepared.commands[i],bounds:group.bounds,clip:group.clip,source:{x:0,y:0,width:r.width,height:r.height},asset:{texture:native.texture,sourceIndex:0,source:native.texture.source[0]},opacity:1,tint:0xffffff});
+        i=group.end;
+      }
+      return result;
+    }
+    function retireTextPlanes(){for(const [id,value]of paintPlanes){let old=value.previous;value.previous=null;while(old){old.release();old=old.previous;}if(!planeDesired.has(id)){value.release();paintPlanes.delete(id);}}}
+
     function prepare(next,feedback,original,admission) {
       // Layout has already admitted this complete immutable plan. Stock painting
       // only builds commands; retain the plan until an extension adds records.
@@ -376,7 +411,8 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
       // Only prior accepted active entries participate; no historical or global
       // shape cache. One entry per exact shape keeps lookup independent of N.
       if(passiveAccepted?.templateMapping===templateMapping)for(const entry of passiveCache.values())if(entry.shapeKey!==undefined&&!templates.has(entry.shapeKey))templates.set(entry.shapeKey,entry);
-      const cache=new Map(),ids=new Set(),commands=[],records=[],admission={planes:new Map(),bytes:0};
+      let rasterBytes=0;
+      const paintGroups=[],cache=new Map(),ids=new Set(),commands=[],records=[],admission={planes:new Map(),bytes:0};
       let nodes=0,glyphs=0,newPreparations=0,keyUnits=0,resolved,candidateTextMemo=textMemo;
       const move=(r,x,y)=>r==null?r:uiRect({...r,x:r.x+x,y:r.y+y},'retained translation');
       const clip=(r,x,y)=>r===undefined?context.viewport:intersect(move(r,x,y),context.viewport);
@@ -427,13 +463,18 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
           const bounds=move(r.bounds,dx,dy),clipped=clip(r.clipBounds,dx,dy),effective=r.state==='hidden'?null:intersect(bounds,clipped);
           records.push({...r,bounds,hitBounds:move(r.hitBounds,dx,dy),focusBounds:move(r.focusBounds,dx,dy),clipBounds:clipped,contentBounds:move(r.contentBounds,dx,dy),contentClipBounds:clip(r.contentClipBounds,dx,dy),effectiveHitBounds:effective,effectiveFocusBounds:effective,paintBounds:move(r.paintBounds,dx,dy),semanticContextId:context.id,contextRevisions:{[context.id]:context.revision},state:r.state==='hidden'?'hidden':effective?'visible':'clipped',parts:[]});
         }
-        for(const command of entry.commands){reserve(command);const bounds=move(command.bounds,dx,dy),clipped=clip(command.clip,dx,dy);if(intersect(bounds,clipped))commands.push({...command,bounds,clip:clipped});}
+        const commandStart=commands.length,paintSources=new Set();
+        for(const command of entry.commands){reserve(command);if(command.asset?.source)paintSources.add(command.asset.source);const bounds=move(command.bounds,dx,dy),clipped=clip(command.clip,dx,dy);if(intersect(bounds,clipped))commands.push({...command,bounds,clip:clipped});}
+        if(passiveTextPlanes&&scene.game?.renderer?.gl&&entry.commands.every(c=>c.asset?.source?.scaleMode===1)&&paintGroups.length<128&&rasterBytes<4194304&&scene.textures?.createCanvas&&scene.textures?.remove&&commands.length>commandStart&&Number.isInteger(scale)&&Number.isInteger(context.localToPhysical.x)&&Number.isInteger(context.localToPhysical.y)&&Number.isInteger(dx)&&Number.isInteger(dy)){
+          let raster=rasterCache.get(entry.commands);if(raster===undefined){raster=rasterPassiveTextEntry(entry.records,entry.commands,{maxBytes:4194304-rasterBytes});if(raster)rasterCache.set(entry.commands,raster);}
+          if(raster&&raster.data.length<=4194304-rasterBytes){rasterBytes+=raster.data.length;paintGroups.push({id:item.id,start:commandStart,end:commands.length,raster,sources:[...paintSources],bounds:move(raster.bounds,dx,dy),clip:context.viewport});}
+        }
       }
       // Validate even empty batches through the shared context/layout boundary.
       if(!resolved)resolved=layoutUiUnclipped({kind:'absolute',id:'passive:empty',appearanceRole:next.items[0]?.tree.appearanceRole??Object.keys(theme.roles)[0],children:[],layout:{}},{theme,revision:next.revision,context}).contexts[0];
       if(commands.length>budget.objects)throw new RangeError('Native object budget exceeded');
       if(new Set(commands.filter(c=>c.kind==='image').map(frameKey)).size>budget.fragments)throw new RangeError('Native fragment budget exceeded');
-      return {plan:{format:'agent-sprites/ui-layout@1',revision:next.revision,themeId:theme.id,contexts:[{...resolved,revision:context.revision}],focus:{},records},commands,extensionPlans:[],planes:admission.planes,cache,accepted:{revision:next.revision,context,mapping,templateMapping},preparations:preparations+newPreparations,textMemo:candidateTextMemo};
+      return {plan:{format:'agent-sprites/ui-layout@1',revision:next.revision,themeId:theme.id,contexts:[{...resolved,revision:context.revision}],focus:{},records},commands,paintGroups,extensionPlans:[],planes:admission.planes,cache,accepted:{revision:next.revision,context,mapping,templateMapping},preparations:preparations+newPreparations,textMemo:candidateTextMemo};
     }
     // This draft port retains only active, already-admitted icon leaves. Raw
     // themes remain supported by full publication, never by retained placement.
@@ -571,7 +612,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
         }
         attempt(owner.drain);
         if(errors.length)throw new AggregateError(errors,'UI cleanup failed');
-      } finally {objects.clear();stockGroups.clear();fragments.clear();attachments.clear();extensions.clear();planes.clear();passiveCache.clear();textMemo=undefined;compiled=undefined;prepared=undefined;}
+      } finally {objects.clear();stockGroups.clear();fragments.clear();attachments.clear();extensions.clear();planes.clear();paintPlanes.clear();planeDesired.clear();passiveCache.clear();textMemo=undefined;compiled=undefined;prepared=undefined;}
     }
     function stockGroup(parent) {
       let group=stockGroups.get(parent);if(group)return group;
@@ -634,6 +675,8 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
     }
     function reconcile(prepared) {
       attach(prepared.plan);
+      lastPaintEligibility=textEligibility(prepared);
+      prepared={...prepared,commands:materializeTextPlanes(prepared)};
       const desiredObjects=new Map(prepared.commands.map(c=>[c.key,c]));
       for(const [key,item]of objects) {
         const desired=desiredObjects.get(key);
@@ -696,6 +739,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
       }
       for (const [key,item] of objects) if(!usedObjects.has(key)){item.release();objects.delete(key);}
       for (const [key,item] of fragments) if(!usedFrames.has(key)){item.release();fragments.delete(key);}
+      retireTextPlanes();
       if(isolated)for(const group of stockGroups.values())if(group.dirty){group.native.sort('depth');group.dirty=false;}
       const desired=new Set(prepared.extensionPlans.map(e=>e.id));
       for (const [id,entry] of extensions) if(!desired.has(id)){entry.release();extensions.delete(id);}
@@ -751,14 +795,19 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
         observation={scopeId:scope,modelRevision:plan.revision,disposed:lifecycle!=='mounted',focusId:null,hoverId:null,heldCount:0,controls,nextAfterId:from+controls.length<plan.records.length?controls.at(-1).id:null};
       }else observation=interaction.inspect(options);
         const controls=observation.controls.map(r=>({id:r.id,kind:r.kind,role:r.role,enabled:r.enabled,...(passive?{focusable:false}:{}),focused:r.focused,hovered:r.hovered,pressed:r.pressed,state:r.state,bounds:r.bounds,hitBounds:r.hitBounds,focusBounds:r.focusBounds,effectiveHitBounds:r.effectiveHitBounds,effectiveFocusBounds:r.effectiveFocusBounds,clipBounds:r.clipBounds,paintBounds:r.paintBounds,semanticContextId:r.semanticContextId,contextRevisions:r.contextRevisions}));
-      return freezeUiData({...observation,controls,native:{lifecycle,textMemo:inspectUiLayoutMemo(textMemo),objects:objects.size,...(isolated?{stockGroups:stockGroups.size}:{}),fragments:fragments.size,attachments:attachments.size,extensions:extensions.size,created,destroyed,...(passive?{preparations}:{}),cleanupFailures:[...failures]}});
+      return freezeUiData({...observation,controls,native:{lifecycle,...(passiveTextPlanes?{textPlanes:paintPlanes.size,textPlaneRGBABytes:[...paintPlanes.values()].reduce((n,p)=>n+p.raster.data.length,0)}:{}),textMemo:inspectUiLayoutMemo(textMemo),objects:objects.size,...(isolated?{stockGroups:stockGroups.size}:{}),fragments:fragments.size,attachments:attachments.size,extensions:extensions.size,created,destroyed,...(passive?{preparations}:{}),cleanupFailures:[...failures]}});
     },dispose(){close('disposed');},uses(id){return [...extensions.values()].some(e=>e.extensionId===id);}});
     try {
       mounts.add(api);
       owner.add(()=>{if(!mounts.size&&subscribed){subscribed=false;scene.events.off('shutdown',shutdown);}});
       if(!subscribed){subscribed=true;scene.events.on('shutdown',shutdown);}
       prepared=selectAppearance(compiled,appearanceFeedback());reconcile(prepared);
-    }catch(error){retire(error);}return api;
+    }catch(error){retire(error);}
+    if(passive&&passiveTextPlanes){
+      const checkPaint=()=>{if(lifecycle==='mounted'&&textEligibility(prepared)!==lastPaintEligibility)try{reconcile(prepared);}catch(error){retire(error);}};
+      scene.events.on('prerender',checkPaint);owner.add(()=>scene.events.off('prerender',checkPaint));
+    }
+    return api;
   }
   function registerExtension(id,definition) {
     if(disposed)throw new Error('UI instance is disposed');uiId(id,'Extension ID',true);

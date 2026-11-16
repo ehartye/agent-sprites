@@ -416,3 +416,32 @@ export function drawPixelFit(ctx,image,bounds,destination,{padding=0}={}){
   ctx.imageSmoothingEnabled=false;ctx.drawImage(image,bounds.x,bounds.y,bounds.width,bounds.height,fit.x,fit.y,fit.width,fit.height);
   return fit;
 }
+
+/** @internal Pure exact raster for already-admitted passive commands. Unsupported sampling uses stock glyphs. */
+export function rasterPassiveTextEntry(records,commands,{maxBytes=4*1024*1024,maxDimension=1024}={}) {
+  if(!records.length||!commands.length||records.some(r=>!['absolute','text'].includes(r.kind)||r.state==='hidden'))return null;
+  const rect=r=>r&&['x','y','width','height'].every(k=>Number.isSafeInteger(r[k]))&&r.width>0&&r.height>0;
+  let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+  const context=commands[0].contextId;
+  for(const c of commands){
+    const p=c.asset?.plane,s=c.source,d=c.bounds;
+    if(c.kind!=='image'||c.contextId!==context||c.opacity!==1||c.tint!==0xffffff||c.feedback||c.focusedOnly||c.active===false||!rect(s)||!rect(d)||s.width!==d.width||s.height!==d.height||c.clip!==undefined&&!rect(c.clip))return null;
+    if(!p||!Number.isSafeInteger(p.width)||!Number.isSafeInteger(p.height)||p.width<1||p.height<1||!(p.data instanceof Uint8Array)||p.data.length!==p.width*p.height*4||s.x<0||s.y<0||s.x+s.width>p.width||s.y+s.height>p.height)return null;
+    left=Math.min(left,d.x);top=Math.min(top,d.y);right=Math.max(right,d.x+d.width);bottom=Math.max(bottom,d.y+d.height);
+  }
+  const width=right-left,height=bottom-top,bytes=width*height*4;
+  if(!Number.isSafeInteger(bytes)||width>maxDimension||height>maxDimension||bytes>maxBytes)return null;
+  const data=new Uint8Array(bytes);
+  for(const c of commands){
+    const p=c.asset.plane,s=c.source,d=c.bounds,clip=c.clip;
+    for(let y=0;y<s.height;y++)for(let x=0;x<s.width;x++){
+      const from=((s.y+y)*p.width+s.x+x)*4,a=p.data[from+3];
+      if(a!==0&&a!==255)return null;
+      const dx=d.x+x,dy=d.y+y;
+      if(!a||clip&&(dx<clip.x||dy<clip.y||dx>=clip.x+clip.width||dy>=clip.y+clip.height))continue;
+      const to=((dy-top)*width+dx-left)*4;
+      data[to]=p.data[from];data[to+1]=p.data[from+1];data[to+2]=p.data[from+2];data[to+3]=255;
+    }
+  }
+  return {bounds:{x:left,y:top,width,height},width,height,data};
+}

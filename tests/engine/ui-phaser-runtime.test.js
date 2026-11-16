@@ -1328,3 +1328,61 @@ test('isolated cleanup never retries a stock destructor that throws before detac
  expect(()=>m.dispose()).toThrow(/cleanup/i);expect(bad.destroyed).toBe(1);expect(f.objects.every(o=>o.destroyed===1)).toBe(true);expect(group.destroyed).toBe(1);expect(group.list).toEqual([]);expect(f.parent.list).toEqual([]);expect(leases).toBe(1);expect(f.parent.destroyed).toBe(1);expect(m.inspect({limit:1}).native.cleanupFailures.join(' ')).toMatch(/stock destructor failed before detach/);
  m.dispose();ui.dispose();expect(bad.destroyed).toBe(1);expect(leases).toBe(1);
 });
+
+test('opt-in passive text planes keep logical records while owning one bounded native texture',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),created=[],removed=[];
+ f.scene.game={renderer:{gl:{}}};Object.assign(f.texture.source[0],{width:4,height:6,scaleMode:1});
+ f.ports.readSourceRGBA=({source})=>({source,width:4,height:6,data:new Uint8Array(4*6*4).fill(255)});
+ f.scene.textures={createCanvas(key,width,height){
+  const source={width,height};const texture={key,source:[source],context:{createImageData:()=>({data:new Uint8ClampedArray(width*height*4)}),putImageData(){}},refresh(){return this;},setFilter(){return this;},
+   get(){return {clone(){return {name:'',source,sourceIndex:0,setSize(){return this;},destroy(){}};}};}};
+  created.push(texture);return texture;
+ },remove:key=>removed.push(key)};
+ const ui=createPhaserUi({...f,passiveTextPlanes:true});
+ const tree=u.text({id:'label',label:'??',layout:{width:30,height:8,wrap:false}});
+ const snapshot=(revision,x=0)=>({revision,context:f.context,items:[{id:'label',tree,x,y:0}]});
+ const mount=ui.mountPassive(snapshot(1),{parent:f.parent,scope:'test:plane'});
+ expect(mount.inspect({limit:10}).native.objects).toBe(1);expect(created.length).toBe(1);
+ mount.update(snapshot(2,3));expect(created.length).toBe(1);
+ f.parent.alpha=.5;f.scene.events.emit('prerender');expect(mount.inspect({limit:10}).native.objects).toBe(2);
+ f.parent.alpha=1;f.scene.events.emit('prerender');expect(mount.inspect({limit:10}).native.objects).toBe(1);
+ ui.dispose();expect(removed).toEqual(created.map(t=>t.key));expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
+
+test('passive text planes fall back when borrowed parent opacity would accumulate glyph overlap',async()=>{
+ const {createPhaserUi}=await api(),f=fixture();f.scene.game={renderer:{gl:{}}};Object.assign(f.texture.source[0],{width:4,height:6,scaleMode:1});
+ f.ports.readSourceRGBA=({source})=>({source,width:4,height:6,data:new Uint8Array(96).fill(255)});
+ let allocations=0;f.scene.textures={createCanvas(){allocations++;throw Error('Must not allocate under translucent parent');},remove(){}};f.parent.alpha=.5;
+ const ui=createPhaserUi({...f,passiveTextPlanes:true}),tree=u.text({id:'label',label:'??',layout:{width:30,height:8,wrap:false}});
+ const mount=ui.mountPassive({revision:1,context:f.context,items:[{id:'label',tree,x:0,y:0}]},{parent:f.parent,scope:'test:translucent'});
+ expect(mount.inspect({limit:10}).native.objects).toBe(2);expect(allocations).toBe(0);ui.dispose();
+});
+
+test('text-plane candidate texture is owned before a native allocation callback can dispose its mount',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),created=[],removed=[];f.scene.game={renderer:{gl:{}}};Object.assign(f.texture.source[0],{width:4,height:6,scaleMode:1});
+ f.ports.readSourceRGBA=({source})=>({source,width:4,height:6,data:new Uint8Array(96).fill(255)});
+ let disposeOnCreate=false,ui;
+ f.scene.textures={createCanvas(key,width,height){const source={width,height},texture={key,source:[source],context:{createImageData:()=>({data:new Uint8ClampedArray(width*height*4)}),putImageData(){}},refresh(){},setFilter(){},get(){return {clone(){return {name:'',source,sourceIndex:0,setSize(){return this;},destroy(){}};}};}};created.push(key);if(disposeOnCreate)ui.dispose();return texture;},remove:key=>removed.push(key)};
+ ui=createPhaserUi({...f,passiveTextPlanes:true});const snapshot=(revision,label)=>({revision,context:f.context,items:[{id:'label',tree:u.text({id:'label',label,layout:{width:30,height:8,wrap:false}}),x:0,y:0}]});
+ const mount=ui.mountPassive(snapshot(1,'??'),{parent:f.parent,scope:'test:reentrant-plane'});disposeOnCreate=true;
+ expect(()=>mount.update(snapshot(2,'???'))).toThrow();expect(removed.sort()).toEqual(created.sort());expect(mount.inspect({limit:1}).native.objects).toBe(0);
+});
+
+test('text plane identity cannot alias a legal ungrouped stock glyph key',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),created=[],removed=[];
+ f.scene.game={renderer:{gl:{}}};Object.assign(f.texture.source[0],{width:4,height:6,scaleMode:1});
+ f.ports.readSourceRGBA=({source})=>({source,width:4,height:6,data:new Uint8Array(4*6*4).fill(255)});
+ f.scene.textures={createCanvas(key,width,height){
+  const source={width,height};const texture={key,source:[source],context:{createImageData:()=>({data:new Uint8ClampedArray(width*height*4)}),putImageData(){}},refresh(){return this;},setFilter(){return this;},
+   get(){return {clone(){return {name:'',source,sourceIndex:0,setSize(){return this;},destroy(){}};}};}};
+  created.push(texture);return texture;
+ },remove:key=>removed.push(key)};
+ const ui=createPhaserUi({...f,passiveTextPlanes:true});
+ const tree=id=>u.text({id,label:'?',layout:{width:30,height:8,wrap:false}});
+ const snapshot=revision=>({revision,context:f.context,items:[{id:'other:text:1:glyph:0',tree:tree('other:text:1:glyph:0'),x:0,y:0},{id:'text-plane:other',tree:tree('text-plane:other'),x:.5,y:12}]});
+ const mount=ui.mountPassive(snapshot(1),{parent:f.parent,scope:'test:plane-identity'});
+ expect(mount.inspect({limit:10}).native.textPlanes).toBe(1);
+ expect(mount.inspect({limit:10}).native.objects).toBe(2);
+ mount.update(snapshot(2));expect(mount.inspect({limit:10}).native.objects).toBe(2);
+ ui.dispose();expect(removed).toEqual(created.map(t=>t.key));expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});

@@ -120,4 +120,4 @@ export interface PhaserUi<F=unknown> {
  * parents aliased with owned leases. Physical parent identity must not be hidden by
  * per-attachment proxies. Isolated group count defaults to 256 and is observable
  * separately from native.objects (paint primitives). */
-export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly stockOrdering?:'direct'|'isolated';readonly limits?:{readonly stockGroups?:number;readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number;readonly sourceBytes?:number}}):PhaserUi<F>;
+export function createPhaserUi<F=unknown>(options:{readonly scene:NativeScene;readonly theme:UiTheme;readonly ports:NativePorts<F>;readonly stockOrdering?:'direct'|'isolated';readonly passiveTextPlanes?:boolean;readonly limits?:{readonly stockGroups?:number;readonly objects?:number;readonly fragments?:number;readonly extensionRegions?:number;readonly sourceBytes?:number}}):PhaserUi<F>;

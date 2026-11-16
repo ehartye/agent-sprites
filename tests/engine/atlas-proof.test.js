@@ -1,4 +1,9 @@
-import { test, expect, beforeEach, afterEach } from 'vitest';
+import { test, expect, beforeEach, afterEach, vi } from 'vitest';
+const artifactOpen=vi.hoisted(()=>({before:null}));
+vi.mock('node:fs',async importOriginal=>{
+ const actual=await importOriginal();
+ return {...actual,openSync(path,flags,...args){artifactOpen.before?.(String(path),flags);return actual.openSync(path,flags,...args);}};
+});
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, mkdirSync, symlinkSync, renameSync, linkSync, watch } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -229,9 +234,11 @@ test.each(['proof.gif','proof.json'])('a foreign hardlink at fresh artifact %s c
   await exported('base','#ff004d',[[1,2],[6,4]],[100,100]);
   const sentinel=join(dir,'sentinel.txt');writeFileSync(sentinel,'keep sentinel unchanged');
   let changed=false;
-  const watcher=watch(dir,(_event,name)=>{if(String(name).includes('staging')&&!changed){changed=true;linkSync(sentinel,join(dir,String(name),artifact));}});
+  // Place the attack at the real exclusive-create boundary, not a delayed OS
+  // watcher delivery that may arrive after proof.gif already exists on Windows.
+  artifactOpen.before=(path,flags)=>{if(flags==='wx'&&path.includes('staging')&&path.endsWith(artifact)&&!changed){linkSync(sentinel,path);changed=true;}};
   try{await expect(run({...config([{name:'base',atlas:'base.atlas.json',tag:'walk'}]),canvas:{w:128,h:128}})).rejects.toThrow(/exist|artifact|inventory/i);}
-  finally{watcher.close();}
+  finally{artifactOpen.before=null;}
   expect(changed).toBe(true);expect(readFileSync(sentinel,'utf8')).toBe('keep sentinel unchanged');expect(existsSync(join(dir,'proof'))).toBe(false);
 });
 
