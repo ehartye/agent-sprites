@@ -42,6 +42,7 @@ function prepareLayout(tree,environment,previous,clipToViewport) {
     state.entries.set(key,{value:certified,units});state.units+=units;return certified;
   }
   // Candidate-local retention: only a successful native publication adopts this token.
+  // Conservative serialized-data units, not an exact JavaScript heap byte count.
   const leaves=new Map();let leafUnits=0;
   function retainLeaf(node,key,record){
     const old=base?.leaves?.get(node);
@@ -53,7 +54,7 @@ function prepareLayout(tree,environment,previous,clipToViewport) {
 }
 /** @internal Native owners commit the opaque candidate only after full admission. */
 export function prepareUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,true);}
-/** @internal Same text-only memo, with intrinsic clips for retained passive ink. */
+/** @internal Same scoped preparation memo, with intrinsic clips for retained passive ink. */
 export function prepareUnclippedUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,false);}
 
 const rect = (x, y, width, height) => uiRect({x, y, width, height});
