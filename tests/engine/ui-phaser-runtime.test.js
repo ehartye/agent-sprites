@@ -1386,3 +1386,25 @@ test('text plane identity cannot alias a legal ungrouped stock glyph key',async(
  mount.update(snapshot(2));expect(mount.inspect({limit:10}).native.objects).toBe(2);
  ui.dispose();expect(removed).toEqual(created.map(t=>t.key));expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
 });
+
+test('passive projection retains complete paginated observations after updates and disposal',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),trees=[u.text({id:'one',label:'?',enabled:false,selected:true,layout:{width:20,height:8}}),u.text({id:'two',label:'??',layout:{width:20,height:8}})];
+ const snap=revision=>({revision,context:f.context,items:trees.map((tree,i)=>({id:tree.id,tree,x:revision===1?i*30:4+i*30,y:4}))}),m=ui.mountPassive(snap(1),{parent:f.parent,scope:'test:projected-observation'});m.update(snap(2));
+ const first=m.inspect({limit:1}),second=m.inspect({limit:1,afterId:first.nextAfterId}),all=m.inspect({limit:2});expect([...first.controls,...second.controls]).toEqual(all.controls);expect(first.nextAfterId).toBe('one');expect(second.nextAfterId).toBeNull();
+ const keys=['id','kind','role','enabled','focusable','focused','hovered','pressed','state','bounds','hitBounds','focusBounds','effectiveHitBounds','effectiveFocusBounds','clipBounds','paintBounds','semanticContextId','contextRevisions'];expect(Object.keys(all.controls[0])).toEqual(keys);expect(all.controls[0]).toMatchObject({id:'one',kind:'text',enabled:false,focusable:false,focused:false,hovered:false,pressed:false,bounds:{x:4,y:4,width:20,height:8},semanticContextId:'test:main',contextRevisions:{'test:main':1}});expect(Object.hasOwn(all.controls[0],'role')).toBe(true);expect(all.controls[0].role).toBe('text');expect(Object.isFrozen(all.controls[0])).toBe(true);
+ m.dispose();expect(m.inspect({limit:2}).controls).toEqual(all.controls);ui.dispose();
+});
+test('passive projection eagerly rejects uninspected offscreen content translation overflow atomically',async()=>{
+ const {createPhaserUi}=await api(),f=fixture();f.context={...f.context,localToPhysical:{scale:1,x:0,y:0},sourcePixelPhysicalSize:1};const ui=createPhaserUi(f),tree=u.absolute({id:'content-overflow',layout:{width:1,height:1,padding:{left:1e308,top:0,right:0,bottom:0}}}),item={id:tree.id,tree,x:0,y:0},m=ui.mountPassive({revision:1,context:f.context,items:[item]},{parent:f.parent,scope:'test:content-overflow'}),accepted=m.inspect({limit:1});
+ expect(()=>m.update({revision:2,context:f.context,items:[{...item,x:1e308}]})).toThrow();expect(m.inspect({limit:1})).toEqual(accepted);ui.dispose();
+});
+
+test('passive rectangle reuse is scoped to each item and publication',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),one=u.text({id:'reuse-one',label:'?',layout:{width:20,height:8}}),two=u.text({id:'reuse-two',label:'?',layout:{width:20,height:8}});
+ const m=ui.mountPassive({revision:1,context:f.context,items:[{id:one.id,tree:one,x:0,y:4}]},{parent:f.parent,scope:'test:rectangle-reuse'});
+ m.update({revision:2,context:f.context,items:[{id:one.id,tree:one,x:5,y:4},{id:two.id,tree:two,x:35,y:14}]});
+ const before=m.inspect({limit:2});expect(before.controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',5,4],['reuse-two',35,14]]);
+ m.update({revision:3,context:f.context,items:[{id:one.id,tree:one,x:8,y:9},{id:two.id,tree:two,x:42,y:19}]});
+ expect(m.inspect({limit:2}).controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',8,9],['reuse-two',42,19]]);
+ expect(before.controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',5,4],['reuse-two',35,14]]);ui.dispose();
+});
