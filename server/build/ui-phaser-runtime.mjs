@@ -193,7 +193,7 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
           native={raster:r,texture,release,previous:native};paintPlanes.set(group.id,native);
         }
         planeDesired.add(group.id);bytes+=r.data.length;
-        result.push({...prepared.commands[i],key:'text-plane:'+group.id,bounds:group.bounds,clip:group.clip,source:{x:0,y:0,width:r.width,height:r.height},asset:{texture:native.texture,sourceIndex:0,source:native.texture.source[0]},opacity:1,tint:0xffffff});
+        result.push({...prepared.commands[i],bounds:group.bounds,clip:group.clip,source:{x:0,y:0,width:r.width,height:r.height},asset:{texture:native.texture,sourceIndex:0,source:native.texture.source[0]},opacity:1,tint:0xffffff});
         i=group.end;
       }
       return result;

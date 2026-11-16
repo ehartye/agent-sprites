@@ -1367,3 +1367,22 @@ test('text-plane candidate texture is owned before a native allocation callback 
  const mount=ui.mountPassive(snapshot(1,'??'),{parent:f.parent,scope:'test:reentrant-plane'});disposeOnCreate=true;
  expect(()=>mount.update(snapshot(2,'???'))).toThrow();expect(removed.sort()).toEqual(created.sort());expect(mount.inspect({limit:1}).native.objects).toBe(0);
 });
+
+test('text plane identity cannot alias a legal ungrouped stock glyph key',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),created=[],removed=[];
+ f.scene.game={renderer:{gl:{}}};Object.assign(f.texture.source[0],{width:4,height:6,scaleMode:1});
+ f.ports.readSourceRGBA=({source})=>({source,width:4,height:6,data:new Uint8Array(4*6*4).fill(255)});
+ f.scene.textures={createCanvas(key,width,height){
+  const source={width,height};const texture={key,source:[source],context:{createImageData:()=>({data:new Uint8ClampedArray(width*height*4)}),putImageData(){}},refresh(){return this;},setFilter(){return this;},
+   get(){return {clone(){return {name:'',source,sourceIndex:0,setSize(){return this;},destroy(){}};}};}};
+  created.push(texture);return texture;
+ },remove:key=>removed.push(key)};
+ const ui=createPhaserUi({...f,passiveTextPlanes:true});
+ const tree=id=>u.text({id,label:'?',layout:{width:30,height:8,wrap:false}});
+ const snapshot=revision=>({revision,context:f.context,items:[{id:'other:text:1:glyph:0',tree:tree('other:text:1:glyph:0'),x:0,y:0},{id:'text-plane:other',tree:tree('text-plane:other'),x:.5,y:12}]});
+ const mount=ui.mountPassive(snapshot(1),{parent:f.parent,scope:'test:plane-identity'});
+ expect(mount.inspect({limit:10}).native.textPlanes).toBe(1);
+ expect(mount.inspect({limit:10}).native.objects).toBe(2);
+ mount.update(snapshot(2));expect(mount.inspect({limit:10}).native.objects).toBe(2);
+ ui.dispose();expect(removed).toEqual(created.map(t=>t.key));expect(f.objects.every(o=>o.destroyed===1)).toBe(true);
+});
