@@ -118,18 +118,18 @@ test('owned publication validates before freezing and preserves generated graph 
 });
 
 
-test('certified graphs use one weak certification entry per node and generic freezing skips them',async()=>{
- const {snapshotUiData,publishUiData,freezeUiData}=await import('../../server/build/ui-theme.mjs');
- const count=work=>{const counts=new WeakMap(),old=WeakSet.prototype.add;WeakSet.prototype.add=function(value){counts.set(value,(counts.get(value)??0)+1);return old.call(this,value);};try{return {value:work(),counts};}finally{WeakSet.prototype.add=old;}};
+test('certified graphs retain per-node identity and generic freezing skips them',async()=>{
+ const {snapshotUiData,publishUiData,freezeUiData,isUiSnapshot}=await import('../../server/build/ui-theme.mjs');
  for(const admission of [snapshotUiData,publishUiData]){
-  const {value,counts}=count(()=>admission({child:{x:1},array:[{y:2}]}));
-  for(const node of [value,value.child,value.array,value.array[0]])expect(counts.get(node)).toBe(1);
+  const value=admission({child:{x:1},array:[{y:2}]});
+  for(const node of [value,value.child,value.array,value.array[0]]){expect(isUiSnapshot(node)).toBe(true);expect(snapshotUiData(node)).toBe(node);expect(Object.isFrozen(node)).toBe(true);}
   let additions=0,freezes=0;const add=WeakSet.prototype.add,freeze=Object.freeze;let same;
   WeakSet.prototype.add=function(value){additions++;return add.call(this,value);};Object.freeze=function(value){freezes++;return freeze(value);};
   try{same=freezeUiData(value);}finally{WeakSet.prototype.add=add;Object.freeze=freeze;}
   expect(same).toBe(value);expect(additions).toBe(0);expect(freezes).toBe(0);
  }
 });
+
 test('generic deep freezing never grants raw data a validation certificate',async()=>{
  const {snapshotUiData,publishUiData,freezeUiData,isUiSnapshot,copyUiData}=await import('../../server/build/ui-theme.mjs');let calls=0;
  const raw=freezeUiData({child:{safe:1},fn(){calls++;}});
@@ -181,4 +181,62 @@ test('raw copy definer receives its pre-child receiver when a transient shim is 
  Object.defineProperty=function(target,key,descriptor){if(key==='receiverProbe'){calls++;expect(this).toBe(Object);}return original(target,key,descriptor);};
  try{result=snapshotUiData({receiverProbe:23});}finally{Object.defineProperty=original;}
  expect(calls).toBe(1);expect(result.receiverProbe).toBe(23);
+});
+
+// Certification representation is private: global WeakSet interception must not
+// grant immutable-data trust. Semantic node and generic-freeze hooks stay separate.
+test('immutable certification is independent of WeakSet membership and write interception',async()=>{
+ const {snapshotUiData,publishUiData,isUiSnapshot}=await import('../../server/build/ui-theme.mjs');
+ for(const admission of [snapshotUiData,publishUiData]){
+  const has=WeakSet.prototype.has,add=WeakSet.prototype.add;let reads=0,writes=0,value,error;
+  WeakSet.prototype.has=function(v){reads++;return has.call(this,v);};WeakSet.prototype.add=function(v){writes++;return add.call(this,v);};
+  try{value=admission({child:{x:1}});}catch(e){error=e;}finally{WeakSet.prototype.has=has;WeakSet.prototype.add=add;}
+  expect(error).toBeUndefined();expect(isUiSnapshot(value)).toBe(true);expect(isUiSnapshot(value.child)).toBe(true);expect(reads).toBe(0);expect(writes).toBe(0);
+ }
+ const raw={bad:()=>{}},has=WeakSet.prototype.has;let certified,error;
+ WeakSet.prototype.has=function(){return true;};
+ try{certified=isUiSnapshot(raw);try{snapshotUiData(raw);}catch(e){error=e;}}finally{WeakSet.prototype.has=has;}
+ expect(certified).toBe(false);expect(error).toBeInstanceOf(TypeError);expect(isUiSnapshot(raw)).toBe(false);
+});
+
+test('immutable certificates are invisible identity-local and never inherited or copied',async()=>{
+ const {snapshotUiData,publishUiData,isUiSnapshot}=await import('../../server/build/ui-theme.mjs');
+ const raw={child:{x:1},array:[undefined,-0]},keys=Reflect.ownKeys(raw),value=snapshotUiData(raw);
+ expect(Object.isFrozen(raw)).toBe(false);expect(Object.isFrozen(raw.child)).toBe(false);expect(Object.is(value.array[1],-0)).toBe(true);
+ expect(Reflect.ownKeys(value)).toEqual(keys);expect(Object.getOwnPropertySymbols(value)).toEqual([]);expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
+ for(const other of [new Proxy(value,{}),Object.create(value),{...value},structuredClone(value)])expect(isUiSnapshot(other)).toBe(false);
+ for(const primitive of [null,undefined,true,1,'text',Symbol('value'),()=>{}])expect(isUiSnapshot(primitive)).toBe(false);
+ for(let i=0;i<20000;i++)snapshotUiData({i});expect(snapshotUiData(value)).toBe(value);expect(publishUiData(value)).toBe(value);
+ const frozen=Object.freeze({x:2});expect(isUiSnapshot(frozen)).toBe(false);expect(snapshotUiData(frozen)).not.toBe(frozen);expect(publishUiData(frozen)).toBe(frozen);
+});
+
+test('failed freezing never prematurely certifies the owned graph',async()=>{
+ const {publishUiData,isUiSnapshot}=await import('../../server/build/ui-theme.mjs');const raw={child:{x:1}},freeze=Object.freeze;let error;
+ Object.freeze=function(value){if(value===raw)throw Error('controlled root freeze failure');return freeze(value);};
+ try{publishUiData(raw);}catch(e){error=e;}finally{Object.freeze=freeze;}
+ expect(error?.message).toBe('controlled root freeze failure');expect(isUiSnapshot(raw)).toBe(false);expect(isUiSnapshot(raw.child)).toBe(false);
+ expect(publishUiData(raw)).toBe(raw);expect(isUiSnapshot(raw.child)).toBe(true);
+});
+
+test('certificates from independent module instances cannot grant local trust',async()=>{
+ const local=await import('../../server/build/ui-theme.mjs');
+ const foreign=await import('../../server/build/ui-theme.mjs?independent-certificate-owner');
+ const value=foreign.snapshotUiData({child:{x:1}});
+ expect(foreign.isUiSnapshot(value)).toBe(true);expect(local.isUiSnapshot(value)).toBe(false);
+ const admitted=local.snapshotUiData(value);
+ expect(admitted).not.toBe(value);expect(admitted.child).not.toBe(value.child);
+ expect(local.isUiSnapshot(admitted)).toBe(true);expect(foreign.isUiSnapshot(admitted)).toBe(false);
+ expect(local.publishUiData(value)).toBe(value);expect(local.isUiSnapshot(value)).toBe(true);
+ expect(foreign.isUiSnapshot(value)).toBe(true);
+});
+
+test('failed snapshot freezing never certifies its failed copy or freezes the caller',async()=>{
+ const {snapshotUiData,isUiSnapshot}=await import('../../server/build/ui-theme.mjs');
+ const raw={child:{x:1}},freeze=Object.freeze;let failed,error;
+ Object.freeze=function(value){if(Object.hasOwn(value,'child')){failed=value;throw Error('controlled snapshot freeze failure');}return freeze(value);};
+ try{snapshotUiData(raw);}catch(e){error=e;}finally{Object.freeze=freeze;}
+ expect(error?.message).toBe('controlled snapshot freeze failure');expect(isUiSnapshot(failed)).toBe(false);
+ expect(isUiSnapshot(failed.child)).toBe(true);expect(Object.isFrozen(failed.child)).toBe(true);
+ expect(Object.isFrozen(raw)).toBe(false);expect(Object.isFrozen(raw.child)).toBe(false);
+ const {proxy,revoke}=Proxy.revocable(failed.child,{});revoke();expect(isUiSnapshot(proxy)).toBe(false);
 });
