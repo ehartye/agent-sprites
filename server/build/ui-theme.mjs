@@ -7,7 +7,27 @@ const originalDefine=Object.defineProperty, own=Object.hasOwn, getPrototype=Obje
 const nativeText=fn=>typeof fn==='function'?Function.prototype.toString.call(fn):'';
 const nativeWriters=nativeText(originalDefine)==='function defineProperty() { [native code] }'&&nativeText(own)==='function hasOwn() { [native code] }'&&nativeText(getPrototype)==='function getPrototypeOf() { [native code] }';
 const recordPrototype=nativeWriters?getPrototype({}):null, fastRecordWrite=nativeWriters&&recordPrototype===Object.prototype;
-const immutableUiData = new WeakSet(), deeplyFrozenUiData = new WeakSet();
+// Module-private identity certificate. The returning base stamps the admitted
+// ordinary object itself, without changing its prototype or visible properties.
+// Keep stamping at the existing post-validation/freeze boundaries below.
+class OwnedSnapshotBrand extends class {
+  constructor(value) { return value; }
+} {
+  #certificate;
+  constructor(value) { super(value); }
+  static has(value) {
+    return ((typeof value === 'object' && value !== null) || typeof value === 'function') && #certificate in value;
+  }
+}
+// Immutable certification deliberately no longer invokes WeakSet interception.
+// Generic freeze memoization and semantic node certification remain separate.
+const immutableUiData = {
+  has(value) { return OwnedSnapshotBrand.has(value); },
+  add(value) {
+    if (!OwnedSnapshotBrand.has(value)) new OwnedSnapshotBrand(value);
+    return this;
+  }
+}, deeplyFrozenUiData = new WeakSet();
 
 /** Shared validation helpers. Copy data before freezing; never freeze caller objects. @internal */
 export function copyUiData(value, seen = new Set()) { return cloneUiData(value, seen, false); }
