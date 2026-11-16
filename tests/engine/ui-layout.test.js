@@ -809,3 +809,42 @@ test('owned default regions: nested preparation and rejected layout preserve acc
   expect(nested.plan.records[0].hitBounds).toBe(nested.plan.records[0].bounds);expect(outer.plan.records[0].hitBounds).toBe(outer.plan.records[0].bounds);expect(nested.plan.records[0].bounds).not.toBe(outer.plan.records[0].bounds);
   expect(()=>prepareUiLayout({...tree,focus:{initialId:'missing'}},env,accepted.memo)).toThrow();expect(inspectUiLayoutMemo(accepted.memo)).toEqual(old);expect(accepted.plan.records[0].hitBounds).toBe(accepted.plan.records[0].bounds);expect(accepted.plan.records[0].id).toBe('region-held');
 });
+
+test('retained leaf allocation reuses only exact accepted text geometry and preserves admission',async()=>{
+ const [{layoutUi,prepareUiLayout},u,{defineTheme}]=await api(),env=environment(defineTheme);
+ const leaf=u.text({id:'stable',label:'A i A',layout:{x:2,y:3,width:60,height:12,wrap:false}});
+ const tree=(id='parent',layout={})=>u.absolute({id,layout:{width:90,height:50,...layout},children:[leaf]});
+ const a=prepareUiLayout(tree(),env),b=prepareUiLayout(tree(),{...env,revision:2},a.memo);
+ expect(b.plan).toEqual(layoutUi(tree(),{...env,revision:2}));expect(b.plan.records[1]).toBe(a.plan.records[1]);
+ for(const [root,e]of [[tree('other'),env],[tree('parent',{x:1}),env],[tree('parent',{overflow:'clip',width:15}),env],[tree(),{...env,context:{...env.context,revision:2}}],[tree(),{...env,context:{...env.context,localToPhysical:{scale:3,x:1,y:2}}}]]){
+  const next=prepareUiLayout(root,e,b.memo);expect(next.plan).toEqual(layoutUi(root,e));expect(next.plan.records[1]).not.toBe(b.plan.records[1]);
+ }
+ expect(()=>prepareUiLayout(u.absolute({id:'bad',children:[leaf,leaf]}),env,b.memo)).toThrow();
+ expect(prepareUiLayout(tree(),{...env,revision:3},b.memo).plan.records[1]).toBe(b.plan.records[1]);
+});
+
+test('retained leaf admission separates clipped and intrinsic-only publications',async()=>{
+ const [{layoutUi,layoutUiUnclipped,prepareUiLayout,prepareUnclippedUiLayout},u,{defineTheme}]=await api();
+ const base=environment(defineTheme),env={...base,additionalContexts:[{...base.context,id:'test:label',viewport:{x:0,y:0,width:5,height:5}}]};
+ const leaf=u.text({id:'stable',label:'A i A',labelContextId:'test:label',layout:{width:60,height:12,wrap:false}}),tree=u.absolute({id:'parent',layout:{width:90,height:50,overflow:'clip'},children:[leaf]});
+ const a=prepareUiLayout(tree,env),b=prepareUnclippedUiLayout(tree,env,a.memo),c=prepareUiLayout(tree,env,b.memo);
+ expect(b.plan).toEqual(layoutUiUnclipped(tree,env));expect(b.plan.records[1]).not.toBe(a.plan.records[1]);expect(c.plan).toEqual(layoutUi(tree,env));expect(c.plan.records[1]).not.toBe(b.plan.records[1]);
+});
+
+test('retained leaf candidate bounds order suppression and theme changes preserve exact plans',async()=>{
+ const [{layoutUi,prepareUiLayout},u,{defineTheme}]=await api(),env=environment(defineTheme);
+ const leaves=Array.from({length:270},(_,i)=>u.text({id:'t'+i,label:'A i',layout:{x:i%10,y:i%20,width:10,height:12,wrap:false}}));
+ const root=(children=leaves,hidden=false)=>u.absolute({id:'root',hidden,layout:{width:100,height:60},children});
+ const a=prepareUiLayout(root(),env),b=prepareUiLayout(root(),env,a.memo);
+ expect(b.plan).toEqual(layoutUi(root(),env));expect(b.plan.records.slice(1).filter((r,i)=>r===a.plan.records[i+1]).length).toBe(256);
+ const reverse=root([...leaves].reverse()),c=prepareUiLayout(reverse,env,b.memo);expect(c.plan).toEqual(layoutUi(reverse,env));expect(c.plan.records.map(r=>r.id)).toEqual(['root',...leaves.map(r=>r.id).reverse()]);
+ for(const [tree,e]of [[root(leaves,true),env],[root(),environment(defineTheme)]]){const d=prepareUiLayout(tree,e,b.memo);expect(d.plan).toEqual(layoutUi(tree,e));expect(d.plan.records[1]).not.toBe(b.plan.records[1]);}
+});
+
+test('oversized retained text record falls back without changing its plan',async()=>{
+ const [{layoutUi,prepareUiLayout},u,{defineTheme}]=await api(),env=environment(defineTheme);
+ const leaf=u.text({id:'oversize',label:'A'.repeat(10000),layout:{width:100000,height:12,wrap:false}});
+ const a=prepareUiLayout(leaf,env),b=prepareUiLayout(leaf,env,a.memo);
+ expect(JSON.stringify(a.plan.records[0]).length*2).toBeGreaterThan(4194304);
+ expect(b.plan.records[0]).not.toBe(a.plan.records[0]);expect(b.plan).toEqual(layoutUi(leaf,env));
+});

@@ -41,11 +41,20 @@ function prepareLayout(tree,environment,previous,clipToViewport) {
     while(state.entries.size>=memoEntryLimit||state.units+units>memoUnitLimit){const [id,entry]=state.entries.entries().next().value;state.entries.delete(id);state.units-=entry.units;state.evictions++;}
     state.entries.set(key,{value:certified,units});state.units+=units;return certified;
   }
-  const plan=layoutPlan(tree,environment,clipToViewport,memo),token=Object.freeze({});layoutMemos.set(token,state);return {plan,memo:token};
+  // Candidate-local retention: only a successful native publication adopts this token.
+  // Conservative serialized-data units, not an exact JavaScript heap byte count.
+  const leaves=new Map();let leafUnits=0;
+  function retainLeaf(node,key,record){
+    const old=base?.leaves?.get(node);
+    if(record===undefined)return old?.key===key?old.record:undefined;
+    const units=old?.record===record&&old.key===key?old.units:2048+key.length*2+JSON.stringify(record).length*2;
+    if(leaves.size<256&&units<=4194304-leafUnits){leaves.set(node,{key,record,units});leafUnits+=units;}
+  }
+  const plan=layoutPlan(tree,environment,clipToViewport,memo,retainLeaf),token=Object.freeze({});state.leaves=leaves;layoutMemos.set(token,state);return {plan,memo:token};
 }
 /** @internal Native owners commit the opaque candidate only after full admission. */
 export function prepareUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,true);}
-/** @internal Same text-only memo, with intrinsic clips for retained passive ink. */
+/** @internal Same scoped preparation memo, with intrinsic clips for retained passive ink. */
 export function prepareUnclippedUiLayout(tree,environment,previous) {return prepareLayout(tree,environment,previous,false);}
 
 const rect = (x, y, width, height) => uiRect({x, y, width, height});
@@ -150,7 +159,7 @@ export function layoutUi(tree, environment) { return layoutPlan(tree,environment
 /** Internal retained-paint preparation. Intrinsic clips remain; the native
  * passive owner applies the stationary viewport after translating each item. */
 export function layoutUiUnclipped(tree, environment) { return layoutPlan(tree,environment,false); }
-function layoutPlan(tree, environment, clipToViewport, memo) {
+function layoutPlan(tree, environment, clipToViewport, memo, retainLeaf) {
   const measureText=(font,text,options)=>memo?memo('measure',font,[text,options],()=>measureBitmapText(font,text,options)):measureBitmapText(font,text,options);
   const placeText=(font,text,x,y,options)=>memo?memo('place',font,[text,x,y,options],()=>placeBitmapText(font,text,x,y,options)):placeBitmapText(font,text,x,y,options);
   const root = validateUiTree(tree), {theme} = environment;
@@ -331,6 +340,8 @@ function layoutPlan(tree, environment, clipToViewport, memo) {
   }
 
   const records = [];
+  const retentionKey=value=>JSON.stringify(value,(_key,value)=>value===undefined?'~leaf:u':typeof value==='number'&&Object.is(value,-0)?'~leaf:-0':typeof value==='string'&&value.startsWith('~leaf:')?'~leaf:s:'+value:value);
+  const contextRetention=retainLeaf?retentionKey(contexts):null;
   function allocate(node, bounds, inheritedClip, suppressed = false, inheritedPane = 'main', allocationContext, inheritedDependencies = {}) {
     const data = prepared.get(node.id), {padding: p, gap, context, labelContext, skinContext, face, label, skin, role} = data, l = node.layout;
     if (allocationContext && allocationContext.id !== context.id) {
@@ -338,6 +349,12 @@ function layoutPlan(tree, environment, clipToViewport, memo) {
       inheritedClip = inheritedClip && mapRect(allocationContext, context, inheritedClip);
     }
     if(clipToViewport) inheritedClip = inheritedClip && intersection(inheritedClip, context.viewport);
+    // All tree/context/role/state-owner admission above still runs. Retain only
+    // immutable plain decorative text leaves with no external measurement authority.
+    const eligible=retainLeaf&&node.kind==='text'&&!node.children.length&&!node.focusable&&node.actionId===undefined&&node.focus===undefined&&node.regions===undefined&&node.metadata===undefined&&['visible','clip'].includes(l.overflow??'visible');
+    const leafKey=eligible?retentionKey([clipToViewport,contextRetention,bounds,inheritedClip,suppressed,inheritedPane,parents.get(node.id),context.id,labelContext.id,skinContext.id,inheritedDependencies]):null;
+    const retained=eligible?retainLeaf(node,leafKey):undefined;
+    if(retained){records.push(retained);retainLeaf(node,leafKey,retained);return;}
     const measured = measure(node, bounds.width), index = records.length;
     const content = rect(bounds.x + p.left, bounds.y + p.top, Math.max(0, bounds.width - p.left - p.right), Math.max(0, bounds.height - p.top - p.bottom));
     const labelContent = mapRect(context, labelContext, content), skinBounds = mapRect(context, skinContext, bounds), skinContent = mapRect(context, skinContext, content);
@@ -587,6 +604,7 @@ function layoutPlan(tree, environment, clipToViewport, memo) {
     if (record.state === 'hidden') { record.parts = []; record.paintBounds = null; }
     if (record.state === 'hidden' && mode === 'paginate' || suppressed && !node.hidden) record.state = 'clipped';
     records[index] = record;
+    if(eligible)retainLeaf(node,leafKey,record);
   }
   const viewport = contextMap.get(root.contextId ?? contexts[0].id).viewport, measured = measure(root, viewport.width), l = root.layout;
   const container = root.children.length > 0 || ['stack', 'row', 'grid', 'absolute', 'panel'].includes(root.kind);
