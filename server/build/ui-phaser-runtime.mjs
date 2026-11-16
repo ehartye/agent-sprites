@@ -3,7 +3,7 @@ import {layoutUiUnclipped,prepareUiLayout,prepareUnclippedUiLayout,inspectUiLayo
 import {validateUiTree} from './ui-components.mjs';
 import {createUiInteraction,readUiAppearance} from './ui-interaction.mjs';
 import {iterateNineSliceTiles, planNineSlice, placeBitmapText, projectPixelRect, quantizePhysicalRect} from './ui-runtime.mjs';
-import {copyUiData, freezeUiData, snapshotUiData, publishUiData, isUiSnapshot, resolveThemeRole, uiId, uiRect, uiKeys} from './ui-theme.mjs';
+import {copyUiData, freezeUiData, snapshotUiData, publishUiData, isUiSnapshot, resolveThemeRole, uiId, uiRect, uiKeys, uiNumber} from './ui-theme.mjs';
 
 const stable = value => JSON.stringify(value);
 // Exact private shape keys retain optional own values and signed zero. Node IDs
@@ -414,7 +414,17 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
       let rasterBytes=0;
       const paintGroups=[],cache=new Map(),ids=new Set(),commands=[],records=[],admission={planes:new Map(),bytes:0};
       let nodes=0,glyphs=0,newPreparations=0,keyUnits=0,resolved,candidateTextMemo=textMemo;
-      const move=(r,x,y)=>r==null?r:uiRect({...r,x:r.x+x,y:r.y+y},'retained translation');
+      // These rectangles are private outputs of validated layout/paint preparation.
+      // Translation cannot add fields or change extents; retain all finite/extent
+      // checks while avoiding repeated own-key enumeration and record spreading.
+      const move=(r,x,y)=>{
+        if(r==null)return r;
+        const value={x:r.x+x,y:r.y+y,width:r.width,height:r.height};
+        uiNumber(value.x,'retained translation.x',-Number.MAX_VALUE);uiNumber(value.y,'retained translation.y',-Number.MAX_VALUE);
+        uiNumber(value.width,'retained translation.width');uiNumber(value.height,'retained translation.height');
+        uiNumber(value.x+value.width,'retained translation.right',-Number.MAX_VALUE);uiNumber(value.y+value.height,'retained translation.bottom',-Number.MAX_VALUE);
+        return value;
+      };
       const clip=(r,x,y)=>r===undefined?context.viewport:intersect(move(r,x,y),context.viewport);
       function reserve(command) {
         if(command.kind!=='image')return;

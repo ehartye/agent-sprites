@@ -1399,3 +1399,12 @@ test('passive projection eagerly rejects uninspected offscreen content translati
  expect(()=>m.update({revision:2,context:f.context,items:[{...item,x:1e308}]})).toThrow();expect(m.inspect({limit:1})).toEqual(accepted);ui.dispose();
 });
 
+test('passive rectangle reuse is scoped to each item and publication',async()=>{
+ const {createPhaserUi}=await api(),f=fixture(),ui=createPhaserUi(f),one=u.text({id:'reuse-one',label:'?',layout:{width:20,height:8}}),two=u.text({id:'reuse-two',label:'?',layout:{width:20,height:8}});
+ const m=ui.mountPassive({revision:1,context:f.context,items:[{id:one.id,tree:one,x:0,y:4}]},{parent:f.parent,scope:'test:rectangle-reuse'});
+ m.update({revision:2,context:f.context,items:[{id:one.id,tree:one,x:5,y:4},{id:two.id,tree:two,x:35,y:14}]});
+ const before=m.inspect({limit:2});expect(before.controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',5,4],['reuse-two',35,14]]);
+ m.update({revision:3,context:f.context,items:[{id:one.id,tree:one,x:8,y:9},{id:two.id,tree:two,x:42,y:19}]});
+ expect(m.inspect({limit:2}).controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',8,9],['reuse-two',42,19]]);
+ expect(before.controls.map(r=>[r.id,r.bounds.x,r.bounds.y])).toEqual([['reuse-one',5,4],['reuse-two',35,14]]);ui.dispose();
+});
