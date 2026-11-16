@@ -461,7 +461,12 @@ export function createPhaserUi({scene, theme, ports, limits = {}, stockOrdering 
         const dx=item.x-entry.x,dy=item.y-entry.y;
         for(const r of entry.records){
           const bounds=move(r.bounds,dx,dy),clipped=clip(r.clipBounds,dx,dy),effective=r.state==='hidden'?null:intersect(bounds,clipped);
-          records.push({...r,bounds,hitBounds:move(r.hitBounds,dx,dy),focusBounds:move(r.focusBounds,dx,dy),clipBounds:clipped,contentBounds:move(r.contentBounds,dx,dy),contentClipBounds:clip(r.contentClipBounds,dx,dy),effectiveHitBounds:effective,effectiveFocusBounds:effective,paintBounds:move(r.paintBounds,dx,dy),semanticContextId:context.id,contextRevisions:{[context.id]:context.revision},state:r.state==='hidden'?'hidden':effective?'visible':'clipped',parts:[]});
+          // Passive rendering and observation consume this explicit projection.
+          // Keep all geometry validation, including content not exposed by inspect.
+          const hitBounds=move(r.hitBounds,dx,dy),focusBounds=move(r.focusBounds,dx,dy);
+          move(r.contentBounds,dx,dy);clip(r.contentClipBounds,dx,dy);
+          const paintBounds=move(r.paintBounds,dx,dy);
+          records.push({id:r.id,kind:r.kind,role:r.role,enabled:r.enabled,focused:r.focused,hovered:r.hovered,pressed:r.pressed,selected:r.selected,bounds,hitBounds,focusBounds,clipBounds:clipped,effectiveHitBounds:effective,effectiveFocusBounds:effective,paintBounds,semanticContextId:context.id,contextRevisions:{[context.id]:context.revision},state:r.state==='hidden'?'hidden':effective?'visible':'clipped'});
         }
         const commandStart=commands.length,paintSources=new Set();
         for(const command of entry.commands){reserve(command);if(command.asset?.source)paintSources.add(command.asset.source);const bounds=move(command.bounds,dx,dy),clipped=clip(command.clip,dx,dy);if(intersect(bounds,clipped))commands.push({...command,bounds,clip:clipped});}
