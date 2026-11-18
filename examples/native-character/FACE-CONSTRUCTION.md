@@ -6,7 +6,7 @@ Use the cardinal faces as the style reference before drawing a diagonal. These g
 
 The bare skull stays ten pixels wide, x=3..12, inside a 16×32 body cell. The adult and large crown is y=2; the child crown is y=8. Diagonal skulls occupy eleven rows. Walking lowers the complete head by one pixel on stride frames and returns it on passing frames. Move the skull, eyes and shading together; do not enlarge the cheek, flatten the crown, or change head depth to make room for facial details. Large bodies retain the adult eye scale.
 
-On the walking mannequin, bring the near shoulder up to the jaw and use one plain base-skin pixel in the chin outline for the neck. Mirror that pixel with the head and carry both shoulders with the head bob. A standalone head keeps its closed outline.
+On the walking mannequin, start the shoulders under the flat chin before its corners turn upward. Leave two adjacent base-skin pixels in the chin outline for the neck, then step the shoulders down and outward. Mirror the join with the head and carry both shoulders with the head bob. A standalone head keeps its closed outline.
 
 The diagonal silhouette has a closed, fully opaque interior. Model the turn with the far eye's narrower width and shifted light/shadow clusters. Mirror the entire right-facing construction for the corresponding left facing. Rear diagonals show the back of the skull without brows, eyes or a frontal mouth.
 

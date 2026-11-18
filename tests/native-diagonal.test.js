@@ -37,7 +37,7 @@ test('published diagonals mirror complete pixel construction and retain outlined
   }
  }
 });
-test('shoulders meet the jaw with a single base-skin neck pixel in each diagonal pose',()=>{
+test('shoulders slope from a two-pixel base-skin opening under the flat chin in each diagonal pose',()=>{
   for(const kind of ['adult','child','large']){
     const ops=nativeMannequin(kind);
     const base=SKIN_TONES.find(t=>t.id==='peach').colors.base;
@@ -47,9 +47,11 @@ test('shoulders meet the jaw with a single base-skin neck pixel in each diagonal
       const jaw=(kind==='child'?18:12)+((phase??0)%2);
       const pixels=ops.filter(o=>o.command==='draw'&&o.cell===cell);
       const chin=pixels.filter(p=>p.y===jaw&&p.name.startsWith('head_'));
-      expect(chin.filter(p=>p.color===base).map(p=>p.x)).toEqual([direction.endsWith('left')?8:7]);
-      expect(pixels.some(p=>p.y===jaw&&p.name.startsWith('body_'))).toBe(true);
-      expect(pixels.filter(p=>p.y===jaw+1).length).toBeGreaterThanOrEqual(kind==='large'?10:8);
+      expect(chin.filter(p=>p.color===base).map(p=>p.x).sort((a,b)=>a-b)).toEqual([7,8]);
+      for(const [depth,left,right] of [[0,5,10],[1,5,10],[2,4,11]]){
+        const xs=pixels.filter(p=>p.y===jaw+depth).map(p=>p.x);
+        expect([Math.min(...xs),Math.max(...xs),xs.length]).toEqual([left,right,right-left+1]);
+      }
     }
   }
 });
