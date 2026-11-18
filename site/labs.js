@@ -518,7 +518,7 @@ export async function mountLab(
       const controls = isCharacter
         ? select("asset", "Build recipe", [
             ["native-character", "Native adventurer"],
-            ["character-cast", "Community cast"],
+            ["nonhuman-wayfinder", "Four-armed Wayfinder"],
             ["creature", "Dust ox"],
             ["tessel", "Tessel · original Foldback"],
           ])

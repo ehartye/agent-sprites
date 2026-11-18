@@ -43,7 +43,7 @@ For adult/child casts start with the 16×32 `examples/native-character` generato
 `createWalker`'s `authored-contact` mode (measured per-frame `frameDistances`); front/back walks use a
 uniform stride and claim no planting. For nonhuman humanoids, multipart faces or pressure-suit
 variants, use the built-in 40×56 `character` build source before writing a game-local drawing generator.
-Read the [recipe contract](../../examples/character-cast/README.md), copy its JSON
+Read the [recipe contract](../../examples/nonhuman-wayfinder/README.md), copy its JSON
 config, and run the managed `build` command. Head kind, two/four arms, body profiles, paired boots, forward
 knee hinges and shared eye layers live in the tool; a correction should improve
 the shared recipe instead of being copied between games. Inspect the exported
