@@ -37,6 +37,23 @@ test('published diagonals mirror complete pixel construction and retain outlined
   }
  }
 });
+test('shoulders meet the jaw with a single base-skin neck pixel in each diagonal pose',()=>{
+  for(const kind of ['adult','child','large']){
+    const ops=nativeMannequin(kind);
+    const base=SKIN_TONES.find(t=>t.id==='peach').colors.base;
+    for(const direction of dirs)for(const phase of [null,0,1,2,3]){
+      const alias=phase===null?direction:`${direction}_walk_${phase}`;
+      const cell=ops.find(o=>o.command==='name'&&o.as===alias).cell;
+      const jaw=(kind==='child'?18:12)+((phase??0)%2);
+      const pixels=ops.filter(o=>o.command==='draw'&&o.cell===cell);
+      const chin=pixels.filter(p=>p.y===jaw&&p.name.startsWith('head_'));
+      expect(chin.filter(p=>p.color===base).map(p=>p.x)).toEqual([direction.endsWith('left')?8:7]);
+      expect(pixels.some(p=>p.y===jaw&&p.name.startsWith('body_'))).toBe(true);
+      expect(pixels.filter(p=>p.y===jaw+1).length).toBeGreaterThanOrEqual(kind==='large'?10:8);
+    }
+  }
+});
+
 test('diagonal torsos retain an interior shadow plane and passing poses show two separate lower legs',()=>{
  for(const kind of ['adult','child','large']){const ops=appendNativeDiagonals(cardinal(kind),kind,'peach'),shadow=SKIN_TONES.find(t=>t.id==='peach').colors.shadow;
   for(const dir of dirs)for(const phase of [null,0,1,2,3]){const alias=phase===null?dir:`${dir}_walk_${phase}`,cell=ops.find(o=>o.command==='name'&&o.as===alias).cell,ps=ops.filter(o=>o.command==='draw'&&o.cell===cell),shoulder=diagonalJoints(kind,dir,phase).right.shoulder[1];

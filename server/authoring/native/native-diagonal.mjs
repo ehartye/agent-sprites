@@ -33,12 +33,15 @@ function frame(kind,facing,phase,tone,cell){
   const arm=(j,side)=>{const elbow=[Math.round((j.shoulder[0]+j.wrist[0])/2),Math.round((j.shoulder[1]+j.wrist[1])/2)];stroke(j.shoulder,elbow,p.width,'arms',side);stroke(elbow,j.wrist,p.width,'arms',side);};
   leg(p.joints.left.hip,p.farFoot,'far');leg(p.joints.right.hip,p.nearFoot,'near');
   arm(p.joints.left,'far');
-  const neck=(kind==='child'?19:13)+p.bob;
-  for(let y=neck;y<p.shoulder;y++)band(7,9,y,'body');
+  const jaw=(kind==='child'?18:12)+p.bob;
+  const bulk=kind==='large'?1:0;
+  // Tuck the near shoulder behind the jaw, then widen into the far shoulder.
+  band(4-bulk,10+bulk,jaw,'body');
+  band(4-bulk,11+bulk,jaw+1,'body');
   for(let y=p.shoulder-1;y<=p.hip+1;y++){const wide=kind==='large'?1:0,taper=y>=p.hip?1:0;
     band(4-wide+taper,10+wide,y,'body',x=>y===p.hip-1&&x>=6&&x<=9?'shadow':x>=8?'shadow':x<=6?'highlight':'base');}
   arm(p.joints.right,'near');
-  const head=nativeDiagonalHead(kind,facing,tone,{bob:p.bob}),mask=new Set([...pixels.keys(),...head.map(q=>`${q.x},${q.y}`)]),groups={head:[],body:[],arms:[]};
+  const head=nativeDiagonalHead(kind,facing,tone,{bob:p.bob,attached:true}),mask=new Set([...pixels.keys(),...head.map(q=>`${q.x},${q.y}`)]),groups={head:[],body:[],arms:[]};
   const ops=[];
   for(const q of pixels.values()){
     const edge=[[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>!mask.has(`${q.x+dx},${q.y+dy}`));

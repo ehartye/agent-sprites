@@ -28,6 +28,10 @@ block or lose the back of the skull. Widths and opaque pixel counts may change w
 projection and occlusion; exact equality is not a volume test. Record measurements
 as evidence, then inspect whether the turn preserves the reference's form.
 
+For the bare native mannequin, bring the shoulders into the jaw and leave a single
+base-skin pixel in the chin outline for the neck. Compare the joined silhouette
+with the front, back and profile at the same phase.
+
 Check idle and every walk phase after accounting for authored bob. Facial clusters
 and head volume should stay stable; torso motion must not enlarge or squash the head.
 
