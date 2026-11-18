@@ -8,7 +8,7 @@ const defaults = {
   scarf: '#ffcc55', pack: '#b57045', packLight: '#dc9e63', sole: '#172638',
 };
 
-/** Four keyed poses, right side nearest camera, always facing screen-right. */
+/** Eight walking poses, right side nearest camera, always facing screen-right. */
 export function generateWalk({ name = 'courier', stride = 4, bob = 1, fps = 8, colors = {} } = {}) {
   if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error('name must be a filename-safe project name.');
   if (!Number.isInteger(stride) || stride < 2 || stride > 5) throw new Error('stride must be an integer from 2 to 5 pixels.');
@@ -19,27 +19,55 @@ export function generateWalk({ name = 'courier', stride = 4, bob = 1, fps = 8, c
     if (!Object.hasOwn(defaults, key) || typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) throw new Error(`Unknown color or invalid six-digit hex: ${key}`);
   }
   const c = { ...defaults, ...colors };
-  const ops = [{ command: 'new', name, size: '24x32', rows: 1, cols: 4, palette: 'pico8' }];
+  const ops = [{ command: 'new', name, size: '24x32', rows: 1, cols: 8, palette: 'pico8' }];
   const cx = 11, ground = 29;
-  const poses = [
-    { name: 'right_contact', right: [cx + stride, ground], left: [cx - stride, ground], rightHand: [cx - 4, 19], leftHand: [cx + 4, 18], lift: 0 },
-    { name: 'right_support', right: [cx, ground], left: [cx + 3, ground - 3], rightHand: [cx, 21], leftHand: [cx + 1, 19], lift: bob },
-    { name: 'left_contact', right: [cx - stride, ground], left: [cx + stride, ground], rightHand: [cx + 4, 19], leftHand: [cx - 4, 18], lift: 0 },
-    { name: 'left_support', right: [cx + 3, ground - 3], left: [cx, ground], rightHand: [cx + 1, 19], leftHand: [cx, 21], lift: bob },
+  const half = Math.round(stride / 2);
+  // From right heel strike to the next right heel strike. Knee and ankle are
+  // relative to the pivot; each boot profile is relative to its ankle.
+  const legs = [
+    {knee: [half + 1, -5], ankle: [stride, -2], boot: 'heel'},
+    {knee: [half + 1, -4], ankle: [half, -2], boot: 'flat'},
+    {knee: [1, -5], ankle: [0, -2], boot: 'flat'},
+    {knee: [0, -5], ankle: [-half, -3], boot: 'roll'},
+    {knee: [-1, -5], ankle: [-stride, -3], boot: 'roll'},
+    {knee: [0, -5], ankle: [-stride - 1, -4], boot: 'lift'},
+    {knee: [half + 1, -6], ankle: [-3, -5], boot: 'lift'},
+    {knee: [half + 2, -6], ankle: [half, -4], boot: 'heel'},
   ];
+  const boots = {
+    heel: [[-1,-1],[1,-1],[2,0],[3,0],[3,1],[0,2],[-1,2]],
+    flat: [[-1,-1],[1,-1],[1,0],[3,1],[3,2],[-1,2]],
+    roll: [[-1,-1],[1,-1],[1,0],[3,2],[3,3],[2,3],[-1,1]],
+    lift: [[-1,-1],[1,-1],[1,0],[2,2],[1,2],[-1,1]],
+  };
+  // Keep the original contact/support aliases and physical cells. The four
+  // added cells supply the loading and heel-rise poses between them.
+  const poses = [
+    {name:'right_contact',cell:0,rightHand:[cx-4,19],leftHand:[cx+4,18],lift:0},
+    {name:'right_load',cell:4,rightHand:[cx-2,20],leftHand:[cx+3,19],lift:0},
+    {name:'right_support',cell:1,rightHand:[cx,21],leftHand:[cx+1,19],lift:bob},
+    {name:'right_push',cell:5,rightHand:[cx+3,20],leftHand:[cx-2,18],lift:bob},
+    {name:'left_contact',cell:2,rightHand:[cx+4,19],leftHand:[cx-4,18],lift:0},
+    {name:'left_load',cell:6,rightHand:[cx+3,20],leftHand:[cx-2,20],lift:0},
+    {name:'left_support',cell:3,rightHand:[cx+1,19],leftHand:[cx,21],lift:bob},
+    {name:'left_push',cell:7,rightHand:[cx-2,19],leftHand:[cx+3,20],lift:bob},
+  ];
+  const beatMs = Math.round(1000 / fps);
+  const firstHalfMs = Math.floor(beatMs / 2);
   for (const [index, pose] of poses.entries()) {
-    const cell = `0,${index}`, dy = -pose.lift;
+    const cell = `0,${pose.cell}`, dy = -pose.lift;
     const rect = (name, x, y, w, h, color) => ops.push({ command: 'draw', type: 'rect', cell, name, x, y, w, h, color, filled: true });
     const polygon = (name, points, color) => ops.push({ command: 'draw', type: 'polygon', cell, name, points, color, filled: true });
     const leg = (side, near) => {
-      const [footX, footY] = pose[side];
-      const hipX = near ? 12 : 10, hipY = 21 + dy;
-      const kneeX = Math.round((hipX + footX) / 2) + (footY < ground ? 2 : 0), kneeY = footY < ground ? 23 + dy : 25;
+      const phase = legs[(index + (near ? 0 : 4)) % legs.length];
+      const hipX = near ? 12 : 10, hipY = 20 + dy;
+      const kneeX = cx + phase.knee[0], kneeY = ground + phase.knee[1];
+      const ankleX = cx + phase.ankle[0], ankleY = ground + phase.ankle[1];
       const color = near ? c.pants : c.farPants;
-      polygon(`${side}_thigh`, [[hipX-1,hipY],[hipX+1,hipY],[kneeX+1,kneeY],[kneeX-1,kneeY]],color);
-      polygon(`${side}_shin`, [[kneeX-1,kneeY],[kneeX+1,kneeY],[footX+1,footY-2],[footX-1,footY-2]],color);
-      rect(`${side}_boot`,footX-1,footY-2,4,3,c.sole);
-      rect(`${side}_boot_top`,footX-1,footY-2,3,1,near ? c.pants : c.farPants);
+      polygon(`${side}_thigh`, [[hipX-2,hipY],[hipX+1,hipY],[kneeX+1,kneeY],[kneeX,kneeY+1],[kneeX-1,kneeY]], color);
+      polygon(`${side}_shin`, [[kneeX-1,kneeY],[kneeX+1,kneeY],[ankleX,ankleY+1],[ankleX-1,ankleY]], color);
+      polygon(`${side}_boot`, boots[phase.boot].map(([x,y]) => [ankleX+x,ankleY+y]), near ? c.sole : c.outline);
+      rect(`${side}_boot_top`, ankleX-1,ankleY-1,2,1,color);
     };
     const arm = (side, near) => {
       const [handX, handY] = pose[`${side}Hand`], shoulderX=near?12:10, shoulderY=15+dy;
@@ -73,9 +101,10 @@ export function generateWalk({ name = 'courier', stride = 4, bob = 1, fps = 8, c
     rect('scarf_tail',8,13+dy,2,3,c.scarf);
     arm('right',true);
     ops.push({ command:'name', cell, as:pose.name });
+    ops.push({ command:'duration', cell, ms:index % 2 ? beatMs - firstHalfMs : firstHalfMs });
     for(const side of ['left','right']) ops.push({ command:'shape-group',sub:'create',cell,name:`${side}_limbs`,shapes:[`${side}_thigh`,`${side}_shin`,`${side}_boot`,`${side}_boot_top`,`${side}_upper_arm`,`${side}_forearm`,`${side}_hand`,...(side==='right'?['right_wrist_band']:[])] });
   }
-  ops.push({command:'group',sub:'create',name:'walk',cells:['0,0','0,1','0,2','0,3'],fps});
+  ops.push({command:'group',sub:'create',name:'walk',cells:poses.map(pose => `0,${pose.cell}`),fps:fps*2});
   ops.push({command:'pivot',x:11,y:29});
   return ops;
 }

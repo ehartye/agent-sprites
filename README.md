@@ -728,9 +728,9 @@ Grid dimensions have no product policy caps: use positive safe
 integers with exactly representable sheet arithmetic. Available memory and the
 underlying image renderer determine which sheets can actually be allocated.
 
-For the older four-beat courier example, copy [`examples/character-walk`](examples/character-walk/README.md).
-Its four-beat 24×32 courier walk has coordinated anatomical limbs, contact/pass
-poses, a planted baseline and restrained bob. Adjust stride, fps and colors in
+For a small side-view courier, copy [`examples/character-walk`](examples/character-walk/README.md).
+Its eight-pose 24×32 walk has heel strikes, weight shifts, single support and push-off
+on each side, a planted baseline and restrained bob. Adjust stride, fps and colors in
 `character.json`, then run one build to inspect the atlas, contact sheet and
 playable preview. All generated parts remain editable named shapes.
 
