@@ -1,0 +1,14 @@
+body.shared-preview-body { height: auto; min-height: 100dvh; overflow: auto; display: block; }
+.shared-preview { width: min(100%, 52rem); margin: 0 auto; padding: 1rem; }
+.shared-preview h1 { font-family: Pixelify, sans-serif; font-size: 2rem; overflow-wrap: anywhere; }
+#preview-status { margin: .75rem 0 1rem; color: var(--text-secondary); }
+#preview-controls { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+#preview-controls[hidden] { display: none; }
+#preview-controls label { display: flex; align-items: center; gap: .5rem; }
+#preview-controls select { max-width: min(65vw, 24rem); }
+#preview-row { width: 4.5rem; }
+#full-preview-mount { min-height: 20rem; height: min(75dvh, 40rem); width: 100%; padding: .5rem; }
+.shared-preview #animation-preview { align-items: center; width: 100%; }
+.shared-preview .anim-controls { flex-wrap: wrap; }
+.shared-preview .anim-btn { min-height: 44px; min-width: 70px; }
+.shared-preview .anim-fps-slider { min-height: 44px; }
