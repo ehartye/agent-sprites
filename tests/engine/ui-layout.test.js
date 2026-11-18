@@ -848,3 +848,69 @@ test('oversized retained text record falls back without changing its plan',async
  expect(JSON.stringify(a.plan.records[0]).length*2).toBeGreaterThan(4194304);
  expect(b.plan.records[0]).not.toBe(a.plan.records[0]);expect(b.plan).toEqual(layoutUi(leaf,env));
 });
+
+test('a later extension measurement cannot resize an earlier contribution to its parent', async () => {
+  const [{layoutUi}, ui, {defineTheme}] = await api();
+  const marker = 'layoutMeasurementWitness';
+  const extensions = {
+    'test:size': {
+      version: 1,
+      measure(model) {
+        return {
+          min: {width: 7, height: 3},
+          preferred: {width: 23, height: 9, [marker]: model.id},
+          overflow: 'visible',
+        };
+      },
+    },
+  };
+  const children = ['first', 'second'].map(id =>
+    ui.extension({id, extensionId: 'test:size', extensionVersion: 1, model: {id}}));
+  const tree = ui.row({id: 'parent', children});
+  const env = {...environment(defineTheme), extensions};
+  let firstSize;
+  let plan;
+  expect(Object.hasOwn(Object.prototype, marker)).toBe(false);
+  Object.defineProperty(Object.prototype, marker, {
+    configurable: true,
+    set(id) {
+      if (id === 'first') firstSize = this;
+      if (id === 'second' && firstSize) firstSize.width = 80;
+    },
+  });
+  try {
+    plan = layoutUi(tree, env);
+  } finally {
+    delete Object.prototype[marker];
+  }
+  expect(plan.records.slice(1).map(record => record.measure.preferred.width)).toEqual([80, 23]);
+  expect(plan.records[0].measure.preferred.width).toBe(46);
+});
+
+test('a later cache write cannot resize an earlier contribution to its parent', async () => {
+  const [{layoutUi}, ui, {defineTheme}] = await api();
+  const children = ['first', 'second'].map(id => ui.panel({
+    id, layout: {minWidth: 7, preferredWidth: 23, minHeight: 3, preferredHeight: 9},
+  }));
+  const tree = ui.row({id: 'parent', children});
+  const env = environment(defineTheme);
+  const originalSet = Map.prototype.set;
+  let firstMeasurement;
+  let plan;
+  Map.prototype.set = function(key, value) {
+    if (typeof key === 'number' && value && typeof value === 'object' &&
+        Object.hasOwn(value, 'allocatedHeight') && Object.hasOwn(value, 'preferred') &&
+        Object.hasOwn(value, 'min')) {
+      if (firstMeasurement) firstMeasurement.preferred.width = 80;
+      else firstMeasurement = value;
+    }
+    return originalSet.call(this, key, value);
+  };
+  try {
+    plan = layoutUi(tree, env);
+  } finally {
+    Map.prototype.set = originalSet;
+  }
+  expect(firstMeasurement.preferred.width).toBe(80);
+  expect(plan.records[0].measure.preferred.width).toBe(46);
+});
