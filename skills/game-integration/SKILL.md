@@ -53,6 +53,11 @@ closure from Node-only `publishUiSoftware`: eight `.mjs` plus eight `.d.mts` fil
 and `ui-software-manifest.json`. Verify all files and producer identity against the
 accepted source, preserving independent historical font/skin receipts.
 
+When integrating a custom measurement hook, check two adjacent children in a
+row. Each contributes its preferred width when measured. A callback that runs
+for the second child must leave the first contribution intact, even when both
+children use the same pixel scale.
+
 Require a positive integer physical-pixel footprint per authored source pixel.
 For an aligned whole-camera path, integer local scales remain valid. For native
 UI in another resolution context, declare its exact uniform local-to-physical
