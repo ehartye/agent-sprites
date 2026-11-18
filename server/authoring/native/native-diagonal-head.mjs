@@ -15,7 +15,7 @@ export function nativeDiagonalHead(kind='adult',direction='front-right',tone='pe
   const roles={o:'outline',s:'shadow',S:'base',h:'highlight'},top=(kind==='child'?8:2)+bob,pixels=new Map();
   (direction.startsWith('back')?BACK_RIGHT:FRONT_RIGHT).forEach((row,y)=>[...row].forEach((symbol,x)=>{
     if(symbol==='.')return;
-    const role=attached && y===10 && x===4 ? 'base' : roles[symbol];
+    const role=attached && y===10 && (x===4 || x===5) ? 'base' : roles[symbol];
     pixels.set(`${x+3},${y+top}`,{x:x+3,y:y+top,color:ramp[role],material:'skin',role});
   }));
   for(const eye of (direction.startsWith('front')?nativeEyePixels('front-right',{x:8,y:top+5,kind}):[])){
