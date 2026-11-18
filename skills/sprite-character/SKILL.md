@@ -60,11 +60,6 @@ build example's source, excluding generated output, into the user's project.
 Build owns lifecycle and export; operations start with `new` and omit
 `save`, `export` and `ref`. Make frame aliases and expected tags explicit.
 
-For a small bespoke starting point, copy the source from the
-[adult/child study](../../examples/anime-character-study/README.md), excluding
-`dist`. It provides front/right idle geometry and palette/accessory parameters;
-it is not a complete wardrobe or walking system.
-
 ## Author and refine
 
 1. Block head, torso/pelvis, arms and feet in silhouette; compare front and profile
