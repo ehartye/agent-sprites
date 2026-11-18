@@ -1,10 +1,11 @@
 # Reusable character recipes
 
-Requires agent-sprites 0.19.0 (0.21.4 for paired anatomy, pelvic volume and calibrated profile walking). Copy `sprite-project.json` into your project and run
-`node "<checked-plugin-root>/scripts/run-managed.js" build <config> --json` after
-the setup check. The `character` object replaces `ops`/`generator`; never combine
-sources. This example builds an adult and child in everyday clothing and three
-fictional pressure suits without a drawing script.
+The Wayfinder example builds an editable 40×56 character from JSON. Copy
+[sprite-project.json](sprite-project.json) into your project, then run
+`node "<checked-plugin-root>/scripts/run-managed.js" build <config> --json`
+after the setup check. The `character` field is the build source and cannot be
+combined with `ops` or `generator`. Nonhuman options require 0.20.0 or later.
+Paired anatomy, pelvic volume and calibrated profile walking require 0.21.4.
 
 ## Recipe fields
 
@@ -227,7 +228,7 @@ names `left`, `right`, `left_lower`, `right_lower`. Reports also expose `headKin
 `armCount`, `equipment`, and accurate `sealed` state. Extra arms keep separate
 editable groups; directional mirroring swaps anatomical name tokens.
 
-Copy [the nonhuman example](../nonhuman-wayfinder/sprite-project.json), build it
+Copy [the nonhuman example](sprite-project.json), build it
 through the managed launcher, inspect every view, then try walk/expressions modes.
 A sample stress test can exercise 8 turnarounds, 64 walking and 16 expression
 cells using only JSON inputs. Check arm overlap and clothing occlusion at native

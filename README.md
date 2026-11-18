@@ -47,7 +47,7 @@ Sprites are **named parametric shapes** (circle `ball`, rect `bg`), not raw pixe
 - **Original character study** — meet [Tessel, the Foldback](https://ehartye.github.io/agent-sprites/tessel.html): a six-footed creature with an unfolding shell, eight actions in both directions, editable geometry, paired normal maps and verified GIFs. See [the original art and motion source](examples/tessel/README.md).
 - **Two cozy animated scenes** — [Marmalade’s little morning](https://ehartye.github.io/agent-sprites/cat.html) follows a cat tumbling from its wicker bed to play with yarn, then licking a paw and washing its face. Inspect the detailed 384×256 art at 20 fps, or [build both editable scenes](examples/cozy-cat-detail/README.md).
 - **Regional text edits** — canonical ASCII readback and patches preserve source shapes; `.` keeps, `_` erases and `?` discloses unmapped pixels. See [ASCII region editing](skills/sprite-editing/references/ascii-regions.md).
-- **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/character-cast/README.md).
+- **Reusable characters** — a built-in JSON character source fits adult/child and rangy bodies, human/insectoid heads, two/four arms, expressive faces, eight-pose walks, travel clothing and fitted pressure suits; exports remain named editable shapes with an anatomical report. See [character recipes](examples/nonhuman-wayfinder/README.md).
 - **Native 16×32 mannequins** — editable adult/child/large mannequins with eight-direction walk cycles and face-construction references, four-direction fitted wardrobes and animated wigs, and a synchronized browser reviewer. See [native character templates](examples/native-character/README.md).
 
 - **Lighting automation** — `highlight` / `shadow` / `sphere-shade` place ramp-aware lighter/darker pixels along curved arcs inside the form (with optional `--dither`), compensating for the thing LLMs are worst at: hand-placing individual pixels
@@ -573,7 +573,7 @@ The config plus its source files (including referenced child projects for `anima
 overwritten on rebuild. Copy it elsewhere before making a separate hand-edited variant.
 
 For shared adult/child body profiles, expressions and suits, use the built-in
-[`character` source](examples/character-cast/README.md). For non-humanoid animals, insects, arachnids,
+[`character` source](examples/nonhuman-wayfinder/README.md). For non-humanoid animals, insects, arachnids,
 birds and crawlers use the [`creature` source](examples/creature/README.md). Choose exactly one source:
 `ops`, `generator`, `character`, `environment`, `native`, `creature`, `ui`, `tileset`, or
 [`animation`](examples/animated-composition/README.md). No game-local generator is required.
@@ -587,7 +587,7 @@ neutral standing checks do not constrain moving feet to the same vertical line.
 Paired anatomy, a separate pelvic mass, and heel/flat/toe shapes are shared across
 the cast. Consume the exported stride and cadence for distance-driven playback;
 profile contact is calibrated, while front/back views retain projected depth cues.
-Follow the [character review procedure](examples/character-cast/README.md#review-and-iterate)
+Follow the [character review procedure](examples/nonhuman-wayfinder/README.md#review-and-iterate)
 for separate raw blind reviews, guided measurement, silhouettes and playback.
 
 For repeatable terrain, aligned pressure-habitat layers and furniture, use the

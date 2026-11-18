@@ -91,17 +91,17 @@ export const features = [
     short: "Character builders",
     eyebrow: "04 / PEOPLE, CREATURES & WARDROBES",
     text: "Build a cast from readable recipes: adult and child proportions, fitted outfits, eight-direction native walks, nonhuman bodies and creature plans. Every exported part remains editable.",
-    try: "Switch between the community cast, native adventurer and quadruped. Scrub their actual exported poses and animation tags.",
+    try: "Switch between the four-armed Wayfinder, native adventurer and quadruped. Scrub their actual exported poses and animation tags.",
     includes: [
       "Adult, child & rangy bodies",
       "Native 16×32 templates & wigs",
       "Outfits, pressure suits & gear",
       "Creature plans & anatomical reports",
     ],
-    example: "character-cast/sprite-project.json",
-    config: "character-cast",
+    example: "nonhuman-wayfinder/sprite-project.json",
+    config: "nonhuman-wayfinder",
     command:
-      "agent-sprites build examples/character-cast/sprite-project.json --json\nagent-sprites build examples/native-character/native-wanderer.build.json --json\nagent-sprites build examples/creature/sprite-project.json --json",
+      "agent-sprites build examples/nonhuman-wayfinder/sprite-project.json --json\nagent-sprites build examples/native-character/native-wanderer.build.json --json\nagent-sprites build examples/creature/sprite-project.json --json",
     docs: "skills/sprite-character/SKILL.md",
   },
   {
@@ -198,10 +198,10 @@ export const examples = [
     kind: "generator",
   },
   {
-    id: "character-cast",
-    config: "character-cast/sprite-project.json",
-    folder: "character-cast/dist",
-    name: "community",
+    id: "nonhuman-wayfinder",
+    config: "nonhuman-wayfinder/sprite-project.json",
+    folder: "nonhuman-wayfinder/dist",
+    name: "wayfinder",
     kind: "character",
   },
   {
