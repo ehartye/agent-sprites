@@ -138,7 +138,7 @@ Subtle bob — ball moves up 1–2px mid-cycle, shadow shrinks 1px, easing slow-
 ### Walk (8 frames)
 Contact / down / passing / high-point for each leg (×2 legs = 8 frames). Same squash/stretch principles apply to the body — it should rise/fall 1–2px with each step.
 
-### Small side-view walk (four keyed poses)
+### Small side-view walk (eight poses)
 
 Use the bundled `<plugin-root>/examples/character-walk` as a starting point for a
 small humanoid. Resolve the root two parents above this loaded skill and copy the
@@ -150,8 +150,9 @@ out of the plugin cache. Read its [parameters and anatomy](../../examples/charac
 1. Adjust `character.json`: stride 2–5 pixels, bob 0–1, fps 4–12, and color ramps.
 2. Run the absolute managed launcher: `build <copied-folder>/sprite-project.json --json`.
 3. Inspect the emitted contact sheet and play `preview.html` through a full loop.
-   Confirm consistent facing, alternating contact/pass poses, a planted foot at
-   y=29 in every frame, and arm swing opposing the same-side leg.
+   Follow the `walk` tag through heel contact, load, single support and toe-off
+   on each leg. Check a grounded boot at y=29, a lifted swing boot, and arm
+   swing opposing the same-side leg.
 4. Keep `right_*` (near) and `left_*` (far) anatomical names across the cycle.
    Accessories follow a fixed named hand; screen-left/right changes during swing.
 
