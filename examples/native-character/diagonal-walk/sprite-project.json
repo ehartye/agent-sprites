@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "generator": "generate.mjs",
+  "output": "dist",
+  "expectedTags": ["walk_front-right", "walk_back-right", "walk_back-left", "walk_front-left"],
+  "outlineColors": ["#673649"],
+  "scale": 6
+}
