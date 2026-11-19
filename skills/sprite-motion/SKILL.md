@@ -140,6 +140,8 @@ Contact / down / passing / high-point for each leg (×2 legs = 8 frames). Same s
 
 ### Small side-view walk (eight poses)
 
+For a top-down adult, build the [eight-pose diagonal walk](../../examples/native-character/diagonal-walk/README.md). Each half-second loop shows contact, load, passing and heel rise for both legs.
+
 Use the bundled `<plugin-root>/examples/character-walk` as a starting point for a
 small humanoid. Resolve the root two parents above this loaded skill and copy the
 example's source files (`generate.mjs`, `character.json`, `sprite-project.json`)

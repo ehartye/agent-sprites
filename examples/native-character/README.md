@@ -4,6 +4,8 @@ These Stardew-style 16×32 characters are the **primary** agent-sprites characte
 
 Editable adult and child templates use 16×32 cells, ten-pixel bare heads centered at x=3..12, and soles at y=29. **Walking poses are present:** each source template retains four front and four right poses with semantic skin groups. Bare adult, child and large mannequins export eight-direction walk cycles, including authored diagonal bodies and rear shading. The four-direction wardrobe and costume pipeline retains its existing poses. These are reference-derived studies; rear art is an inference, not a traced reference.
 
+The [eight-pose adult diagonal walk](diagonal-walk/README.md) adds a separate half-second loop for each of the four diagonals. Its animated comparison shows the four-frame and eight-frame walks side by side.
+
 From the repository root:
 
 ```powershell

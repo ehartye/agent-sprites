@@ -3,6 +3,8 @@
 Use this when adding or repairing views of an existing character. Its established
 front, side and back art takes precedence over a generic character recipe.
 
+Compare the [four- and eight-pose native adult walks](../../../examples/native-character/diagonal-walk/README.md) to inspect diagonal silhouettes at the same stride speed.
+
 ## Read the reference before adding marks
 
 Place the same character's established and proposed views side by side at 1× and
